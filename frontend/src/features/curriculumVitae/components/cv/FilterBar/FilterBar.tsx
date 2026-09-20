@@ -1,0 +1,56 @@
+import { glassCard } from '@features/curriculumVitae/styles'
+import { Resume } from '@features/curriculumVitae/types'
+import { CloseRounded } from '@mui/icons-material'
+import { Chip, IconButton, Stack, Typography } from '@mui/material'
+import { useTranslate } from '@shared/hooks'
+import { useFilterBar } from './hooks'
+
+type Props = Pick<Resume, 'experiences' | 'projects'>
+
+export const FilterBar = ({ experiences, projects }: Props) => {
+  const translate = useTranslate('CurriculumVitae.Filter')
+  const { isVisible, shown, jobs, matchedProjects, clear } = useFilterBar({ experiences, projects })
+
+  return (
+    <Stack
+      data-print-hidden
+      role="status"
+      direction="row"
+      alignItems="center"
+      spacing={1.5}
+      sx={{
+        ...glassCard,
+        position: 'fixed',
+        bottom: 16,
+        left: '50%',
+        zIndex: 1100,
+        maxWidth: 'calc(100% - 24px)',
+        pl: 1.5,
+        pr: 0.5,
+        py: 0.5,
+        borderRadius: 999,
+        opacity: isVisible ? 1 : 0,
+        visibility: isVisible ? 'visible' : 'hidden',
+        transform: `translate(-50%, ${isVisible ? 0 : 16}px)`,
+        transition: isVisible
+          ? 'opacity .3s, transform .4s cubic-bezier(0.32, 0.72, 0, 1)'
+          : 'opacity .2s, transform .3s, visibility 0s linear .3s',
+        '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+      }}
+    >
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+        {translate('technology')}
+      </Typography>
+
+      <Chip size="small" color="primary" label={shown} />
+
+      <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+        {translate('experience')}: {jobs} · {translate('projects')}: {matchedProjects}
+      </Typography>
+
+      <IconButton size="small" aria-label={translate('reset')} onClick={clear}>
+        <CloseRounded fontSize="small" />
+      </IconButton>
+    </Stack>
+  )
+}

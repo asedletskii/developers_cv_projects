@@ -1,0 +1,25 @@
+import { Resume, Technology } from '@features/curriculumVitae/types'
+import { isSameTechnology } from '@features/curriculumVitae/utils'
+import { useController, useFormContext } from 'react-hook-form'
+
+type Name = 'technologies' | `experiences.${number}.stack` | `projects.${number}.stack`
+
+export const useTechnologyListField = (name: Name) => {
+  const { control } = useFormContext<Resume>()
+  const { field } = useController({ control, name })
+
+  const value = (field.value ?? []) as Technology[]
+
+  const onChange = (names: string[]) => {
+    const unique = names
+      .map((item) => item.trim())
+      .filter(
+        (item, index, all) =>
+          item && all.findIndex((other) => isSameTechnology(other, item)) === index,
+      )
+
+    field.onChange(unique.map((item) => value.find((tech) => tech.name === item) ?? { name: item }))
+  }
+
+  return { names: value.map(({ name: technology }) => technology), onChange, onBlur: field.onBlur }
+}

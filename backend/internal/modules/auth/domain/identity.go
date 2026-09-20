@@ -1,0 +1,110 @@
+package domain
+
+import (
+	"fmt"
+	"time"
+
+	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+)
+
+type Identity struct {
+	id              sharedvalueobjects.ID
+	userID          sharedvalueobjects.ID
+	provider        Provider
+	providerSubject valueobjects.ProviderSubject
+	createdAt       time.Time
+	updatedAt       time.Time
+	lastLoginAt     time.Time
+}
+
+type IdentityParams struct {
+	UserID          sharedvalueobjects.ID
+	Provider        Provider
+	ProviderSubject valueobjects.ProviderSubject
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	LastLoginAt     time.Time
+}
+
+type IdentitySnapshot struct {
+	ID              sharedvalueobjects.ID
+	UserID          sharedvalueobjects.ID
+	Provider        Provider
+	ProviderSubject valueobjects.ProviderSubject
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	LastLoginAt     time.Time
+}
+
+func NewIdentity(params IdentityParams) (*Identity, error) {
+	id := sharedvalueobjects.NewID()
+	createdAt := params.CreatedAt.UTC()
+	updatedAt := params.UpdatedAt.UTC()
+	lastLoginAt := params.LastLoginAt.UTC()
+	if err := validateIdentity(id, params.UserID, params.Provider, params.ProviderSubject, createdAt, updatedAt, lastLoginAt); err != nil {
+		return nil, err
+	}
+	return &Identity{
+		id: id, userID: params.UserID, provider: params.Provider, providerSubject: params.ProviderSubject,
+		createdAt: createdAt, updatedAt: updatedAt, lastLoginAt: lastLoginAt,
+	}, nil
+}
+
+func RestoreIdentity(snapshot IdentitySnapshot) (*Identity, error) {
+	if err := validateIdentity(
+		snapshot.ID, snapshot.UserID, snapshot.Provider, snapshot.ProviderSubject,
+		snapshot.CreatedAt, snapshot.UpdatedAt, snapshot.LastLoginAt,
+	); err != nil {
+		return nil, err
+	}
+	return &Identity{
+		id: snapshot.ID, userID: snapshot.UserID, provider: snapshot.Provider,
+		providerSubject: snapshot.ProviderSubject, createdAt: snapshot.CreatedAt,
+		updatedAt: snapshot.UpdatedAt, lastLoginAt: snapshot.LastLoginAt,
+	}, nil
+}
+
+func validateIdentity(
+	id, userID sharedvalueobjects.ID,
+	provider Provider,
+	subject valueobjects.ProviderSubject,
+	createdAt, updatedAt, lastLoginAt time.Time,
+) error {
+	if id.IsZero() || userID.IsZero() || !provider.IsValid() || subject.IsZero() {
+		return fmt.Errorf("%w: invalid identity fields", ErrInvalidIdentity)
+	}
+	if createdAt.IsZero() || updatedAt.IsZero() || lastLoginAt.IsZero() {
+		return fmt.Errorf("%w: identity timestamps must be set", ErrInvalidIdentity)
+	}
+	if updatedAt.Before(createdAt) || lastLoginAt.Before(createdAt) {
+		return fmt.Errorf("%w: invalid identity timestamp order", ErrInvalidIdentity)
+	}
+	return nil
+}
+
+func (i *Identity) ID() sharedvalueobjects.ID                     { return i.id }
+func (i *Identity) UserID() sharedvalueobjects.ID                 { return i.userID }
+func (i *Identity) Provider() Provider                            { return i.provider }
+func (i *Identity) ProviderSubject() valueobjects.ProviderSubject { return i.providerSubject }
+func (i *Identity) CreatedAt() time.Time                          { return i.createdAt }
+func (i *Identity) UpdatedAt() time.Time                          { return i.updatedAt }
+func (i *Identity) LastLoginAt() time.Time                        { return i.lastLoginAt }
+
+func (i *Identity) TouchLogin(now time.Time) error {
+	if i == nil {
+		return fmt.Errorf("%w: identity is nil", ErrInvalidIdentity)
+	}
+	now = now.UTC()
+	if now.IsZero() || now.Before(i.createdAt) {
+		return fmt.Errorf("%w: invalid login timestamp", ErrInvalidIdentity)
+	}
+	if now.Before(i.lastLoginAt) {
+		return fmt.Errorf("%w: login timestamp cannot move backwards", ErrInvalidIdentity)
+	}
+	i.lastLoginAt = now
+	if now.After(i.updatedAt) {
+		i.updatedAt = now
+	}
+	return nil
+}

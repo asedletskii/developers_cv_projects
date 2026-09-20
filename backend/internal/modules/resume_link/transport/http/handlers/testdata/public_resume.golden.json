@@ -1,0 +1,190 @@
+{
+    "title": "Backend Engineer",
+    "language": "en",
+    "createdAt": "2026-01-02T03:04:05Z",
+    "updatedAt": "2026-02-03T04:05:06Z",
+    "overview": {
+        "theme": {
+            "primary": "#112233",
+            "secondary": "#445566"
+        },
+        "greeting": {
+            "first": "Hello",
+            "second": "I am",
+            "secondHighlight": "Ada",
+            "third": "Lovelace"
+        },
+        "availability": {
+            "status": "open",
+            "from": "2026-03-01",
+            "note": "Remote only"
+        },
+        "sections": [
+            {
+                "id": "about",
+                "enabled": true,
+                "collapsed": false,
+                "style": "second"
+            },
+            {
+                "id": "skills",
+                "enabled": false,
+                "collapsed": true
+            }
+        ]
+    },
+    "profile": {
+        "id": "profile-1",
+        "name": "Ada",
+        "surname": "Lovelace",
+        "patronymic": "Ivanovna",
+        "position": "Backend Engineer",
+        "photoPath": "/photo.png",
+        "dateOfBirth": "1990-01-01",
+        "location": "Paris",
+        "relocation": true,
+        "workFormat": [
+            "remote",
+            "hybrid"
+        ]
+    },
+    "contacts": {
+        "id": "contacts-1",
+        "phone": "+33123456789",
+        "telegram": "ada",
+        "hiddenContacts": [
+            "email"
+        ],
+        "contactsText": {
+            "title": "Contacts",
+            "subtitle": "Public channels"
+        }
+    },
+    "skills": {
+        "id": "skills-1",
+        "hardSkills": [
+            "Go",
+            "PostgreSQL"
+        ],
+        "softSkills": [
+            "Communication"
+        ]
+    },
+    "languages": [
+        {
+            "id": "language-1",
+            "language": "English",
+            "grade": "C1",
+            "position": 1
+        },
+        {
+            "id": "language-2",
+            "language": "French",
+            "position": 2
+        }
+    ],
+    "technologies": [
+        {
+            "id": "technology-1",
+            "name": "Go",
+            "position": 1
+        },
+        {
+            "id": "technology-2",
+            "name": "gRPC",
+            "position": 2
+        }
+    ],
+    "experiences": [
+        {
+            "id": "experience-1",
+            "company": "Example",
+            "position": "Backend Engineer",
+            "location": "Paris",
+            "startDate": "2022-01-01",
+            "endDate": "2025-12-31",
+            "description": "Built public APIs",
+            "achievements": [
+                "Shipped API"
+            ],
+            "tasks": [
+                "Design services"
+            ],
+            "stack": [
+                {
+                    "name": "Go"
+                },
+                {
+                    "name": "gRPC"
+                }
+            ]
+        }
+    ],
+    "educations": [
+        {
+            "id": "education-1",
+            "location": "Paris",
+            "university": "Sorbonne",
+            "grade": 5,
+            "programName": "CS",
+            "profileName": "Applied Mathematics",
+            "faculty": "Science",
+            "course": 4,
+            "endDate": "2025-12-31"
+        }
+    ],
+    "courses": [
+        {
+            "id": "course-1",
+            "name": "Go Deep Dive",
+            "organization": "Example School",
+            "endDate": "2025-06-01",
+            "hours": 40,
+            "certificateLink": "https://example.com/cert"
+        }
+    ],
+    "activities": [
+        {
+            "id": "activity-1",
+            "type": "open_source",
+            "title": "Contribution",
+            "description": "Built public APIs",
+            "date": "2025-05-01",
+            "link": "https://example.com/activity"
+        }
+    ],
+    "projects": [
+        {
+            "id": "project-1",
+            "name": "CV",
+            "description": "Developer CV",
+            "screenshots": [
+                "https://example.com/shot.png"
+            ],
+            "link": "https://example.com/project",
+            "stack": [
+                {
+                    "name": "Go"
+                }
+            ],
+            "contributors": [
+                {
+                    "name": "Grace",
+                    "surname": "Hopper",
+                    "role": "Advisor",
+                    "contacts": {
+                        "phone": "+33111222333",
+                        "email": "grace@example.com"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "project-2",
+            "name": "Empty arrays",
+            "screenshots": [],
+            "stack": [],
+            "contributors": []
+        }
+    ]
+}

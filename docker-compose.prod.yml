@@ -1,0 +1,109 @@
+# Продовый стек: образы только готовые из GHCR/Docker Hub, ничего не собирается на сервере.
+# Использование: docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
+#
+# .env лежит только на сервере (в git не попадает) и служит источником переменных как для
+# подстановки в этом файле (${VAR}), так и для backend-контейнера (env_file).
+#
+# Исключение — SQL-файлы миграций: сервис migrations монтирует их с диска сервера
+# (./backend/db/migrations), а не берёт из образа. CI на каждый деплой сам докладывает эту
+# папку на сервер рядом с этим файлом (см. джобу deploy) — вручную ничего копировать не нужно.
+
+services:
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/asedletskii/developers_cv_projects/frontend}:${IMAGE_TAG:-latest}
+    environment:
+      RESPECT_DO_NOT_TRACK: ${RESPECT_DO_NOT_TRACK:-true}
+    networks:
+      edge:
+        aliases:
+          - cv-prod
+      proxy:
+        ipv4_address: ${CADDY_PROXY_IP:-172.30.240.2}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/asedletskii/developers_cv_projects/backend}:${IMAGE_TAG:-latest}
+    env_file:
+      - .env
+    environment:
+      # Это топология Compose, а не deployment secret.
+      POSTGRES_HOST: postgres
+      # Доверяем только адресу Caddy из этой же proxy-сети. Если нужно задать
+      # более узкую/иную схему доверия, явно передайте HTTP_TRUSTED_PROXIES в .env.
+      HTTP_TRUSTED_PROXIES: ${HTTP_TRUSTED_PROXIES:-${CADDY_PROXY_IP:-172.30.240.2}}
+    # Наружу не торчит: единственная дверь на сервер — Caddy, который проксирует /api на backend:8080
+    expose:
+      - '8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/app/developers-cv-api", "healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      proxy:
+      data:
+
+  migrations:
+    image: migrate/migrate:v4.19.1
+    command:
+      - -path=/migrations
+      - -database
+      - postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - up
+    volumes:
+      - ./backend/db/migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    networks:
+      - data
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - data
+
+networks:
+  # Only Caddy and backend share this network. The pinned Caddy IP is the only
+  # trusted proxy; database and migration containers cannot spoof forwarded headers.
+  proxy:
+    ipam:
+      config:
+        - subnet: ${PROXY_NETWORK_SUBNET:-172.30.240.0/24}
+          ip_range: 172.30.240.128/25
+  data:
+    internal: true
+  edge:
+    external: true
+
+volumes:
+  postgres_data:

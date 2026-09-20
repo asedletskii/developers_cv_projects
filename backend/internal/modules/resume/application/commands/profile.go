@@ -1,0 +1,65 @@
+package commands
+
+import (
+	"context"
+	"fmt"
+
+	"developers-cv/backend/internal/modules/resume/application/ports"
+	"developers-cv/backend/internal/modules/resume/domain"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+)
+
+type ProfileInput struct {
+	ID          sharedvalueobjects.ID
+	Name        string
+	Surname     string
+	Patronymic  *string
+	Position    string
+	PhotoURL    domain.ExternalURL
+	DateOfBirth domain.Date
+	Location    string
+	Relocation  bool
+	WorkFormats []domain.WorkFormat
+}
+
+func (i ProfileInput) toDomain() domain.ProfileParams {
+	return domain.ProfileParams{
+		ID:          i.ID,
+		Name:        i.Name,
+		Surname:     i.Surname,
+		Patronymic:  i.Patronymic,
+		Position:    i.Position,
+		PhotoURL:    i.PhotoURL,
+		DateOfBirth: i.DateOfBirth,
+		Location:    i.Location,
+		Relocation:  i.Relocation,
+		WorkFormats: append([]domain.WorkFormat(nil), i.WorkFormats...),
+	}
+}
+
+type ReplaceProfileCommand struct {
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
+	Version  int64
+	Input    ProfileInput
+}
+
+type ReplaceProfileHandler struct {
+	repository ports.ResumeRepository
+	uow        ports.UnitOfWork
+}
+
+func NewReplaceProfileHandler(repository ports.ResumeRepository, uow ports.UnitOfWork) *ReplaceProfileHandler {
+	return &ReplaceProfileHandler{repository: repository, uow: uow}
+}
+
+func (h *ReplaceProfileHandler) Handle(ctx context.Context, c ReplaceProfileCommand) error {
+	if h == nil {
+		return fmt.Errorf("replace profile handler dependencies are nil")
+	}
+
+	profile := c.Input.toDomain()
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace profile", ports.ResumeMutationProfile, func(resume *domain.Resume) error {
+		return resume.ReplaceProfile(profile)
+	})
+}

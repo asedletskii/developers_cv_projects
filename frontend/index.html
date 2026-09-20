@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <meta
+      name="description"
+      content="Конструктор резюме для разработчиков: персональные ссылки, аналитика просмотров и защита контактов."
+    />
+    <meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f7f6f4" media="(prefers-color-scheme: light)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Developers CV" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:title" content="Developers CV — резюме, которым не стыдно поделиться" />
+    <meta
+      property="og:description"
+      content="Персональные ссылки на резюме, аналитика просмотров и защита контактов."
+    />
+    <meta property="og:url" content="https://cv.developers-cv.ru/" />
+    <meta property="og:image" content="https://cv.developers-cv.ru/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script src="/theme-init.js"></script>
+    <script src="/config.js"></script>
+
+    <style>
+      :root { --splash-bg: #151517; --splash-text: #f4f4f6; }
+      :root[data-theme='light'] { --splash-bg: #f7f6f4; --splash-text: #1f1f1d; }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme]) { --splash-bg: #f7f6f4; --splash-text: #1f1f1d; }
+      }
+      html, body { margin: 0; background: var(--splash-bg); color-scheme: dark light; }
+      .splash {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        color: var(--splash-text);
+        font: 600 1.1rem/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        animation: splash-in 0.4s ease-out 0.15s both;
+      }
+      .splash__ring {
+        width: 48px;
+        height: 48px;
+        box-sizing: border-box;
+        border-radius: 50%;
+        border: 4px solid rgba(255, 204, 60, 0.25);
+        border-top-color: #ffcc3c;
+        animation: splash-spin 0.9s linear infinite;
+      }
+      @keyframes splash-spin { to { transform: rotate(360deg); } }
+      @keyframes splash-in { from { opacity: 0; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .splash__ring { animation: none; border-top-color: #ffcc3c; border-right-color: #ffcc3c; }
+      }
+    </style>
+    <script type="module" src="/src/index.tsx"></script>
+
+    <title>developers-cv.ru</title>
+  </head>
+  <body>
+    <noscript>Включите JavaScript, чтобы использовать это приложение</noscript>
+
+    <div id="root">
+      <div class="splash" role="status" aria-label="Developers CV">
+        <div class="splash__ring"></div>
+        <span>Developers CV</span>
+      </div>
+    </div>
+  </body>
+</html>
