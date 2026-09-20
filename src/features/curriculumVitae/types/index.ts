@@ -1,0 +1,4 @@
+export * from './curriculumVitae'
+export * from './enums'
+export * from './curriculumVitae.slice'
+export * from './projectDetails.slice'
