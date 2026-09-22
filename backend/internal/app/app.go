@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"go.uber.org/zap"
 
 	httpserver "developers-cv/backend/internal/platform/http"
@@ -13,22 +15,25 @@ import (
 )
 
 type Application struct {
-	server      *httpserver.Server
-	telemetry   *telemetry.Service
-	logger      *zap.Logger
-	once        sync.Once
-	shutdownErr error
+	server       *httpserver.Server
+	telemetry    *telemetry.Service
+	logger       *zap.Logger
+	postgresPool *pgxpool.Pool
+	once         sync.Once
+	shutdownErr  error
 }
 
 func NewApplication(
 	server *httpserver.Server,
 	telemetryService *telemetry.Service,
 	logger *zap.Logger,
+	postgresPool *pgxpool.Pool,
 ) *Application {
 	return &Application{
-		server:    server,
-		telemetry: telemetryService,
-		logger:    logger,
+		server:       server,
+		telemetry:    telemetryService,
+		logger:       logger,
+		postgresPool: postgresPool,
 	}
 }
 
@@ -53,8 +58,12 @@ func (a *Application) Shutdown(ctx context.Context) error {
 	a.once.Do(func() {
 		serverErr := a.server.Shutdown(ctx)
 		telemetryErr := a.telemetry.Shutdown(ctx)
-		if serverErr != nil || telemetryErr != nil {
-			a.shutdownErr = fmt.Errorf("shutdown application: %w", errors.Join(serverErr, telemetryErr))
+		var dbErr error
+		if a.postgresPool != nil {
+			a.postgresPool.Close()
+		}
+		if serverErr != nil || telemetryErr != nil || dbErr != nil {
+			a.shutdownErr = fmt.Errorf("shutdown application: %w", errors.Join(serverErr, telemetryErr, dbErr))
 		}
 	})
 	return a.shutdownErr

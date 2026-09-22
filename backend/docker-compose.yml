@@ -5,11 +5,15 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      POSTGRES_HOST: postgres
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
       minio:
         condition: service_started
       nats:
@@ -39,6 +43,20 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
+
+  migrations:
+    image: migrate/migrate:v4.19.1
+    command:
+      - -path=/migrations
+      - -database
+      - postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - up
+    volumes:
+      - ./db/migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   minio:
     image: minio/minio:latest

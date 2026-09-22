@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -18,6 +19,7 @@ type Config struct {
 	CORS       CORSConfig
 	Telemetry  TelemetryConfig
 	Prometheus PrometheusConfig
+	Postgres   PostgresConfig
 }
 
 type AppConfig struct {
@@ -71,6 +73,19 @@ type TelemetryConfig struct {
 
 type PrometheusConfig struct {
 	Enabled bool
+}
+
+type PostgresConfig struct {
+	Host            string
+	Port            int
+	Database        string
+	User            string
+	Password        string
+	SSLMode         string
+	MaxConns        int32
+	MinConns        int32
+	MaxConnLifetime time.Duration
+	MaxConnIdleTime time.Duration
 }
 
 func Load() (Config, error) {
@@ -190,6 +205,47 @@ func parse() (Config, error) {
 		return Config{}, err
 	}
 
+	postgresHost, err := envString("POSTGRES_HOST", "localhost")
+	if err != nil {
+		return Config{}, err
+	}
+	postgresPort, err := envInt("POSTGRES_PORT", 5432)
+	if err != nil {
+		return Config{}, err
+	}
+	postgresDatabase, err := envString("POSTGRES_DB", "developers_cv")
+	if err != nil {
+		return Config{}, err
+	}
+	postgresUser, err := envString("POSTGRES_USER", "developers_cv")
+	if err != nil {
+		return Config{}, err
+	}
+	postgresPassword, err := envString("POSTGRES_PASSWORD", "change-me-postgres")
+	if err != nil {
+		return Config{}, err
+	}
+	postgresSSLMode, err := envString("POSTGRES_SSLMODE", "disable")
+	if err != nil {
+		return Config{}, err
+	}
+	postgresMaxConns, err := envInt("POSTGRES_MAX_CONNS", 10)
+	if err != nil {
+		return Config{}, err
+	}
+	postgresMinConns, err := envInt("POSTGRES_MIN_CONNS", 2)
+	if err != nil {
+		return Config{}, err
+	}
+	postgresMaxLifetime, err := envDuration("POSTGRES_MAX_CONN_LIFETIME", time.Hour)
+	if err != nil {
+		return Config{}, err
+	}
+	postgresMaxIdle, err := envDuration("POSTGRES_MAX_CONN_IDLE_TIME", 30*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+
 	cfg := Config{
 		App: AppConfig{Env: appEnv, Name: appName, Version: appVersion},
 		HTTP: HTTPConfig{
@@ -225,6 +281,18 @@ func parse() (Config, error) {
 			Insecure:     otelInsecure,
 		},
 		Prometheus: PrometheusConfig{Enabled: prometheusEnabled},
+		Postgres: PostgresConfig{
+			Host:            postgresHost,
+			Port:            postgresPort,
+			Database:        postgresDatabase,
+			User:            postgresUser,
+			Password:        postgresPassword,
+			SSLMode:         postgresSSLMode,
+			MaxConns:        int32(postgresMaxConns),
+			MinConns:        int32(postgresMinConns),
+			MaxConnLifetime: postgresMaxLifetime,
+			MaxConnIdleTime: postgresMaxIdle,
+		},
 	}
 
 	if err := validate(cfg); err != nil {
@@ -233,7 +301,47 @@ func parse() (Config, error) {
 	return cfg, nil
 }
 
+func (c PostgresConfig) ConnectionString() string {
+	values := url.Values{}
+	values.Set("sslmode", c.SSLMode)
+
+	return (&url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(c.User, c.Password),
+		Host:     net.JoinHostPort(c.Host, strconv.Itoa(c.Port)),
+		Path:     "/" + c.Database,
+		RawQuery: values.Encode(),
+	}).String()
+}
+
+func isValidPostgresSSLMode(value string) bool {
+	switch value {
+	case "disable", "allow", "prefer", "require", "verify-ca", "verify-full":
+		return true
+	default:
+		return false
+	}
+}
+
 func validate(cfg Config) error {
+	if strings.TrimSpace(cfg.Postgres.Host) == "" ||
+		strings.TrimSpace(cfg.Postgres.Database) == "" ||
+		strings.TrimSpace(cfg.Postgres.User) == "" ||
+		strings.TrimSpace(cfg.Postgres.Password) == "" {
+		return errors.New("PostgreSQL connection credentials must not be empty")
+	}
+	if cfg.Postgres.Port < 1 || cfg.Postgres.Port > 65535 {
+		return fmt.Errorf("POSTGRES_PORT must be between 1 and 65535: %d", cfg.Postgres.Port)
+	}
+	if !isValidPostgresSSLMode(cfg.Postgres.SSLMode) {
+		return fmt.Errorf("invalid POSTGRES_SSLMODE: %q", cfg.Postgres.SSLMode)
+	}
+	if cfg.Postgres.MaxConns <= 0 || cfg.Postgres.MinConns < 0 || cfg.Postgres.MinConns > cfg.Postgres.MaxConns {
+		return errors.New("invalid PostgreSQL pool limits")
+	}
+	if cfg.Postgres.MaxConnLifetime <= 0 || cfg.Postgres.MaxConnIdleTime <= 0 {
+		return errors.New("PostgreSQL connection lifetimes must be positive")
+	}
 	if cfg.HTTP.Port < 1 || cfg.HTTP.Port > 65535 {
 		return fmt.Errorf("HTTP_PORT must be between 1 and 65535: %d", cfg.HTTP.Port)
 	}
