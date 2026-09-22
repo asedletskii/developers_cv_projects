@@ -9,10 +9,91 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  check:
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
 
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.8'
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.13.2
+          working-directory: backend
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Vulnerability scan
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: '1.26.8'
+          go-package: ./...
+          work-dir: backend
+
+      - name: Build
+        run: go build ./cmd/api
+
+      - name: Compose config validation
+        run: cp .env.example .env && docker compose config -q
+
+  docker:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  frontend:
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
@@ -26,7 +107,8 @@ jobs:
           cache: yarn
           cache-dependency-path: frontend/yarn.lock
 
-      - run: yarn install --frozen-lockfile
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
 
       - name: Lint
         run: yarn lint

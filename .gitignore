@@ -8,7 +8,10 @@ dist
 .vscode/*
 !.vscode/extensions.json
 .claude
-.claude
 npm-debug.log*
 yarn-error.log*
 .vite
+.env
+.env.*
+!.env.example
+backend/.env
