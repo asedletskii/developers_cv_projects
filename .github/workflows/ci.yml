@@ -58,6 +58,10 @@ jobs:
       - name: Compose config validation
         run: cp .env.example .env && docker compose config -q
 
+      - name: Prod compose config validation
+        working-directory: .
+        run: cp .env.example .env && docker compose -f docker-compose.prod.yml config -q
+
   docker:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: backend
@@ -163,16 +167,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # docker-compose.prod.yml всегда доставляется свежим из репозитория; .env на сервере
-      # заводится один раз вручную (см. .env.example) и этим шагом не трогается
-      - name: Copy compose file to server
+      # docker-compose.prod.yml и SQL-миграции всегда доставляются свежими из репозитория
+      # (сервис migrations монтирует их как bind mount); .env на сервере заводится один раз
+      # вручную (см. .env.example) и этим шагом не трогается
+      - name: Copy compose file and migrations to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          source: docker-compose.prod.yml
+          source: docker-compose.prod.yml,backend/db/migrations
           target: ${{ secrets.DEPLOY_PATH }}
           strip_components: 0
 
