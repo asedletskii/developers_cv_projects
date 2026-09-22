@@ -1,6 +1,6 @@
-import { Stack } from '@mui/material'
 import { Section } from '@features/curriculumVitae/components/Section'
 import { Education, SectionId } from '@features/curriculumVitae/types'
+import { Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { Entry } from './Entry'
 

@@ -1,7 +1,7 @@
+import { CurriculumVitaeError } from '@features/curriculumVitae/types'
 import { Button, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { Link as RouterLink } from 'react-router'
-import { CurriculumVitaeError } from '@features/curriculumVitae/types'
 
 type Props = {
   error: CurriculumVitaeError

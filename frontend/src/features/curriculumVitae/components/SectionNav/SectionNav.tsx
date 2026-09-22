@@ -1,11 +1,11 @@
 import { useMemo, useRef } from 'react'
-import { Box } from '@mui/material'
 import { useSectionCollapse } from '@features/curriculumVitae/components/SectionCollapseProvider'
 import { useActiveSection } from '@features/curriculumVitae/hooks'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { SectionId } from '@features/curriculumVitae/types'
-import { Item } from './Item'
 import { afterExpanded, scrollToSection } from '@features/curriculumVitae/utils'
+import { Box } from '@mui/material'
+import { Item } from './Item'
 import { useCenterActive } from './useCenterActive'
 import { useReveal } from './useReveal'
 

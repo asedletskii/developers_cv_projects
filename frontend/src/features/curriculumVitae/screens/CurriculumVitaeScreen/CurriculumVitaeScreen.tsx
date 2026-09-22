@@ -19,9 +19,17 @@ export default function CurriculumVitaeScreen() {
   const error = useAppSelector(selectPersonDataError)
 
   // Резюме выбирается по id из ссылки, а тексты приходят на выбранном языке —
-  // поэтому и смена id, и смена языка запрашивают данные заново
+  // поэтому и смена id, и смена языка запрашивают данные заново. Предыдущий запрос при этом
+  // отменяется: иначе при быстром переключении более медленный старый ответ может прийти
+  // позже нового и перезаписать экран устаревшими данными.
   useEffect(() => {
-    if (cvId) dispatch(getPersonData({ cvId, lang: language }))
+    if (!cvId) return
+
+    const request = dispatch(getPersonData({ cvId, lang: language }))
+
+    return () => {
+      request.abort()
+    }
   }, [dispatch, cvId, language])
 
   useEffect(() => {

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { CloseRounded } from '@mui/icons-material'
-import { Chip, IconButton, Stack, Typography } from '@mui/material'
 import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
-import { hasTechnology } from '@features/curriculumVitae/utils'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Person } from '@features/curriculumVitae/types'
+import { hasTechnology } from '@features/curriculumVitae/utils'
+import { CloseRounded } from '@mui/icons-material'
+import { Chip, IconButton, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
 type Props = Pick<Person, 'experience' | 'projects'>
@@ -18,6 +18,7 @@ export const FilterBar = ({ experience, projects }: Props) => {
   const [shown, setShown] = useState(selected)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (selected) setShown(selected)
   }, [selected])
 

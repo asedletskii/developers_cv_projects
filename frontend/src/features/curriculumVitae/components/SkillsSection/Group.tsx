@@ -1,5 +1,5 @@
-import { Chip, Stack, Typography } from '@mui/material'
 import { glassCard } from '@features/curriculumVitae/styles'
+import { Chip, Stack, Typography } from '@mui/material'
 
 type Props = {
   title: string

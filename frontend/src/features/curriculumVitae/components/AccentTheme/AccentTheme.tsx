@@ -1,7 +1,7 @@
 import { PropsWithChildren, useMemo } from 'react'
 import { ThemeSettings } from '@features/curriculumVitae/types'
-import { ThemeProvider, useTheme } from '@mui/material/styles'
 import { createAccentTheme } from '@features/curriculumVitae/utils'
+import { ThemeProvider, useTheme } from '@mui/material/styles'
 
 type Props = PropsWithChildren<{
   colors?: ThemeSettings

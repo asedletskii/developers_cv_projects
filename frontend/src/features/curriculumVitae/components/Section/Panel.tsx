@@ -1,6 +1,6 @@
 import { PropsWithChildren, TransitionEvent, useEffect, useRef, useState } from 'react'
-import { Box } from '@mui/material'
 import { SectionId } from '@features/curriculumVitae/types'
+import { Box } from '@mui/material'
 import { prefersReducedMotion, ScrollTrigger } from '@shared/animations'
 import { contentSx, DURATION, EASE, getContentId, getTitleId } from './constants'
 
@@ -25,6 +25,7 @@ export const Panel = ({ id, isCollapsed, children }: Props) => {
     if (prefersReducedMotion()) {
       ScrollTrigger.refresh(true)
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsAnimating(true)
     }
   }, [isCollapsed])

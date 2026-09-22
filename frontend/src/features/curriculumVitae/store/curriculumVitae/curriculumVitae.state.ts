@@ -36,5 +36,6 @@ export function getCurriculumVitaeInitialState(): CurriculumVitaeSliceState {
     },
     isLoading: true,
     error: null,
+    currentRequestId: null,
   }
 }

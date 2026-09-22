@@ -1,6 +1,9 @@
-import { Box, Container } from '@mui/material'
 import { useGreetingAnimation } from '@features/curriculumVitae/hooks'
-import { Availability as AvailabilityData, Greeting as GreetingData } from '@features/curriculumVitae/types'
+import {
+  Availability as AvailabilityData,
+  Greeting as GreetingData,
+} from '@features/curriculumVitae/types'
+import { Box, Container } from '@mui/material'
 import { Availability } from './Availability'
 import { Background } from './Background'
 import { Cta } from './Cta'

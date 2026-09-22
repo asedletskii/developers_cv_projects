@@ -1,8 +1,8 @@
-import { SchoolOutlined } from '@mui/icons-material'
-import { Stack, Typography } from '@mui/material'
 import { IconTile } from '@features/curriculumVitae/components/IconTile'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Education } from '@features/curriculumVitae/types'
+import { SchoolOutlined } from '@mui/icons-material'
+import { Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
 type Props = {

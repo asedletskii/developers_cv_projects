@@ -1,9 +1,9 @@
-import { Box, Stack, Typography } from '@mui/material'
-import { keyframes } from '@mui/material/styles'
 import {
   Availability as AvailabilityData,
   AvailabilityStatus,
 } from '@features/curriculumVitae/types'
+import { Box, Stack, Typography } from '@mui/material'
+import { keyframes } from '@mui/material/styles'
 import { useTranslate } from '@shared/hooks'
 import dayjs from 'dayjs'
 
@@ -67,7 +67,8 @@ export const Availability = ({ availability, updatedAt }: Props) => {
             borderRadius: '50%',
             color: STATUS_COLORS[status],
             bgcolor: 'currentColor',
-            animation: status === AvailabilityStatus.Open ? `${pulse} 2s ease-out infinite` : 'none',
+            animation:
+              status === AvailabilityStatus.Open ? `${pulse} 2s ease-out infinite` : 'none',
             '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
           }}
         />

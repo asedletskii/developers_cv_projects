@@ -5,10 +5,10 @@ import { Languages } from '@shared/types'
 class CurriculumVitaeApi {
   baseUrl = '/cv'
 
-  async getPersonData(cvId: string, lang: Languages): Promise<Person> {
+  async getPersonData(cvId: string, lang: Languages, signal?: AbortSignal): Promise<Person> {
     const url = `${this.baseUrl}/${encodeURIComponent(cvId)}`
 
-    const response = await api.get<Person>(url, { params: { lang } })
+    const response = await api.get<Person>(url, { params: { lang }, signal })
     return response.data
   }
 

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { ContactKey } from '@features/curriculumVitae/types'
+import { ContactLink } from '@features/curriculumVitae/utils'
 import { ContentCopyRounded } from '@mui/icons-material'
 import { Button, IconButton, Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { ToastType } from '@shared/types'
 import { showToast } from '@shared/utils'
-import { ContactLink } from '@features/curriculumVitae/utils'
 
 type Props = {
   link: ContactLink

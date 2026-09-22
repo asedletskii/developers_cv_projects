@@ -1,4 +1,5 @@
 import { ElementType } from 'react'
+import { ActivityType } from '@features/curriculumVitae/types'
 import {
   CodeOutlined,
   EmojiEventsOutlined,
@@ -7,7 +8,6 @@ import {
   SupervisorAccountOutlined,
   VolunteerActivismOutlined,
 } from '@mui/icons-material'
-import { ActivityType } from '@features/curriculumVitae/types'
 
 export const ACTIVITY_ICONS: Record<ActivityType, ElementType> = {
   [ActivityType.OpenSource]: CodeOutlined,

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react'
+import { SparkleField } from '@features/curriculumVitae/components/SparkleField'
 import { Box } from '@mui/material'
 import { createSpring, gsap, prefersReducedMotion, Spring } from '@shared/animations'
-import { SparkleField } from '@features/curriculumVitae/components/SparkleField'
 
 const ORBS: {
   size: number
