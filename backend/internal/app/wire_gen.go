@@ -5,15 +5,17 @@
 package app
 
 import (
+	"context"
+
+	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/reader"
+	"developers-cv/backend/internal/modules/resume/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
 	httpserver "developers-cv/backend/internal/platform/http"
 	"developers-cv/backend/internal/platform/logger"
+	"developers-cv/backend/internal/platform/postgres"
 	"developers-cv/backend/internal/platform/telemetry"
-
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumemock "developers-cv/backend/internal/modules/resume/infrastructure/mock"
-	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 )
 
 func Initialize() (*Application, error) {
@@ -21,27 +23,37 @@ func Initialize() (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
+	poolValue, err := postgres.NewPool(context.Background(), postgres.Config{DSN: configValue.Postgres.ConnectionString(), MaxConns: configValue.Postgres.MaxConns, MinConns: configValue.Postgres.MinConns, MaxConnLifetime: configValue.Postgres.MaxConnLifetime, MaxConnIdleTime: configValue.Postgres.MaxConnIdleTime})
+	if err != nil {
+		return nil, err
+	}
 	loggerValue, err := logger.New(configValue.Log)
 	if err != nil {
+		poolValue.Close()
 		return nil, err
 	}
-	healthValue := health.NewService()
+	healthValue := health.NewService(postgres.NewHealthChecker(poolValue))
 	telemetryValue, err := telemetry.New(configValue.Telemetry, loggerValue)
 	if err != nil {
+		poolValue.Close()
 		return nil, err
 	}
-	personReaderValue := resumemock.NewPersonReader()
-	getPersonHandlerValue := resumequeries.NewGetPersonHandler(personReaderValue)
-	resumeHandlerValue := resumehttp.NewHandler(getPersonHandlerValue)
 	metricsValue, err := telemetry.NewMetrics(configValue.Prometheus.Enabled)
 	if err != nil {
+		poolValue.Close()
+		_ = telemetryValue.Shutdown(context.Background())
 		return nil, err
 	}
+	personReaderValue := reader.NewPersonReader(poolValue)
+	getPersonHandlerValue := queries.NewGetPersonHandler(personReaderValue)
+	resumeHandlerValue := http.NewHandler(getPersonHandlerValue)
 	routerValue, err := httpserver.NewRouter(configValue, loggerValue, healthValue, metricsValue, resumeHandlerValue)
 	if err != nil {
+		poolValue.Close()
+		_ = telemetryValue.Shutdown(context.Background())
 		return nil, err
 	}
 	serverValue := httpserver.NewServer(configValue.HTTP, routerValue.Handler(), loggerValue)
-	applicationValue := NewApplication(serverValue, telemetryValue, loggerValue)
+	applicationValue := NewApplication(serverValue, telemetryValue, loggerValue, poolValue)
 	return applicationValue, nil
 }

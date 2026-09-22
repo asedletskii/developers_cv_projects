@@ -205,3 +205,35 @@
 - `resumeLink` на другом домене: чтобы файл скачивался, а не открывался, нужен `Content-Disposition: attachment`.
 - Внешние ссылки (`link`, `certificateLink`, `photoPath`, `resumeLink`) фронт не валидирует: проверять схему `http(s)` на сервере.
 - Фронт пока работает на моках. Включить реальный API — фронт заменит вызов в thunk `getPersonData` (`curriculumVitae.thunks.ts`); базовый URL зашит в `src/shared/api/axios.config.ts`.
+
+## Деплой (CD)
+
+CI (`.github/workflows/ci.yml`) при пуше в `main`: собирает и публикует образы `frontend` и `backend`
+в GHCR, затем по SSH обновляет стек на сервере (`docker-compose.prod.yml` из корня репозитория).
+
+**Топология:** Caddy (образ `frontend`) — единственная точка входа, отдаёт статику фронта и
+проксирует `/api/*` на `backend:8080` внутри docker-сети. `backend`, `postgres`, `minio`, `nats`
+наружу не торчат.
+
+**Одноразовая настройка сервера:**
+
+1. Установить Docker и Docker Compose.
+2. Создать директорию деплоя (например `/opt/developers-cv`) и положить туда `.env` на основе
+   [`.env.example`](../.env.example) из корня репозитория — с реальными паролями и, если есть,
+   доменом в `FRONTEND_ADDRESS` (тогда Caddy сам поднимет HTTPS).
+3. Если пакеты в GHCR приватные — авторизовать Docker на сервере одной командой:
+   `docker login ghcr.io -u <username> -p <personal access token со scope read:packages>`.
+   Проще сделать пакеты `frontend`/`backend` публичными в настройках GHCR и пропустить этот шаг.
+
+**Секреты в GitHub (Settings → Secrets and variables → Actions), нужны для job `deploy`:**
+
+| Секрет           | Значение                                                    |
+| ---------------- | ------------------------------------------------------------ |
+| `DEPLOY_HOST`    | IP или домен сервера                                          |
+| `DEPLOY_USER`    | Пользователь SSH                                               |
+| `DEPLOY_SSH_KEY` | Приватный ключ SSH (без пароля)                                |
+| `DEPLOY_PORT`    | Порт SSH, необязательно (по умолчанию 22)                      |
+| `DEPLOY_PATH`    | Директория на сервере с `.env` из шага 2 (например `/opt/developers-cv`) |
+
+Без этих секретов джобы `docker`/`frontend-docker` (сборка и паблиш образов) всё равно отработают,
+упадёт только `deploy`.

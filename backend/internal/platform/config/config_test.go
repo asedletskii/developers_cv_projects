@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -77,4 +78,36 @@ func TestLoadRejectsWildcardCORSOrigin(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must not contain *")
+}
+
+func TestPostgresConnectionStringEscapesCredentials(t *testing.T) {
+	t.Setenv("TEST_POSTGRES_PASSWORD", "p@ss:w?rd#1")
+
+	cfg := PostgresConfig{
+		Host:            "localhost",
+		Port:            5432,
+		Database:        "developers_cv",
+		User:            "developers",
+		Password:        os.Getenv("TEST_POSTGRES_PASSWORD"),
+		SSLMode:         "require",
+		MaxConns:        10,
+		MinConns:        2,
+		MaxConnLifetime: time.Hour,
+		MaxConnIdleTime: 30 * time.Minute,
+	}
+
+	require.Equal(
+		t,
+		"postgres://developers:p%40ss%3Aw%3Frd%231@localhost:5432/developers_cv?sslmode=require",
+		cfg.ConnectionString(),
+	)
+}
+
+func TestLoadRejectsInvalidPostgresSSLMode(t *testing.T) {
+	t.Setenv("POSTGRES_SSLMODE", "invalid")
+
+	_, err := parse()
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "POSTGRES_SSLMODE")
 }

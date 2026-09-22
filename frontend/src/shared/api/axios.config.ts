@@ -2,7 +2,9 @@
 // import { logoutHelper } from '@shared/utils'
 import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 
-const baseURL = 'http://localhost:80/api/v1'
+// В браузере запрос по умолчанию идёт на тот же origin: в проде это Caddy, который проксирует
+// /api/v1 на бэкенд внутри docker-сети — без CORS и без хардкода адреса.
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 export const api = axios.create({
   baseURL,
