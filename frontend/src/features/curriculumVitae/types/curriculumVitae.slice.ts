@@ -7,6 +7,9 @@ export type CurriculumVitaeSliceState = {
   person: Person
   isLoading: boolean
   error: CurriculumVitaeError | null
+
+  /** requestId последнего запущенного getPersonData — чтобы игнорировать ответ уже отменённого запроса */
+  currentRequestId: string | null
 }
 
 export type CurriculumVitaeSliceReducers = SliceCaseReducers<CurriculumVitaeSliceState> & {
