@@ -1,22 +1,28 @@
 APP_NAME := developers-cv-api
 GO := go
 
-.PHONY: help fmt vet test test-unit build run lint generate docker-build compose-up compose-down check
+-include .env
+export
+
+.PHONY: help fmt vet test test-unit build run lint generate docker-build compose-up compose-down check migrate-up migrate-down migrate-version
 
 help:
 	@printf '%s\n' \
-		'make fmt          - format Go source files' \
-		'make vet          - run go vet' \
-		'make test         - run all Go tests' \
-		'make test-unit    - run unit tests' \
-		'make build        - build API binary' \
-		'make run          - run API locally' \
-		'make lint         - run golangci-lint' \
-		'make generate     - regenerate Wire code' \
-		'make docker-build - build backend image' \
-		'make compose-up   - start local infrastructure' \
-		'make compose-down - stop local infrastructure' \
-		'make check        - run format, vet, test and lint'
+		'make fmt             - format Go source files' \
+		'make vet             - run go vet' \
+		'make test            - run all Go tests' \
+		'make test-unit       - run unit tests' \
+		'make build           - build API binary' \
+		'make run             - run API locally' \
+		'make lint            - run golangci-lint' \
+		'make generate        - regenerate Wire code' \
+		'make docker-build    - build backend image' \
+		'make compose-up      - start local infrastructure' \
+		'make compose-down    - stop local infrastructure' \
+		'make migrate-up      - apply database migrations' \
+		'make migrate-down    - rollback last database migration' \
+		'make migrate-version - show current database migration version' \
+		'make check           - run format, vet, test and lint'
 
 fmt:
 	$(GO) fmt ./...
@@ -52,3 +58,22 @@ compose-down:
 	docker compose down
 
 check: fmt vet test lint
+
+migrate-up:
+	docker compose run --rm migrations
+
+migrate-down:
+	docker compose run --rm \
+		--entrypoint migrate \
+		migrations \
+		-path=/migrations \
+		-database "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable" \
+		down 1
+
+migrate-version:
+	docker compose run --rm \
+		--entrypoint migrate \
+		migrations \
+		-path=/migrations \
+		-database "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable" \
+		version

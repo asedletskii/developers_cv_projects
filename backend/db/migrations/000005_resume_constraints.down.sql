@@ -1,0 +1,18 @@
+ALTER TABLE project_screenshots DROP CONSTRAINT IF EXISTS project_screenshots_path_check;
+ALTER TABLE people DROP CONSTRAINT IF EXISTS people_resume_link_check, DROP CONSTRAINT IF EXISTS people_photo_path_check;
+ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_link_check;
+ALTER TABLE courses DROP CONSTRAINT IF EXISTS courses_certificate_link_check, DROP CONSTRAINT IF EXISTS courses_hours_check;
+ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_link_check, DROP CONSTRAINT IF EXISTS projects_git_link_check;
+ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_type_check;
+ALTER TABLE educations DROP CONSTRAINT IF EXISTS educations_grade_check, DROP CONSTRAINT IF EXISTS educations_course_check;
+ALTER TABLE experience_technologies DROP CONSTRAINT IF EXISTS experience_technologies_grade_check;
+ALTER TABLE experiences DROP CONSTRAINT IF EXISTS experiences_dates_check, DROP CONSTRAINT IF EXISTS experiences_position_check;
+ALTER TABLE person_technologies DROP CONSTRAINT IF EXISTS person_technologies_grade_check;
+ALTER TABLE person_languages DROP CONSTRAINT IF EXISTS person_languages_value_check, DROP CONSTRAINT IF EXISTS person_languages_grade_check;
+ALTER TABLE person_soft_skills DROP CONSTRAINT IF EXISTS person_soft_skills_value_check;
+ALTER TABLE person_hard_skills DROP CONSTRAINT IF EXISTS person_hard_skills_value_check;
+ALTER TABLE person_hidden_contacts DROP CONSTRAINT IF EXISTS person_hidden_contacts_value_check;
+ALTER TABLE person_work_formats DROP CONSTRAINT IF EXISTS person_work_formats_value_check;
+ALTER TABLE person_sections DROP CONSTRAINT IF EXISTS person_sections_id_check;
+ALTER TABLE person_themes DROP CONSTRAINT IF EXISTS person_themes_color_check;
+ALTER TABLE person_availability DROP CONSTRAINT IF EXISTS person_availability_status_check;
