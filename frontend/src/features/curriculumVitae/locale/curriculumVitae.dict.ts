@@ -6,6 +6,8 @@ export const curriculumVitaeDict = {
         notFoundText: 'Возможно, ссылка устарела или в ней опечатка.',
         failedTitle: 'Не удалось загрузить резюме',
         failedText: 'Попробуйте обновить страницу чуть позже.',
+        errorCode: 'Код ошибки: {{status}}',
+        requestId: 'ID запроса: {{requestId}}',
         home: 'На главную',
       },
 
@@ -165,6 +167,8 @@ export const curriculumVitaeDict = {
         notFoundText: 'The link may be outdated or contain a typo.',
         failedTitle: "Couldn't load the résumé",
         failedText: 'Please try refreshing the page in a moment.',
+        errorCode: 'Error code: {{status}}',
+        requestId: 'Request ID: {{requestId}}',
         home: 'Go home',
       },
 

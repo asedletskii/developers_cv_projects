@@ -1,5 +1,6 @@
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
 import { CurriculumVitaeError, Person } from '@features/curriculumVitae/types'
+import { parseApiError } from '@features/curriculumVitae/utils'
 import { createAsyncThunk } from '@reduxjs/toolkit'
 import { Languages } from '@shared/types'
 // import { showToast } from '@shared/utils'
@@ -18,9 +19,9 @@ export const getPersonData = createAsyncThunk<
     // signal приходит из thunkAPI: отмена диспатча (см. .abort() в компоненте) реально обрывает
     // HTTP-запрос, а не просто перестаёт ждать его в браузере
     return await curriculumVitaeApi.getPersonData(cvId, lang, signal)
-  } catch (e: any) {
+  } catch (e) {
     // showToast({ messageKey: 'cannotGetPersonData', type: 'error' })
 
-    return rejectWithValue(e?.response?.status === 404 ? 'notFound' : 'cannotGetPersonData')
+    return rejectWithValue(parseApiError(e))
   }
 })

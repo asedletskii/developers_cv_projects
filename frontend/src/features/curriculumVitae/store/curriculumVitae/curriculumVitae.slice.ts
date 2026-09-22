@@ -39,7 +39,7 @@ export const curriculumVitaeSlice = createSlice<
         if (meta.aborted || meta.requestId !== state.currentRequestId) return
 
         state.isLoading = false
-        state.error = payload ?? 'cannotGetPersonData'
+        state.error = payload ?? { kind: 'cannotGetPersonData' }
       })
       .addCase(getPersonData.pending, (state, { meta }) => {
         state.currentRequestId = meta.requestId

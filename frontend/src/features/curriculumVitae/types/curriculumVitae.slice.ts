@@ -1,7 +1,17 @@
 import { SliceCaseReducers } from '@shared/types'
 import { Person } from './curriculumVitae'
 
-export type CurriculumVitaeError = 'notFound' | 'cannotGetPersonData'
+export type CurriculumVitaeErrorKind = 'notFound' | 'cannotGetPersonData'
+
+export type CurriculumVitaeError = {
+  kind: CurriculumVitaeErrorKind
+
+  /** HTTP-статус ответа бэкенда — есть только если ошибка реально пришла оттуда, а не из сети/таймаута */
+  status?: number
+
+  /** requestId из тела ошибки бэкенда — по нему ищут проблему в его логах */
+  requestId?: string
+}
 
 export type CurriculumVitaeSliceState = {
   person: Person

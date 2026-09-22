@@ -10,7 +10,16 @@ type Props = {
 export const LoadFailure = ({ error }: Props) => {
   const translate = useTranslate('CurriculumVitae.Error')
 
-  const isNotFound = error === 'notFound'
+  const isNotFound = error.kind === 'notFound'
+
+  // Показываем, только если ошибка реально пришла от бэкенда: пригодится, чтобы сообщить в
+  // поддержку — по коду и requestId проблему найдут в логах бэкенда
+  const diagnostics = [
+    error.status && translate('errorCode', { status: error.status }),
+    error.requestId && translate('requestId', { requestId: error.requestId }),
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <Stack
@@ -27,6 +36,12 @@ export const LoadFailure = ({ error }: Props) => {
       <Typography sx={{ color: 'text.secondary' }}>
         {translate(isNotFound ? 'notFoundText' : 'failedText')}
       </Typography>
+
+      {diagnostics && (
+        <Typography variant="caption" sx={{ color: 'gray.light' }}>
+          {diagnostics}
+        </Typography>
+      )}
 
       <Button
         component={RouterLink}
