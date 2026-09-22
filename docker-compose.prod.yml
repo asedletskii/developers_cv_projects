@@ -1,8 +1,12 @@
-# Продовый стек: только готовые образы из GHCR, ничего не собирается на сервере.
+# Продовый стек: образы только готовые из GHCR/Docker Hub, ничего не собирается на сервере.
 # Использование: docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
 #
 # .env лежит только на сервере (в git не попадает) и служит источником переменных как для
 # подстановки в этом файле (${VAR}), так и для backend-контейнера (env_file).
+#
+# Исключение — SQL-файлы миграций: сервис migrations монтирует их с диска сервера
+# (./backend/db/migrations), а не берёт из образа. CI на каждый деплой сам докладывает эту
+# папку на сервер рядом с этим файлом (см. джобу deploy) — вручную ничего копировать не нужно.
 
 services:
   frontend:
@@ -23,12 +27,18 @@ services:
     image: ${BACKEND_IMAGE:-ghcr.io/asedletskii/developers_cv_projects/backend}:${IMAGE_TAG:-latest}
     env_file:
       - .env
+    environment:
+      # По умолчанию бэкенд ждёт Postgres на localhost — в compose это отдельный контейнер,
+      # поэтому имя сервиса подставляем явно, а не через .env (это топология, а не секрет)
+      POSTGRES_HOST: postgres
     # Наружу не торчит: единственная дверь на сервер — Caddy, который проксирует /api на backend:8080
     expose:
       - '8080'
     depends_on:
       postgres:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
       minio:
         condition: service_started
       nats:
@@ -41,6 +51,20 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+
+  migrations:
+    image: migrate/migrate:v4.19.1
+    command:
+      - -path=/migrations
+      - -database
+      - postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - up
+    volumes:
+      - ./backend/db/migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
 
   postgres:
     image: postgres:17-alpine
