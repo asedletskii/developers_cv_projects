@@ -8,10 +8,13 @@ import (
 	"github.com/google/wire"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 
 	"developers-cv/backend/internal/platform/config"
+	"developers-cv/backend/internal/platform/database"
 	httpserver "developers-cv/backend/internal/platform/http"
 	"developers-cv/backend/internal/platform/logger"
 	"developers-cv/backend/internal/platform/telemetry"
@@ -30,6 +33,11 @@ func Initialize() (*Application, error) {
 		telemetry.New,
 		telemetry.NewMetrics,
 		newResumeReader,
+		database.NewGORMFromConfig,
+		database.NewUnitOfWork,
+		resumerepository.NewResumeRepository,
+		wire.Bind(new(resumecommands.ResumeRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
 		resumequeries.NewGetResumeHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
