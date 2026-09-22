@@ -1,4 +1,5 @@
 import { Person, Project } from '@features/curriculumVitae/types'
+import { normalizePerson } from '@features/curriculumVitae/utils'
 import { api } from '@shared/api'
 import { Languages } from '@shared/types'
 
@@ -9,7 +10,7 @@ class CurriculumVitaeApi {
     const url = `${this.baseUrl}/${encodeURIComponent(cvId)}`
 
     const response = await api.get<Person>(url, { params: { lang }, signal })
-    return response.data
+    return normalizePerson(response.data)
   }
 
   async getProject(projectId: string): Promise<Project> {
