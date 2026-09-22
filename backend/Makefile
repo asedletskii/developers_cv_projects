@@ -4,17 +4,6 @@ GO := go
 -include .env
 export
 
-MIGRATE_IMAGE ?= migrate/migrate:v4.18.3
-MIGRATIONS_DIR := db/migrations
-
-POSTGRES_HOST ?= localhost
-POSTGRES_PORT ?= 5432
-POSTGRES_DB ?= developers_cv
-POSTGRES_USER ?= developers
-POSTGRES_SSLMODE ?= disable
-
-MIGRATE_DATABASE_URL := postgres://$(POSTGRES_USER)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=$(POSTGRES_SSLMODE)
-
 .PHONY: help fmt vet test test-unit build run lint generate docker-build compose-up compose-down check migrate-up migrate-down migrate-version
 
 help:
@@ -71,31 +60,20 @@ compose-down:
 check: fmt vet test lint
 
 migrate-up:
-	@test -n "$(POSTGRES_PASSWORD)" || (printf '%s\n' 'POSTGRES_PASSWORD is required. Set it in .env.' >&2; exit 1)
-	PGPASSWORD="$(POSTGRES_PASSWORD)" docker run --rm \
-		--network host \
-		-v "$(PWD)/$(MIGRATIONS_DIR):/migrations:ro" \
-		$(MIGRATE_IMAGE) \
-		-path=/migrations \
-		-database "$(MIGRATE_DATABASE_URL)" \
-		up
+	docker compose run --rm migrations
 
 migrate-down:
-	@test -n "$(POSTGRES_PASSWORD)" || (printf '%s\n' 'POSTGRES_PASSWORD is required. Set it in .env.' >&2; exit 1)
-	PGPASSWORD="$(POSTGRES_PASSWORD)" docker run --rm \
-		--network host \
-		-v "$(PWD)/$(MIGRATIONS_DIR):/migrations:ro" \
-		$(MIGRATE_IMAGE) \
+	docker compose run --rm \
+		--entrypoint migrate \
+		migrations \
 		-path=/migrations \
-		-database "$(MIGRATE_DATABASE_URL)" \
+		-database "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable" \
 		down 1
 
 migrate-version:
-	@test -n "$(POSTGRES_PASSWORD)" || (printf '%s\n' 'POSTGRES_PASSWORD is required. Set it in .env.' >&2; exit 1)
-	PGPASSWORD="$(POSTGRES_PASSWORD)" docker run --rm \
-		--network host \
-		-v "$(PWD)/$(MIGRATIONS_DIR):/migrations:ro" \
-		$(MIGRATE_IMAGE) \
+	docker compose run --rm \
+		--entrypoint migrate \
+		migrations \
 		-path=/migrations \
-		-database "$(MIGRATE_DATABASE_URL)" \
+		-database "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable" \
 		version
