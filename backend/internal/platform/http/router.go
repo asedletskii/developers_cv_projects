@@ -71,7 +71,7 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler) {
 	}
 
 	api := engine.Group("/api/v1")
-	api.GET("/cv/:cvId", resumeHandler.GetPerson)
+	api.GET("/cv/:cvId", resumeHandler.GetResume)
 	engine.NoRoute(func(c *gin.Context) {
 		writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})

@@ -7,7 +7,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
 
-type PersonRepository interface {
-	GetByID(ctx context.Context, id valueobjects.ID) (*domain.Person, error)
-	Save(ctx context.Context, person *domain.Person) error
+type ResumeRepository interface {
+	GetByID(ctx context.Context, id valueobjects.ID) (*domain.Resume, error)
+	Save(ctx context.Context, resume *domain.Resume) error
 }

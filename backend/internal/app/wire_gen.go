@@ -53,9 +53,9 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
-	personReaderValue := newPersonReader(poolValue)
-	getPersonHandlerValue := queries.NewGetPersonHandler(personReaderValue)
-	resumeHandlerValue := http.NewHandler(getPersonHandlerValue)
+	resumeReaderValue := newResumeReader(poolValue)
+	getResumeHandlerValue := queries.NewGetResumeHandler(resumeReaderValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,

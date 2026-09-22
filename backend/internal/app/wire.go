@@ -29,10 +29,8 @@ func Initialize() (*Application, error) {
 		newHealthService,
 		telemetry.New,
 		telemetry.NewMetrics,
-
-		newPersonReader,
-
-		resumequeries.NewGetPersonHandler,
+		newResumeReader,
+		resumequeries.NewGetResumeHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
 		httpserver.NewServer,
