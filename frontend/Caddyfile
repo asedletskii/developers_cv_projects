@@ -1,11 +1,13 @@
 {$FRONTEND_ADDRESS:80} {
 	root * /srv
 	encode zstd gzip
-
-	handle_path /api/* {
+	
+	handle /api/* {
 		reverse_proxy backend:8080
 	}
 
-	try_files {path} /index.html
-	file_server
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
 }
