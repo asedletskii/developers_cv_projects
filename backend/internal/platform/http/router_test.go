@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumemock "developers-cv/backend/internal/modules/resume/infrastructure/mock"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
@@ -35,7 +33,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(resumequeries.NewGetPersonHandler(resumemock.NewPersonReader())),
+		resumehttp.NewHandler(nil),
 	)
 	require.NoError(t, err)
 
@@ -66,7 +64,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(resumequeries.NewGetPersonHandler(resumemock.NewPersonReader())),
+		resumehttp.NewHandler(nil),
 	)
 	require.NoError(t, err)
 

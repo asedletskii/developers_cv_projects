@@ -9,7 +9,7 @@ const (
 	LanguageEN Language = "en"
 )
 
-type Person struct {
+type Resume struct {
 	ID             string            `json:"id"`
 	Name           string            `json:"name"`
 	Surname        string            `json:"surname"`
@@ -29,7 +29,7 @@ type Person struct {
 	Relocation     bool              `json:"relocation"`
 	WorkFormat     []string          `json:"workFormat"`
 	Contacts       Contacts          `json:"contacts"`
-	Languages      []PersonLanguage  `json:"languages"`
+	Languages      []ResumeLanguage  `json:"languages"`
 	Experience     []Experience      `json:"experience"`
 	Education      []Education       `json:"education"`
 	Courses        []Course          `json:"courses"`
@@ -75,7 +75,7 @@ type SectionSettings struct {
 	Collapsed bool   `json:"collapsed,omitempty"`
 }
 
-type PersonLanguage struct {
+type ResumeLanguage struct {
 	Language string  `json:"language"`
 	Grade    *string `json:"grade,omitempty"`
 }

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http/httptest"
 	"testing"
 
@@ -9,31 +10,39 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/infrastructure/mock"
 )
 
-func TestGetPerson(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	repo := mock.NewPersonReader()
-	handler := NewHandler(queries.NewGetPersonHandler(repo))
-	engine := gin.New()
-	engine.GET("/cv/:cvId", handler.GetPerson)
+type stubResumeReader struct {
+	resume queries.Resume
+	err    error
+}
 
-	req := httptest.NewRequest("GET", "/cv/"+mock.PersonOneID+"?lang=en", nil)
+func (r stubResumeReader) GetResume(context.Context, queries.GetResumeQuery) (queries.Resume, error) {
+	return r.resume, r.err
+}
+
+func TestGetResume(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	id := uuid.New()
+	handler := NewHandler(queries.NewGetResumeHandler(stubResumeReader{
+		resume: queries.Resume{ID: id.String(), Name: "Anton Sedletskii"},
+	}))
+	engine := gin.New()
+	engine.GET("/cv/:cvId", handler.GetResume)
+
+	req := httptest.NewRequest("GET", "/cv/"+id.String()+"?lang=en", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, 200, w.Code)
 	require.Contains(t, w.Body.String(), "Anton Sedletskii")
-	require.Contains(t, w.Body.String(), "Looking for a Senior Frontend role")
 }
 
-func TestGetPersonNotFound(t *testing.T) {
+func TestGetResumeNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	repo := mock.NewPersonReader()
-	handler := NewHandler(queries.NewGetPersonHandler(repo))
+	handler := NewHandler(queries.NewGetResumeHandler(stubResumeReader{err: queries.ErrResumeNotFound}))
 	engine := gin.New()
-	engine.GET("/cv/:cvId", handler.GetPerson)
+	engine.GET("/cv/:cvId", handler.GetResume)
 
 	req := httptest.NewRequest("GET", "/cv/"+uuid.NewString(), nil)
 	w := httptest.NewRecorder()
@@ -43,12 +52,11 @@ func TestGetPersonNotFound(t *testing.T) {
 	require.Contains(t, w.Body.String(), "CV not found")
 }
 
-func TestGetPersonRejectsInvalidID(t *testing.T) {
+func TestGetResumeRejectsInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	repo := mock.NewPersonReader()
-	handler := NewHandler(queries.NewGetPersonHandler(repo))
+	handler := NewHandler(queries.NewGetResumeHandler(stubResumeReader{}))
 	engine := gin.New()
-	engine.GET("/cv/:cvId", handler.GetPerson)
+	engine.GET("/cv/:cvId", handler.GetResume)
 
 	req := httptest.NewRequest("GET", "/cv/not-a-uuid", nil)
 	w := httptest.NewRecorder()
@@ -58,17 +66,18 @@ func TestGetPersonRejectsInvalidID(t *testing.T) {
 	require.Contains(t, w.Body.String(), "Invalid CV id")
 }
 
-func TestGetPersonRejectsInvalidLanguage(t *testing.T) {
+func TestGetResumeRejectsInvalidLanguage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	repo := mock.NewPersonReader()
-	handler := NewHandler(queries.NewGetPersonHandler(repo))
+	handler := NewHandler(queries.NewGetResumeHandler(stubResumeReader{}))
 	engine := gin.New()
-	engine.GET("/cv/:cvId", handler.GetPerson)
+	engine.GET("/cv/:cvId", handler.GetResume)
 
-	req := httptest.NewRequest("GET", "/cv/"+mock.PersonOneID+"?lang=de", nil)
+	req := httptest.NewRequest("GET", "/cv/"+uuid.NewString()+"?lang=de", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, 400, w.Code)
 	require.Contains(t, w.Body.String(), "Invalid language")
 }
+
+var _ queries.ResumeReader = stubResumeReader{}

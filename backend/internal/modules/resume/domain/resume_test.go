@@ -12,7 +12,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
 
-func newTestPerson(t *testing.T) *Person {
+func newTestResume(t *testing.T) *Resume {
 	t.Helper()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
@@ -25,7 +25,7 @@ func newTestPerson(t *testing.T) *Person {
 	section, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: enums.SectionAbout, Enabled: true})
 	require.NoError(t, err)
 
-	person, err := NewPerson(PersonParams{
+	resume, err := NewResume(ResumeParams{
 		ID:          id,
 		Name:        "Anton",
 		Surname:     "Sedletskii",
@@ -38,10 +38,10 @@ func newTestPerson(t *testing.T) *Person {
 		WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote},
 	})
 	require.NoError(t, err)
-	return person
+	return resume
 }
 
-func TestPersonRejectsDuplicateSections(t *testing.T) {
+func TestResumeRejectsDuplicateSections(t *testing.T) {
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
 	date, err := valueobjects.ParseDate("1998-04-12")
@@ -53,15 +53,15 @@ func TestPersonRejectsDuplicateSections(t *testing.T) {
 	contacts, err := entities.NewContacts(entities.ContactsParams{Phone: "+79999999999"})
 	require.NoError(t, err)
 
-	_, err = NewPerson(PersonParams{
+	_, err = NewResume(ResumeParams{
 		ID: id, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
 		DateOfBirth: date, Location: "Novosibirsk", Sections: []valueobjects.SectionSettings{section, section}, Contacts: contacts,
 	})
 	require.ErrorIs(t, err, ErrDuplicateEntity)
 }
 
-func TestPersonAddAndRemoveExperience(t *testing.T) {
-	person := newTestPerson(t)
+func TestResumeAddAndRemoveExperience(t *testing.T) {
+	resume := newTestResume(t)
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
 	start, err := valueobjects.ParseYearMonth("2025-01")
@@ -69,15 +69,15 @@ func TestPersonAddAndRemoveExperience(t *testing.T) {
 	experience, err := entities.NewExperience(entities.ExperienceParams{ID: id, Company: "Acme", Position: "Developer", StartDate: start})
 	require.NoError(t, err)
 
-	require.NoError(t, person.AddExperience(experience))
-	require.Len(t, person.Experience(), 1)
-	require.ErrorIs(t, person.AddExperience(experience), ErrDuplicateEntity)
-	require.NoError(t, person.RemoveExperience(id))
-	require.Empty(t, person.Experience())
-	require.ErrorIs(t, person.RemoveExperience(id), ErrEntityNotFound)
+	require.NoError(t, resume.AddExperience(experience))
+	require.Len(t, resume.Experience(), 1)
+	require.ErrorIs(t, resume.AddExperience(experience), ErrDuplicateEntity)
+	require.NoError(t, resume.RemoveExperience(id))
+	require.Empty(t, resume.Experience())
+	require.ErrorIs(t, resume.RemoveExperience(id), ErrEntityNotFound)
 }
 
-func TestPersonRejectsFutureDateOfBirth(t *testing.T) {
+func TestResumeRejectsFutureDateOfBirth(t *testing.T) {
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
 	date, err := valueobjects.NewDate(time.Now().UTC().AddDate(1, 0, 0))
@@ -87,7 +87,7 @@ func TestPersonRejectsFutureDateOfBirth(t *testing.T) {
 	contacts, err := entities.NewContacts(entities.ContactsParams{Phone: "+79999999999"})
 	require.NoError(t, err)
 
-	_, err = NewPerson(PersonParams{
+	_, err = NewResume(ResumeParams{
 		ID: id, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
 		DateOfBirth: date, Location: "Novosibirsk", Contacts: contacts,
 	})

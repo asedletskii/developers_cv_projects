@@ -13,14 +13,14 @@ import (
 )
 
 type Handler struct {
-	getPerson *queries.GetPersonHandler
+	getResume *queries.GetResumeHandler
 }
 
-func NewHandler(getPerson *queries.GetPersonHandler) *Handler {
-	return &Handler{getPerson: getPerson}
+func NewHandler(getResume *queries.GetResumeHandler) *Handler {
+	return &Handler{getResume: getResume}
 }
 
-func (h *Handler) GetPerson(c *gin.Context) {
+func (h *Handler) GetResume(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("cvId"))
 	if err != nil {
 		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid CV id"))
@@ -33,9 +33,9 @@ func (h *Handler) GetPerson(c *gin.Context) {
 		return
 	}
 
-	person, err := h.getPerson.Handle(c.Request.Context(), queries.GetPersonQuery{ID: id, Lang: lang})
+	resume, err := h.getResume.Handle(c.Request.Context(), queries.GetResumeQuery{ID: id, Lang: lang})
 	if err != nil {
-		if errors.Is(err, queries.ErrPersonNotFound) {
+		if errors.Is(err, queries.ErrResumeNotFound) {
 			writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "CV not found"))
 			return
 		}
@@ -43,7 +43,7 @@ func (h *Handler) GetPerson(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, person)
+	c.JSON(http.StatusOK, resume)
 }
 
 func writeError(c *gin.Context, err error) {

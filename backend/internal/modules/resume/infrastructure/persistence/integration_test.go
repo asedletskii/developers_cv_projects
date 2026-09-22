@@ -57,23 +57,23 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 
-	repo := repository.NewPersonRepository(gormDB)
+	repo := repository.NewResumeRepository(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
-	person := newTestPerson(t)
-	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Save(txCtx, person) }))
+	resume := newTestResume(t)
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Save(txCtx, resume) }))
 
-	loaded, err := repo.GetByID(ctx, person.ID())
+	loaded, err := repo.GetByID(ctx, resume.ID())
 	require.NoError(t, err)
-	require.Equal(t, person.ID().String(), loaded.ID().String())
-	require.Equal(t, person.Name(), loaded.Name())
+	require.Equal(t, resume.ID().String(), loaded.ID().String())
+	require.Equal(t, resume.Name(), loaded.Name())
 	require.Len(t, loaded.Experience(), 1)
 
-	readModel, err := reader.NewPersonReader(pool).GetPerson(ctx, queries.GetPersonQuery{
-		ID:   person.ID().UUID(),
+	readModel, err := reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
+		ID:   resume.ID().UUID(),
 		Lang: queries.LanguageEN,
 	})
 	require.NoError(t, err)
-	require.Equal(t, person.ID().String(), readModel.ID)
+	require.Equal(t, resume.ID().String(), readModel.ID)
 	require.Equal(t, "Hello", readModel.Greeting.First)
 	require.Equal(t, "Developer", readModel.Position)
 	require.Len(t, readModel.Experience, 1)
@@ -112,9 +112,19 @@ func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, string(content))
 	require.NoError(t, err)
+
+	content, err = os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", "000006_seed_demo_people.up.sql"))
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, string(content))
+	require.NoError(t, err)
+
+	content, err = os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", "000007_resume_terminology.up.sql"))
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, string(content))
+	require.NoError(t, err)
 }
 
-func newTestPerson(t *testing.T) *domain.Person {
+func newTestResume(t *testing.T) *domain.Resume {
 	t.Helper()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
@@ -163,8 +173,8 @@ func newTestPerson(t *testing.T) *domain.Person {
 		},
 	)
 	require.NoError(t, err)
-	person, err := domain.NewPerson(
-		domain.PersonParams{
+	resume, err := domain.NewResume(
+		domain.ResumeParams{
 			ID:          id,
 			Name:        "Test",
 			Surname:     "User",
@@ -179,5 +189,5 @@ func newTestPerson(t *testing.T) *domain.Person {
 		},
 	)
 	require.NoError(t, err)
-	return person
+	return resume
 }
