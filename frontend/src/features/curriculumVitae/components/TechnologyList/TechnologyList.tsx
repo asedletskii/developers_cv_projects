@@ -1,6 +1,6 @@
-import { Chip, Stack } from '@mui/material'
 import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
 import { Technology } from '@features/curriculumVitae/types'
+import { Chip, Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
 type Props = {

@@ -1,10 +1,10 @@
 import { SparkleField } from '@features/curriculumVitae/components/SparkleField'
 import { ContactKey, Contacts, ContactsText, SectionId } from '@features/curriculumVitae/types'
+import { getContactLinks } from '@features/curriculumVitae/utils'
 import { Stack } from '@mui/material'
 import { keyframes } from '@mui/material/styles'
 import { useTranslate } from '@shared/hooks'
 import { Actions } from './Actions'
-import { getContactLinks } from '@features/curriculumVitae/utils'
 import { Headline } from './Headline'
 
 const drift = keyframes`

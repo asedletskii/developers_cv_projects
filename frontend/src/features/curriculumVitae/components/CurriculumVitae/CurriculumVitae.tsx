@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react'
-import { Box } from '@mui/material'
 import { AccentTheme } from '@features/curriculumVitae/components/AccentTheme'
 import { ControlsBar } from '@features/curriculumVitae/components/ControlsBar'
 import { CursorGlow } from '@features/curriculumVitae/components/CursorGlow'
@@ -12,6 +11,7 @@ import { TechnologyFilterProvider } from '@features/curriculumVitae/components/T
 import { usePrintLightTheme, useScrollReveal } from '@features/curriculumVitae/hooks'
 import { getVisibleSections, SECTION_DEFINITIONS } from '@features/curriculumVitae/sections'
 import { selectPersonData } from '@features/curriculumVitae/store/curriculumVitae'
+import { Box } from '@mui/material'
 import { ScrollTrigger } from '@shared/animations'
 import { useDocumentTitle, useLanguage } from '@shared/hooks'
 import { useAppSelector } from '@shared/store'
@@ -45,26 +45,26 @@ export const CurriculumVitae = () => {
           .map(({ id }) => id)}
       >
         <TechnologyFilterProvider projects={person.projects}>
-        <Box
-          ref={containerRef}
-          sx={{ position: 'relative', isolation: 'isolate', width: '100%', overflowX: 'clip' }}
-        >
-          <ScrollProgress />
-          <ControlsBar resumeLink={person.resumeLink} />
-          <SectionNav items={navItems} />
-          <CursorGlow />
+          <Box
+            ref={containerRef}
+            sx={{ position: 'relative', isolation: 'isolate', width: '100%', overflowX: 'clip' }}
+          >
+            <ScrollProgress />
+            <ControlsBar resumeLink={person.resumeLink} />
+            <SectionNav items={navItems} />
+            <CursorGlow />
 
-          <HeroSection
-          greeting={person.greeting}
-          resumeLink={person.resumeLink}
-          availability={person.availability}
-          updatedAt={person.updatedAt}
-        />
+            <HeroSection
+              greeting={person.greeting}
+              resumeLink={person.resumeLink}
+              availability={person.availability}
+              updatedAt={person.updatedAt}
+            />
 
-          <Sections person={person} sections={sections} />
+            <Sections person={person} sections={sections} />
 
-          <FilterBar experience={person.experience} projects={person.projects} />
-        </Box>
+            <FilterBar experience={person.experience} projects={person.projects} />
+          </Box>
         </TechnologyFilterProvider>
       </SectionCollapseProvider>
     </AccentTheme>

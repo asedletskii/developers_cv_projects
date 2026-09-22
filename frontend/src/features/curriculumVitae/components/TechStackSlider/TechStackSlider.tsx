@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { Box } from '@mui/material'
 import { useTechMarquee } from '@features/curriculumVitae/hooks'
 import { Technology } from '@features/curriculumVitae/types'
+import { Box } from '@mui/material'
 import { Item } from './Item'
 
 type Props = {
@@ -21,7 +21,10 @@ export const TechStackSlider = ({ technologies }: Props) => {
     const repeats = Math.ceil(MIN_ITEMS_PER_HALF / technologies.length)
     const half = Array.from({ length: repeats }, () => technologies).flat()
 
-    return [...half.map(({ name }) => ({ name, isClone: false })), ...half.map(({ name }) => ({ name, isClone: true }))]
+    return [
+      ...half.map(({ name }) => ({ name, isClone: false })),
+      ...half.map(({ name }) => ({ name, isClone: true })),
+    ]
   }, [technologies])
 
   if (!items.length) return null

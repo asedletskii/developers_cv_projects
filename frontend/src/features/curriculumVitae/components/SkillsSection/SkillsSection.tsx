@@ -1,6 +1,6 @@
-import { Stack } from '@mui/material'
 import { Section } from '@features/curriculumVitae/components/Section'
-import { HardSkill, SoftSkill, SectionId } from '@features/curriculumVitae/types'
+import { HardSkill, SectionId, SoftSkill } from '@features/curriculumVitae/types'
+import { Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { Group } from './Group'
 

@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
-import { Container } from '@mui/material'
 import { SECTION_DEFINITIONS } from '@features/curriculumVitae/sections'
 import { Person, SectionSettings } from '@features/curriculumVitae/types'
+import { Container } from '@mui/material'
 
 type Props = {
   person: Person

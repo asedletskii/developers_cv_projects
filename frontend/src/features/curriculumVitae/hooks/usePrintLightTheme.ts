@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { flushSync } from 'react-dom'
 import { useColorMode } from '@shared/hooks'
 import { ColorMode } from '@shared/types'
+import { flushSync } from 'react-dom'
 
 /**
  * Печать всегда в светлой теме (иначе белый текст на белой бумаге): переключаем перед печатью
@@ -11,6 +11,7 @@ export const usePrintLightTheme = () => {
   const { colorMode, changeColorMode } = useColorMode()
 
   const currentModeRef = useRef(colorMode)
+  // eslint-disable-next-line react-hooks/refs
   currentModeRef.current = colorMode
 
   const modeToRestoreRef = useRef<typeof colorMode | null>(null)

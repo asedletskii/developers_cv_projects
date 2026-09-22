@@ -1,10 +1,10 @@
 import { PropsWithChildren } from 'react'
-import { Box, Stack } from '@mui/material'
 import { SectionId } from '@features/curriculumVitae/types'
+import { Box, Stack } from '@mui/material'
 import { useSectionCollapse } from '../SectionCollapseProvider'
+import { contentSx } from './constants'
 import { Header } from './Header'
 import { Panel } from './Panel'
-import { contentSx } from './constants'
 
 type Props = PropsWithChildren<{
   id: SectionId

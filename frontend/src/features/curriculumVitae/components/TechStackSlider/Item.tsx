@@ -1,5 +1,5 @@
-import { Box, ButtonBase } from '@mui/material'
 import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
+import { Box, ButtonBase } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
 type Props = {

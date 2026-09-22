@@ -1,7 +1,7 @@
 import { ContactKey } from '@features/curriculumVitae/types'
+import { ContactLink } from '@features/curriculumVitae/utils'
 import { Stack } from '@mui/material'
 import { ContactButton } from './ContactButton'
-import { ContactLink } from '@features/curriculumVitae/utils'
 
 type Props = {
   links: ContactLink[]

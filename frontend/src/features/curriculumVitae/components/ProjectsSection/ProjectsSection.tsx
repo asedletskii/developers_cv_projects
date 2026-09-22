@@ -1,6 +1,6 @@
-import { Box } from '@mui/material'
 import { Section } from '@features/curriculumVitae/components/Section'
 import { Person, SectionId } from '@features/curriculumVitae/types'
+import { Box } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { Project } from './Project'
 
