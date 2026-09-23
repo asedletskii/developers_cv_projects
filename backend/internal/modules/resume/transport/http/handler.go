@@ -7,10 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
 )
@@ -19,20 +21,24 @@ type Handler struct {
 	getResume    *queries.GetResumeHandler
 	listResumes  *queries.ListResumesHandler
 	createResume *commands.CreateResumeHandler
+	updateResume *commands.UpdateResumeHandler
+	patchResume  *commands.PatchResumeHandler
 }
 
-func NewHandler(getResume *queries.GetResumeHandler, deps ...any) *Handler {
-	var listResumes *queries.ListResumesHandler
-	var createResume *commands.CreateResumeHandler
-	for _, dep := range deps {
-		switch value := dep.(type) {
-		case *queries.ListResumesHandler:
-			listResumes = value
-		case *commands.CreateResumeHandler:
-			createResume = value
-		}
+func NewHandler(
+	getResume *queries.GetResumeHandler,
+	listResumes *queries.ListResumesHandler,
+	createResume *commands.CreateResumeHandler,
+	updateResume *commands.UpdateResumeHandler,
+	patchResume *commands.PatchResumeHandler,
+) *Handler {
+	return &Handler{
+		getResume:    getResume,
+		listResumes:  listResumes,
+		createResume: createResume,
+		updateResume: updateResume,
+		patchResume:  patchResume,
 	}
-	return &Handler{getResume: getResume, listResumes: listResumes, createResume: createResume}
 }
 
 func (h *Handler) ListResumes(c *gin.Context) {
@@ -112,6 +118,130 @@ func (h *Handler) getResumeResponse(c *gin.Context, query queries.GetResumeQuery
 	}
 
 	c.JSON(http.StatusOK, resume)
+}
+
+func (h *Handler) UpdateResume(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		writeError(c, apperrors.New(apperrors.CodeUnauthorized, http.StatusUnauthorized, "Authentication required"))
+		return
+	}
+	resumeID, err := uuid.Parse(c.Param("resumeId"))
+	if err != nil {
+		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
+		return
+	}
+	var request createResumeRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid request body"))
+		return
+	}
+	data, err := request.toCommand(userID)
+	if err != nil {
+		if isValidationError(err) {
+			writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
+			return
+		}
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	identity, err := useridentity.IDFromUUID(userID)
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	resumeIdentity, err := valueobjects.IDFromUUID(resumeID)
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	if err := h.updateResume.Handle(c.Request.Context(), commands.UpdateResumeCommand{
+		ResumeID:       resumeIdentity,
+		UserID:         identity,
+		Name:           data.Name,
+		Surname:        data.Surname,
+		Patronymic:     data.Patronymic,
+		Position:       data.Position,
+		Availability:   data.Availability,
+		ResumeLink:     data.ResumeLink,
+		Theme:          data.Theme,
+		Sections:       data.Sections,
+		HiddenContacts: data.HiddenContacts,
+		ContactsText:   data.ContactsText,
+		Greeting:       data.Greeting,
+		PhotoPath:      data.PhotoPath,
+		DateOfBirth:    data.DateOfBirth,
+		Location:       data.Location,
+		Relocation:     data.Relocation,
+		WorkFormats:    data.WorkFormats,
+		Contacts:       data.Contacts,
+		Languages:      data.Languages,
+		Experience:     data.Experience,
+		Education:      data.Education,
+		Courses:        data.Courses,
+		Activities:     data.Activities,
+		HardSkills:     data.HardSkills,
+		SoftSkills:     data.SoftSkills,
+		Technologies:   data.Technologies,
+		Projects:       data.Projects,
+	}); err != nil {
+		writeCommandError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+type patchResumeRequest struct {
+	Title *string `json:"title"`
+}
+
+func (h *Handler) PatchResume(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		writeError(c, apperrors.New(apperrors.CodeUnauthorized, http.StatusUnauthorized, "Authentication required"))
+		return
+	}
+	resumeID, err := uuid.Parse(c.Param("resumeId"))
+	if err != nil {
+		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
+		return
+	}
+	var request patchResumeRequest
+	if err := c.ShouldBindJSON(&request); err != nil || request.Title == nil {
+		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid request body"))
+		return
+	}
+	identity, err := useridentity.IDFromUUID(userID)
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	resumeIdentity, err := valueobjects.IDFromUUID(resumeID)
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	if err := h.patchResume.Handle(c.Request.Context(), commands.PatchResumeCommand{
+		ResumeID: resumeIdentity,
+		UserID:   identity,
+		Title:    *request.Title,
+	}); err != nil {
+		writeCommandError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func writeCommandError(c *gin.Context, err error) {
+	if errors.Is(err, domain.ErrEntityNotFound) {
+		writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
+		return
+	}
+	if isValidationError(err) {
+		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
+		return
+	}
+	writeError(c, apperrors.Internal(err))
 }
 
 func userIDFromUUID(id uuid.UUID) *useridentity.ID {

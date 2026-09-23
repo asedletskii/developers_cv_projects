@@ -100,3 +100,18 @@ func TestResumeRejectsFutureDateOfBirth(t *testing.T) {
 	})
 	require.Error(t, err)
 }
+
+func TestResumeRenameChangesTitleWithoutChangingPosition(t *testing.T) {
+	resume := newTestResume(t)
+	position := resume.Position()
+
+	require.NoError(t, resume.Rename("Go Backend Engineer"))
+	require.Equal(t, "Go Backend Engineer", resume.Title())
+	require.Equal(t, position, resume.Position())
+}
+
+func TestResumeRenameRejectsEmptyTitle(t *testing.T) {
+	resume := newTestResume(t)
+
+	require.ErrorIs(t, resume.Rename("   "), ErrResumeInvariant)
+}
