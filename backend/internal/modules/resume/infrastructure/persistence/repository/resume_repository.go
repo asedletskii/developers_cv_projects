@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -23,10 +26,16 @@ type ResumeRepository struct {
 
 func NewResumeRepository(db *gorm.DB) *ResumeRepository { return &ResumeRepository{db: db} }
 
-func (r *ResumeRepository) GetByID(ctx context.Context, id valueobjects.ID) (*domain.Resume, error) {
+func (r *ResumeRepository) GetByID(ctx context.Context, userID useridentity.ID, id valueobjects.ID) (*domain.Resume, error) {
 	var resumeModel gormmodel.Resume
 	db := database.DBFromContext(ctx, r.db)
-	if err := db.WithContext(ctx).First(&resumeModel, "id = ?", id.UUID()).Error; err != nil {
+	if userID.IsZero() {
+		return nil, fmt.Errorf("get resume: invalid user id")
+	}
+	if id.IsZero() {
+		return nil, fmt.Errorf("get resume: invalid resume id")
+	}
+	if err := db.WithContext(ctx).First(&resumeModel, "id = ? AND user_id = ?", id.UUID(), userID.UUID()).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}
@@ -404,6 +413,7 @@ func toResumeModel(p *domain.Resume) gormmodel.Resume {
 	now := time.Now().UTC()
 	return gormmodel.Resume{
 		ID:          p.ID().UUID(),
+		UserID:      p.UserID().UUID(),
 		Name:        p.Name(),
 		Surname:     p.Surname(),
 		Patronymic:  p.Patronymic(),
@@ -496,8 +506,13 @@ func (r *ResumeRepository) loadAggregate(
 	if err != nil {
 		return nil, err
 	}
+	userID, err := useridentity.IDFromUUID(pm.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("map resume user id: %w", err)
+	}
 	params := domain.ResumeParams{
 		ID:          id,
+		UserID:      userID,
 		Name:        pm.Name,
 		Surname:     pm.Surname,
 		Patronymic:  patronymic,

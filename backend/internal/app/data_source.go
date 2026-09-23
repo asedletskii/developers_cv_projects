@@ -2,13 +2,18 @@ package app
 
 import (
 	"context"
+	"errors"
+	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumereader "developers-cv/backend/internal/modules/resume/infrastructure/persistence/reader"
+	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
+	httpmiddleware "developers-cv/backend/internal/platform/http/middleware"
 	"developers-cv/backend/internal/platform/postgres"
 )
 
@@ -29,6 +34,19 @@ func newPostgresPool(
 
 func newResumeReader(pool *pgxpool.Pool) resumequeries.ResumeReader {
 	return resumereader.NewResumeReader(pool)
+}
+
+func newAuthenticate(authenticator *userauth.MockAuthenticator) httpmiddleware.AuthenticateFunc {
+	return func(ctx context.Context, request *http.Request) (uuid.UUID, error) {
+		userID, err := authenticator.Authenticate(ctx, request)
+		if err != nil {
+			if errors.Is(err, userauth.ErrUnauthenticated) {
+				return uuid.Nil, httpmiddleware.ErrUnauthenticated
+			}
+			return uuid.Nil, err
+		}
+		return userID, nil
+	}
 }
 
 func newHealthService(pool *pgxpool.Pool) *health.Service {

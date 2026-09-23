@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
@@ -11,7 +13,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
+	"developers-cv/backend/internal/platform/http/middleware"
 )
 
 type createResumeRequest struct {
@@ -151,7 +155,17 @@ func (h *Handler) CreateResume(c *gin.Context) {
 		return
 	}
 
-	command, err := request.toCommand()
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		writeError(c, apperrors.New(
+			apperrors.CodeUnauthorized,
+			http.StatusUnauthorized,
+			"Authentication required",
+		))
+		return
+	}
+
+	command, err := request.toCommand(userID)
 	if err != nil {
 		if isValidationError(err) {
 			writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
@@ -173,7 +187,11 @@ func (h *Handler) CreateResume(c *gin.Context) {
 	c.Status(http.StatusCreated)
 }
 
-func (r createResumeRequest) toCommand() (commands.CreateResumeCommand, error) {
+func (r createResumeRequest) toCommand(userID uuid.UUID) (commands.CreateResumeCommand, error) {
+	userIdentity, err := useridentity.IDFromUUID(userID)
+	if err != nil {
+		return commands.CreateResumeCommand{}, err
+	}
 	dateOfBirth, err := valueobjects.ParseDate(r.DateOfBirth)
 	if err != nil {
 		return commands.CreateResumeCommand{}, err
@@ -393,6 +411,7 @@ func (r createResumeRequest) toCommand() (commands.CreateResumeCommand, error) {
 	}
 
 	return commands.CreateResumeCommand{
+		UserID:         userIdentity,
 		Name:           r.Name,
 		Surname:        r.Surname,
 		Patronymic:     r.Patronymic,

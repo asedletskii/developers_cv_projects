@@ -18,7 +18,13 @@ type ResumeReader struct{ pool *pgxpool.Pool }
 
 func NewResumeReader(pool *pgxpool.Pool) *ResumeReader { return &ResumeReader{pool: pool} }
 
-func (r *ResumeReader) GetResume(ctx context.Context, query queries.GetResumeQuery) (queries.Resume, error) {
+func (r *ResumeReader) GetResume(
+	ctx context.Context,
+	query queries.GetResumeQuery,
+) (queries.Resume, error) {
+	if query.UserID.IsZero() {
+		return queries.Resume{}, fmt.Errorf("invalid user id")
+	}
 	if query.ID == uuid.Nil {
 		return queries.Resume{}, fmt.Errorf("invalid resume id")
 	}
@@ -33,7 +39,7 @@ func (r *ResumeReader) GetResume(ctx context.Context, query queries.GetResumeQue
 		activitiesJSON, hardSkillsJSON, softSkillsJSON, technologiesJSON, projectsJSON []byte
 	var greetingJSON []byte
 
-	row := r.pool.QueryRow(ctx, resumeQuerySQL, query.ID, string(query.Lang))
+	row := r.pool.QueryRow(ctx, resumeQuerySQL, query.ID, query.UserID.UUID(), string(query.Lang))
 	err := row.Scan(
 		&p.ID, &p.Name, &p.Surname, &patronymic, &p.Position, &updatedAt, &resumeLink, &p.PhotoPath,
 		&p.DateOfBirth, &p.Location, &p.Relocation, &greetingJSON, &availabilityJSON, &themeJSON,
@@ -139,15 +145,15 @@ SELECT
     p.location,
     p.relocation,
     jsonb_build_object(
-        'first', CASE WHEN $2 = 'en' THEN COALESCE(NULLIF(g.first_en, ''), g.first_ru) ELSE g.first_ru END,
-        'second', CASE WHEN $2 = 'en' THEN COALESCE(NULLIF(g.second_en, ''), g.second_ru) ELSE g.second_ru END,
-        'secondHighlight', CASE WHEN $2 = 'en' THEN COALESCE(NULLIF(g.second_highlight_en, ''), g.second_highlight_ru) ELSE g.second_highlight_ru END,
-        'third', CASE WHEN $2 = 'en' THEN COALESCE(NULLIF(g.third_en, ''), g.third_ru) ELSE g.third_ru END
+        'first', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(g.first_en, ''), g.first_ru) ELSE g.first_ru END,
+        'second', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(g.second_en, ''), g.second_ru) ELSE g.second_ru END,
+        'secondHighlight', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(g.second_highlight_en, ''), g.second_highlight_ru) ELSE g.second_highlight_ru END,
+        'third', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(g.third_en, ''), g.third_ru) ELSE g.third_ru END
     ),
     CASE WHEN a.resume_id IS NULL THEN NULL ELSE jsonb_build_object(
         'status', a.status,
         'from', CASE WHEN a.available_from IS NULL THEN NULL ELSE to_char(a.available_from, 'YYYY-MM-DD') END,
-        'note', CASE WHEN $2 = 'en' THEN COALESCE(NULLIF(a.note_en, ''), a.note_ru) ELSE a.note_ru END
+        'note', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(a.note_en, ''), a.note_ru) ELSE a.note_ru END
     ) END,
     CASE WHEN t.resume_id IS NULL THEN NULL ELSE jsonb_build_object(
         'primary', COALESCE(t.primary_color, ''),
@@ -156,8 +162,8 @@ SELECT
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id', s.section_id, 'enabled', s.enabled, 'collapsed', s.collapsed) ORDER BY s.position) FROM resume_sections s WHERE s.resume_id = p.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(h.value ORDER BY h.position) FROM resume_hidden_contacts h WHERE h.resume_id = p.id), '[]'::jsonb),
     CASE WHEN ct.resume_id IS NULL THEN NULL ELSE jsonb_build_object(
-        'title', CASE WHEN $2 = 'en' THEN COALESCE(NULLIF(ct.title_en, ''), ct.title_ru) ELSE ct.title_ru END,
-        'subtitle', CASE WHEN $2 = 'en' THEN COALESCE(NULLIF(ct.subtitle_en, ''), ct.subtitle_ru) ELSE ct.subtitle_ru END
+        'title', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(ct.title_en, ''), ct.title_ru) ELSE ct.title_ru END,
+        'subtitle', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(ct.subtitle_en, ''), ct.subtitle_ru) ELSE ct.subtitle_ru END
     ) END,
     jsonb_build_object('phone', c.phone, 'telegram', c.telegram, 'email', c.email),
     COALESCE((SELECT jsonb_agg(jsonb_build_object('language', l.language, 'grade', l.grade) ORDER BY l.position) FROM resume_languages l WHERE l.resume_id = p.id), '[]'::jsonb),
@@ -199,5 +205,5 @@ LEFT JOIN resume_availability a ON a.resume_id = p.id
 LEFT JOIN resume_themes t ON t.resume_id = p.id
 LEFT JOIN resume_contacts_text ct ON ct.resume_id = p.id
 LEFT JOIN resume_contacts c ON c.resume_id = p.id
-WHERE p.id = $1
+WHERE p.id = $1 AND p.user_id = $2
 `

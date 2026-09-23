@@ -14,12 +14,17 @@ import (
 
 type Config struct {
 	App        AppConfig
+	Auth       AuthConfig
 	HTTP       HTTPConfig
 	Log        LogConfig
 	CORS       CORSConfig
 	Telemetry  TelemetryConfig
 	Prometheus PrometheusConfig
 	Postgres   PostgresConfig
+}
+
+type AuthConfig struct {
+	Mode string
 }
 
 type AppConfig struct {
@@ -110,6 +115,10 @@ func parse() (Config, error) {
 		return Config{}, err
 	}
 	appVersion, err := envString("APP_VERSION", "dev")
+	if err != nil {
+		return Config{}, err
+	}
+	authMode, err := envString("AUTH_MODE", "mock")
 	if err != nil {
 		return Config{}, err
 	}
@@ -247,7 +256,8 @@ func parse() (Config, error) {
 	}
 
 	cfg := Config{
-		App: AppConfig{Env: appEnv, Name: appName, Version: appVersion},
+		App:  AppConfig{Env: appEnv, Name: appName, Version: appVersion},
+		Auth: AuthConfig{Mode: authMode},
 		HTTP: HTTPConfig{
 			Host:              host,
 			Port:              port,
@@ -324,6 +334,9 @@ func isValidPostgresSSLMode(value string) bool {
 }
 
 func validate(cfg Config) error {
+	if cfg.Auth.Mode != "mock" {
+		return fmt.Errorf("invalid AUTH_MODE: %q", cfg.Auth.Mode)
+	}
 	if strings.TrimSpace(cfg.Postgres.Host) == "" ||
 		strings.TrimSpace(cfg.Postgres.Database) == "" ||
 		strings.TrimSpace(cfg.Postgres.User) == "" ||

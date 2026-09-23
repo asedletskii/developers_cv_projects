@@ -14,12 +14,16 @@ import (
 	"github.com/stretchr/testify/require"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/reader"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
+	userdomain "developers-cv/backend/internal/modules/user/domain"
+	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	"developers-cv/backend/internal/platform/postgres"
 )
@@ -58,19 +62,31 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	t.Cleanup(pool.Close)
 
 	repo := repository.NewResumeRepository(gormDB)
+	userRepository := userrepository.NewUserRepository(gormDB)
+	userID := useridentity.NewID()
+	user := newTestUser(t, userID)
+	require.NoError(t, userRepository.Save(ctx, user))
 	uow := database.NewUnitOfWork(gormDB)
-	resume := newTestResume(t)
+	resume := newTestResume(t, userID)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Save(txCtx, resume) }))
 
-	loaded, err := repo.GetByID(ctx, resume.ID())
+	loaded, err := repo.GetByID(ctx, userID, resume.ID())
 	require.NoError(t, err)
 	require.Equal(t, resume.ID().String(), loaded.ID().String())
 	require.Equal(t, resume.Name(), loaded.Name())
+	require.Equal(t, userID.UUID(), loaded.UserID().UUID())
 	require.Len(t, loaded.Experience(), 1)
 
+	otherUserID := useridentity.NewID()
+	otherUser := newTestUser(t, otherUserID)
+	require.NoError(t, userRepository.Save(ctx, otherUser))
+	_, err = repo.GetByID(ctx, otherUserID, resume.ID())
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
 	readModel, err := reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
-		ID:   resume.ID().UUID(),
-		Lang: queries.LanguageEN,
+		UserID: userID,
+		ID:     resume.ID().UUID(),
+		Lang:   queries.LanguageEN,
 	})
 	require.NoError(t, err)
 	require.Equal(t, resume.ID().String(), readModel.ID)
@@ -78,6 +94,13 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, "Developer", readModel.Position)
 	require.Len(t, readModel.Experience, 1)
 	require.Equal(t, "2024-01", readModel.Experience[0].StartDate)
+
+	_, err = reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
+		UserID: otherUserID,
+		ID:     resume.ID().UUID(),
+		Lang:   queries.LanguageEN,
+	})
+	require.ErrorIs(t, err, queries.ErrResumeNotFound)
 }
 
 func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
@@ -124,7 +147,14 @@ func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 }
 
-func newTestResume(t *testing.T) *domain.Resume {
+func newTestUser(t *testing.T, userID useridentity.ID) *userdomain.User {
+	t.Helper()
+	user, err := userdomain.NewUser(userdomain.UserParams{ID: userID})
+	require.NoError(t, err)
+	return user
+}
+
+func newTestResume(t *testing.T, userID useridentity.ID) *domain.Resume {
 	t.Helper()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
@@ -176,6 +206,7 @@ func newTestResume(t *testing.T) *domain.Resume {
 	resume, err := domain.NewResume(
 		domain.ResumeParams{
 			ID:          id,
+			UserID:      userID,
 			Name:        "Test",
 			Surname:     "User",
 			Position:    "Developer",
