@@ -87,8 +87,7 @@ type ResumeLanguage struct {
 }
 
 type Technology struct {
-	Name  string  `json:"name"`
-	Grade *string `json:"grade,omitempty"`
+	Name string `json:"name"`
 }
 
 type Experience struct {

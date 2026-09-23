@@ -155,7 +155,7 @@ func (h *Handler) UpdateResume(c *gin.Context) {
 		writeError(c, apperrors.Internal(err))
 		return
 	}
-	if err := h.updateResume.Handle(c.Request.Context(), commands.UpdateResumeCommand{
+	_, err = h.updateResume.Handle(c.Request.Context(), commands.UpdateResumeCommand{
 		ResumeID:       resumeIdentity,
 		UserID:         identity,
 		Name:           data.Name,
@@ -184,11 +184,22 @@ func (h *Handler) UpdateResume(c *gin.Context) {
 		SoftSkills:     data.SoftSkills,
 		Technologies:   data.Technologies,
 		Projects:       data.Projects,
-	}); err != nil {
+	})
+	if err != nil {
 		writeCommandError(c, err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+
+	resume, err := h.getResume.Handle(c.Request.Context(), queries.GetResumeQuery{
+		UserID: &identity,
+		ID:     resumeID,
+		Lang:   queries.LanguageRU,
+	})
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	c.JSON(http.StatusOK, resume)
 }
 
 type patchResumeRequest struct {
@@ -221,15 +232,16 @@ func (h *Handler) PatchResume(c *gin.Context) {
 		writeError(c, apperrors.Internal(err))
 		return
 	}
-	if err := h.patchResume.Handle(c.Request.Context(), commands.PatchResumeCommand{
+	result, err := h.patchResume.Handle(c.Request.Context(), commands.PatchResumeCommand{
 		ResumeID: resumeIdentity,
 		UserID:   identity,
 		Title:    *request.Title,
-	}); err != nil {
+	})
+	if err != nil {
 		writeCommandError(c, err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusOK, queries.ResumeListItem{ID: result.ResumeID.String(), Title: result.Title})
 }
 
 func writeCommandError(c *gin.Context, err error) {

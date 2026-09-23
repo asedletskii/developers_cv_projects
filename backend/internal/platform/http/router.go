@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
+	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
@@ -27,6 +28,7 @@ func NewRouter(
 	healthService *health.Service,
 	metrics *telemetry.Metrics,
 	resumeHandler *resumehttp.Handler,
+	userHandler *userhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
 ) (*Router, error) {
 	if cfg.App.Env == "production" {
@@ -55,7 +57,7 @@ func NewRouter(
 	}
 
 	router := &Router{engine: engine, health: healthService, metrics: metrics}
-	router.registerRoutes(resumeHandler, authenticate)
+	router.registerRoutes(resumeHandler, userHandler, authenticate)
 	return router, nil
 }
 
@@ -63,7 +65,7 @@ func (r *Router) Handler() http.Handler {
 	return r.engine
 }
 
-func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, authenticate middleware.AuthenticateFunc) {
+func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, userHandler *userhttp.Handler, authenticate middleware.AuthenticateFunc) {
 	engine := r.engine
 	engine.GET("/health", r.healthHandler)
 	engine.GET("/ready", r.readyHandler)
@@ -71,15 +73,17 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, authenticate 
 		engine.GET("/metrics", gin.WrapH(r.metrics.Handler()))
 	}
 
-	lk := engine.Group("/lk")
+	api := engine.Group("/api/v1")
+	lk := api.Group("/lk")
 	lk.Use(middleware.Authentication(authenticate))
+	lk.GET("/profile", userHandler.GetProfile)
 	lk.GET("/resumes", resumeHandler.ListResumes)
 	lk.GET("/resume/:resumeId", resumeHandler.GetResume)
 	lk.POST("/resume", resumeHandler.CreateResume)
 	lk.PUT("/resume/:resumeId", resumeHandler.UpdateResume)
 	lk.PATCH("/resume/:resumeId", resumeHandler.PatchResume)
 
-	engine.GET("/cv/:resumeId", resumeHandler.GetPublicResume)
+	api.GET("/cv/:resumeId", resumeHandler.GetPublicResume)
 	engine.NoRoute(func(c *gin.Context) {
 		writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})

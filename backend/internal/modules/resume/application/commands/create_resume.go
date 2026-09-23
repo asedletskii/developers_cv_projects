@@ -51,22 +51,26 @@ func NewCreateResumeHandler(repository ResumeRepository, uow UnitOfWork) *Create
 	return &CreateResumeHandler{repository: repository, uow: uow}
 }
 
-func (h *CreateResumeHandler) Handle(ctx context.Context, command CreateResumeCommand) error {
+func (h *CreateResumeHandler) Handle(ctx context.Context, command CreateResumeCommand) (valueobjects.ID, error) {
 	if h == nil || h.repository == nil || h.uow == nil {
-		return fmt.Errorf("create resume handler dependencies are nil")
+		return valueobjects.ID{}, fmt.Errorf("create resume handler dependencies are nil")
 	}
 
 	if command.ID.IsZero() {
 		command.ID = valueobjects.NewID()
 	}
 
-	return h.uow.Do(ctx, func(txCtx context.Context) error {
+	err := h.uow.Do(ctx, func(txCtx context.Context) error {
 		resume, err := buildResume(command.resumeInput(), command.ID, command.UserID, "")
 		if err != nil {
 			return err
 		}
 		return h.repository.Save(txCtx, resume)
 	})
+	if err != nil {
+		return valueobjects.ID{}, err
+	}
+	return command.ID, nil
 }
 
 type resumeInput struct {
