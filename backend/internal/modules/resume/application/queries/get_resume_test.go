@@ -10,19 +10,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type fakeResumeReader struct {
+type fakeGetResumeReader struct {
 	query  GetResumeQuery
 	resume Resume
 	err    error
 }
 
-func (f *fakeResumeReader) GetResume(_ context.Context, query GetResumeQuery) (Resume, error) {
+func (f *fakeGetResumeReader) GetResume(_ context.Context, query GetResumeQuery) (Resume, error) {
 	f.query = query
 	return f.resume, f.err
 }
 
 func TestGetResumeHandlerPassesQueryObjectToReader(t *testing.T) {
-	reader := &fakeResumeReader{resume: Resume{ID: "resume-1"}}
+	reader := &fakeGetResumeReader{resume: Resume{ID: "resume-1"}}
 	handler := NewGetResumeHandler(reader)
 	id := uuid.New()
 	userID := useridentity.NewID()
@@ -36,7 +36,7 @@ func TestGetResumeHandlerPassesQueryObjectToReader(t *testing.T) {
 }
 
 func TestGetResumeHandlerAllowsPublicQuery(t *testing.T) {
-	reader := &fakeResumeReader{resume: Resume{ID: "resume-1"}}
+	reader := &fakeGetResumeReader{resume: Resume{ID: "resume-1"}}
 	handler := NewGetResumeHandler(reader)
 	query := GetResumeQuery{ID: uuid.New(), Lang: LanguageRU}
 
@@ -48,7 +48,7 @@ func TestGetResumeHandlerAllowsPublicQuery(t *testing.T) {
 }
 
 func TestGetResumeHandlerRejectsInvalidQuery(t *testing.T) {
-	reader := &fakeResumeReader{}
+	reader := &fakeGetResumeReader{}
 	handler := NewGetResumeHandler(reader)
 
 	zeroUserID := useridentity.ID{}

@@ -9,12 +9,18 @@ const (
 	LanguageEN Language = "en"
 )
 
+type ResumeListItem struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
 type Resume struct {
 	ID             string            `json:"id"`
 	Name           string            `json:"name"`
 	Surname        string            `json:"surname"`
 	Patronymic     *string           `json:"patronymic,omitempty"`
 	Position       string            `json:"position"`
+	Title          string            `json:"title"`
 	Availability   *Availability     `json:"availability,omitempty"`
 	UpdatedAt      *time.Time        `json:"updatedAt,omitempty"`
 	ResumeLink     *string           `json:"resumeLink,omitempty"`

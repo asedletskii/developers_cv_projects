@@ -42,6 +42,7 @@ func newTestResume(t *testing.T) *Resume {
 		WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote},
 	})
 	require.NoError(t, err)
+	require.Equal(t, resume.Position(), resume.Title())
 	return resume
 }
 

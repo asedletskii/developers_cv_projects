@@ -18,6 +18,7 @@ type Resume struct {
 	surname        string
 	patronymic     *string
 	position       string
+	title          string
 	availability   *valueobjects.Availability
 	resumeLink     *valueobjects.AssetPath
 	theme          *valueobjects.ThemeSettings
@@ -49,6 +50,7 @@ type ResumeParams struct {
 	Surname        string
 	Patronymic     *string
 	Position       string
+	Title          string
 	Availability   *valueobjects.Availability
 	ResumeLink     *valueobjects.AssetPath
 	Theme          *valueobjects.ThemeSettings
@@ -82,9 +84,13 @@ func NewResume(params ResumeParams) (*Resume, error) {
 	name := strings.TrimSpace(params.Name)
 	surname := strings.TrimSpace(params.Surname)
 	position := strings.TrimSpace(params.Position)
+	title := strings.TrimSpace(params.Title)
+	if title == "" {
+		title = position
+	}
 	location := strings.TrimSpace(params.Location)
 	if params.ID.IsZero() || params.UserID.IsZero() || name == "" ||
-		surname == "" || position == "" ||
+		surname == "" || position == "" || title == "" ||
 		location == "" || params.PhotoPath.IsZero() {
 		return nil, fmt.Errorf("%w: required resume fields are empty", ErrInvalidResume)
 	}
@@ -126,6 +132,7 @@ func NewResume(params ResumeParams) (*Resume, error) {
 		surname:        surname,
 		patronymic:     cloneString(params.Patronymic),
 		position:       position,
+		title:          title,
 		availability:   cloneAvailability(params.Availability),
 		resumeLink:     cloneAssetPath(params.ResumeLink),
 		theme:          cloneTheme(params.Theme),
@@ -157,6 +164,7 @@ func (p *Resume) Name() string                             { return p.name }
 func (p *Resume) Surname() string                          { return p.surname }
 func (p *Resume) Patronymic() *string                      { return cloneString(p.patronymic) }
 func (p *Resume) Position() string                         { return p.position }
+func (p *Resume) Title() string                            { return p.title }
 func (p *Resume) Availability() *valueobjects.Availability { return cloneAvailability(p.availability) }
 func (p *Resume) ResumeLink() *valueobjects.AssetPath      { return cloneAssetPath(p.resumeLink) }
 func (p *Resume) Theme() *valueobjects.ThemeSettings       { return cloneTheme(p.theme) }

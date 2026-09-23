@@ -118,9 +118,9 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
 }
 
-type routerResumeReader struct{}
+type routerGetResumeReader struct{}
 
-func (routerResumeReader) GetResume(
+func (routerGetResumeReader) GetResume(
 	_ context.Context,
 	query resumequeries.GetResumeQuery,
 ) (resumequeries.Resume, error) {
@@ -138,7 +138,7 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 		HTTP: config.HTTPConfig{},
 	}
 	log := zaptest.NewLogger(t)
-	handler := resumehttp.NewHandler(resumequeries.NewGetResumeHandler(routerResumeReader{}))
+	handler := resumehttp.NewHandler(resumequeries.NewGetResumeHandler(routerGetResumeReader{}))
 	router, err := NewRouter(
 		cfg,
 		log,

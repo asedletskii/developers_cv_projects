@@ -14,11 +14,11 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 )
 
-type ResumeReader struct{ pool *pgxpool.Pool }
+type GetResumeReader struct{ pool *pgxpool.Pool }
 
-func NewResumeReader(pool *pgxpool.Pool) *ResumeReader { return &ResumeReader{pool: pool} }
+func NewGetResumeReader(pool *pgxpool.Pool) *GetResumeReader { return &GetResumeReader{pool: pool} }
 
-func (r *ResumeReader) GetResume(
+func (r *GetResumeReader) GetResume(
 	ctx context.Context,
 	query queries.GetResumeQuery,
 ) (queries.Resume, error) {
@@ -43,7 +43,7 @@ func (r *ResumeReader) GetResume(
 
 	row := r.pool.QueryRow(ctx, resumeQuerySQL, query.ID, userID, string(query.Lang))
 	err := row.Scan(
-		&p.ID, &p.Name, &p.Surname, &patronymic, &p.Position, &updatedAt, &resumeLink, &p.PhotoPath,
+		&p.ID, &p.Name, &p.Surname, &patronymic, &p.Position, &p.Title, &updatedAt, &resumeLink, &p.PhotoPath,
 		&p.DateOfBirth, &p.Location, &p.Relocation, &greetingJSON, &availabilityJSON, &themeJSON,
 		&sectionsJSON, &hiddenJSON, &contactsTextJSON, &contactsJSON, &languagesJSON, &experienceJSON,
 		&educationJSON, &coursesJSON, &activitiesJSON, &hardSkillsJSON, &softSkillsJSON, &technologiesJSON, &projectsJSON,
@@ -140,6 +140,7 @@ SELECT
     p.surname,
     p.patronymic,
     p.position,
+    p.title,
     p.updated_at,
     p.resume_link,
     p.photo_path,

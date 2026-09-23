@@ -114,6 +114,7 @@ func TestCreateResumeHandlerValidCommand(t *testing.T) {
 	require.NotNil(t, repo.saved)
 	require.False(t, repo.saved.ID().IsZero())
 	require.Equal(t, "Test", repo.saved.Name())
+	require.Equal(t, "Developer", repo.saved.Title())
 	require.Equal(t, command.UserID.UUID(), repo.saved.UserID().UUID())
 }
 

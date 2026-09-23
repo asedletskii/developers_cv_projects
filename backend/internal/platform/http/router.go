@@ -73,6 +73,7 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, authenticate 
 
 	lk := engine.Group("/lk")
 	lk.Use(middleware.Authentication(authenticate))
+	lk.GET("/resumes", resumeHandler.ListResumes)
 	lk.GET("/resume/:resumeId", resumeHandler.GetResume)
 	lk.POST("/resume", resumeHandler.CreateResume)
 
