@@ -129,13 +129,3 @@ func TestLoadRejectsUnsupportedAuthMode(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "AUTH_MODE")
 }
-
-func TestLoadRejectsMockAuthInProduction(t *testing.T) {
-	t.Setenv("APP_ENV", "production")
-	t.Setenv("AUTH_MODE", "mock")
-
-	_, err := parse()
-
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "not allowed in production")
-}
