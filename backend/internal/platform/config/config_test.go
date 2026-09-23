@@ -114,6 +114,7 @@ func TestLoadRejectsInvalidPostgresSSLMode(t *testing.T) {
 
 func TestLoadParsesAuthMode(t *testing.T) {
 	t.Setenv("AUTH_MODE", "mock")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 
 	cfg, err := parse()
 
