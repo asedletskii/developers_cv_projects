@@ -56,8 +56,12 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, command CreateResumeCo
 		return fmt.Errorf("create resume handler dependencies are nil")
 	}
 
+	if command.ID.IsZero() {
+		command.ID = valueobjects.NewID()
+	}
+
 	return h.uow.Do(ctx, func(txCtx context.Context) error {
-		resume, err := h.buildResume(command)
+		resume, err := buildResume(command.resumeInput(), command.ID, command.UserID, "")
 		if err != nil {
 			return err
 		}
@@ -65,13 +69,55 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, command CreateResumeCo
 	})
 }
 
-func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.Resume, error) {
-	if command.ID.IsZero() {
-		command.ID = valueobjects.NewID()
-	}
+type resumeInput struct {
+	Name           string
+	Surname        string
+	Patronymic     *string
+	Position       string
+	Availability   *valueobjects.Availability
+	ResumeLink     *valueobjects.AssetPath
+	Theme          *valueobjects.ThemeSettings
+	Sections       []valueobjects.SectionSettings
+	HiddenContacts []string
+	ContactsText   *valueobjects.ContactsText
+	Greeting       valueobjects.Greeting
+	PhotoPath      valueobjects.AssetPath
+	DateOfBirth    valueobjects.Date
+	Location       string
+	Relocation     bool
+	WorkFormats    []string
+	Contacts       entities.Contacts
+	Languages      []entities.ResumeLanguageParams
+	Experience     []entities.ExperienceParams
+	Education      []entities.EducationParams
+	Courses        []entities.CourseParams
+	Activities     []entities.ActivityParams
+	HardSkills     []string
+	SoftSkills     []string
+	Technologies   []entities.TechnologyParams
+	Projects       []entities.ProjectParams
+}
 
-	languages := make([]entities.ResumeLanguage, 0, len(command.Languages))
-	for _, params := range command.Languages {
+func (c CreateResumeCommand) resumeInput() resumeInput {
+	return resumeInput{
+		Name: c.Name, Surname: c.Surname, Patronymic: c.Patronymic, Position: c.Position,
+		Availability: c.Availability, ResumeLink: c.ResumeLink, Theme: c.Theme, Sections: c.Sections,
+		HiddenContacts: c.HiddenContacts, ContactsText: c.ContactsText, Greeting: c.Greeting, PhotoPath: c.PhotoPath,
+		DateOfBirth: c.DateOfBirth, Location: c.Location, Relocation: c.Relocation, WorkFormats: c.WorkFormats,
+		Contacts: c.Contacts, Languages: c.Languages, Experience: c.Experience, Education: c.Education,
+		Courses: c.Courses, Activities: c.Activities, HardSkills: c.HardSkills, SoftSkills: c.SoftSkills,
+		Technologies: c.Technologies, Projects: c.Projects,
+	}
+}
+
+func buildResume(
+	input resumeInput,
+	id valueobjects.ID,
+	userID useridentity.ID,
+	title string,
+) (*domain.Resume, error) {
+	languages := make([]entities.ResumeLanguage, 0, len(input.Languages))
+	for _, params := range input.Languages {
 		language, err := entities.NewResumeLanguage(params)
 		if err != nil {
 			return nil, err
@@ -79,8 +125,8 @@ func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.
 		languages = append(languages, language)
 	}
 
-	experience := make([]entities.Experience, 0, len(command.Experience))
-	for _, params := range command.Experience {
+	experience := make([]entities.Experience, 0, len(input.Experience))
+	for _, params := range input.Experience {
 		if params.ID.IsZero() {
 			params.ID = valueobjects.NewID()
 		}
@@ -91,8 +137,8 @@ func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.
 		experience = append(experience, item)
 	}
 
-	education := make([]entities.Education, 0, len(command.Education))
-	for _, params := range command.Education {
+	education := make([]entities.Education, 0, len(input.Education))
+	for _, params := range input.Education {
 		if params.ID.IsZero() {
 			params.ID = valueobjects.NewID()
 		}
@@ -103,8 +149,8 @@ func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.
 		education = append(education, item)
 	}
 
-	courses := make([]entities.Course, 0, len(command.Courses))
-	for _, params := range command.Courses {
+	courses := make([]entities.Course, 0, len(input.Courses))
+	for _, params := range input.Courses {
 		if params.ID.IsZero() {
 			params.ID = valueobjects.NewID()
 		}
@@ -115,8 +161,8 @@ func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.
 		courses = append(courses, item)
 	}
 
-	activities := make([]entities.Activity, 0, len(command.Activities))
-	for _, params := range command.Activities {
+	activities := make([]entities.Activity, 0, len(input.Activities))
+	for _, params := range input.Activities {
 		if params.ID.IsZero() {
 			params.ID = valueobjects.NewID()
 		}
@@ -127,8 +173,8 @@ func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.
 		activities = append(activities, item)
 	}
 
-	technologies := make([]entities.Technology, 0, len(command.Technologies))
-	for _, params := range command.Technologies {
+	technologies := make([]entities.Technology, 0, len(input.Technologies))
+	for _, params := range input.Technologies {
 		item, err := entities.NewTechnology(params)
 		if err != nil {
 			return nil, err
@@ -136,8 +182,8 @@ func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.
 		technologies = append(technologies, item)
 	}
 
-	projects := make([]entities.Project, 0, len(command.Projects))
-	for _, params := range command.Projects {
+	projects := make([]entities.Project, 0, len(input.Projects))
+	for _, params := range input.Projects {
 		if params.ID.IsZero() {
 			params.ID = valueobjects.NewID()
 		}
@@ -148,40 +194,16 @@ func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.
 		projects = append(projects, item)
 	}
 
-	resume, err := domain.NewResume(domain.ResumeParams{
-		ID:             command.ID,
-		UserID:         command.UserID,
-		Name:           command.Name,
-		Surname:        command.Surname,
-		Patronymic:     command.Patronymic,
-		Position:       command.Position,
-		Availability:   command.Availability,
-		ResumeLink:     command.ResumeLink,
-		Theme:          command.Theme,
-		Sections:       command.Sections,
-		HiddenContacts: toContactKeys(command.HiddenContacts),
-		ContactsText:   command.ContactsText,
-		Greeting:       command.Greeting,
-		PhotoPath:      command.PhotoPath,
-		DateOfBirth:    command.DateOfBirth,
-		Location:       command.Location,
-		Relocation:     command.Relocation,
-		WorkFormats:    toWorkFormats(command.WorkFormats),
-		Contacts:       command.Contacts,
-		Languages:      languages,
-		Experience:     experience,
-		Education:      education,
-		Courses:        courses,
-		Activities:     activities,
-		HardSkills:     toHardSkills(command.HardSkills),
-		SoftSkills:     toSoftSkills(command.SoftSkills),
-		Technologies:   technologies,
-		Projects:       projects,
+	return domain.NewResume(domain.ResumeParams{
+		ID: id, UserID: userID, Name: input.Name, Surname: input.Surname, Patronymic: input.Patronymic,
+		Position: input.Position, Title: title, Availability: input.Availability, ResumeLink: input.ResumeLink,
+		Theme: input.Theme, Sections: input.Sections, HiddenContacts: toContactKeys(input.HiddenContacts),
+		ContactsText: input.ContactsText, Greeting: input.Greeting, PhotoPath: input.PhotoPath, DateOfBirth: input.DateOfBirth,
+		Location: input.Location, Relocation: input.Relocation, WorkFormats: toWorkFormats(input.WorkFormats),
+		Contacts: input.Contacts, Languages: languages, Experience: experience, Education: education, Courses: courses,
+		Activities: activities, HardSkills: toHardSkills(input.HardSkills), SoftSkills: toSoftSkills(input.SoftSkills),
+		Technologies: technologies, Projects: projects,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return resume, nil
 }
 
 func toContactKeys(values []string) []enums.ContactKey {

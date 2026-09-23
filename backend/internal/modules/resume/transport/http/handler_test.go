@@ -39,7 +39,7 @@ func TestGetResume(t *testing.T) {
 	reader := &stubGetResumeReader{
 		resume: queries.Resume{ID: id.String(), Name: "Anton Sedletskii"},
 	}
-	handler := NewHandler(queries.NewGetResumeHandler(reader))
+	handler := NewHandler(queries.NewGetResumeHandler(reader), nil, nil, nil, nil)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
@@ -62,7 +62,7 @@ func TestGetPublicResumeDoesNotRequireAuthentication(t *testing.T) {
 	reader := &stubGetResumeReader{
 		resume: queries.Resume{ID: id.String(), Name: "Anton Sedletskii"},
 	}
-	handler := NewHandler(queries.NewGetResumeHandler(reader))
+	handler := NewHandler(queries.NewGetResumeHandler(reader), nil, nil, nil, nil)
 	engine := gin.New()
 	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
@@ -77,7 +77,7 @@ func TestGetPublicResumeDoesNotRequireAuthentication(t *testing.T) {
 
 func TestGetResumeNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}), nil, nil, nil, nil)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
@@ -94,7 +94,7 @@ func TestGetResumeNotFound(t *testing.T) {
 
 func TestGetPublicResumeNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}), nil, nil, nil, nil)
 	engine := gin.New()
 	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
@@ -108,7 +108,7 @@ func TestGetPublicResumeNotFound(t *testing.T) {
 
 func TestGetResumeRejectsInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil, nil, nil)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
@@ -125,7 +125,7 @@ func TestGetResumeRejectsInvalidID(t *testing.T) {
 
 func TestGetPublicResumeRejectsInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil, nil, nil)
 	engine := gin.New()
 	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
@@ -139,7 +139,7 @@ func TestGetPublicResumeRejectsInvalidID(t *testing.T) {
 
 func TestGetResumeRejectsInvalidLanguage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil, nil, nil)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
@@ -156,7 +156,7 @@ func TestGetResumeRejectsInvalidLanguage(t *testing.T) {
 
 func TestGetPublicResumeRejectsInvalidLanguage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil, nil, nil)
 	engine := gin.New()
 	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
@@ -197,7 +197,7 @@ func TestCreateResume(t *testing.T) {
 	uow := &fakeCreateResumeUoW{}
 	createHandler := commands.NewCreateResumeHandler(repo, uow)
 	getHandler := queries.NewGetResumeHandler(&stubGetResumeReader{})
-	handler := NewHandler(getHandler, createHandler)
+	handler := NewHandler(getHandler, nil, createHandler, nil, nil)
 	engine := gin.New()
 	userID := uuid.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -241,7 +241,10 @@ func TestCreateResumeRejectsInvalidDomainInput(t *testing.T) {
 	uow := &fakeCreateResumeUoW{}
 	handler := NewHandler(
 		queries.NewGetResumeHandler(&stubGetResumeReader{}),
+		nil,
 		commands.NewCreateResumeHandler(repo, uow),
+		nil,
+		nil,
 	)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -272,7 +275,7 @@ func (r *stubListReader) ListResumes(_ context.Context, query queries.GetListRes
 func TestListResumesRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	listReader := &stubListReader{}
-	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), queries.NewListResumesHandler(listReader))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), queries.NewListResumesHandler(listReader), nil, nil, nil)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, middleware.ErrUnauthenticated
@@ -290,7 +293,7 @@ func TestListResumesReturnsOnlyCurrentUsersData(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
 	listReader := &stubListReader{items: []queries.ResumeListItem{{ID: "resume-a", Title: "Senior Go Developer"}}}
-	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), queries.NewListResumesHandler(listReader))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), queries.NewListResumesHandler(listReader), nil, nil, nil)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
@@ -305,4 +308,152 @@ func TestListResumesReturnsOnlyCurrentUsersData(t *testing.T) {
 	require.Contains(t, w.Body.String(), `"resume-a"`)
 	require.Contains(t, w.Body.String(), `"Senior Go Developer"`)
 	require.Equal(t, userID, listReader.userID.UUID())
+}
+
+type updateResumeRepositoryStub struct {
+	resume *domain.Resume
+	saved  *domain.Resume
+	err    error
+}
+
+func (r *updateResumeRepositoryStub) GetByID(_ context.Context, _ useridentity.ID, _ valueobjects.ID) (*domain.Resume, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.resume, nil
+}
+
+func (r *updateResumeRepositoryStub) Save(_ context.Context, resume *domain.Resume) error {
+	r.saved = resume
+	return nil
+}
+
+type updateResumeUoWStub struct{}
+
+func (updateResumeUoWStub) Do(ctx context.Context, fn func(context.Context) error) error {
+	return fn(ctx)
+}
+
+func TestPatchResumeHTTPChangesTitle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	resumeID, err := valueobjects.IDFromUUID(uuid.New())
+	require.NoError(t, err)
+	owner, err := useridentity.IDFromUUID(userID)
+	require.NoError(t, err)
+	resume := newHTTPTestResume(t, resumeID, owner, "Old title")
+	repo := &updateResumeRepositoryStub{resume: resume}
+	handler := NewHandler(
+		queries.NewGetResumeHandler(&stubGetResumeReader{}),
+		nil,
+		nil,
+		nil,
+		commands.NewPatchResumeHandler(repo, updateResumeUoWStub{}),
+	)
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
+	engine.PATCH("/lk/resume/:resumeId", handler.PatchResume)
+
+	req := httptest.NewRequest("PATCH", "/lk/resume/"+userIDFromID(resumeID).String(), strings.NewReader(`{"title":"New title"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, "New title", repo.saved.Title())
+	require.Equal(t, "Senior Go Developer", repo.saved.Position())
+}
+
+func TestPatchResumeHTTPRejectsForeignResume(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	resumeID, err := valueobjects.IDFromUUID(uuid.New())
+	require.NoError(t, err)
+	repo := &updateResumeRepositoryStub{resume: nil, err: domain.ErrEntityNotFound}
+	handler := NewHandler(
+		queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil, nil,
+		commands.NewPatchResumeHandler(repo, updateResumeUoWStub{}),
+	)
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
+	engine.PATCH("/lk/resume/:resumeId", handler.PatchResume)
+
+	req := httptest.NewRequest("PATCH", "/lk/resume/"+userIDFromID(resumeID).String(), strings.NewReader(`{"title":"New title"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Nil(t, repo.saved)
+}
+
+func userIDFromID(id valueobjects.ID) uuid.UUID { return id.UUID() }
+
+func newHTTPTestResume(t *testing.T, id valueobjects.ID, userID useridentity.ID, title string) *domain.Resume {
+	t.Helper()
+	date, err := valueobjects.ParseDate("1998-04-12")
+	require.NoError(t, err)
+	photo, err := valueobjects.NewAssetPath("/assets/photo.svg")
+	require.NoError(t, err)
+	resume, err := domain.NewResume(domain.ResumeParams{
+		ID: id, UserID: userID, Name: "User", Surname: "Test", Position: "Senior Go Developer", Title: title,
+		PhotoPath: photo, DateOfBirth: date, Location: "Remote",
+	})
+	require.NoError(t, err)
+	return resume
+}
+
+func TestUpdateResumeHTTPPreservesTitle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	resumeID, err := valueobjects.IDFromUUID(uuid.New())
+	require.NoError(t, err)
+	owner, err := useridentity.IDFromUUID(userID)
+	require.NoError(t, err)
+	resume := newHTTPTestResume(t, resumeID, owner, "Manual title")
+	repo := &updateResumeRepositoryStub{resume: resume}
+	handler := NewHandler(
+		queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil,
+		commands.NewUpdateResumeHandler(repo, updateResumeUoWStub{}), nil,
+	)
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
+	engine.PUT("/lk/resume/:resumeId", handler.UpdateResume)
+
+	body := `{
+		"name":"Updated",
+		"surname":"User",
+		"position":"Staff Go Developer",
+		"greeting":{"first":{"ru":"Привет","en":"Hello"},"second":{"ru":"Я","en":"I am"},"secondHighlight":{"ru":"Тест","en":"Test"},"third":{"ru":"Разработчик","en":"Developer"}},
+		"photoPath":"/assets/photo.svg",
+		"dateOfBirth":"1998-04-12",
+		"location":"Remote",
+		"contacts":{"phone":"+79999999999"}
+	}`
+	req := httptest.NewRequest("PUT", "/lk/resume/"+resumeID.UUID().String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, "Updated", repo.saved.Name())
+	require.Equal(t, "Staff Go Developer", repo.saved.Position())
+	require.Equal(t, "Manual title", repo.saved.Title())
+}
+
+func TestUpdateResumeHTTPRejectsMalformedID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewHandler(
+		queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil, nil, nil,
+	)
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return uuid.New(), nil }))
+	engine.PUT("/lk/resume/:resumeId", handler.UpdateResume)
+
+	req := httptest.NewRequest("PUT", "/lk/resume/not-a-uuid", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
 }

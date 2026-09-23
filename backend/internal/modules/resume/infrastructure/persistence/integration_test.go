@@ -122,6 +122,16 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resume.ID().String(), publicReadModel.ID)
 	require.Equal(t, "Hello", publicReadModel.Greeting.First)
+
+	require.NoError(t, resume.Rename("Go Backend Engineer"))
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Save(txCtx, resume) }))
+	patched, err := reader.NewGetResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
+		ID:   resume.ID().UUID(),
+		Lang: queries.LanguageEN,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Go Backend Engineer", patched.Title)
+	require.Equal(t, "Developer", patched.Position)
 }
 
 func applyMigrations(t *testing.T, ctx context.Context, dsn string) {

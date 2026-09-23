@@ -38,7 +38,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
@@ -138,7 +138,7 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 		HTTP: config.HTTPConfig{},
 	}
 	log := zaptest.NewLogger(t)
-	handler := resumehttp.NewHandler(resumequeries.NewGetResumeHandler(routerGetResumeReader{}))
+	handler := resumehttp.NewHandler(resumequeries.NewGetResumeHandler(routerGetResumeReader{}), nil, nil, nil, nil)
 	router, err := NewRouter(
 		cfg,
 		log,

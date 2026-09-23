@@ -49,6 +49,8 @@ func Initialize() (*Application, error) {
 		resumequeries.NewGetResumeHandler,
 		resumequeries.NewListResumesHandler,
 		resumecommands.NewCreateResumeHandler,
+		resumecommands.NewUpdateResumeHandler,
+		resumecommands.NewPatchResumeHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
 		httpserver.NewServer,

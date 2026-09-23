@@ -76,9 +76,11 @@ func Initialize() (*Application, error) {
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
+	updateResumeHandlerValue := resumecommands.NewUpdateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
+	patchResumeHandlerValue := resumecommands.NewPatchResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
 	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,

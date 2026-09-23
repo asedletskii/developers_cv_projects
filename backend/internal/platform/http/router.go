@@ -76,6 +76,8 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, authenticate 
 	lk.GET("/resumes", resumeHandler.ListResumes)
 	lk.GET("/resume/:resumeId", resumeHandler.GetResume)
 	lk.POST("/resume", resumeHandler.CreateResume)
+	lk.PUT("/resume/:resumeId", resumeHandler.UpdateResume)
+	lk.PATCH("/resume/:resumeId", resumeHandler.PatchResume)
 
 	engine.GET("/cv/:resumeId", resumeHandler.GetPublicResume)
 	engine.NoRoute(func(c *gin.Context) {
