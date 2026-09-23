@@ -32,18 +32,6 @@ func NewHandler(
 }
 
 func (h *Handler) GetResume(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("cvId"))
-	if err != nil {
-		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid CV id"))
-		return
-	}
-
-	lang := queries.Language(c.DefaultQuery("lang", string(queries.LanguageRU)))
-	if lang != queries.LanguageRU && lang != queries.LanguageEN {
-		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid language"))
-		return
-	}
-
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
 		writeError(c, apperrors.New(
@@ -54,17 +42,46 @@ func (h *Handler) GetResume(c *gin.Context) {
 		return
 	}
 
-	resume, err := h.getResume.Handle(
-		c.Request.Context(),
-		queries.GetResumeQuery{
-			UserID: userIDFromUUID(userID),
-			ID:     id,
-			Lang:   lang,
-		},
-	)
+	query, ok := buildGetResumeQuery(c, userIDFromUUID(userID))
+	if !ok {
+		return
+	}
+	h.getResumeResponse(c, query)
+}
+
+func (h *Handler) GetPublicResume(c *gin.Context) {
+	query, ok := buildGetResumeQuery(c, nil)
+	if !ok {
+		return
+	}
+	h.getResumeResponse(c, query)
+}
+
+func buildGetResumeQuery(c *gin.Context, userID *useridentity.ID) (queries.GetResumeQuery, bool) {
+	id, err := uuid.Parse(c.Param("resumeId"))
+	if err != nil {
+		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
+		return queries.GetResumeQuery{}, false
+	}
+
+	lang := queries.Language(c.DefaultQuery("lang", string(queries.LanguageRU)))
+	if lang != queries.LanguageRU && lang != queries.LanguageEN {
+		writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid language"))
+		return queries.GetResumeQuery{}, false
+	}
+
+	return queries.GetResumeQuery{
+		UserID: userID,
+		ID:     id,
+		Lang:   lang,
+	}, true
+}
+
+func (h *Handler) getResumeResponse(c *gin.Context, query queries.GetResumeQuery) {
+	resume, err := h.getResume.Handle(c.Request.Context(), query)
 	if err != nil {
 		if errors.Is(err, queries.ErrResumeNotFound) {
-			writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "CV not found"))
+			writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
 			return
 		}
 		writeError(c, apperrors.Internal(err))
@@ -74,12 +91,12 @@ func (h *Handler) GetResume(c *gin.Context) {
 	c.JSON(http.StatusOK, resume)
 }
 
-func userIDFromUUID(id uuid.UUID) useridentity.ID {
+func userIDFromUUID(id uuid.UUID) *useridentity.ID {
 	value, err := useridentity.IDFromUUID(id)
 	if err != nil {
-		return useridentity.ID{}
+		return nil
 	}
-	return value
+	return &value
 }
 
 func writeError(c *gin.Context, err error) {

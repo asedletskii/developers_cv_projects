@@ -13,7 +13,7 @@ import (
 var ErrResumeNotFound = errors.New("resume not found")
 
 type GetResumeQuery struct {
-	UserID useridentity.ID
+	UserID *useridentity.ID
 	ID     uuid.UUID
 	Lang   Language
 }
@@ -31,7 +31,7 @@ func NewGetResumeHandler(reader ResumeReader) *GetResumeHandler {
 }
 
 func (h *GetResumeHandler) Handle(ctx context.Context, query GetResumeQuery) (Resume, error) {
-	if query.UserID.IsZero() {
+	if query.UserID != nil && query.UserID.IsZero() {
 		return Resume{}, fmt.Errorf("invalid user id")
 	}
 	if query.ID == uuid.Nil {

@@ -25,7 +25,8 @@ func TestGetResumeHandlerPassesQueryObjectToReader(t *testing.T) {
 	reader := &fakeResumeReader{resume: Resume{ID: "resume-1"}}
 	handler := NewGetResumeHandler(reader)
 	id := uuid.New()
-	query := GetResumeQuery{UserID: useridentity.NewID(), ID: id, Lang: LanguageEN}
+	userID := useridentity.NewID()
+	query := GetResumeQuery{UserID: &userID, ID: id, Lang: LanguageEN}
 
 	resume, err := handler.Handle(context.Background(), query)
 
@@ -34,11 +35,27 @@ func TestGetResumeHandlerPassesQueryObjectToReader(t *testing.T) {
 	require.Equal(t, query, reader.query)
 }
 
+func TestGetResumeHandlerAllowsPublicQuery(t *testing.T) {
+	reader := &fakeResumeReader{resume: Resume{ID: "resume-1"}}
+	handler := NewGetResumeHandler(reader)
+	query := GetResumeQuery{ID: uuid.New(), Lang: LanguageRU}
+
+	resume, err := handler.Handle(context.Background(), query)
+
+	require.NoError(t, err)
+	require.Equal(t, reader.resume, resume)
+	require.Nil(t, reader.query.UserID)
+}
+
 func TestGetResumeHandlerRejectsInvalidQuery(t *testing.T) {
 	reader := &fakeResumeReader{}
 	handler := NewGetResumeHandler(reader)
 
-	_, err := handler.Handle(context.Background(), GetResumeQuery{Lang: LanguageEN})
+	zeroUserID := useridentity.ID{}
+	_, err := handler.Handle(context.Background(), GetResumeQuery{UserID: &zeroUserID, ID: uuid.New(), Lang: LanguageEN})
+	require.Error(t, err)
+
+	_, err = handler.Handle(context.Background(), GetResumeQuery{Lang: LanguageEN})
 	require.Error(t, err)
 
 	_, err = handler.Handle(context.Background(), GetResumeQuery{ID: uuid.New(), Lang: "de"})

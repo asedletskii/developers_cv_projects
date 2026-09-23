@@ -22,8 +22,10 @@ func (r *ResumeReader) GetResume(
 	ctx context.Context,
 	query queries.GetResumeQuery,
 ) (queries.Resume, error) {
-	if query.UserID.IsZero() {
-		return queries.Resume{}, fmt.Errorf("invalid user id")
+	var userID *uuid.UUID
+	if query.UserID != nil {
+		value := query.UserID.UUID()
+		userID = &value
 	}
 	if query.ID == uuid.Nil {
 		return queries.Resume{}, fmt.Errorf("invalid resume id")
@@ -39,7 +41,7 @@ func (r *ResumeReader) GetResume(
 		activitiesJSON, hardSkillsJSON, softSkillsJSON, technologiesJSON, projectsJSON []byte
 	var greetingJSON []byte
 
-	row := r.pool.QueryRow(ctx, resumeQuerySQL, query.ID, query.UserID.UUID(), string(query.Lang))
+	row := r.pool.QueryRow(ctx, resumeQuerySQL, query.ID, userID, string(query.Lang))
 	err := row.Scan(
 		&p.ID, &p.Name, &p.Surname, &patronymic, &p.Position, &updatedAt, &resumeLink, &p.PhotoPath,
 		&p.DateOfBirth, &p.Location, &p.Relocation, &greetingJSON, &availabilityJSON, &themeJSON,
@@ -205,5 +207,5 @@ LEFT JOIN resume_availability a ON a.resume_id = p.id
 LEFT JOIN resume_themes t ON t.resume_id = p.id
 LEFT JOIN resume_contacts_text ct ON ct.resume_id = p.id
 LEFT JOIN resume_contacts c ON c.resume_id = p.id
-WHERE p.id = $1 AND p.user_id = $2
+WHERE p.id = $1 AND ($2::uuid IS NULL OR p.user_id = $2)
 `

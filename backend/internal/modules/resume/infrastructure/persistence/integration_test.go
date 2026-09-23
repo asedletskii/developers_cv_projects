@@ -84,7 +84,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	readModel, err := reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
-		UserID: userID,
+		UserID: &userID,
 		ID:     resume.ID().UUID(),
 		Lang:   queries.LanguageEN,
 	})
@@ -96,11 +96,18 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, "2024-01", readModel.Experience[0].StartDate)
 
 	_, err = reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
-		UserID: otherUserID,
+		UserID: &otherUserID,
 		ID:     resume.ID().UUID(),
 		Lang:   queries.LanguageEN,
 	})
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
+	publicReadModel, err := reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
+		ID:   resume.ID().UUID(),
+		Lang: queries.LanguageEN,
+	})
+	require.NoError(t, err)
+	require.Equal(t, resume.ID().String(), publicReadModel.ID)
+	require.Equal(t, "Hello", publicReadModel.Greeting.First)
 }
 
 func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
