@@ -202,7 +202,7 @@ func TestCreateResume(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.POST("/lk/resumes", handler.CreateResume)
+	engine.POST("/lk/resume", handler.CreateResume)
 
 	body := `{
 		"name":"Test",
@@ -219,7 +219,7 @@ func TestCreateResume(t *testing.T) {
 		"location":"Remote",
 		"contacts":{"phone":"+79999999999"}
 	}`
-	req := httptest.NewRequest("POST", "/lk/resumes", strings.NewReader(body))
+	req := httptest.NewRequest("POST", "/lk/resume", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
@@ -243,10 +243,10 @@ func TestCreateResumeRejectsInvalidDomainInput(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.POST("/lk/resumes", handler.CreateResume)
+	engine.POST("/lk/resume", handler.CreateResume)
 
 	body := `{"name":"","surname":"User","position":"Developer","greeting":{"first":{"ru":"Привет","en":"Hello"},"second":{"ru":"Я","en":"I am"},"secondHighlight":{"ru":"Тест","en":"Test"},"third":{"ru":"Разработчик","en":"Developer"}},"photoPath":"/assets/photo.svg","dateOfBirth":"1998-04-12","location":"Remote","contacts":{"phone":"+79999999999"}}`
-	req := httptest.NewRequest("POST", "/lk/resumes", strings.NewReader(body))
+	req := httptest.NewRequest("POST", "/lk/resume", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
