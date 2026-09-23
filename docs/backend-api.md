@@ -4,7 +4,7 @@
 (`curriculumVitae.ts` — поля, `enums.ts` — перечисления). Пример ответа: мок
 [`curriculumVitae.mock.ts`](../src/features/curriculumVitae/api/curriculumVitae.mock.ts).
 
-## Эндпоинт
+## Эндпоинты
 
 `GET /cv/{cvId}?lang={ru|en}` → `Person`
 
@@ -20,6 +20,9 @@
 - Тексты (свободные поля) сервер отдаёт на языке `lang`. Enum-значения — только коды, подписи на фронте.
 - Публичный эндпоинт не должен отвечать `401` (клиент на 401 дёргает `/auth/refresh`).
 - CORS: конкретный origin + `Access-Control-Allow-Credentials: true` (axios с `withCredentials`).
+
+Редактирование этого же резюме (`PUT /cv/{cvId}`) и API личного кабинета — в отдельном файле,
+[`lk-api.md`](./lk-api.md).
 
 ## Person
 
@@ -120,7 +123,6 @@
 | Поле    | Тип                | |
 | ------- | ------------------ | - |
 | `name`  | string             | ✓ |
-| `grade` | `TechnologyGrade`  | — |
 
 ### Experience
 
@@ -193,7 +195,6 @@
 | `LanguageGrade`      | `A1` `A2` `B1` `B2` `C1` `C2`                                                                 |
 | `HardSkill`          | `architecture` `testing` `cicd` `performance` `accessibility` `codeReview` `uiDesign` `api`   |
 | `SoftSkill`          | `communication` `teamwork` `problemSolving` `timeManagement` `mentoring` `adaptability` `ownership` |
-| `TechnologyGrade`    | `intern` `junior` `middle` `senior`                                                           |
 | `EducationLevel`     | `0` среднее, `1` бакалавр, `2` специалист, `3` магистр, `4` аспирант, `5` кандидат наук, `6` доктор наук |
 | `ContactKey`         | `telegram` `email` `phone`                                                                    |
 | `ActivityType`       | `openSource` `hackathon` `speaker` `volunteering` `mentoring` `community`                     |
@@ -237,3 +238,8 @@ CI (`.github/workflows/ci.yml`) при пуше в `main`: собирает и �
 
 Без этих секретов джобы `docker`/`frontend-docker` (сборка и паблиш образов) всё равно отработают,
 упадёт только `deploy`.
+
+## Личный кабинет и редактирование резюме
+
+Отдельный файл — [`lk-api.md`](./lk-api.md): профиль, список резюме пользователя, переименование
+резюме и `PUT /cv/{cvId}` для полного редактирования.
