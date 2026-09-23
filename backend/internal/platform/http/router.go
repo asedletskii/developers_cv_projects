@@ -71,10 +71,12 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, authenticate 
 		engine.GET("/metrics", gin.WrapH(r.metrics.Handler()))
 	}
 
-	api := engine.Group("/api/v1")
-	api.Use(middleware.Authentication(authenticate))
-	api.GET("/cv/:cvId", resumeHandler.GetResume)
-	api.POST("/cv", resumeHandler.CreateResume)
+	lk := engine.Group("/lk")
+	lk.Use(middleware.Authentication(authenticate))
+	lk.GET("/resume/:resumeId", resumeHandler.GetResume)
+	lk.POST("/resume", resumeHandler.CreateResume)
+
+	engine.GET("/cv/:resumeId", resumeHandler.GetPublicResume)
 	engine.NoRoute(func(c *gin.Context) {
 		writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})

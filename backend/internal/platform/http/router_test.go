@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
@@ -86,7 +87,7 @@ func fakeAuthenticate(context.Context, *http.Request) (uuid.UUID, error) {
 	return uuid.New(), nil
 }
 
-func TestRouterRequiresAuthenticationForAPI(t *testing.T) {
+func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := config.Config{
 		App: config.AppConfig{Env: "test"},
@@ -109,10 +110,51 @@ func TestRouterRequiresAuthenticationForAPI(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("GET", "/api/v1/cv/10000000-0000-0000-0000-000000000001", nil)
+	req := httptest.NewRequest("GET", "/lk/resume/10000000-0000-0000-0000-000000000001", nil)
 	w := httptest.NewRecorder()
 	router.Handler().ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
+}
+
+type routerResumeReader struct{}
+
+func (routerResumeReader) GetResume(
+	_ context.Context,
+	query resumequeries.GetResumeQuery,
+) (resumequeries.Resume, error) {
+	return resumequeries.Resume{ID: query.ID.String(), Name: "Public Resume"}, nil
+}
+
+func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App: config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+		HTTP: config.HTTPConfig{},
+	}
+	log := zaptest.NewLogger(t)
+	handler := resumehttp.NewHandler(resumequeries.NewGetResumeHandler(routerResumeReader{}))
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		handler,
+		func(context.Context, *http.Request) (uuid.UUID, error) {
+			return uuid.Nil, middleware.ErrUnauthenticated
+		},
+	)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("GET", "/cv/10000000-0000-0000-0000-000000000001", nil)
+	w := httptest.NewRecorder()
+	router.Handler().ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), "Public Resume")
 }

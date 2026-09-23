@@ -44,15 +44,35 @@ func TestGetResume(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	engine.GET("/cv/:cvId", handler.GetResume)
+	engine.GET("/lk/resume/:resumeId", handler.GetResume)
+
+	req := httptest.NewRequest("GET", "/lk/resume/"+id.String()+"?lang=en", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), "Anton Sedletskii")
+	require.NotNil(t, reader.query.UserID)
+	require.Equal(t, userID, reader.query.UserID.UUID())
+}
+
+func TestGetPublicResumeDoesNotRequireAuthentication(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	id := uuid.New()
+	reader := &stubResumeReader{
+		resume: queries.Resume{ID: id.String(), Name: "Anton Sedletskii"},
+	}
+	handler := NewHandler(queries.NewGetResumeHandler(reader))
+	engine := gin.New()
+	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
 	req := httptest.NewRequest("GET", "/cv/"+id.String()+"?lang=en", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, 200, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), "Anton Sedletskii")
-	require.Equal(t, userID, reader.query.UserID.UUID())
+	require.Nil(t, reader.query.UserID)
 }
 
 func TestGetResumeNotFound(t *testing.T) {
@@ -62,14 +82,28 @@ func TestGetResumeNotFound(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.GET("/cv/:cvId", handler.GetResume)
+	engine.GET("/lk/resume/:resumeId", handler.GetResume)
+
+	req := httptest.NewRequest("GET", "/lk/resume/"+uuid.NewString(), nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Contains(t, w.Body.String(), "Resume not found")
+}
+
+func TestGetPublicResumeNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{err: queries.ErrResumeNotFound}))
+	engine := gin.New()
+	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
 	req := httptest.NewRequest("GET", "/cv/"+uuid.NewString(), nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, 404, w.Code)
-	require.Contains(t, w.Body.String(), "CV not found")
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Contains(t, w.Body.String(), "Resume not found")
 }
 
 func TestGetResumeRejectsInvalidID(t *testing.T) {
@@ -79,14 +113,28 @@ func TestGetResumeRejectsInvalidID(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.GET("/cv/:cvId", handler.GetResume)
+	engine.GET("/lk/resume/:resumeId", handler.GetResume)
+
+	req := httptest.NewRequest("GET", "/lk/resume/not-a-uuid", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "Invalid resume id")
+}
+
+func TestGetPublicResumeRejectsInvalidID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{}))
+	engine := gin.New()
+	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
 	req := httptest.NewRequest("GET", "/cv/not-a-uuid", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, 400, w.Code)
-	require.Contains(t, w.Body.String(), "Invalid CV id")
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "Invalid resume id")
 }
 
 func TestGetResumeRejectsInvalidLanguage(t *testing.T) {
@@ -96,13 +144,27 @@ func TestGetResumeRejectsInvalidLanguage(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.GET("/cv/:cvId", handler.GetResume)
+	engine.GET("/lk/resume/:resumeId", handler.GetResume)
+
+	req := httptest.NewRequest("GET", "/lk/resume/"+uuid.NewString()+"?lang=de", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "Invalid language")
+}
+
+func TestGetPublicResumeRejectsInvalidLanguage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{}))
+	engine := gin.New()
+	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
 	req := httptest.NewRequest("GET", "/cv/"+uuid.NewString()+"?lang=de", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, 400, w.Code)
+	require.Equal(t, http.StatusBadRequest, w.Code)
 	require.Contains(t, w.Body.String(), "Invalid language")
 }
 
@@ -140,7 +202,7 @@ func TestCreateResume(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.POST("/cv", handler.CreateResume)
+	engine.POST("/lk/resume", handler.CreateResume)
 
 	body := `{
 		"name":"Test",
@@ -157,7 +219,7 @@ func TestCreateResume(t *testing.T) {
 		"location":"Remote",
 		"contacts":{"phone":"+79999999999"}
 	}`
-	req := httptest.NewRequest("POST", "/cv", strings.NewReader(body))
+	req := httptest.NewRequest("POST", "/lk/resume", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
@@ -181,10 +243,10 @@ func TestCreateResumeRejectsInvalidDomainInput(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.POST("/cv", handler.CreateResume)
+	engine.POST("/lk/resume", handler.CreateResume)
 
 	body := `{"name":"","surname":"User","position":"Developer","greeting":{"first":{"ru":"Привет","en":"Hello"},"second":{"ru":"Я","en":"I am"},"secondHighlight":{"ru":"Тест","en":"Test"},"third":{"ru":"Разработчик","en":"Developer"}},"photoPath":"/assets/photo.svg","dateOfBirth":"1998-04-12","location":"Remote","contacts":{"phone":"+79999999999"}}`
-	req := httptest.NewRequest("POST", "/cv", strings.NewReader(body))
+	req := httptest.NewRequest("POST", "/lk/resume", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
