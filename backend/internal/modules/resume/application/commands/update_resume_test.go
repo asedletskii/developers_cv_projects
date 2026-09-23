@@ -65,7 +65,9 @@ func TestUpdateResumeHandlerPreservesTitleAndUsesOwnerScope(t *testing.T) {
 		Contacts:    resume.Contacts(),
 	}
 
-	require.NoError(t, handler.Handle(context.Background(), command))
+	updatedID, err := handler.Handle(context.Background(), command)
+	require.NoError(t, err)
+	require.Equal(t, id, updatedID)
 	require.NotNil(t, repo.saved)
 	require.Equal(t, "Updated", repo.saved.Name())
 	require.Equal(t, "Staff Go Developer", repo.saved.Position())
@@ -80,7 +82,7 @@ func TestUpdateResumeHandlerReturnsNotFoundForForeignResume(t *testing.T) {
 	repo := &updateRepositoryStub{err: domain.ErrEntityNotFound}
 	handler := NewUpdateResumeHandler(repo, updateUnitOfWorkStub{})
 
-	err := handler.Handle(context.Background(), UpdateResumeCommand{
+	_, err := handler.Handle(context.Background(), UpdateResumeCommand{
 		ResumeID: resume.ID(),
 		UserID:   otherUser,
 	})
@@ -98,11 +100,14 @@ func TestPatchResumeHandlerChangesOnlyTitle(t *testing.T) {
 	repo := &updateRepositoryStub{resume: resume}
 	handler := NewPatchResumeHandler(repo, updateUnitOfWorkStub{})
 
-	require.NoError(t, handler.Handle(context.Background(), PatchResumeCommand{
+	result, err := handler.Handle(context.Background(), PatchResumeCommand{
 		ResumeID: resume.ID(),
 		UserID:   owner,
 		Title:    "New title",
-	}))
+	})
+	require.NoError(t, err)
+	require.Equal(t, resume.ID(), result.ResumeID)
+	require.Equal(t, "New title", result.Title)
 	require.Equal(t, "New title", repo.saved.Title())
 	require.Equal(t, position, repo.saved.Position())
 	require.Equal(t, name, repo.saved.Name())

@@ -1,0 +1,122 @@
+package http
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
+	"developers-cv/backend/internal/modules/user/application/queries"
+	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	"developers-cv/backend/internal/platform/http/middleware"
+)
+
+type stubGetUserReader struct {
+	user   queries.User
+	err    error
+	userID valueobjects.ID
+}
+
+func (r *stubGetUserReader) GetUser(_ context.Context, query queries.GetUserQuery) (queries.User, error) {
+	r.userID = query.UserID
+	return r.user, r.err
+}
+
+func TestGetProfileReturnsAuthenticatedUserProfile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	identity, err := valueobjects.IDFromUUID(userID)
+	require.NoError(t, err)
+
+	reader := &stubGetUserReader{user: queries.User{
+		ID:         userID.String(),
+		Name:       "Антон",
+		Surname:    "Седлецкий",
+		Patronymic: stringPtr("Александрович"),
+		Position:   stringPtr("Frontend"),
+		Location:   stringPtr("Новосибирск"),
+		PhotoPath:  stringPtr("/mock/avatar.svg"),
+	}}
+	handler := NewHandler(queries.NewGetUserHandler(reader))
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.GET("/api/v1/lk/profile", handler.GetProfile)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"userId":"`+userID.String()+`"`)
+	require.Contains(t, w.Body.String(), `"name":"Антон"`)
+	require.Contains(t, w.Body.String(), `"surname":"Седлецкий"`)
+	require.Contains(t, w.Body.String(), `"position":"Frontend"`)
+	require.Equal(t, identity, reader.userID)
+}
+
+func TestGetProfileRequiresAuthentication(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewHandler(queries.NewGetUserHandler(&stubGetUserReader{}))
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return uuid.Nil, middleware.ErrUnauthenticated
+	}))
+	engine.GET("/api/v1/lk/profile", handler.GetProfile)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
+}
+
+func TestGetProfileReturnsNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewHandler(queries.NewGetUserHandler(&stubGetUserReader{err: queries.ErrUserNotFound}))
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return uuid.New(), nil
+	}))
+	engine.GET("/api/v1/lk/profile", handler.GetProfile)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Contains(t, w.Body.String(), "Profile not found")
+}
+
+func TestGetProfileHasNoUserIDInputSurface(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	reader := &stubGetUserReader{user: queries.User{
+		ID:      userID.String(),
+		Name:    "Anton",
+		Surname: "User",
+	}}
+	handler := NewHandler(queries.NewGetUserHandler(reader))
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.GET("/api/v1/lk/profile", handler.GetProfile)
+
+	foreignID := uuid.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile?userId="+foreignID.String(), nil)
+	req.Header.Set("X-Mock-User-ID", foreignID.String())
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, userID.String(), reader.userID.String())
+}
+
+func stringPtr(value string) *string { return &value }

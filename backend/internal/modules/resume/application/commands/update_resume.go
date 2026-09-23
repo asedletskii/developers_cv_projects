@@ -61,15 +61,15 @@ func NewUpdateResumeHandler(repository ResumeRepository, uow UnitOfWork) *Update
 	return &UpdateResumeHandler{repository: repository, uow: uow}
 }
 
-func (h *UpdateResumeHandler) Handle(ctx context.Context, command UpdateResumeCommand) error {
+func (h *UpdateResumeHandler) Handle(ctx context.Context, command UpdateResumeCommand) (valueobjects.ID, error) {
 	if h == nil || h.repository == nil || h.uow == nil {
-		return fmt.Errorf("update resume handler dependencies are nil")
+		return valueobjects.ID{}, fmt.Errorf("update resume handler dependencies are nil")
 	}
 	if command.ResumeID.IsZero() || command.UserID.IsZero() {
-		return fmt.Errorf("invalid update resume command")
+		return valueobjects.ID{}, fmt.Errorf("invalid update resume command")
 	}
 
-	return h.uow.Do(ctx, func(txCtx context.Context) error {
+	err := h.uow.Do(ctx, func(txCtx context.Context) error {
 		current, err := h.repository.GetByID(txCtx, command.UserID, command.ResumeID)
 		if err != nil {
 			return err
@@ -81,6 +81,10 @@ func (h *UpdateResumeHandler) Handle(ctx context.Context, command UpdateResumeCo
 		}
 		return h.repository.Save(txCtx, replacement)
 	})
+	if err != nil {
+		return valueobjects.ID{}, err
+	}
+	return command.ResumeID, nil
 }
 
 type PatchResumeCommand struct {
@@ -98,15 +102,21 @@ func NewPatchResumeHandler(repository ResumeRepository, uow UnitOfWork) *PatchRe
 	return &PatchResumeHandler{repository: repository, uow: uow}
 }
 
-func (h *PatchResumeHandler) Handle(ctx context.Context, command PatchResumeCommand) error {
+type PatchResumeResult struct {
+	ResumeID valueobjects.ID
+	Title    string
+}
+
+func (h *PatchResumeHandler) Handle(ctx context.Context, command PatchResumeCommand) (PatchResumeResult, error) {
 	if h == nil || h.repository == nil || h.uow == nil {
-		return fmt.Errorf("patch resume handler dependencies are nil")
+		return PatchResumeResult{}, fmt.Errorf("patch resume handler dependencies are nil")
 	}
 	if command.ResumeID.IsZero() || command.UserID.IsZero() {
-		return fmt.Errorf("invalid patch resume command")
+		return PatchResumeResult{}, fmt.Errorf("invalid patch resume command")
 	}
 
-	return h.uow.Do(ctx, func(txCtx context.Context) error {
+	var result PatchResumeResult
+	err := h.uow.Do(ctx, func(txCtx context.Context) error {
 		resume, err := h.repository.GetByID(txCtx, command.UserID, command.ResumeID)
 		if err != nil {
 			return err
@@ -114,6 +124,14 @@ func (h *PatchResumeHandler) Handle(ctx context.Context, command PatchResumeComm
 		if err := resume.Rename(command.Title); err != nil {
 			return err
 		}
-		return h.repository.Save(txCtx, resume)
+		if err := h.repository.Save(txCtx, resume); err != nil {
+			return err
+		}
+		result = PatchResumeResult{ResumeID: resume.ID(), Title: resume.Title()}
+		return nil
 	})
+	if err != nil {
+		return PatchResumeResult{}, err
+	}
+	return result, nil
 }

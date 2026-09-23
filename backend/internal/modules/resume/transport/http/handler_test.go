@@ -44,9 +44,9 @@ func TestGetResume(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	engine.GET("/lk/resume/:resumeId", handler.GetResume)
+	engine.GET("/api/v1/lk/resume/:resumeId", handler.GetResume)
 
-	req := httptest.NewRequest("GET", "/lk/resume/"+id.String()+"?lang=en", nil)
+	req := httptest.NewRequest("GET", "/api/v1/lk/resume/"+id.String()+"?lang=en", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -64,9 +64,9 @@ func TestGetPublicResumeDoesNotRequireAuthentication(t *testing.T) {
 	}
 	handler := NewHandler(queries.NewGetResumeHandler(reader), nil, nil, nil, nil)
 	engine := gin.New()
-	engine.GET("/cv/:resumeId", handler.GetPublicResume)
+	engine.GET("/api/v1/cv/:resumeId", handler.GetPublicResume)
 
-	req := httptest.NewRequest("GET", "/cv/"+id.String()+"?lang=en", nil)
+	req := httptest.NewRequest("GET", "/api/v1/cv/"+id.String()+"?lang=en", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -82,9 +82,9 @@ func TestGetResumeNotFound(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.GET("/lk/resume/:resumeId", handler.GetResume)
+	engine.GET("/api/v1/lk/resume/:resumeId", handler.GetResume)
 
-	req := httptest.NewRequest("GET", "/lk/resume/"+uuid.NewString(), nil)
+	req := httptest.NewRequest("GET", "/api/v1/lk/resume/"+uuid.NewString(), nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -96,9 +96,9 @@ func TestGetPublicResumeNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}), nil, nil, nil, nil)
 	engine := gin.New()
-	engine.GET("/cv/:resumeId", handler.GetPublicResume)
+	engine.GET("/api/v1/cv/:resumeId", handler.GetPublicResume)
 
-	req := httptest.NewRequest("GET", "/cv/"+uuid.NewString(), nil)
+	req := httptest.NewRequest("GET", "/api/v1/cv/"+uuid.NewString(), nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -113,9 +113,9 @@ func TestGetResumeRejectsInvalidID(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.GET("/lk/resume/:resumeId", handler.GetResume)
+	engine.GET("/api/v1/lk/resume/:resumeId", handler.GetResume)
 
-	req := httptest.NewRequest("GET", "/lk/resume/not-a-uuid", nil)
+	req := httptest.NewRequest("GET", "/api/v1/lk/resume/not-a-uuid", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -127,9 +127,9 @@ func TestGetPublicResumeRejectsInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil, nil, nil)
 	engine := gin.New()
-	engine.GET("/cv/:resumeId", handler.GetPublicResume)
+	engine.GET("/api/v1/cv/:resumeId", handler.GetPublicResume)
 
-	req := httptest.NewRequest("GET", "/cv/not-a-uuid", nil)
+	req := httptest.NewRequest("GET", "/api/v1/cv/not-a-uuid", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -144,9 +144,9 @@ func TestGetResumeRejectsInvalidLanguage(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.GET("/lk/resume/:resumeId", handler.GetResume)
+	engine.GET("/api/v1/lk/resume/:resumeId", handler.GetResume)
 
-	req := httptest.NewRequest("GET", "/lk/resume/"+uuid.NewString()+"?lang=de", nil)
+	req := httptest.NewRequest("GET", "/api/v1/lk/resume/"+uuid.NewString()+"?lang=de", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -158,9 +158,9 @@ func TestGetPublicResumeRejectsInvalidLanguage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil, nil, nil)
 	engine := gin.New()
-	engine.GET("/cv/:resumeId", handler.GetPublicResume)
+	engine.GET("/api/v1/cv/:resumeId", handler.GetPublicResume)
 
-	req := httptest.NewRequest("GET", "/cv/"+uuid.NewString()+"?lang=de", nil)
+	req := httptest.NewRequest("GET", "/api/v1/cv/"+uuid.NewString()+"?lang=de", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -196,14 +196,14 @@ func TestCreateResume(t *testing.T) {
 	repo := &fakeCreateResumeRepository{}
 	uow := &fakeCreateResumeUoW{}
 	createHandler := commands.NewCreateResumeHandler(repo, uow)
-	getHandler := queries.NewGetResumeHandler(&stubGetResumeReader{})
+	getHandler := queries.NewGetResumeHandler(&stubGetResumeReader{resume: queries.Resume{ID: "created", Name: "Test"}})
 	handler := NewHandler(getHandler, nil, createHandler, nil, nil)
 	engine := gin.New()
 	userID := uuid.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	engine.POST("/lk/resume", handler.CreateResume)
+	engine.POST("/api/v1/lk/resume", handler.CreateResume)
 
 	body := `{
 		"userId":"00000000-0000-0000-0000-000000000099",
@@ -222,12 +222,13 @@ func TestCreateResume(t *testing.T) {
 		"location":"Remote",
 		"contacts":{"phone":"+79999999999"}
 	}`
-	req := httptest.NewRequest("POST", "/lk/resume", strings.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/v1/lk/resume", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusCreated, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"id":"created"`)
 	require.Equal(t, 1, uow.calls)
 	require.NotNil(t, repo.saved)
 	require.False(t, repo.saved.ID().IsZero())
@@ -250,10 +251,10 @@ func TestCreateResumeRejectsInvalidDomainInput(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
 	}))
-	engine.POST("/lk/resume", handler.CreateResume)
+	engine.POST("/api/v1/lk/resume", handler.CreateResume)
 
 	body := `{"name":"","surname":"User","position":"Developer","greeting":{"first":{"ru":"Привет","en":"Hello"},"second":{"ru":"Я","en":"I am"},"secondHighlight":{"ru":"Тест","en":"Test"},"third":{"ru":"Разработчик","en":"Developer"}},"photoPath":"/assets/photo.svg","dateOfBirth":"1998-04-12","location":"Remote","contacts":{"phone":"+79999999999"}}`
-	req := httptest.NewRequest("POST", "/lk/resume", strings.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/v1/lk/resume", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
@@ -280,9 +281,9 @@ func TestListResumesRequiresAuthentication(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, middleware.ErrUnauthenticated
 	}))
-	engine.GET("/lk/resumes", handler.ListResumes)
+	engine.GET("/api/v1/lk/resumes", handler.ListResumes)
 
-	req := httptest.NewRequest("GET", "/lk/resumes", nil)
+	req := httptest.NewRequest("GET", "/api/v1/lk/resumes", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -298,9 +299,9 @@ func TestListResumesReturnsOnlyCurrentUsersData(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	engine.GET("/lk/resumes", handler.ListResumes)
+	engine.GET("/api/v1/lk/resumes", handler.ListResumes)
 
-	req := httptest.NewRequest("GET", "/lk/resumes", nil)
+	req := httptest.NewRequest("GET", "/api/v1/lk/resumes", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -352,14 +353,16 @@ func TestPatchResumeHTTPChangesTitle(t *testing.T) {
 	)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	engine.PATCH("/lk/resume/:resumeId", handler.PatchResume)
+	engine.PATCH("/api/v1/lk/resume/:resumeId", handler.PatchResume)
 
-	req := httptest.NewRequest("PATCH", "/lk/resume/"+userIDFromID(resumeID).String(), strings.NewReader(`{"title":"New title"}`))
+	req := httptest.NewRequest("PATCH", "/api/v1/lk/resume/"+userIDFromID(resumeID).String(), strings.NewReader(`{"title":"New title"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"id":"`+resumeID.String()+`"`)
+	require.Contains(t, w.Body.String(), `"title":"New title"`)
 	require.Equal(t, "New title", repo.saved.Title())
 	require.Equal(t, "Senior Go Developer", repo.saved.Position())
 }
@@ -376,9 +379,9 @@ func TestPatchResumeHTTPRejectsForeignResume(t *testing.T) {
 	)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	engine.PATCH("/lk/resume/:resumeId", handler.PatchResume)
+	engine.PATCH("/api/v1/lk/resume/:resumeId", handler.PatchResume)
 
-	req := httptest.NewRequest("PATCH", "/lk/resume/"+userIDFromID(resumeID).String(), strings.NewReader(`{"title":"New title"}`))
+	req := httptest.NewRequest("PATCH", "/api/v1/lk/resume/"+userIDFromID(resumeID).String(), strings.NewReader(`{"title":"New title"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
@@ -413,12 +416,12 @@ func TestUpdateResumeHTTPPreservesTitle(t *testing.T) {
 	resume := newHTTPTestResume(t, resumeID, owner, "Manual title")
 	repo := &updateResumeRepositoryStub{resume: resume}
 	handler := NewHandler(
-		queries.NewGetResumeHandler(&stubGetResumeReader{}), nil, nil,
+		queries.NewGetResumeHandler(&stubGetResumeReader{resume: queries.Resume{ID: resumeID.String(), Name: "Updated"}}), nil, nil,
 		commands.NewUpdateResumeHandler(repo, updateResumeUoWStub{}), nil,
 	)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	engine.PUT("/lk/resume/:resumeId", handler.UpdateResume)
+	engine.PUT("/api/v1/lk/resume/:resumeId", handler.UpdateResume)
 
 	body := `{
 		"name":"Updated",
@@ -430,12 +433,13 @@ func TestUpdateResumeHTTPPreservesTitle(t *testing.T) {
 		"location":"Remote",
 		"contacts":{"phone":"+79999999999"}
 	}`
-	req := httptest.NewRequest("PUT", "/lk/resume/"+resumeID.UUID().String(), strings.NewReader(body))
+	req := httptest.NewRequest("PUT", "/api/v1/lk/resume/"+resumeID.UUID().String(), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"id":"`+resumeID.String()+`"`)
 	require.Equal(t, "Updated", repo.saved.Name())
 	require.Equal(t, "Staff Go Developer", repo.saved.Position())
 	require.Equal(t, "Manual title", repo.saved.Title())
@@ -448,9 +452,9 @@ func TestUpdateResumeHTTPRejectsMalformedID(t *testing.T) {
 	)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return uuid.New(), nil }))
-	engine.PUT("/lk/resume/:resumeId", handler.UpdateResume)
+	engine.PUT("/api/v1/lk/resume/:resumeId", handler.UpdateResume)
 
-	req := httptest.NewRequest("PUT", "/lk/resume/not-a-uuid", strings.NewReader(`{}`))
+	req := httptest.NewRequest("PUT", "/api/v1/lk/resume/not-a-uuid", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)

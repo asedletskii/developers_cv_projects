@@ -106,13 +106,14 @@ func TestCreateResumeHandlerValidCommand(t *testing.T) {
 	h := NewCreateResumeHandler(repo, uow)
 
 	command := validCreateCommand(t)
-	err := h.Handle(context.Background(), command)
+	id, err := h.Handle(context.Background(), command)
 
 	require.NoError(t, err)
 	require.Equal(t, 1, uow.calls)
 	require.Equal(t, 1, repo.calls)
 	require.NotNil(t, repo.saved)
 	require.False(t, repo.saved.ID().IsZero())
+	require.Equal(t, repo.saved.ID(), id)
 	require.Equal(t, "Test", repo.saved.Name())
 	require.Equal(t, "Developer", repo.saved.Title())
 	require.Equal(t, command.UserID.UUID(), repo.saved.UserID().UUID())
@@ -125,7 +126,7 @@ func TestCreateResumeHandlerDomainValidationDoesNotSave(t *testing.T) {
 	command := validCreateCommand(t)
 	command.Name = ""
 
-	err := h.Handle(context.Background(), command)
+	_, err := h.Handle(context.Background(), command)
 
 	require.Error(t, err)
 	require.Equal(t, 0, repo.calls)
@@ -137,7 +138,7 @@ func TestCreateResumeHandlerRepositoryError(t *testing.T) {
 	uow := &fakeUnitOfWork{}
 	h := NewCreateResumeHandler(repo, uow)
 
-	err := h.Handle(context.Background(), validCreateCommand(t))
+	_, err := h.Handle(context.Background(), validCreateCommand(t))
 
 	require.ErrorIs(t, err, repoErr)
 	require.Equal(t, 1, repo.calls)
@@ -149,7 +150,7 @@ func TestCreateResumeHandlerUnitOfWorkError(t *testing.T) {
 	uow := &fakeUnitOfWork{err: uowErr}
 	h := NewCreateResumeHandler(repo, uow)
 
-	err := h.Handle(context.Background(), validCreateCommand(t))
+	_, err := h.Handle(context.Background(), validCreateCommand(t))
 
 	require.ErrorIs(t, err, uowErr)
 	require.Equal(t, 0, repo.calls)
@@ -161,7 +162,8 @@ func TestCreateResumeHandlerPassesAggregateToRepository(t *testing.T) {
 	h := NewCreateResumeHandler(repo, uow)
 	command := validCreateCommand(t)
 
-	require.NoError(t, h.Handle(context.Background(), command))
+	_, err := h.Handle(context.Background(), command)
+	require.NoError(t, err)
 	require.NotNil(t, repo.saved)
 	require.Equal(t, "Test", repo.saved.Name())
 	require.Equal(t, command.UserID.UUID(), repo.saved.UserID().UUID())

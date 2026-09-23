@@ -13,6 +13,8 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
+	userqueries "developers-cv/backend/internal/modules/user/application/queries"
+	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
 	"developers-cv/backend/internal/platform/http/middleware"
@@ -39,6 +41,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(nil, nil, nil, nil, nil),
+		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -71,6 +74,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(nil, nil, nil, nil, nil),
+		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -104,13 +108,14 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(nil, nil, nil, nil, nil),
+		userhttp.NewHandler(nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
 	)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("GET", "/lk/resume/10000000-0000-0000-0000-000000000001", nil)
+	req := httptest.NewRequest("GET", "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001", nil)
 	w := httptest.NewRecorder()
 	router.Handler().ServeHTTP(w, req)
 
@@ -145,16 +150,97 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 		health.NewService(),
 		nil,
 		handler,
+		userhttp.NewHandler(nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
 	)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("GET", "/cv/10000000-0000-0000-0000-000000000001", nil)
+	req := httptest.NewRequest("GET", "/api/v1/cv/10000000-0000-0000-0000-000000000001", nil)
 	w := httptest.NewRecorder()
 	router.Handler().ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), "Public Resume")
+}
+
+type routerGetUserReader struct{}
+
+func (routerGetUserReader) GetUser(_ context.Context, query userqueries.GetUserQuery) (userqueries.User, error) {
+	return userqueries.User{
+		ID:      query.UserID.String(),
+		Name:    "Anton",
+		Surname: "User",
+	}, nil
+}
+
+func TestRouterRegistersProfileRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App: config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+		HTTP: config.HTTPConfig{},
+	}
+	log := zaptest.NewLogger(t)
+	userID := uuid.New()
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(nil, nil, nil, nil, nil),
+		userhttp.NewHandler(userqueries.NewGetUserHandler(routerGetUserReader{})),
+		func(context.Context, *http.Request) (uuid.UUID, error) {
+			return userID, nil
+		},
+	)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
+	w := httptest.NewRecorder()
+	router.Handler().ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"userId":"`+userID.String()+`"`)
+}
+
+func TestRouterDoesNotExposePrivateCVOrDeleteRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App: config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+		HTTP: config.HTTPConfig{},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(nil, nil, nil, nil, nil),
+		userhttp.NewHandler(nil),
+		fakeAuthenticate,
+	)
+	require.NoError(t, err)
+
+	for _, methodPath := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/cv/10000000-0000-0000-0000-000000000001"},
+		{method: http.MethodDelete, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001"},
+		{method: http.MethodGet, path: "/api/v1/me"},
+	} {
+		req := httptest.NewRequest(methodPath.method, methodPath.path, nil)
+		w := httptest.NewRecorder()
+		router.Handler().ServeHTTP(w, req)
+		require.Equal(t, http.StatusNotFound, w.Code, methodPath.method+" "+methodPath.path)
+	}
 }

@@ -10,7 +10,9 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumereader "developers-cv/backend/internal/modules/resume/infrastructure/persistence/reader"
+	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
+	userreader "developers-cv/backend/internal/modules/user/infrastructure/persistence/reader"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
 	httpmiddleware "developers-cv/backend/internal/platform/http/middleware"
@@ -38,6 +40,10 @@ func newGetResumeReader(pool *pgxpool.Pool) resumequeries.GetResumeReader {
 
 func newListResumesReader(pool *pgxpool.Pool) resumequeries.ListResumesReader {
 	return resumereader.NewListResumesReader(pool)
+}
+
+func newGetUserReader(pool *pgxpool.Pool) userqueries.GetUserReader {
+	return userreader.NewGetUserReader(pool)
 }
 
 func newAuthenticate(authenticator *userauth.MockAuthenticator) httpmiddleware.AuthenticateFunc {

@@ -12,8 +12,10 @@ import (
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
 	userapplication "developers-cv/backend/internal/modules/user/application"
+	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
+	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/database"
 	httpserver "developers-cv/backend/internal/platform/http"
@@ -71,6 +73,7 @@ func Initialize() (*Application, error) {
 	listResumesReaderValue := newListResumesReader(poolValue)
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
 	userRepositoryValue := userrepository.NewUserRepository(gormDBValue)
+	getUserReaderValue := newGetUserReader(poolValue)
 	var userRepository userapplication.UserRepository = userRepositoryValue
 	mockAuthenticatorValue := userauth.NewMockAuthenticator(userRepository)
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
@@ -80,6 +83,8 @@ func Initialize() (*Application, error) {
 	patchResumeHandlerValue := resumecommands.NewPatchResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
 	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
+	getUserHandlerValue := userqueries.NewGetUserHandler(getUserReaderValue)
+	userHandlerValue := userhttp.NewHandler(getUserHandlerValue)
 	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
@@ -88,6 +93,7 @@ func Initialize() (*Application, error) {
 		healthValue,
 		metricsValue,
 		resumeHandlerValue,
+		userHandlerValue,
 		authenticateValue,
 	)
 	if err != nil {

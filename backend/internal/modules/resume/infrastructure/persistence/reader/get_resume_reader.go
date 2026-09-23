@@ -179,7 +179,7 @@ SELECT
         'endDate', CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END,
         'description', e.description,
         'achievements', COALESCE((SELECT jsonb_agg(a.value ORDER BY a.position) FROM experience_achievements a WHERE a.experience_id = e.id), '[]'::jsonb),
-        'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', x.name, 'grade', x.grade) ORDER BY x.position) FROM experience_technologies x WHERE x.experience_id = e.id), '[]'::jsonb)
+        'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', x.name) ORDER BY x.position) FROM experience_technologies x WHERE x.experience_id = e.id), '[]'::jsonb)
     ) ORDER BY e.position) FROM experiences e WHERE e.resume_id = p.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'id', e.id::text, 'location', e.location, 'university', e.university, 'grade', e.grade,
@@ -196,10 +196,10 @@ SELECT
     ) ORDER BY a1.position) FROM activities a1 WHERE a1.resume_id = p.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(h.value ORDER BY h.position) FROM resume_hard_skills h WHERE h.resume_id = p.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(s.value ORDER BY s.position) FROM resume_soft_skills s WHERE s.resume_id = p.id), '[]'::jsonb),
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t1.name, 'grade', t1.grade) ORDER BY t1.position) FROM resume_technologies t1 WHERE t1.resume_id = p.id), '[]'::jsonb),
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t1.name) ORDER BY t1.position) FROM resume_technologies t1 WHERE t1.resume_id = p.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'id', pr.id::text, 'name', pr.name, 'description', pr.description,
-        'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', pt.name, 'grade', pt.grade) ORDER BY pt.position) FROM project_technologies pt WHERE pt.project_id = pr.id), '[]'::jsonb),
+        'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', pt.name) ORDER BY pt.position) FROM project_technologies pt WHERE pt.project_id = pr.id), '[]'::jsonb),
         'link', pr.link
     ) ORDER BY pr.position) FROM projects pr WHERE pr.resume_id = p.id), '[]'::jsonb)
 FROM resumes p

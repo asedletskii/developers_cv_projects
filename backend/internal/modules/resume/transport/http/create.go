@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
@@ -81,8 +82,7 @@ type createContacts struct {
 	Email    *string `json:"email,omitempty"`
 }
 type createTechnology struct {
-	Name  string  `json:"name"`
-	Grade *string `json:"grade,omitempty"`
+	Name string `json:"name"`
 }
 type createLanguage struct {
 	Language string  `json:"language"`
@@ -175,7 +175,8 @@ func (h *Handler) CreateResume(c *gin.Context) {
 		return
 	}
 
-	if err := h.createResume.Handle(c.Request.Context(), command); err != nil {
+	resumeID, err := h.createResume.Handle(c.Request.Context(), command)
+	if err != nil {
 		if isValidationError(err) {
 			writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
 			return
@@ -184,7 +185,21 @@ func (h *Handler) CreateResume(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusCreated)
+	identity, err := useridentity.IDFromUUID(userID)
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	resume, err := h.getResume.Handle(c.Request.Context(), queries.GetResumeQuery{
+		UserID: &identity,
+		ID:     resumeID.UUID(),
+		Lang:   queries.LanguageRU,
+	})
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	c.JSON(http.StatusOK, resume)
 }
 
 func (r createResumeRequest) toCommand(userID uuid.UUID) (commands.CreateResumeCommand, error) {
@@ -592,12 +607,7 @@ func newContacts(v createContacts) (entities.Contacts, error) {
 func newTechnologies(values []createTechnology) ([]entities.Technology, error) {
 	result := make([]entities.Technology, 0, len(values))
 	for _, v := range values {
-		var grade *enums.TechnologyGrade
-		if v.Grade != nil {
-			x := enums.TechnologyGrade(*v.Grade)
-			grade = &x
-		}
-		t, e := entities.NewTechnology(entities.TechnologyParams{Name: v.Name, Grade: grade})
+		t, e := entities.NewTechnology(entities.TechnologyParams{Name: v.Name})
 		if e != nil {
 			return nil, e
 		}
@@ -608,12 +618,7 @@ func newTechnologies(values []createTechnology) ([]entities.Technology, error) {
 func newTechnologyParams(values []createTechnology) ([]entities.TechnologyParams, error) {
 	result := make([]entities.TechnologyParams, 0, len(values))
 	for _, v := range values {
-		var grade *enums.TechnologyGrade
-		if v.Grade != nil {
-			x := enums.TechnologyGrade(*v.Grade)
-			grade = &x
-		}
-		result = append(result, entities.TechnologyParams{Name: v.Name, Grade: grade})
+		result = append(result, entities.TechnologyParams{Name: v.Name})
 	}
 	return result, nil
 }
