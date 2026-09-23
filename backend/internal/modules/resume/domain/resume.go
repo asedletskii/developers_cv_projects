@@ -8,10 +8,12 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
 type Resume struct {
 	id             valueobjects.ID
+	userID         useridentity.ID
 	name           string
 	surname        string
 	patronymic     *string
@@ -42,6 +44,7 @@ type Resume struct {
 
 type ResumeParams struct {
 	ID             valueobjects.ID
+	UserID         useridentity.ID
 	Name           string
 	Surname        string
 	Patronymic     *string
@@ -80,7 +83,7 @@ func NewResume(params ResumeParams) (*Resume, error) {
 	surname := strings.TrimSpace(params.Surname)
 	position := strings.TrimSpace(params.Position)
 	location := strings.TrimSpace(params.Location)
-	if params.ID.IsZero() || name == "" ||
+	if params.ID.IsZero() || params.UserID.IsZero() || name == "" ||
 		surname == "" || position == "" ||
 		location == "" || params.PhotoPath.IsZero() {
 		return nil, fmt.Errorf("%w: required resume fields are empty", ErrInvalidResume)
@@ -118,6 +121,7 @@ func NewResume(params ResumeParams) (*Resume, error) {
 
 	return &Resume{
 		id:             params.ID,
+		userID:         params.UserID,
 		name:           name,
 		surname:        surname,
 		patronymic:     cloneString(params.Patronymic),
@@ -148,6 +152,7 @@ func NewResume(params ResumeParams) (*Resume, error) {
 }
 
 func (p *Resume) ID() valueobjects.ID                      { return p.id }
+func (p *Resume) UserID() useridentity.ID                  { return p.userID }
 func (p *Resume) Name() string                             { return p.name }
 func (p *Resume) Surname() string                          { return p.surname }
 func (p *Resume) Patronymic() *string                      { return cloneString(p.patronymic) }

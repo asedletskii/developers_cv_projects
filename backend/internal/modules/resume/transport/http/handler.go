@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
@@ -42,7 +44,24 @@ func (h *Handler) GetResume(c *gin.Context) {
 		return
 	}
 
-	resume, err := h.getResume.Handle(c.Request.Context(), queries.GetResumeQuery{ID: id, Lang: lang})
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		writeError(c, apperrors.New(
+			apperrors.CodeUnauthorized,
+			http.StatusUnauthorized,
+			"Authentication required",
+		))
+		return
+	}
+
+	resume, err := h.getResume.Handle(
+		c.Request.Context(),
+		queries.GetResumeQuery{
+			UserID: userIDFromUUID(userID),
+			ID:     id,
+			Lang:   lang,
+		},
+	)
 	if err != nil {
 		if errors.Is(err, queries.ErrResumeNotFound) {
 			writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "CV not found"))
@@ -53,6 +72,14 @@ func (h *Handler) GetResume(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resume)
+}
+
+func userIDFromUUID(id uuid.UUID) useridentity.ID {
+	value, err := useridentity.IDFromUUID(id)
+	if err != nil {
+		return useridentity.ID{}
+	}
+	return value
 }
 
 func writeError(c *gin.Context, err error) {

@@ -10,6 +10,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
 type fakeResumeRepository struct {
@@ -18,7 +19,7 @@ type fakeResumeRepository struct {
 	calls int
 }
 
-func (f *fakeResumeRepository) GetByID(context.Context, valueobjects.ID) (*domain.Resume, error) {
+func (f *fakeResumeRepository) GetByID(context.Context, useridentity.ID, valueobjects.ID) (*domain.Resume, error) {
 	return nil, nil
 }
 func (f *fakeResumeRepository) Save(_ context.Context, resume *domain.Resume) error {
@@ -85,7 +86,9 @@ func validCreateCommand(t *testing.T) CreateResumeCommand {
 	)
 	contacts, err := entities.NewContacts(entities.ContactsParams{Phone: "+79999999999"})
 	require.NoError(t, err)
+	userID := useridentity.NewID()
 	return CreateResumeCommand{
+		UserID:      userID,
 		Name:        "Test",
 		Surname:     "User",
 		Position:    "Developer",
@@ -102,7 +105,8 @@ func TestCreateResumeHandlerValidCommand(t *testing.T) {
 	uow := &fakeUnitOfWork{}
 	h := NewCreateResumeHandler(repo, uow)
 
-	err := h.Handle(context.Background(), validCreateCommand(t))
+	command := validCreateCommand(t)
+	err := h.Handle(context.Background(), command)
 
 	require.NoError(t, err)
 	require.Equal(t, 1, uow.calls)
@@ -110,6 +114,7 @@ func TestCreateResumeHandlerValidCommand(t *testing.T) {
 	require.NotNil(t, repo.saved)
 	require.False(t, repo.saved.ID().IsZero())
 	require.Equal(t, "Test", repo.saved.Name())
+	require.Equal(t, command.UserID.UUID(), repo.saved.UserID().UUID())
 }
 
 func TestCreateResumeHandlerDomainValidationDoesNotSave(t *testing.T) {
@@ -153,10 +158,12 @@ func TestCreateResumeHandlerPassesAggregateToRepository(t *testing.T) {
 	repo := &fakeResumeRepository{}
 	uow := &fakeUnitOfWork{}
 	h := NewCreateResumeHandler(repo, uow)
+	command := validCreateCommand(t)
 
-	require.NoError(t, h.Handle(context.Background(), validCreateCommand(t)))
+	require.NoError(t, h.Handle(context.Background(), command))
 	require.NotNil(t, repo.saved)
 	require.Equal(t, "Test", repo.saved.Name())
+	require.Equal(t, command.UserID.UUID(), repo.saved.UserID().UUID())
 }
 
 var _ ResumeRepository = (*fakeResumeRepository)(nil)

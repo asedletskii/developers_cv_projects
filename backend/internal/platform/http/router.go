@@ -27,6 +27,7 @@ func NewRouter(
 	healthService *health.Service,
 	metrics *telemetry.Metrics,
 	resumeHandler *resumehttp.Handler,
+	authenticate middleware.AuthenticateFunc,
 ) (*Router, error) {
 	if cfg.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -54,7 +55,7 @@ func NewRouter(
 	}
 
 	router := &Router{engine: engine, health: healthService, metrics: metrics}
-	router.registerRoutes(resumeHandler)
+	router.registerRoutes(resumeHandler, authenticate)
 	return router, nil
 }
 
@@ -62,7 +63,7 @@ func (r *Router) Handler() http.Handler {
 	return r.engine
 }
 
-func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler) {
+func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, authenticate middleware.AuthenticateFunc) {
 	engine := r.engine
 	engine.GET("/health", r.healthHandler)
 	engine.GET("/ready", r.readyHandler)
@@ -71,6 +72,7 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler) {
 	}
 
 	api := engine.Group("/api/v1")
+	api.Use(middleware.Authentication(authenticate))
 	api.GET("/cv/:cvId", resumeHandler.GetResume)
 	api.POST("/cv", resumeHandler.CreateResume)
 	engine.NoRoute(func(c *gin.Context) {

@@ -8,6 +8,7 @@ import (
 
 type Resume struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID      uuid.UUID `gorm:"type:uuid;not null;index"`
 	Name        string    `gorm:"not null"`
 	Surname     string    `gorm:"not null"`
 	Patronymic  *string

@@ -111,3 +111,31 @@ func TestLoadRejectsInvalidPostgresSSLMode(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "POSTGRES_SSLMODE")
 }
+
+func TestLoadParsesAuthMode(t *testing.T) {
+	t.Setenv("AUTH_MODE", "mock")
+
+	cfg, err := parse()
+
+	require.NoError(t, err)
+	require.Equal(t, "mock", cfg.Auth.Mode)
+}
+
+func TestLoadRejectsUnsupportedAuthMode(t *testing.T) {
+	t.Setenv("AUTH_MODE", "jwt")
+
+	_, err := parse()
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "AUTH_MODE")
+}
+
+func TestLoadRejectsMockAuthInProduction(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("AUTH_MODE", "mock")
+
+	_, err := parse()
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not allowed in production")
+}

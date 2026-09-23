@@ -8,10 +8,12 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
 type CreateResumeCommand struct {
 	ID             valueobjects.ID
+	UserID         useridentity.ID
 	Name           string
 	Surname        string
 	Patronymic     *string
@@ -148,6 +150,7 @@ func (h *CreateResumeHandler) buildResume(command CreateResumeCommand) (*domain.
 
 	resume, err := domain.NewResume(domain.ResumeParams{
 		ID:             command.ID,
+		UserID:         command.UserID,
 		Name:           command.Name,
 		Surname:        command.Surname,
 		Patronymic:     command.Patronymic,

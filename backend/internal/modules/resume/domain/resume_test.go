@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -16,6 +18,7 @@ func newTestResume(t *testing.T) *Resume {
 	t.Helper()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
+	userID := useridentity.NewID()
 	date, err := valueobjects.ParseDate("1998-04-12")
 	require.NoError(t, err)
 	photoPath, err := valueobjects.NewAssetPath("/mock/avatar.svg")
@@ -27,6 +30,7 @@ func newTestResume(t *testing.T) *Resume {
 
 	resume, err := NewResume(ResumeParams{
 		ID:          id,
+		UserID:      userID,
 		Name:        "Anton",
 		Surname:     "Sedletskii",
 		Position:    "Frontend",
@@ -42,6 +46,7 @@ func newTestResume(t *testing.T) *Resume {
 }
 
 func TestResumeRejectsDuplicateSections(t *testing.T) {
+	userID := useridentity.NewID()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
 	date, err := valueobjects.ParseDate("1998-04-12")
@@ -54,7 +59,7 @@ func TestResumeRejectsDuplicateSections(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = NewResume(ResumeParams{
-		ID: id, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
+		ID: id, UserID: userID, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
 		DateOfBirth: date, Location: "Novosibirsk", Sections: []valueobjects.SectionSettings{section, section}, Contacts: contacts,
 	})
 	require.ErrorIs(t, err, ErrDuplicateEntity)
@@ -78,6 +83,7 @@ func TestResumeAddAndRemoveExperience(t *testing.T) {
 }
 
 func TestResumeRejectsFutureDateOfBirth(t *testing.T) {
+	userID := useridentity.NewID()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
 	date, err := valueobjects.NewDate(time.Now().UTC().AddDate(1, 0, 0))
@@ -88,7 +94,7 @@ func TestResumeRejectsFutureDateOfBirth(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = NewResume(ResumeParams{
-		ID: id, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
+		ID: id, UserID: userID, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
 		DateOfBirth: date, Location: "Novosibirsk", Contacts: contacts,
 	})
 	require.Error(t, err)

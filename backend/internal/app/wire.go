@@ -12,6 +12,9 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
+	userapplication "developers-cv/backend/internal/modules/user/application"
+	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
+	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/database"
@@ -38,7 +41,12 @@ func Initialize() (*Application, error) {
 		resumerepository.NewResumeRepository,
 		wire.Bind(new(resumecommands.ResumeRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
+		userrepository.NewUserRepository,
+		wire.Bind(new(userapplication.UserRepository), new(*userrepository.UserRepository)),
+		userauth.NewMockAuthenticator,
+		newAuthenticate,
 		resumequeries.NewGetResumeHandler,
+		resumecommands.NewCreateResumeHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
 		httpserver.NewServer,

@@ -1,16 +1,20 @@
 package http
 
 import (
+	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
+	"developers-cv/backend/internal/platform/http/middleware"
 )
 
 func TestRouterHealthAndRequestID(t *testing.T) {
@@ -34,6 +38,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(nil),
+		fakeAuthenticate,
 	)
 	require.NoError(t, err)
 
@@ -65,6 +70,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(nil),
+		fakeAuthenticate,
 	)
 	require.NoError(t, err)
 
@@ -74,4 +80,39 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 
 	require.Equal(t, 404, w.Code)
 	require.Contains(t, w.Body.String(), "NOT_FOUND")
+}
+
+func fakeAuthenticate(context.Context, *http.Request) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
+func TestRouterRequiresAuthenticationForAPI(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App: config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+		HTTP: config.HTTPConfig{},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(nil),
+		func(context.Context, *http.Request) (uuid.UUID, error) {
+			return uuid.Nil, middleware.ErrUnauthenticated
+		},
+	)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("GET", "/api/v1/cv/10000000-0000-0000-0000-000000000001", nil)
+	w := httptest.NewRecorder()
+	router.Handler().ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
 }

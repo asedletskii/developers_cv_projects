@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +25,7 @@ func TestGetResumeHandlerPassesQueryObjectToReader(t *testing.T) {
 	reader := &fakeResumeReader{resume: Resume{ID: "resume-1"}}
 	handler := NewGetResumeHandler(reader)
 	id := uuid.New()
-	query := GetResumeQuery{ID: id, Lang: LanguageEN}
+	query := GetResumeQuery{UserID: useridentity.NewID(), ID: id, Lang: LanguageEN}
 
 	resume, err := handler.Handle(context.Background(), query)
 

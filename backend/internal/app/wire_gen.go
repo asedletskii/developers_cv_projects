@@ -11,6 +11,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
+	userapplication "developers-cv/backend/internal/modules/user/application"
+	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
+	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/database"
 	httpserver "developers-cv/backend/internal/platform/http"
@@ -66,6 +69,10 @@ func Initialize() (*Application, error) {
 
 	resumeReaderValue := newResumeReader(poolValue)
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
+	userRepositoryValue := userrepository.NewUserRepository(gormDBValue)
+	var userRepository userapplication.UserRepository = userRepositoryValue
+	mockAuthenticatorValue := userauth.NewMockAuthenticator(userRepository)
+	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	getResumeHandlerValue := queries.NewGetResumeHandler(resumeReaderValue)
@@ -77,6 +84,7 @@ func Initialize() (*Application, error) {
 		healthValue,
 		metricsValue,
 		resumeHandlerValue,
+		authenticateValue,
 	)
 	if err != nil {
 		if gormDBValue != nil {

@@ -5,14 +5,17 @@ import (
 	"errors"
 	"fmt"
 
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+
 	"github.com/google/uuid"
 )
 
 var ErrResumeNotFound = errors.New("resume not found")
 
 type GetResumeQuery struct {
-	ID   uuid.UUID
-	Lang Language
+	UserID useridentity.ID
+	ID     uuid.UUID
+	Lang   Language
 }
 
 type ResumeReader interface {
@@ -28,6 +31,9 @@ func NewGetResumeHandler(reader ResumeReader) *GetResumeHandler {
 }
 
 func (h *GetResumeHandler) Handle(ctx context.Context, query GetResumeQuery) (Resume, error) {
+	if query.UserID.IsZero() {
+		return Resume{}, fmt.Errorf("invalid user id")
+	}
 	if query.ID == uuid.Nil {
 		return Resume{}, fmt.Errorf("invalid resume id")
 	}
