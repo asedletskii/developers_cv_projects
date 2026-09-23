@@ -7,9 +7,12 @@ package app
 import (
 	"context"
 
+	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
 	"developers-cv/backend/internal/platform/config"
+	"developers-cv/backend/internal/platform/database"
 	httpserver "developers-cv/backend/internal/platform/http"
 	"developers-cv/backend/internal/platform/logger"
 	"developers-cv/backend/internal/platform/telemetry"
@@ -53,9 +56,20 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
+	gormDBValue, err := database.NewGORMFromConfig(configValue)
+	if err != nil {
+		if poolValue != nil {
+			poolValue.Close()
+		}
+		return nil, err
+	}
+
 	resumeReaderValue := newResumeReader(poolValue)
+	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
+	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
+	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	getResumeHandlerValue := queries.NewGetResumeHandler(resumeReaderValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, createResumeHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,
@@ -65,6 +79,9 @@ func Initialize() (*Application, error) {
 		resumeHandlerValue,
 	)
 	if err != nil {
+		if gormDBValue != nil {
+			_ = database.Close(gormDBValue)
+		}
 		if poolValue != nil {
 			poolValue.Close()
 		}
@@ -83,6 +100,7 @@ func Initialize() (*Application, error) {
 		telemetryValue,
 		loggerValue,
 		poolValue,
+		gormDBValue,
 	)
 
 	return applicationValue, nil

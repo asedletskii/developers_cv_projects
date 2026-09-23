@@ -7,17 +7,26 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
 )
 
 type Handler struct {
-	getResume *queries.GetResumeHandler
+	getResume    *queries.GetResumeHandler
+	createResume *commands.CreateResumeHandler
 }
 
-func NewHandler(getResume *queries.GetResumeHandler) *Handler {
-	return &Handler{getResume: getResume}
+func NewHandler(
+	getResume *queries.GetResumeHandler,
+	createResume ...*commands.CreateResumeHandler,
+) *Handler {
+	var create *commands.CreateResumeHandler
+	if len(createResume) > 0 {
+		create = createResume[0]
+	}
+	return &Handler{getResume: getResume, createResume: create}
 }
 
 func (h *Handler) GetResume(c *gin.Context) {
