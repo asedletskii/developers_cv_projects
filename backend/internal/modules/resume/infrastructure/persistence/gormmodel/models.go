@@ -13,6 +13,7 @@ type Resume struct {
 	Surname     string    `gorm:"not null"`
 	Patronymic  *string
 	Position    string `gorm:"not null"`
+	Title       string `gorm:"not null"`
 	ResumeLink  *string
 	PhotoPath   string    `gorm:"not null"`
 	DateOfBirth string    `gorm:"type:date;not null"`

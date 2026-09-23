@@ -21,13 +21,13 @@ import (
 	"developers-cv/backend/internal/platform/http/middleware"
 )
 
-type stubResumeReader struct {
+type stubGetResumeReader struct {
 	resume queries.Resume
 	err    error
 	query  queries.GetResumeQuery
 }
 
-func (r *stubResumeReader) GetResume(_ context.Context, query queries.GetResumeQuery) (queries.Resume, error) {
+func (r *stubGetResumeReader) GetResume(_ context.Context, query queries.GetResumeQuery) (queries.Resume, error) {
 	r.query = query
 	return r.resume, r.err
 }
@@ -36,7 +36,7 @@ func TestGetResume(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	id := uuid.New()
 	userID := uuid.New()
-	reader := &stubResumeReader{
+	reader := &stubGetResumeReader{
 		resume: queries.Resume{ID: id.String(), Name: "Anton Sedletskii"},
 	}
 	handler := NewHandler(queries.NewGetResumeHandler(reader))
@@ -59,7 +59,7 @@ func TestGetResume(t *testing.T) {
 func TestGetPublicResumeDoesNotRequireAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	id := uuid.New()
-	reader := &stubResumeReader{
+	reader := &stubGetResumeReader{
 		resume: queries.Resume{ID: id.String(), Name: "Anton Sedletskii"},
 	}
 	handler := NewHandler(queries.NewGetResumeHandler(reader))
@@ -77,7 +77,7 @@ func TestGetPublicResumeDoesNotRequireAuthentication(t *testing.T) {
 
 func TestGetResumeNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{err: queries.ErrResumeNotFound}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
@@ -94,7 +94,7 @@ func TestGetResumeNotFound(t *testing.T) {
 
 func TestGetPublicResumeNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{err: queries.ErrResumeNotFound}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}))
 	engine := gin.New()
 	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
@@ -108,7 +108,7 @@ func TestGetPublicResumeNotFound(t *testing.T) {
 
 func TestGetResumeRejectsInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
@@ -125,7 +125,7 @@ func TestGetResumeRejectsInvalidID(t *testing.T) {
 
 func TestGetPublicResumeRejectsInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}))
 	engine := gin.New()
 	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
@@ -139,7 +139,7 @@ func TestGetPublicResumeRejectsInvalidID(t *testing.T) {
 
 func TestGetResumeRejectsInvalidLanguage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
@@ -156,7 +156,7 @@ func TestGetResumeRejectsInvalidLanguage(t *testing.T) {
 
 func TestGetPublicResumeRejectsInvalidLanguage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetResumeHandler(&stubResumeReader{}))
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}))
 	engine := gin.New()
 	engine.GET("/cv/:resumeId", handler.GetPublicResume)
 
@@ -168,7 +168,7 @@ func TestGetPublicResumeRejectsInvalidLanguage(t *testing.T) {
 	require.Contains(t, w.Body.String(), "Invalid language")
 }
 
-var _ queries.ResumeReader = &stubResumeReader{}
+var _ queries.GetResumeReader = &stubGetResumeReader{}
 
 type fakeCreateResumeRepository struct{ saved *domain.Resume }
 
@@ -196,15 +196,18 @@ func TestCreateResume(t *testing.T) {
 	repo := &fakeCreateResumeRepository{}
 	uow := &fakeCreateResumeUoW{}
 	createHandler := commands.NewCreateResumeHandler(repo, uow)
-	getHandler := queries.NewGetResumeHandler(&stubResumeReader{})
+	getHandler := queries.NewGetResumeHandler(&stubGetResumeReader{})
 	handler := NewHandler(getHandler, createHandler)
 	engine := gin.New()
+	userID := uuid.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
-		return uuid.New(), nil
+		return userID, nil
 	}))
 	engine.POST("/lk/resume", handler.CreateResume)
 
 	body := `{
+		"userId":"00000000-0000-0000-0000-000000000099",
+		"title":"Client supplied title",
 		"name":"Test",
 		"surname":"User",
 		"position":"Developer",
@@ -228,7 +231,8 @@ func TestCreateResume(t *testing.T) {
 	require.Equal(t, 1, uow.calls)
 	require.NotNil(t, repo.saved)
 	require.False(t, repo.saved.ID().IsZero())
-	require.NotEqual(t, uuid.Nil, repo.saved.UserID().UUID())
+	require.Equal(t, userID, repo.saved.UserID().UUID())
+	require.Equal(t, "Developer", repo.saved.Title())
 }
 
 func TestCreateResumeRejectsInvalidDomainInput(t *testing.T) {
@@ -236,7 +240,7 @@ func TestCreateResumeRejectsInvalidDomainInput(t *testing.T) {
 	repo := &fakeCreateResumeRepository{}
 	uow := &fakeCreateResumeUoW{}
 	handler := NewHandler(
-		queries.NewGetResumeHandler(&stubResumeReader{}),
+		queries.NewGetResumeHandler(&stubGetResumeReader{}),
 		commands.NewCreateResumeHandler(repo, uow),
 	)
 	engine := gin.New()
@@ -253,4 +257,52 @@ func TestCreateResumeRejectsInvalidDomainInput(t *testing.T) {
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
 	require.Nil(t, repo.saved)
+}
+
+type stubListReader struct {
+	items  []queries.ResumeListItem
+	userID useridentity.ID
+}
+
+func (r *stubListReader) ListResumes(_ context.Context, query queries.GetListResumesQuery) ([]queries.ResumeListItem, error) {
+	r.userID = query.UserID
+	return r.items, nil
+}
+
+func TestListResumesRequiresAuthentication(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	listReader := &stubListReader{}
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), queries.NewListResumesHandler(listReader))
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return uuid.Nil, middleware.ErrUnauthenticated
+	}))
+	engine.GET("/lk/resumes", handler.ListResumes)
+
+	req := httptest.NewRequest("GET", "/lk/resumes", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestListResumesReturnsOnlyCurrentUsersData(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	listReader := &stubListReader{items: []queries.ResumeListItem{{ID: "resume-a", Title: "Senior Go Developer"}}}
+	handler := NewHandler(queries.NewGetResumeHandler(&stubGetResumeReader{}), queries.NewListResumesHandler(listReader))
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.GET("/lk/resumes", handler.ListResumes)
+
+	req := httptest.NewRequest("GET", "/lk/resumes", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"resume-a"`)
+	require.Contains(t, w.Body.String(), `"Senior Go Developer"`)
+	require.Equal(t, userID, listReader.userID.UUID())
 }

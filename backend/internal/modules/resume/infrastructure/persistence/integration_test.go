@@ -74,16 +74,29 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resume.ID().String(), loaded.ID().String())
 	require.Equal(t, resume.Name(), loaded.Name())
+	require.Equal(t, resume.Title(), loaded.Title())
 	require.Equal(t, userID.UUID(), loaded.UserID().UUID())
 	require.Len(t, loaded.Experience(), 1)
 
 	otherUserID := useridentity.NewID()
 	otherUser := newTestUser(t, otherUserID)
 	require.NoError(t, userRepository.Save(ctx, otherUser))
+	otherResume := newTestResume(t, otherUserID)
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Save(txCtx, otherResume) }))
 	_, err = repo.GetByID(ctx, otherUserID, resume.ID())
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
-	readModel, err := reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
+	listItems, err := reader.NewListResumesReader(pool).ListResumes(ctx, queries.GetListResumesQuery{UserID: userID})
+	require.NoError(t, err)
+	require.Len(t, listItems, 1)
+	require.Equal(t, resume.ID().String(), listItems[0].ID)
+	require.Equal(t, resume.Title(), listItems[0].Title)
+	otherListItems, err := reader.NewListResumesReader(pool).ListResumes(ctx, queries.GetListResumesQuery{UserID: otherUserID})
+	require.NoError(t, err)
+	require.Len(t, otherListItems, 1)
+	require.Equal(t, otherResume.ID().String(), otherListItems[0].ID)
+
+	readModel, err := reader.NewGetResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
 		UserID: &userID,
 		ID:     resume.ID().UUID(),
 		Lang:   queries.LanguageEN,
@@ -92,16 +105,17 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, resume.ID().String(), readModel.ID)
 	require.Equal(t, "Hello", readModel.Greeting.First)
 	require.Equal(t, "Developer", readModel.Position)
+	require.Equal(t, "Developer", readModel.Title)
 	require.Len(t, readModel.Experience, 1)
 	require.Equal(t, "2024-01", readModel.Experience[0].StartDate)
 
-	_, err = reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
+	_, err = reader.NewGetResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
 		UserID: &otherUserID,
 		ID:     resume.ID().UUID(),
 		Lang:   queries.LanguageEN,
 	})
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
-	publicReadModel, err := reader.NewResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
+	publicReadModel, err := reader.NewGetResumeReader(pool).GetResume(ctx, queries.GetResumeQuery{
 		ID:   resume.ID().UUID(),
 		Lang: queries.LanguageEN,
 	})
@@ -152,6 +166,13 @@ func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, string(content))
 	require.NoError(t, err)
+
+	for _, migration := range []string{"000008_users.up.sql", "000009_resume_users.up.sql", "000010_resume_title.up.sql"} {
+		content, err = os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", migration))
+		require.NoError(t, err)
+		_, err = conn.Exec(ctx, string(content))
+		require.NoError(t, err)
+	}
 }
 
 func newTestUser(t *testing.T, userID useridentity.ID) *userdomain.User {

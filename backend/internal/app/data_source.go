@@ -32,8 +32,12 @@ func newPostgresPool(
 	)
 }
 
-func newResumeReader(pool *pgxpool.Pool) resumequeries.ResumeReader {
-	return resumereader.NewResumeReader(pool)
+func newGetResumeReader(pool *pgxpool.Pool) resumequeries.GetResumeReader {
+	return resumereader.NewGetResumeReader(pool)
+}
+
+func newListResumesReader(pool *pgxpool.Pool) resumequeries.ListResumesReader {
+	return resumereader.NewListResumesReader(pool)
 }
 
 func newAuthenticate(authenticator *userauth.MockAuthenticator) httpmiddleware.AuthenticateFunc {

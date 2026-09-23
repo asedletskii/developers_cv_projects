@@ -17,18 +17,41 @@ import (
 
 type Handler struct {
 	getResume    *queries.GetResumeHandler
+	listResumes  *queries.ListResumesHandler
 	createResume *commands.CreateResumeHandler
 }
 
-func NewHandler(
-	getResume *queries.GetResumeHandler,
-	createResume ...*commands.CreateResumeHandler,
-) *Handler {
-	var create *commands.CreateResumeHandler
-	if len(createResume) > 0 {
-		create = createResume[0]
+func NewHandler(getResume *queries.GetResumeHandler, deps ...any) *Handler {
+	var listResumes *queries.ListResumesHandler
+	var createResume *commands.CreateResumeHandler
+	for _, dep := range deps {
+		switch value := dep.(type) {
+		case *queries.ListResumesHandler:
+			listResumes = value
+		case *commands.CreateResumeHandler:
+			createResume = value
+		}
 	}
-	return &Handler{getResume: getResume, createResume: create}
+	return &Handler{getResume: getResume, listResumes: listResumes, createResume: createResume}
+}
+
+func (h *Handler) ListResumes(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		writeError(c, apperrors.New(apperrors.CodeUnauthorized, http.StatusUnauthorized, "Authentication required"))
+		return
+	}
+	id, err := useridentity.IDFromUUID(userID)
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	items, err := h.listResumes.Handle(c.Request.Context(), queries.GetListResumesQuery{UserID: id})
+	if err != nil {
+		writeError(c, apperrors.Internal(err))
+		return
+	}
+	c.JSON(http.StatusOK, items)
 }
 
 func (h *Handler) GetResume(c *gin.Context) {

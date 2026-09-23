@@ -18,15 +18,15 @@ type GetResumeQuery struct {
 	Lang   Language
 }
 
-type ResumeReader interface {
+type GetResumeReader interface {
 	GetResume(ctx context.Context, query GetResumeQuery) (Resume, error)
 }
 
 type GetResumeHandler struct {
-	reader ResumeReader
+	reader GetResumeReader
 }
 
-func NewGetResumeHandler(reader ResumeReader) *GetResumeHandler {
+func NewGetResumeHandler(reader GetResumeReader) *GetResumeHandler {
 	return &GetResumeHandler{reader: reader}
 }
 

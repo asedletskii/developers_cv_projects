@@ -67,7 +67,8 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
-	resumeReaderValue := newResumeReader(poolValue)
+	getResumeReaderValue := newGetResumeReader(poolValue)
+	listResumesReaderValue := newListResumesReader(poolValue)
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
 	userRepositoryValue := userrepository.NewUserRepository(gormDBValue)
 	var userRepository userapplication.UserRepository = userRepositoryValue
@@ -75,8 +76,9 @@ func Initialize() (*Application, error) {
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
-	getResumeHandlerValue := queries.NewGetResumeHandler(resumeReaderValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, createResumeHandlerValue)
+	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
+	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,
