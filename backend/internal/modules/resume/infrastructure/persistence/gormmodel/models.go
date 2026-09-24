@@ -417,3 +417,44 @@ type ResumeActivity struct {
 }
 
 func (ResumeActivity) TableName() string { return "resume_activities_v2" }
+
+type ResumeProject struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	SortOrder   int       `gorm:"not null"`
+	Name        string    `gorm:"not null"`
+	Description *string
+	Role        *string
+	Link        *string
+	GitLink     *string
+}
+
+type ResumeProjectScreenshot struct {
+	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Position  int       `gorm:"primaryKey"`
+	Path      string    `gorm:"not null"`
+}
+
+type ResumeProjectTechnology struct {
+	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Position  int       `gorm:"primaryKey"`
+	Name      string    `gorm:"not null"`
+	Grade     *string
+}
+
+type ResumeProjectContributor struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ProjectID uuid.UUID `gorm:"type:uuid;not null;index"`
+	Position  int       `gorm:"not null"`
+	Name      string    `gorm:"not null"`
+	Surname   string    `gorm:"not null"`
+	Role      string    `gorm:"not null"`
+	Phone     *string
+	Telegram  *string
+	Email     *string
+}
+
+func (ResumeProject) TableName() string            { return "resume_projects_v2" }
+func (ResumeProjectScreenshot) TableName() string  { return "resume_project_screenshots_v2" }
+func (ResumeProjectTechnology) TableName() string  { return "resume_project_technologies_v2" }
+func (ResumeProjectContributor) TableName() string { return "resume_project_contributors_v2" }

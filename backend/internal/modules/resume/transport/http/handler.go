@@ -16,6 +16,7 @@ import (
 	listhandler "developers-cv/backend/internal/modules/resume/transport/http/list"
 	patchhandler "developers-cv/backend/internal/modules/resume/transport/http/patch"
 	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
+	projectsHandler "developers-cv/backend/internal/modules/resume/transport/http/projects"
 	resumeroot "developers-cv/backend/internal/modules/resume/transport/http/root"
 	skillsHandler "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologiesHandler "developers-cv/backend/internal/modules/resume/transport/http/technologies"
@@ -38,6 +39,7 @@ type Handler struct {
 	education    *educationHandler.Handler
 	courses      *coursesHandler.Handler
 	activities   *activitiesHandler.Handler
+	projects     *projectsHandler.Handler
 }
 
 func NewHandler(
@@ -63,6 +65,7 @@ func NewHandler(
 	education *educationHandler.Handler,
 	courses *coursesHandler.Handler,
 	activities *activitiesHandler.Handler,
+	projects *projectsHandler.Handler,
 ) *Handler {
 	return &Handler{
 		create:       createhandler.NewHandler(createResume, getResume),
@@ -80,6 +83,7 @@ func NewHandler(
 		education:    education,
 		courses:      courses,
 		activities:   activities,
+		projects:     projects,
 	}
 }
 
@@ -152,3 +156,8 @@ func (h *Handler) ListActivities(c *gin.Context)   { h.activities.List(c) }
 func (h *Handler) GetActivity(c *gin.Context)      { h.activities.Get(c) }
 func (h *Handler) UpdateActivity(c *gin.Context)   { h.activities.Update(c) }
 func (h *Handler) DeleteActivity(c *gin.Context)   { h.activities.Delete(c) }
+func (h *Handler) CreateProject(c *gin.Context)    { h.projects.Create(c) }
+func (h *Handler) ListProjects(c *gin.Context)     { h.projects.List(c) }
+func (h *Handler) GetProject(c *gin.Context)       { h.projects.Get(c) }
+func (h *Handler) UpdateProject(c *gin.Context)    { h.projects.Update(c) }
+func (h *Handler) DeleteProject(c *gin.Context)    { h.projects.Delete(c) }

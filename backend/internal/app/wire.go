@@ -16,6 +16,7 @@ import (
 	courseshttp "developers-cv/backend/internal/modules/resume/transport/http/courses"
 	educationshttp "developers-cv/backend/internal/modules/resume/transport/http/educations"
 	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
+	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
@@ -67,6 +68,7 @@ func Initialize() (*Application, error) {
 		wire.Bind(new(resumecommands.EducationsRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.CoursesRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.ActivitiesRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumecommands.ProjectsRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
 		userreaders.NewUserReader,
 		wire.Bind(new(userqueries.UserReader), new(*userreaders.UserReader)),
@@ -122,10 +124,16 @@ func Initialize() (*Application, error) {
 		resumecommands.NewGetActivityHandler,
 		resumecommands.NewUpdateActivityHandler,
 		resumecommands.NewDeleteActivityHandler,
+		resumecommands.NewCreateProjectHandler,
+		resumecommands.NewListProjectsHandler,
+		resumecommands.NewGetProjectHandler,
+		resumecommands.NewUpdateProjectHandler,
+		resumecommands.NewDeleteProjectHandler,
 		experienceshttp.NewHandler,
 		educationshttp.NewHandler,
 		courseshttp.NewHandler,
 		activitieshttp.NewHandler,
+		projectshttp.NewHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
 		httpserver.NewServer,

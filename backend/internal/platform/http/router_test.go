@@ -40,7 +40,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
@@ -73,7 +73,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
@@ -107,7 +107,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
@@ -143,7 +143,7 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 		HTTP: config.HTTPConfig{},
 	}
 	log := zaptest.NewLogger(t)
-	handler := resumehttp.NewHandler(resumequeries.NewGetResumeHandler(routerGetResumeReader{}), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := resumehttp.NewHandler(resumequeries.NewGetResumeHandler(routerGetResumeReader{}), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	router, err := NewRouter(
 		cfg,
 		log,
@@ -192,7 +192,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{})),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return userID, nil
@@ -224,7 +224,7 @@ func TestRouterDoesNotExposePrivateCVOrDeleteRoutes(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)

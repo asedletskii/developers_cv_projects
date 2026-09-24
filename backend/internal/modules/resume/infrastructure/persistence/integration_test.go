@@ -446,6 +446,62 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, "Go Backend Engineer", patched.Title)
 	require.Equal(t, "Developer", patched.Position)
 	require.Equal(t, []string{"remote", "office"}, patched.WorkFormat)
+
+	projectID := valueobjects.NewID()
+	projectLink, err := valueobjects.NewExternalURL("https://example.com/project")
+	require.NoError(t, err)
+	projectScreenshot, err := valueobjects.NewAssetPath("/assets/project.png")
+	require.NoError(t, err)
+	projectGrade := enums.TechnologyGradeSenior
+	projectTechnology, err := entities.NewTechnology(entities.TechnologyParams{Name: "Go", Grade: &projectGrade})
+	require.NoError(t, err)
+	contributorEmail, err := valueobjects.NewEmail("contributor@example.com")
+	require.NoError(t, err)
+	contributorContacts, err := entities.NewContacts(entities.ContactsParams{Email: &contributorEmail})
+	require.NoError(t, err)
+	contributor, err := entities.NewContributor(entities.ContributorParams{Name: "Jane", Surname: "Doe", Role: "Developer", Contacts: contributorContacts})
+	require.NoError(t, err)
+	projectInput := commands.ProjectInput{
+		ID: projectID, ResumeID: root.ID(), Name: "Project", Description: stringPtr("Project description"), Role: stringPtr("Lead"),
+		Screenshots: []valueobjects.AssetPath{projectScreenshot}, Link: &projectLink,
+		Stack: []entities.Technology{projectTechnology}, Contributors: []entities.Contributor{contributor},
+	}
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.CreateProject(tx, commands.CreateProjectCommand{ID: projectID, ResumeID: root.ID(), UserID: userID, Input: projectInput})
+	}))
+	loadedProject, err := repo.GetProject(ctx, commands.GetProjectQuery{UserID: userID, ResumeID: root.ID(), ProjectID: projectID})
+	require.NoError(t, err)
+	require.Equal(t, "Project", loadedProject.Name())
+	require.Len(t, loadedProject.Screenshots(), 1)
+	require.Equal(t, "Go", loadedProject.Stack()[0].Name())
+	require.Equal(t, "Jane", loadedProject.Contributors()[0].Name())
+	require.Equal(t, "contributor@example.com", loadedProject.Contributors()[0].Contacts().Email().String())
+
+	projectInput.Name = "Updated Project"
+	projectInput.Screenshots = nil
+	projectInput.Contributors = nil
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.UpdateProject(tx, commands.UpdateProjectCommand{ResumeID: root.ID(), ProjectID: projectID, UserID: userID, Input: projectInput})
+	}))
+	loadedProject, err = repo.GetProject(ctx, commands.GetProjectQuery{UserID: userID, ResumeID: root.ID(), ProjectID: projectID})
+	require.NoError(t, err)
+	require.Equal(t, "Updated Project", loadedProject.Name())
+	require.Empty(t, loadedProject.Screenshots())
+	require.Empty(t, loadedProject.Contributors())
+
+	_, err = repo.GetProject(ctx, commands.GetProjectQuery{UserID: foreignExperienceUserID, ResumeID: root.ID(), ProjectID: projectID})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	missingProjectID := valueobjects.NewID()
+	err = uow.Do(ctx, func(tx context.Context) error {
+		return repo.UpdateProject(tx, commands.UpdateProjectCommand{ResumeID: root.ID(), ProjectID: missingProjectID, UserID: userID, Input: projectInput})
+	})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.DeleteProject(tx, commands.DeleteProjectCommand{ResumeID: root.ID(), ProjectID: projectID, UserID: userID})
+	}))
+	_, err = repo.GetProject(ctx, commands.GetProjectQuery{UserID: userID, ResumeID: root.ID(), ProjectID: projectID})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
 }
 
 func applyMigrations(t *testing.T, ctx context.Context, dsn string) {

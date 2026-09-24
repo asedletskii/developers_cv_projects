@@ -16,6 +16,7 @@ import (
 	educationshttp "developers-cv/backend/internal/modules/resume/transport/http/educations"
 	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	languageshttp "developers-cv/backend/internal/modules/resume/transport/http/languages"
+	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
 	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
@@ -129,6 +130,11 @@ func Initialize() (*Application, error) {
 	getActivityHandlerValue := resumecommands.NewGetActivityHandler(resumeRepositoryValue)
 	updateActivityHandlerValue := resumecommands.NewUpdateActivityHandler(resumeRepositoryValue, unitOfWorkValue)
 	deleteActivityHandlerValue := resumecommands.NewDeleteActivityHandler(resumeRepositoryValue, unitOfWorkValue)
+	createProjectHandlerValue := resumecommands.NewCreateProjectHandler(resumeRepositoryValue, unitOfWorkValue)
+	listProjectsHandlerValue := resumecommands.NewListProjectsHandler(resumeRepositoryValue)
+	getProjectHandlerValue := resumecommands.NewGetProjectHandler(resumeRepositoryValue)
+	updateProjectHandlerValue := resumecommands.NewUpdateProjectHandler(resumeRepositoryValue, unitOfWorkValue)
+	deleteProjectHandlerValue := resumecommands.NewDeleteProjectHandler(resumeRepositoryValue, unitOfWorkValue)
 	skillsHandlerValue := skillshttp.NewHandler(createSkillsHandlerValue, getSkillsHandlerValue, updateSkillsHandlerValue)
 	languagesHandlerValue := languageshttp.NewHandler(createLanguageHandlerValue, listLanguagesHandlerValue, getLanguageHandlerValue, updateLanguageHandlerValue, deleteLanguageHandlerValue)
 	technologiesHandlerValue := technologieshttp.NewHandler(createTechnologyHandlerValue, listTechnologiesHandlerValue, getTechnologyHandlerValue, updateTechnologyHandlerValue, deleteTechnologyHandlerValue)
@@ -136,11 +142,12 @@ func Initialize() (*Application, error) {
 	educationsHandlerValue := educationshttp.NewHandler(createEducationHandlerValue, listEducationsHandlerValue, getEducationHandlerValue, updateEducationHandlerValue, deleteEducationHandlerValue)
 	coursesHandlerValue := courseshttp.NewHandler(createCourseHandlerValue, listCoursesHandlerValue, getCourseHandlerValue, updateCourseHandlerValue, deleteCourseHandlerValue)
 	activitiesHandlerValue := activitieshttp.NewHandler(createActivityHandlerValue, listActivitiesHandlerValue, getActivityHandlerValue, updateActivityHandlerValue, deleteActivityHandlerValue)
+	projectsHandlerValue := projectshttp.NewHandler(createProjectHandlerValue, listProjectsHandlerValue, getProjectHandlerValue, updateProjectHandlerValue, deleteProjectHandlerValue)
 	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
 	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,
