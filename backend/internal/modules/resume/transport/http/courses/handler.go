@@ -1,0 +1,192 @@
+package courses
+
+import (
+	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/transport/http/common"
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	apperrors "developers-cv/backend/internal/platform/http/errors"
+	"errors"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+type Handler struct {
+	create *commands.CreateCourseHandler
+	list   *commands.ListCoursesHandler
+	get    *commands.GetCourseHandler
+	update *commands.UpdateCourseHandler
+	delete *commands.DeleteCourseHandler
+}
+
+func NewHandler(create *commands.CreateCourseHandler, list *commands.ListCoursesHandler, get *commands.GetCourseHandler, update *commands.UpdateCourseHandler, delete *commands.DeleteCourseHandler) *Handler {
+	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
+}
+
+type CourseRequest struct {
+	Name            string  `json:"name"`
+	Organization    string  `json:"organization"`
+	EndDate         string  `json:"endDate"`
+	Hours           *int    `json:"hours,omitempty"`
+	CertificateLink *string `json:"certificateLink,omitempty"`
+}
+type CourseResponse struct {
+	ID              string  `json:"id"`
+	ResumeID        string  `json:"resumeId"`
+	Name            string  `json:"name"`
+	Organization    string  `json:"organization"`
+	EndDate         string  `json:"endDate"`
+	Hours           *int    `json:"hours,omitempty"`
+	CertificateLink *string `json:"certificateLink,omitempty"`
+}
+
+func (h *Handler) Create(c *gin.Context) {
+	uid, rid, ok := ids(c)
+	if !ok {
+		return
+	}
+	var body CourseRequest
+	if common.BindJSON(c, &body) != nil {
+		common.WriteInvalidBody(c)
+		return
+	}
+	input, err := courseInput(body)
+	if err != nil {
+		common.WriteCommandError(c, err)
+		return
+	}
+	id, err := h.create.Handle(c.Request.Context(), commands.CreateCourseCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: input})
+	if err != nil {
+		write(c, err)
+		return
+	}
+	item, err := h.get.Handle(c.Request.Context(), commands.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
+	if err != nil {
+		write(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, courseView(rid, item))
+}
+func (h *Handler) List(c *gin.Context) {
+	uid, rid, ok := ids(c)
+	if !ok {
+		return
+	}
+	items, err := h.list.Handle(c.Request.Context(), commands.ListCoursesQuery{ResumeID: rid, UserID: uid})
+	if err != nil {
+		write(c, err)
+		return
+	}
+	out := make([]CourseResponse, len(items))
+	for i, item := range items {
+		out[i] = courseView(rid, item)
+	}
+	c.JSON(http.StatusOK, out)
+}
+func (h *Handler) Get(c *gin.Context) {
+	uid, rid, id, ok := itemIDs(c)
+	if !ok {
+		return
+	}
+	item, err := h.get.Handle(c.Request.Context(), commands.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
+	if err != nil {
+		write(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, courseView(rid, item))
+}
+func (h *Handler) Update(c *gin.Context) {
+	uid, rid, id, ok := itemIDs(c)
+	if !ok {
+		return
+	}
+	var body CourseRequest
+	if common.BindJSON(c, &body) != nil {
+		common.WriteInvalidBody(c)
+		return
+	}
+	input, err := courseInput(body)
+	if err != nil {
+		common.WriteCommandError(c, err)
+		return
+	}
+	if err := h.update.Handle(c.Request.Context(), commands.UpdateCourseCommand{ResumeID: rid, CourseID: id, UserID: uid, Input: input}); err != nil {
+		write(c, err)
+		return
+	}
+	item, err := h.get.Handle(c.Request.Context(), commands.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
+	if err != nil {
+		write(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, courseView(rid, item))
+}
+func (h *Handler) Delete(c *gin.Context) {
+	uid, rid, id, ok := itemIDs(c)
+	if !ok {
+		return
+	}
+	if err := h.delete.Handle(c.Request.Context(), commands.DeleteCourseCommand{ResumeID: rid, CourseID: id, UserID: uid}); err != nil {
+		write(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+func courseInput(body CourseRequest) (commands.CourseInput, error) {
+	end, err := valueobjects.ParseYearMonth(body.EndDate)
+	if err != nil {
+		return commands.CourseInput{}, err
+	}
+	var link *valueobjects.ExternalURL
+	if body.CertificateLink != nil {
+		v, err := valueobjects.NewExternalURL(*body.CertificateLink)
+		if err != nil {
+			return commands.CourseInput{}, err
+		}
+		link = &v
+	}
+	return commands.CourseInput{Name: body.Name, Organization: body.Organization, EndDate: end, Hours: body.Hours, CertificateLink: link}, nil
+}
+func courseView(resumeID valueobjects.ID, item *domain.Course) CourseResponse {
+	return CourseResponse{ID: item.ID().String(), ResumeID: resumeID.String(), Name: item.Name(), Organization: item.Organization(), EndDate: item.EndDate().String(), Hours: item.Hours(), CertificateLink: externalURLString(item.CertificateLink())}
+}
+func externalURLString(v *valueobjects.ExternalURL) *string {
+	if v == nil {
+		return nil
+	}
+	s := v.String()
+	return &s
+}
+func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
+	uid, ok := common.RequireUserID(c)
+	if !ok {
+		return uid, valueobjects.ID{}, false
+	}
+	rid, ok := common.ParseResumeID(c)
+	return uid, rid, ok
+}
+func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID, bool) {
+	uid, rid, ok := ids(c)
+	if !ok {
+		return uid, rid, valueobjects.ID{}, false
+	}
+	id, err := valueobjects.ParseID(c.Param("courseId"))
+	if err != nil {
+		common.WriteInvalidBody(c)
+		return uid, rid, valueobjects.ID{}, false
+	}
+	return uid, rid, id, true
+}
+func write(c *gin.Context, err error) {
+	if errors.Is(err, domain.ErrEntityNotFound) {
+		common.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))
+		return
+	}
+	if errors.Is(err, domain.ErrDuplicateEntity) {
+		common.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume resource already exists"))
+		return
+	}
+	common.WriteCommandError(c, err)
+}

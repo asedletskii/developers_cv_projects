@@ -375,3 +375,45 @@ type ResumeExperienceTechnology struct {
 func (ResumeExperience) TableName() string            { return "resume_experiences_v2" }
 func (ResumeExperienceAchievement) TableName() string { return "resume_experience_achievements_v2" }
 func (ResumeExperienceTechnology) TableName() string  { return "resume_experience_technologies_v2" }
+
+type ResumeEducation struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	SortOrder   int       `gorm:"not null"`
+	Location    string    `gorm:"not null"`
+	University  string    `gorm:"not null"`
+	Grade       int       `gorm:"not null"`
+	ProgramName string    `gorm:"not null"`
+	ProfileName *string
+	Faculty     string `gorm:"not null"`
+	Course      *int
+	EndDate     *string `gorm:"type:date"`
+}
+
+func (ResumeEducation) TableName() string { return "resume_educations_v2" }
+
+type ResumeCourse struct {
+	ID              uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID        uuid.UUID `gorm:"type:uuid;not null;index"`
+	SortOrder       int       `gorm:"not null"`
+	Name            string    `gorm:"not null"`
+	Organization    string    `gorm:"not null"`
+	EndDate         string    `gorm:"type:date;not null"`
+	Hours           *int
+	CertificateLink *string
+}
+
+func (ResumeCourse) TableName() string { return "resume_courses_v2" }
+
+type ResumeActivity struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	SortOrder   int       `gorm:"not null"`
+	Type        string    `gorm:"not null"`
+	Title       string    `gorm:"not null"`
+	Description *string
+	Date        *string `gorm:"type:date"`
+	Link        *string
+}
+
+func (ResumeActivity) TableName() string { return "resume_activities_v2" }

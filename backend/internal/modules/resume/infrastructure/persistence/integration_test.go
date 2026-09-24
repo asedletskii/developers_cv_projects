@@ -192,6 +192,76 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	_, err = repo.GetExperience(ctx, commands.GetExperienceQuery{UserID: userID, ResumeID: root.ID(), ExperienceID: experienceID})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
+	educationID := valueobjects.NewID()
+	educationEnd, err := valueobjects.ParseYear("2023")
+	require.NoError(t, err)
+	educationInput := commands.EducationInput{ID: educationID, ResumeID: root.ID(), Location: "Paris", University: "University", Grade: enums.EducationLevelMaster, ProgramName: "Computer Science", Faculty: "Engineering", EndDate: &educationEnd}
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.CreateEducation(txCtx, commands.CreateEducationCommand{ID: educationID, ResumeID: root.ID(), UserID: userID, Input: educationInput})
+	}))
+	loadedEducation, err := repo.GetEducation(ctx, commands.GetEducationQuery{UserID: userID, ResumeID: root.ID(), EducationID: educationID})
+	require.NoError(t, err)
+	require.Equal(t, "University", loadedEducation.University())
+	require.Equal(t, "2023", loadedEducation.EndDate().String())
+
+	updatedEducation := educationInput
+	updatedEducation.University = "Updated University"
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.UpdateEducation(txCtx, commands.UpdateEducationCommand{ResumeID: root.ID(), EducationID: educationID, UserID: userID, Input: updatedEducation})
+	}))
+	loadedEducation, err = repo.GetEducation(ctx, commands.GetEducationQuery{UserID: userID, ResumeID: root.ID(), EducationID: educationID})
+	require.NoError(t, err)
+	require.Equal(t, "Updated University", loadedEducation.University())
+
+	courseID := valueobjects.NewID()
+	courseEnd, err := valueobjects.ParseYearMonth("2024-06")
+	require.NoError(t, err)
+	hours := 40
+	certificate, err := valueobjects.NewExternalURL("https://example.com/certificate")
+	require.NoError(t, err)
+	courseInput := commands.CourseInput{ID: courseID, ResumeID: root.ID(), Name: "Go Course", Organization: "Acme Academy", EndDate: courseEnd, Hours: &hours, CertificateLink: &certificate}
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.CreateCourse(txCtx, commands.CreateCourseCommand{ID: courseID, ResumeID: root.ID(), UserID: userID, Input: courseInput})
+	}))
+	loadedCourse, err := repo.GetCourse(ctx, commands.GetCourseQuery{UserID: userID, ResumeID: root.ID(), CourseID: courseID})
+	require.NoError(t, err)
+	require.Equal(t, "Go Course", loadedCourse.Name())
+	require.Equal(t, "2024-06", loadedCourse.EndDate().String())
+	require.Equal(t, certificate.String(), loadedCourse.CertificateLink().String())
+
+	activityID := valueobjects.NewID()
+	activityDate, err := valueobjects.ParseYearMonth("2025-01")
+	require.NoError(t, err)
+	activityInput := commands.ActivityInput{ID: activityID, ResumeID: root.ID(), Type: enums.ActivityTypeOpenSource, Title: "Open Source", Date: &activityDate, Link: &certificate}
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.CreateActivity(txCtx, commands.CreateActivityCommand{ID: activityID, ResumeID: root.ID(), UserID: userID, Input: activityInput})
+	}))
+	loadedActivity, err := repo.GetActivity(ctx, commands.GetActivityQuery{UserID: userID, ResumeID: root.ID(), ActivityID: activityID})
+	require.NoError(t, err)
+	require.Equal(t, enums.ActivityTypeOpenSource, loadedActivity.Type())
+	require.Equal(t, "2025-01", loadedActivity.Date().String())
+
+	foreignActivityUserID := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, foreignActivityUserID)
+	_, err = repo.GetActivity(ctx, commands.GetActivityQuery{UserID: foreignActivityUserID, ResumeID: root.ID(), ActivityID: activityID})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	missingCourseID := valueobjects.NewID()
+	err = uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.UpdateCourse(txCtx, commands.UpdateCourseCommand{ResumeID: root.ID(), CourseID: missingCourseID, UserID: userID, Input: courseInput})
+	})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.DeleteEducation(txCtx, commands.DeleteEducationCommand{ResumeID: root.ID(), EducationID: educationID, UserID: userID})
+	}))
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.DeleteCourse(txCtx, commands.DeleteCourseCommand{ResumeID: root.ID(), CourseID: courseID, UserID: userID})
+	}))
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.DeleteActivity(txCtx, commands.DeleteActivityCommand{ResumeID: root.ID(), ActivityID: activityID, UserID: userID})
+	}))
+
 	foreignUserID := useridentity.NewID()
 	insertResumeTestUser(t, ctx, dsn, foreignUserID)
 	_, err = repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{UserID: foreignUserID, ResumeID: root.ID()})

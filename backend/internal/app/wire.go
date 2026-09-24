@@ -12,6 +12,9 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
+	activitieshttp "developers-cv/backend/internal/modules/resume/transport/http/activities"
+	courseshttp "developers-cv/backend/internal/modules/resume/transport/http/courses"
+	educationshttp "developers-cv/backend/internal/modules/resume/transport/http/educations"
 	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
@@ -61,6 +64,9 @@ func Initialize() (*Application, error) {
 		wire.Bind(new(resumecommands.LanguagesRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.TechnologiesRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.ExperiencesRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumecommands.EducationsRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumecommands.CoursesRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumecommands.ActivitiesRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
 		userreaders.NewUserReader,
 		wire.Bind(new(userqueries.UserReader), new(*userreaders.UserReader)),
@@ -101,7 +107,25 @@ func Initialize() (*Application, error) {
 		resumecommands.NewGetExperienceHandler,
 		resumecommands.NewUpdateExperienceHandler,
 		resumecommands.NewDeleteExperienceHandler,
+		resumecommands.NewCreateEducationHandler,
+		resumecommands.NewListEducationsHandler,
+		resumecommands.NewGetEducationHandler,
+		resumecommands.NewUpdateEducationHandler,
+		resumecommands.NewDeleteEducationHandler,
+		resumecommands.NewCreateCourseHandler,
+		resumecommands.NewListCoursesHandler,
+		resumecommands.NewGetCourseHandler,
+		resumecommands.NewUpdateCourseHandler,
+		resumecommands.NewDeleteCourseHandler,
+		resumecommands.NewCreateActivityHandler,
+		resumecommands.NewListActivitiesHandler,
+		resumecommands.NewGetActivityHandler,
+		resumecommands.NewUpdateActivityHandler,
+		resumecommands.NewDeleteActivityHandler,
 		experienceshttp.NewHandler,
+		educationshttp.NewHandler,
+		courseshttp.NewHandler,
+		activitieshttp.NewHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
 		httpserver.NewServer,

@@ -5,8 +5,11 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	activitiesHandler "developers-cv/backend/internal/modules/resume/transport/http/activities"
 	contactshandler "developers-cv/backend/internal/modules/resume/transport/http/contacts"
+	coursesHandler "developers-cv/backend/internal/modules/resume/transport/http/courses"
 	createhandler "developers-cv/backend/internal/modules/resume/transport/http/create"
+	educationHandler "developers-cv/backend/internal/modules/resume/transport/http/educations"
 	experiencesHandler "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	gethandler "developers-cv/backend/internal/modules/resume/transport/http/get"
 	languagesHandler "developers-cv/backend/internal/modules/resume/transport/http/languages"
@@ -32,6 +35,9 @@ type Handler struct {
 	languages    *languagesHandler.Handler
 	technologies *technologiesHandler.Handler
 	experiences  *experiencesHandler.Handler
+	education    *educationHandler.Handler
+	courses      *coursesHandler.Handler
+	activities   *activitiesHandler.Handler
 }
 
 func NewHandler(
@@ -54,6 +60,9 @@ func NewHandler(
 	languages *languagesHandler.Handler,
 	technologies *technologiesHandler.Handler,
 	experiences *experiencesHandler.Handler,
+	education *educationHandler.Handler,
+	courses *coursesHandler.Handler,
+	activities *activitiesHandler.Handler,
 ) *Handler {
 	return &Handler{
 		create:       createhandler.NewHandler(createResume, getResume),
@@ -68,6 +77,9 @@ func NewHandler(
 		languages:    languages,
 		technologies: technologies,
 		experiences:  experiences,
+		education:    education,
+		courses:      courses,
+		activities:   activities,
 	}
 }
 
@@ -125,3 +137,18 @@ func (h *Handler) ListExperiences(c *gin.Context)  { h.experiences.List(c) }
 func (h *Handler) GetExperience(c *gin.Context)    { h.experiences.Get(c) }
 func (h *Handler) UpdateExperience(c *gin.Context) { h.experiences.Update(c) }
 func (h *Handler) DeleteExperience(c *gin.Context) { h.experiences.Delete(c) }
+func (h *Handler) CreateEducation(c *gin.Context)  { h.education.Create(c) }
+func (h *Handler) ListEducations(c *gin.Context)   { h.education.List(c) }
+func (h *Handler) GetEducation(c *gin.Context)     { h.education.Get(c) }
+func (h *Handler) UpdateEducation(c *gin.Context)  { h.education.Update(c) }
+func (h *Handler) DeleteEducation(c *gin.Context)  { h.education.Delete(c) }
+func (h *Handler) CreateCourse(c *gin.Context)     { h.courses.Create(c) }
+func (h *Handler) ListCourses(c *gin.Context)      { h.courses.List(c) }
+func (h *Handler) GetCourse(c *gin.Context)        { h.courses.Get(c) }
+func (h *Handler) UpdateCourse(c *gin.Context)     { h.courses.Update(c) }
+func (h *Handler) DeleteCourse(c *gin.Context)     { h.courses.Delete(c) }
+func (h *Handler) CreateActivity(c *gin.Context)   { h.activities.Create(c) }
+func (h *Handler) ListActivities(c *gin.Context)   { h.activities.List(c) }
+func (h *Handler) GetActivity(c *gin.Context)      { h.activities.Get(c) }
+func (h *Handler) UpdateActivity(c *gin.Context)   { h.activities.Update(c) }
+func (h *Handler) DeleteActivity(c *gin.Context)   { h.activities.Delete(c) }

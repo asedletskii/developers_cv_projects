@@ -1,0 +1,146 @@
+package repository
+
+import (
+	"context"
+	"errors"
+
+	"gorm.io/gorm"
+
+	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
+)
+
+var _ commands.ActivitiesRepository = (*ResumeRepository)(nil)
+
+func (r *ResumeRepository) CreateActivity(ctx context.Context, c commands.CreateActivityCommand) error {
+	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	if err != nil {
+		return err
+	}
+	item, err := activityModel(c.Input)
+	if err != nil {
+		return err
+	}
+	item.SortOrder, err = nextSortOrder(tx, item.TableName(), c.ResumeID.UUID())
+	if err != nil {
+		return err
+	}
+	if err := tx.Create(&item).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return domain.ErrDuplicateEntity
+		}
+		return err
+	}
+	return nil
+}
+func (r *ResumeRepository) ListActivities(ctx context.Context, q commands.ListActivitiesQuery) ([]*domain.Activity, error) {
+	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
+	if err != nil {
+		return nil, err
+	}
+	var models []gormmodel.ResumeActivity
+	if err := tx.Where("resume_id = ?", q.ResumeID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Activity, 0, len(models))
+	for _, model := range models {
+		item, err := mapActivity(model)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+func (r *ResumeRepository) GetActivity(ctx context.Context, q commands.GetActivityQuery) (*domain.Activity, error) {
+	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
+	if err != nil {
+		return nil, err
+	}
+	var model gormmodel.ResumeActivity
+	if err := tx.Where("id = ? AND resume_id = ?", q.ActivityID.UUID(), q.ResumeID.UUID()).First(&model).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrEntityNotFound
+		}
+		return nil, err
+	}
+	return mapActivity(model)
+}
+func (r *ResumeRepository) UpdateActivity(ctx context.Context, c commands.UpdateActivityCommand) error {
+	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	if err != nil {
+		return err
+	}
+	model, err := activityModel(c.Input)
+	if err != nil {
+		return err
+	}
+	result := tx.Model(&gormmodel.ResumeActivity{}).Where("id = ? AND resume_id = ?", c.ActivityID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{"type": model.Type, "title": model.Title, "description": model.Description, "date": model.Date, "link": model.Link})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrEntityNotFound
+	}
+	return nil
+}
+func (r *ResumeRepository) DeleteActivity(ctx context.Context, c commands.DeleteActivityCommand) error {
+	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	if err != nil {
+		return err
+	}
+	result := tx.Where("id = ? AND resume_id = ?", c.ActivityID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeActivity{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrEntityNotFound
+	}
+	return nil
+}
+func activityModel(input commands.ActivityInput) (gormmodel.ResumeActivity, error) {
+	item, err := domain.NewActivity(domain.ActivityParams{ID: input.ID, ResumeID: input.ResumeID, Type: input.Type, Title: input.Title, Description: input.Description, Date: input.Date, Link: input.Link})
+	if err != nil {
+		return gormmodel.ResumeActivity{}, err
+	}
+	model := gormmodel.ResumeActivity{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Type: string(item.Type()), Title: item.Title(), Description: item.Description(), Link: externalURLString(item.Link())}
+	if item.Date() != nil {
+		value := item.Date().String() + "-01"
+		model.Date = &value
+	}
+	return model, nil
+}
+func mapActivity(model gormmodel.ResumeActivity) (*domain.Activity, error) {
+	id, err := valueobjects.IDFromUUID(model.ID)
+	if err != nil {
+		return nil, err
+	}
+	resumeID, err := valueobjects.IDFromUUID(model.ResumeID)
+	if err != nil {
+		return nil, err
+	}
+	activityType := enums.ActivityType(model.Type)
+	if !activityType.IsValid() {
+		return nil, domain.ErrInvalidEntity
+	}
+	var date *valueobjects.YearMonth
+	if model.Date != nil {
+		value, err := valueobjects.ParseYearMonth((*model.Date)[:7])
+		if err != nil {
+			return nil, err
+		}
+		date = &value
+	}
+	var link *valueobjects.ExternalURL
+	if model.Link != nil {
+		value, err := valueobjects.NewExternalURL(*model.Link)
+		if err != nil {
+			return nil, err
+		}
+		link = &value
+	}
+	return domain.NewActivity(domain.ActivityParams{ID: id, ResumeID: resumeID, Type: activityType, Title: model.Title, Description: model.Description, Date: date, Link: link})
+}
