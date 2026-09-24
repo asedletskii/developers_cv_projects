@@ -161,3 +161,44 @@ func TestHandlerRejectsUnknownFields(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 	require.Nil(t, repo.saved)
 }
+
+func TestHandlerReturnsInternalErrorWhenCreatedResumeCannotBeReadBack(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	repo := &fakeCreateResumeRepository{}
+	uow := &fakeCreateResumeUoW{}
+	handler := NewHandler(
+		commands.NewCreateResumeHandler(repo, uow),
+		queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}),
+	)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return uuid.New(), nil
+	}))
+	engine.POST("/api/v1/lk/resume", handler.Handle)
+
+	body := `{
+		"name":"Test",
+		"surname":"User",
+		"position":"Developer",
+		"greeting":{
+			"first":{"ru":"Привет","en":"Hello"},
+			"second":{"ru":"Я","en":"I am"},
+			"secondHighlight":{"ru":"Тест","en":"Test"},
+			"third":{"ru":"Разработчик","en":"Developer"}
+		},
+		"photoPath":"/assets/photo.svg",
+		"dateOfBirth":"1998-04-12",
+		"location":"Remote",
+		"contacts":{"phone":"+79999999999"}
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/resume", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	require.NotNil(t, repo.saved)
+}

@@ -203,3 +203,55 @@ func TestHandlerRejectsUnknownFields(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 	require.Nil(t, repo.saved)
 }
+
+func TestHandlerReturnsInternalErrorWhenUpdatedResumeCannotBeReadBack(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID, err := valueobjects.IDFromUUID(uuid.New())
+	require.NoError(t, err)
+	owner, err := useridentity.IDFromUUID(userID)
+	require.NoError(t, err)
+
+	repo := &updateResumeRepositoryStub{
+		resume: newHTTPTestResume(t, resumeID, owner, "Manual title"),
+	}
+	handler := NewHandler(
+		commands.NewUpdateResumeHandler(repo, repo, updateResumeUoWStub{}),
+		queries.NewGetResumeHandler(&stubGetResumeReader{err: queries.ErrResumeNotFound}),
+	)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.PUT("/api/v1/lk/resume/:resumeId", handler.Handle)
+
+	body := `{
+		"name":"Updated",
+		"surname":"User",
+		"position":"Developer",
+		"greeting":{
+			"first":{"ru":"Привет","en":"Hello"},
+			"second":{"ru":"Я","en":"I am"},
+			"secondHighlight":{"ru":"Тест","en":"Test"},
+			"third":{"ru":"Разработчик","en":"Developer"}
+		},
+		"photoPath":"/assets/photo.svg",
+		"dateOfBirth":"1998-04-12",
+		"location":"Remote",
+		"contacts":{"phone":"+79999999999"}
+	}`
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/lk/resume/"+resumeID.UUID().String(),
+		strings.NewReader(body),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	require.NotNil(t, repo.saved)
+}

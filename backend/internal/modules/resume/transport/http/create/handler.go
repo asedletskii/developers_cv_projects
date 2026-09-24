@@ -10,6 +10,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	"developers-cv/backend/internal/modules/resume/transport/http/request"
+	apperrors "developers-cv/backend/internal/platform/http/errors"
 )
 
 type Handler struct {
@@ -53,7 +54,7 @@ func (h *Handler) Handle(c *gin.Context) {
 		Lang:   queries.LanguageRU,
 	})
 	if err != nil {
-		common.WriteQueryError(c, err)
+		common.WriteError(c, apperrors.Internal(err))
 		return
 	}
 	c.JSON(http.StatusCreated, resume)
