@@ -17,10 +17,12 @@ import (
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/platform/database"
@@ -238,6 +240,8 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	skillsRepo := repository.NewSkillsRepository(gormDB)
 	languagesRepo := repository.NewLanguagesRepository(gormDB)
 	technologiesRepo := repository.NewTechnologiesRepository(gormDB)
+	languagesReader := readers.NewLanguagesReader(pool)
+	technologiesReader := readers.NewTechnologiesReader(pool)
 	uow := database.NewUnitOfWork(gormDB)
 	root := newTestRoot(t, owner)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
@@ -259,24 +263,28 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	languageID := valueobjects.NewID()
+	language, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: languageID, Language: enums.LanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0})
+	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return languagesRepo.CreateLanguage(tx, commands.LanguageInput{ID: languageID, Language: enums.LanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0}, root.ID(), owner)
+		return languagesRepo.CreateLanguage(tx, commands.CreateLanguageRepositoryCommand{Language: language, ResumeID: root.ID(), UserID: owner})
 	}))
-	languages, err := languagesRepo.ListLanguages(ctx, commands.ListLanguagesQuery{ResumeID: root.ID(), UserID: owner})
+	languages, err := languagesReader.ListLanguages(ctx, queries.ListLanguagesQuery{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Len(t, languages, 1)
-	require.Equal(t, languageID, languages[0].ID())
-	_, err = languagesRepo.GetLanguage(ctx, commands.GetLanguageQuery{ResumeID: root.ID(), LanguageID: languageID, UserID: foreign})
+	require.Equal(t, languageID.String(), languages[0].ID)
+	_, err = languagesRepo.GetLanguage(ctx, commands.GetLanguageCommand{ResumeID: root.ID(), LanguageID: languageID, UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	technologyID := valueobjects.NewID()
-	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return technologiesRepo.CreateTechnology(tx, commands.TechnologyInput{ID: technologyID, Name: "Go", Grade: technologyGradePtr(enums.TechnologyGradeSenior), Position: 0}, root.ID(), owner)
-	}))
-	technology, err := technologiesRepo.GetTechnology(ctx, commands.GetTechnologyQuery{ResumeID: root.ID(), TechnologyID: technologyID, UserID: owner})
+	technology, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: technologyID, Name: "Go", Grade: technologyGradePtr(enums.TechnologyGradeSenior), Position: 0})
 	require.NoError(t, err)
-	require.Equal(t, "Go", technology.Name())
-	_, err = technologiesRepo.GetTechnology(ctx, commands.GetTechnologyQuery{ResumeID: root.ID(), TechnologyID: technologyID, UserID: foreign})
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return technologiesRepo.CreateTechnology(tx, commands.CreateTechnologyRepositoryCommand{Technology: technology, ResumeID: root.ID(), UserID: owner})
+	}))
+	loadedTechnology, err := technologiesRepo.GetTechnology(ctx, commands.GetTechnologyCommand{ResumeID: root.ID(), TechnologyID: technologyID, UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, "Go", loadedTechnology.Name())
+	_, err = technologiesRepo.GetTechnology(ctx, commands.GetTechnologyCommand{ResumeID: root.ID(), TechnologyID: technologyID, UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 }
 

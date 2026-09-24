@@ -12,71 +12,56 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-var _ commands.TechnologiesRepository = (*TechnologiesRepository)(nil)
+var _ commands.CreateTechnologyRepository = (*TechnologiesRepository)(nil)
+var _ commands.GetTechnologyRepository = (*TechnologiesRepository)(nil)
+var _ commands.UpdateTechnologyRepository = (*TechnologiesRepository)(nil)
+var _ commands.DeleteTechnologyRepository = (*TechnologiesRepository)(nil)
 
-func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, in commands.TechnologyInput, rid valueobjects.ID, uid useridentity.ID) error {
-	tx, e := r.owned(ctx, rid, uid)
-	if e != nil {
-		return e
+func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, c commands.CreateTechnologyRepositoryCommand) error {
+	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	if err != nil {
+		return err
 	}
-	m, e := technologyModel(in, rid)
-	if e != nil {
-		return e
+	m, err := technologyModel(c.Technology, c.ResumeID)
+	if err != nil {
+		return err
 	}
-	if e = tx.Create(&m).Error; e != nil {
-		if errors.Is(e, gorm.ErrDuplicatedKey) {
+	if err = tx.Create(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return domain.ErrDuplicateEntity
 		}
-		return e
+		return err
 	}
 	return nil
 }
-func (r *TechnologiesRepository) ListTechnologies(ctx context.Context, q commands.ListTechnologiesQuery) ([]domain.ResumeTechnologyEntry, error) {
-	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
-	if e != nil {
-		return nil, e
-	}
-	var ms []gormmodel.ResumeTechnology
-	if e = tx.Where("resume_id=?", q.ResumeID.UUID()).Order("position").Find(&ms).Error; e != nil {
-		return nil, e
-	}
-	out := make([]domain.ResumeTechnologyEntry, 0, len(ms))
-	for _, m := range ms {
-		x, err := mapTechnology(m)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, x)
-	}
-	return out, nil
-}
-func (r *TechnologiesRepository) GetTechnology(ctx context.Context, q commands.GetTechnologyQuery) (domain.ResumeTechnologyEntry, error) {
-	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
-	if e != nil {
-		return domain.ResumeTechnologyEntry{}, e
+
+func (r *TechnologiesRepository) GetTechnology(ctx context.Context, q commands.GetTechnologyCommand) (domain.ResumeTechnologyEntry, error) {
+	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
+	if err != nil {
+		return domain.ResumeTechnologyEntry{}, err
 	}
 	var m gormmodel.ResumeTechnology
-	if e = tx.Where("id=? AND resume_id=?", q.TechnologyID.UUID(), q.ResumeID.UUID()).First(&m).Error; e != nil {
-		if errors.Is(e, gorm.ErrRecordNotFound) {
+	if err = tx.Where("id=? AND resume_id=?", q.TechnologyID.UUID(), q.ResumeID.UUID()).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return domain.ResumeTechnologyEntry{}, domain.ErrEntityNotFound
 		}
-		return domain.ResumeTechnologyEntry{}, e
+		return domain.ResumeTechnologyEntry{}, err
 	}
 	return mapTechnology(m)
 }
-func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c commands.UpdateTechnologyCommand) error {
-	tx, e := r.owned(ctx, c.ResumeID, c.UserID)
-	if e != nil {
-		return e
+
+func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c commands.UpdateTechnologyRepositoryCommand) error {
+	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	if err != nil {
+		return err
 	}
-	m, e := technologyModel(c.Input, c.ResumeID)
-	if e != nil {
-		return e
+	m, err := technologyModel(c.Technology, c.ResumeID)
+	if err != nil {
+		return err
 	}
-	res := tx.Model(&gormmodel.ResumeTechnology{}).Where("id=? AND resume_id=?", c.TechnologyID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{"name": m.Name, "position": m.Position, "grade": m.Grade})
+	res := tx.Model(&gormmodel.ResumeTechnology{}).Where("id=? AND resume_id=?", c.Technology.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{"name": m.Name, "position": m.Position, "grade": m.Grade})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -85,10 +70,11 @@ func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c command
 	}
 	return nil
 }
+
 func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c commands.DeleteTechnologyCommand) error {
-	tx, e := r.owned(ctx, c.ResumeID, c.UserID)
-	if e != nil {
-		return e
+	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	if err != nil {
+		return err
 	}
 	res := tx.Where("id=? AND resume_id=?", c.TechnologyID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeTechnology{})
 	if res.Error != nil {
@@ -99,27 +85,26 @@ func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c command
 	}
 	return nil
 }
-func technologyModel(in commands.TechnologyInput, rid valueobjects.ID) (gormmodel.ResumeTechnology, error) {
-	if in.ID.IsZero() {
+
+func technologyModel(x domain.ResumeTechnologyEntry, rid valueobjects.ID) (gormmodel.ResumeTechnology, error) {
+	if x.ID().IsZero() {
 		return gormmodel.ResumeTechnology{}, fmt.Errorf("technology id is required")
 	}
-	entry, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{
-		ID: in.ID, Name: in.Name, Grade: in.Grade, Position: in.Position,
-	})
-	if err != nil {
-		return gormmodel.ResumeTechnology{}, err
+	if x.Name() == "" {
+		return gormmodel.ResumeTechnology{}, fmt.Errorf("technology name is required")
 	}
-	m := gormmodel.ResumeTechnology{ID: in.ID.UUID(), ResumeID: rid.UUID(), Name: entry.Name(), Position: entry.Position()}
-	if in.Grade != nil {
-		x := string(*in.Grade)
-		m.Grade = &x
+	m := gormmodel.ResumeTechnology{ID: x.ID().UUID(), ResumeID: rid.UUID(), Name: x.Name(), Position: x.Position()}
+	if g := x.Grade(); g != nil {
+		v := string(*g)
+		m.Grade = &v
 	}
 	return m, nil
 }
+
 func mapTechnology(m gormmodel.ResumeTechnology) (domain.ResumeTechnologyEntry, error) {
-	id, e := valueobjects.IDFromUUID(m.ID)
-	if e != nil {
-		return domain.ResumeTechnologyEntry{}, e
+	id, err := valueobjects.IDFromUUID(m.ID)
+	if err != nil {
+		return domain.ResumeTechnologyEntry{}, err
 	}
 	var g *enums.TechnologyGrade
 	if m.Grade != nil {

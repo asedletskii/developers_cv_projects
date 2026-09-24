@@ -81,3 +81,74 @@ func TestPrivateGetQueryHandlersRejectMissingIDs(t *testing.T) {
 	_, err = NewGetSkillsQueryHandler(&stubSkillsReader{}).Handle(context.Background(), GetSkillsQuery{})
 	require.Error(t, err)
 }
+
+type stubLanguagesReader struct {
+	views []LanguageView
+	view  LanguageView
+	list  ListLanguagesQuery
+	get   GetLanguageQuery
+}
+
+func (s *stubLanguagesReader) ListLanguages(_ context.Context, q ListLanguagesQuery) ([]LanguageView, error) {
+	s.list = q
+	return s.views, nil
+}
+
+func (s *stubLanguagesReader) GetLanguage(_ context.Context, q GetLanguageQuery) (LanguageView, error) {
+	s.get = q
+	return s.view, nil
+}
+
+type stubTechnologiesReader struct {
+	views []TechnologyView
+	view  TechnologyView
+	list  ListTechnologiesQuery
+	get   GetTechnologyQuery
+}
+
+func (s *stubTechnologiesReader) ListTechnologies(_ context.Context, q ListTechnologiesQuery) ([]TechnologyView, error) {
+	s.list = q
+	return s.views, nil
+}
+
+func (s *stubTechnologiesReader) GetTechnology(_ context.Context, q GetTechnologyQuery) (TechnologyView, error) {
+	s.get = q
+	return s.view, nil
+}
+
+func TestLanguagesAndTechnologiesQueryHandlersDelegateToReaders(t *testing.T) {
+	uid, rid, lid, tid := useridentity.NewID(), valueobjects.NewID(), valueobjects.NewID(), valueobjects.NewID()
+	lr := &stubLanguagesReader{views: []LanguageView{{ID: lid.String()}}, view: LanguageView{ID: lid.String()}}
+	tr := &stubTechnologiesReader{views: []TechnologyView{{ID: tid.String()}}, view: TechnologyView{ID: tid.String()}}
+
+	languages, err := NewListLanguagesQueryHandler(lr).Handle(context.Background(), ListLanguagesQuery{ResumeID: rid, UserID: uid})
+	require.NoError(t, err)
+	require.Equal(t, lr.views, languages)
+	require.Equal(t, rid, lr.list.ResumeID)
+
+	language, err := NewGetLanguageQueryHandler(lr).Handle(context.Background(), GetLanguageQuery{ResumeID: rid, LanguageID: lid, UserID: uid})
+	require.NoError(t, err)
+	require.Equal(t, lr.view, language)
+	require.Equal(t, lid, lr.get.LanguageID)
+
+	technologies, err := NewListTechnologiesQueryHandler(tr).Handle(context.Background(), ListTechnologiesQuery{ResumeID: rid, UserID: uid})
+	require.NoError(t, err)
+	require.Equal(t, tr.views, technologies)
+	require.Equal(t, rid, tr.list.ResumeID)
+
+	technology, err := NewGetTechnologyQueryHandler(tr).Handle(context.Background(), GetTechnologyQuery{ResumeID: rid, TechnologyID: tid, UserID: uid})
+	require.NoError(t, err)
+	require.Equal(t, tr.view, technology)
+	require.Equal(t, tid, tr.get.TechnologyID)
+}
+
+func TestLanguagesAndTechnologiesQueryHandlersRejectMissingIDs(t *testing.T) {
+	_, err := NewListLanguagesQueryHandler(&stubLanguagesReader{}).Handle(context.Background(), ListLanguagesQuery{})
+	require.Error(t, err)
+	_, err = NewGetLanguageQueryHandler(&stubLanguagesReader{}).Handle(context.Background(), GetLanguageQuery{})
+	require.Error(t, err)
+	_, err = NewListTechnologiesQueryHandler(&stubTechnologiesReader{}).Handle(context.Background(), ListTechnologiesQuery{})
+	require.Error(t, err)
+	_, err = NewGetTechnologyQueryHandler(&stubTechnologiesReader{}).Handle(context.Background(), GetTechnologyQuery{})
+	require.Error(t, err)
+}
