@@ -9,7 +9,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func setValidConfigEnvironment(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("AUTH_MODE", "mock")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
+	t.Setenv("POSTGRES_PASSWORD", "test-password")
+	t.Setenv("POSTGRES_SSLMODE", "disable")
+}
+
 func TestLoadRequiresOriginsWhenCredentialsEnabled(t *testing.T) {
+	setValidConfigEnvironment(t)
 	t.Setenv("CORS_ALLOWED_ORIGINS", "")
 	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
 
@@ -20,6 +31,7 @@ func TestLoadRequiresOriginsWhenCredentialsEnabled(t *testing.T) {
 }
 
 func TestLoadParsesConfiguration(t *testing.T) {
+	setValidConfigEnvironment(t)
 	t.Setenv("HTTP_PORT", "9090")
 	t.Setenv("HTTP_MAX_BODY_BYTES", "2048")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173")
@@ -62,6 +74,7 @@ func TestLoadDotEnvDoesNotOverrideEnvironment(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidEnvironmentValue(t *testing.T) {
+	setValidConfigEnvironment(t)
 	t.Setenv("HTTP_PORT", "not-a-port")
 
 	_, err := parse()
@@ -71,6 +84,7 @@ func TestLoadRejectsInvalidEnvironmentValue(t *testing.T) {
 }
 
 func TestLoadRejectsWildcardCORSOrigin(t *testing.T) {
+	setValidConfigEnvironment(t)
 	t.Setenv("CORS_ALLOWED_ORIGINS", "*")
 	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
 
@@ -104,6 +118,7 @@ func TestPostgresConnectionStringEscapesCredentials(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidPostgresSSLMode(t *testing.T) {
+	setValidConfigEnvironment(t)
 	t.Setenv("POSTGRES_SSLMODE", "invalid")
 
 	_, err := parse()
@@ -113,6 +128,7 @@ func TestLoadRejectsInvalidPostgresSSLMode(t *testing.T) {
 }
 
 func TestLoadParsesAuthMode(t *testing.T) {
+	setValidConfigEnvironment(t)
 	t.Setenv("AUTH_MODE", "mock")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 
@@ -123,6 +139,7 @@ func TestLoadParsesAuthMode(t *testing.T) {
 }
 
 func TestLoadRejectsUnsupportedAuthMode(t *testing.T) {
+	setValidConfigEnvironment(t)
 	t.Setenv("AUTH_MODE", "jwt")
 
 	_, err := parse()
