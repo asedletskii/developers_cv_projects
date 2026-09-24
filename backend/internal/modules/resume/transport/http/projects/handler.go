@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
@@ -18,13 +19,13 @@ import (
 
 type Handler struct {
 	create *commands.CreateProjectHandler
-	list   *commands.ListProjectsHandler
-	get    *commands.GetProjectHandler
+	list   *queries.ListProjectsQueryHandler
+	get    *queries.GetProjectQueryHandler
 	update *commands.UpdateProjectHandler
 	delete *commands.DeleteProjectHandler
 }
 
-func NewHandler(create *commands.CreateProjectHandler, list *commands.ListProjectsHandler, get *commands.GetProjectHandler, update *commands.UpdateProjectHandler, delete *commands.DeleteProjectHandler) *Handler {
+func NewHandler(create *commands.CreateProjectHandler, list *queries.ListProjectsQueryHandler, get *queries.GetProjectQueryHandler, update *commands.UpdateProjectHandler, delete *commands.DeleteProjectHandler) *Handler {
 	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
 }
 
@@ -108,12 +109,12 @@ func (h *Handler) Create(c *gin.Context) {
 		write(c, err)
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetProjectQuery{ResumeID: rid, ProjectID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetProjectQuery{ResumeID: rid, ProjectID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, projectView(rid, item))
+	c.JSON(http.StatusCreated, projectQueryView(item))
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -121,14 +122,14 @@ func (h *Handler) List(c *gin.Context) {
 	if !ok {
 		return
 	}
-	items, err := h.list.Handle(c.Request.Context(), commands.ListProjectsQuery{ResumeID: rid, UserID: uid})
+	items, err := h.list.Handle(c.Request.Context(), queries.ListProjectsQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
 	out := make([]ProjectResponse, len(items))
 	for i, item := range items {
-		out[i] = projectView(rid, item)
+		out[i] = projectQueryView(item)
 	}
 	c.JSON(http.StatusOK, out)
 }
@@ -138,12 +139,12 @@ func (h *Handler) Get(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetProjectQuery{ResumeID: rid, ProjectID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetProjectQuery{ResumeID: rid, ProjectID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, projectView(rid, item))
+	c.JSON(http.StatusOK, projectQueryView(item))
 }
 
 func (h *Handler) Update(c *gin.Context) {
@@ -165,12 +166,12 @@ func (h *Handler) Update(c *gin.Context) {
 		write(c, err)
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetProjectQuery{ResumeID: rid, ProjectID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetProjectQuery{ResumeID: rid, ProjectID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, projectView(rid, item))
+	c.JSON(http.StatusOK, projectQueryView(item))
 }
 
 func (h *Handler) Delete(c *gin.Context) {
@@ -264,51 +265,22 @@ func contributorContacts(input ContactsRequest) (entities.Contacts, error) {
 	return entities.NewContacts(entities.ContactsParams{Phone: input.Phone, Telegram: telegram, Email: email})
 }
 
-func projectView(resumeID valueobjects.ID, item *domain.Project) ProjectResponse {
-	stack := item.Stack()
-	stackView := make([]TechnologyResponse, len(stack))
-	for i, technology := range stack {
-		var grade *string
-		if value := technology.Grade(); value != nil {
-			text := string(*value)
-			grade = &text
+func projectQueryView(item queries.ProjectView) ProjectResponse {
+	stack := make([]TechnologyResponse, len(item.Stack))
+	for i, technology := range item.Stack {
+		stack[i] = TechnologyResponse{Name: technology.Name, Grade: technology.Grade}
+	}
+	contributors := make([]ContributorResponse, len(item.Contributors))
+	for i, contributor := range item.Contributors {
+		contributors[i] = ContributorResponse{
+			Name: contributor.Name, Surname: contributor.Surname, Role: contributor.Role,
+			Contacts: ContactsResponse{Phone: contributor.Contacts.Phone, Telegram: contributor.Contacts.Telegram, Email: contributor.Contacts.Email},
 		}
-		stackView[i] = TechnologyResponse{Name: technology.Name(), Grade: grade}
 	}
-	contributors := item.Contributors()
-	contributorsView := make([]ContributorResponse, len(contributors))
-	for i, contributor := range contributors {
-		contacts := contributor.Contacts()
-		contributorsView[i] = ContributorResponse{Name: contributor.Name(), Surname: contributor.Surname(), Role: contributor.Role(), Contacts: ContactsResponse{Phone: contacts.Phone(), Telegram: telegramString(contacts.Telegram()), Email: emailString(contacts.Email())}}
+	return ProjectResponse{
+		ID: item.ID, ResumeID: item.ResumeID, Name: item.Name, Description: item.Description, Role: item.Role,
+		Screenshots: item.Screenshots, Link: item.Link, GitLink: item.GitLink, Stack: stack, Contributors: contributors,
 	}
-	screenshots := item.Screenshots()
-	screenshotView := make([]string, len(screenshots))
-	for i, screenshot := range screenshots {
-		screenshotView[i] = screenshot.String()
-	}
-	return ProjectResponse{ID: item.ID().String(), ResumeID: resumeID.String(), Name: item.Name(), Description: item.Description(), Role: item.Role(), Screenshots: screenshotView, Link: externalURLString(item.Link()), GitLink: externalURLString(item.GitLink()), Stack: stackView, Contributors: contributorsView}
-}
-
-func telegramString(value *valueobjects.Telegram) *string {
-	if value == nil {
-		return nil
-	}
-	result := value.String()
-	return &result
-}
-func emailString(value *valueobjects.Email) *string {
-	if value == nil {
-		return nil
-	}
-	result := value.String()
-	return &result
-}
-func externalURLString(value *valueobjects.ExternalURL) *string {
-	if value == nil {
-		return nil
-	}
-	result := value.String()
-	return &result
 }
 
 func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {

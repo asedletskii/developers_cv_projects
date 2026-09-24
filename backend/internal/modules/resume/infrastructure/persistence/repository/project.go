@@ -15,7 +15,10 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.ProjectsRepository = (*ProjectRepository)(nil)
+var _ commands.CreateProjectRepository = (*ProjectRepository)(nil)
+var _ commands.GetProjectRepository = (*ProjectRepository)(nil)
+var _ commands.UpdateProjectRepository = (*ProjectRepository)(nil)
+var _ commands.DeleteProjectRepository = (*ProjectRepository)(nil)
 
 func (r *ProjectRepository) CreateProject(ctx context.Context, c commands.CreateProjectCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
@@ -39,27 +42,7 @@ func (r *ProjectRepository) CreateProject(ctx context.Context, c commands.Create
 	return writeProjectChildren(ctx, tx, &item, c.Input)
 }
 
-func (r *ProjectRepository) ListProjects(ctx context.Context, q commands.ListProjectsQuery) ([]*domain.Project, error) {
-	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
-	if err != nil {
-		return nil, err
-	}
-	var models []gormmodel.ResumeProject
-	if err := tx.WithContext(ctx).Where("resume_id = ?", q.ResumeID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
-		return nil, err
-	}
-	out := make([]*domain.Project, 0, len(models))
-	for _, model := range models {
-		item, err := r.mapProject(ctx, tx, model)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
-	}
-	return out, nil
-}
-
-func (r *ProjectRepository) GetProject(ctx context.Context, q commands.GetProjectQuery) (*domain.Project, error) {
+func (r *ProjectRepository) GetProject(ctx context.Context, q commands.GetProjectCommand) (*domain.Project, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
