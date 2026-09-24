@@ -1,208 +1,16 @@
-package http
+package request
 
 import (
-	"fmt"
-	"net/http"
-
 	"github.com/google/uuid"
 
-	"github.com/gin-gonic/gin"
-
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
-	apperrors "developers-cv/backend/internal/platform/http/errors"
-	"developers-cv/backend/internal/platform/http/middleware"
 )
 
-type createResumeRequest struct {
-	Name           string              `json:"name"`
-	Surname        string              `json:"surname"`
-	Patronymic     *string             `json:"patronymic,omitempty"`
-	Position       string              `json:"position"`
-	Availability   *createAvailability `json:"availability,omitempty"`
-	ResumeLink     *string             `json:"resumeLink,omitempty"`
-	Theme          *createTheme        `json:"theme,omitempty"`
-	Sections       []createSection     `json:"sections"`
-	HiddenContacts []string            `json:"hiddenContacts"`
-	ContactsText   *createContactsText `json:"contactsText,omitempty"`
-	Greeting       createGreeting      `json:"greeting"`
-	PhotoPath      string              `json:"photoPath"`
-	DateOfBirth    string              `json:"dateOfBirth"`
-	Location       string              `json:"location"`
-	Relocation     bool                `json:"relocation"`
-	WorkFormat     []string            `json:"workFormat"`
-	Contacts       createContacts      `json:"contacts"`
-	Languages      []createLanguage    `json:"languages"`
-	Experience     []createExperience  `json:"experience"`
-	Education      []createEducation   `json:"education"`
-	Courses        []createCourse      `json:"courses"`
-	Activities     []createActivity    `json:"activities"`
-	HardSkills     []string            `json:"hardSkills"`
-	SoftSkills     []string            `json:"softSkills"`
-	Technologies   []createTechnology  `json:"technologies"`
-	Projects       []createProject     `json:"projects"`
-}
-
-type createLocalizedText struct {
-	RU string `json:"ru"`
-	EN string `json:"en"`
-}
-type createGreeting struct {
-	First           createLocalizedText `json:"first"`
-	Second          createLocalizedText `json:"second"`
-	SecondHighlight createLocalizedText `json:"secondHighlight"`
-	Third           createLocalizedText `json:"third"`
-}
-type createAvailability struct {
-	Status string               `json:"status"`
-	From   *string              `json:"from,omitempty"`
-	Note   *createLocalizedText `json:"note,omitempty"`
-}
-type createTheme struct {
-	Primary   *string `json:"primary,omitempty"`
-	Secondary *string `json:"secondary,omitempty"`
-}
-type createSection struct {
-	ID        string `json:"id"`
-	Enabled   bool   `json:"enabled"`
-	Collapsed bool   `json:"collapsed"`
-}
-type createContactsText struct {
-	Title    *createLocalizedText `json:"title,omitempty"`
-	Subtitle *createLocalizedText `json:"subtitle,omitempty"`
-}
-type createContacts struct {
-	Phone    *string `json:"phone,omitempty"`
-	Telegram *string `json:"telegram,omitempty"`
-	Email    *string `json:"email,omitempty"`
-}
-type createTechnology struct {
-	Name string `json:"name"`
-}
-type createLanguage struct {
-	Language string  `json:"language"`
-	Grade    *string `json:"grade,omitempty"`
-}
-type createExperience struct {
-	ID           string             `json:"id,omitempty"`
-	Company      string             `json:"company"`
-	Position     string             `json:"position"`
-	Location     *string            `json:"location,omitempty"`
-	StartDate    string             `json:"startDate"`
-	EndDate      *string            `json:"endDate,omitempty"`
-	Description  *string            `json:"description,omitempty"`
-	Achievements []string           `json:"achievements"`
-	Stack        []createTechnology `json:"stack"`
-}
-type createEducation struct {
-	ID          string  `json:"id,omitempty"`
-	Location    string  `json:"location"`
-	University  string  `json:"university"`
-	Grade       int     `json:"grade"`
-	ProgramName string  `json:"programName"`
-	ProfileName *string `json:"profileName,omitempty"`
-	Faculty     string  `json:"faculty"`
-	Course      *int    `json:"course,omitempty"`
-	EndDate     *string `json:"endDate,omitempty"`
-}
-type createCourse struct {
-	ID              string  `json:"id,omitempty"`
-	Name            string  `json:"name"`
-	Organization    string  `json:"organization"`
-	EndDate         string  `json:"endDate"`
-	Hours           *int    `json:"hours,omitempty"`
-	CertificateLink *string `json:"certificateLink,omitempty"`
-}
-type createActivity struct {
-	ID          string  `json:"id,omitempty"`
-	Type        string  `json:"type"`
-	Title       string  `json:"title"`
-	Description *string `json:"description,omitempty"`
-	Date        *string `json:"date,omitempty"`
-	Link        *string `json:"link,omitempty"`
-}
-type createContributor struct {
-	Name     string         `json:"name"`
-	Surname  string         `json:"surname"`
-	Role     string         `json:"role"`
-	Contacts createContacts `json:"contacts"`
-}
-type createProject struct {
-	ID           string              `json:"id,omitempty"`
-	Name         string              `json:"name"`
-	Description  *string             `json:"description,omitempty"`
-	Role         *string             `json:"role,omitempty"`
-	Screenshots  []string            `json:"screenshots"`
-	Link         *string             `json:"link,omitempty"`
-	GitLink      *string             `json:"gitLink,omitempty"`
-	Stack        []createTechnology  `json:"stack"`
-	Contributors []createContributor `json:"contributors"`
-}
-
-func (h *Handler) CreateResume(c *gin.Context) {
-	var request createResumeRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		writeError(c, apperrors.New(
-			apperrors.CodeBadRequest,
-			http.StatusBadRequest,
-			"Invalid request body",
-		))
-		return
-	}
-
-	userID, ok := middleware.GetUserID(c)
-	if !ok {
-		writeError(c, apperrors.New(
-			apperrors.CodeUnauthorized,
-			http.StatusUnauthorized,
-			"Authentication required",
-		))
-		return
-	}
-
-	command, err := request.toCommand(userID)
-	if err != nil {
-		if isValidationError(err) {
-			writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
-			return
-		}
-		writeError(c, apperrors.Internal(err))
-		return
-	}
-
-	resumeID, err := h.createResume.Handle(c.Request.Context(), command)
-	if err != nil {
-		if isValidationError(err) {
-			writeError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
-			return
-		}
-		writeError(c, apperrors.Internal(err))
-		return
-	}
-
-	identity, err := useridentity.IDFromUUID(userID)
-	if err != nil {
-		writeError(c, apperrors.Internal(err))
-		return
-	}
-	resume, err := h.getResume.Handle(c.Request.Context(), queries.GetResumeQuery{
-		UserID: &identity,
-		ID:     resumeID.UUID(),
-		Lang:   queries.LanguageRU,
-	})
-	if err != nil {
-		writeError(c, apperrors.Internal(err))
-		return
-	}
-	c.JSON(http.StatusOK, resume)
-}
-
-func (r createResumeRequest) toCommand(userID uuid.UUID) (commands.CreateResumeCommand, error) {
+func (r ResumeRequest) ToCreateCommand(userID uuid.UUID) (commands.CreateResumeCommand, error) {
 	userIdentity, err := useridentity.IDFromUUID(userID)
 	if err != nil {
 		return commands.CreateResumeCommand{}, err
@@ -456,10 +264,10 @@ func (r createResumeRequest) toCommand(userID uuid.UUID) (commands.CreateResumeC
 	}, nil
 }
 
-func newLocalizedText(v createLocalizedText) (valueobjects.LocalizedText, error) {
+func newLocalizedText(v LocalizedTextRequest) (valueobjects.LocalizedText, error) {
 	return valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: v.RU, EN: v.EN})
 }
-func newGreeting(v createGreeting) (valueobjects.Greeting, error) {
+func newGreeting(v GreetingRequest) (valueobjects.Greeting, error) {
 	first, e := newLocalizedText(v.First)
 	if e != nil {
 		return valueobjects.Greeting{}, e
@@ -483,7 +291,7 @@ func newGreeting(v createGreeting) (valueobjects.Greeting, error) {
 		Third:           third,
 	}), nil
 }
-func newAvailability(v *createAvailability) (*valueobjects.Availability, error) {
+func newAvailability(v *AvailabilityRequest) (*valueobjects.Availability, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -513,7 +321,7 @@ func newAvailability(v *createAvailability) (*valueobjects.Availability, error) 
 	}
 	return &a, nil
 }
-func newTheme(v *createTheme) (*valueobjects.ThemeSettings, error) {
+func newTheme(v *ThemeRequest) (*valueobjects.ThemeSettings, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -541,7 +349,7 @@ func newTheme(v *createTheme) (*valueobjects.ThemeSettings, error) {
 	}
 	return &t, nil
 }
-func newSections(values []createSection) ([]valueobjects.SectionSettings, error) {
+func newSections(values []SectionRequest) ([]valueobjects.SectionSettings, error) {
 	result := make([]valueobjects.SectionSettings, 0, len(values))
 	for _, v := range values {
 		s, e := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{
@@ -556,7 +364,7 @@ func newSections(values []createSection) ([]valueobjects.SectionSettings, error)
 	}
 	return result, nil
 }
-func newContactsText(v *createContactsText) (*valueobjects.ContactsText, error) {
+func newContactsText(v *ContactsTextRequest) (*valueobjects.ContactsText, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -581,7 +389,7 @@ func newContactsText(v *createContactsText) (*valueobjects.ContactsText, error) 
 	}
 	return &t, nil
 }
-func newContacts(v createContacts) (entities.Contacts, error) {
+func newContacts(v ContactsRequest) (entities.Contacts, error) {
 	var telegram *valueobjects.Telegram
 	if v.Telegram != nil {
 		x, e := valueobjects.NewTelegram(*v.Telegram)
@@ -604,7 +412,7 @@ func newContacts(v createContacts) (entities.Contacts, error) {
 		Email:    email,
 	})
 }
-func newTechnologies(values []createTechnology) ([]entities.Technology, error) {
+func newTechnologies(values []TechnologyRequest) ([]entities.Technology, error) {
 	result := make([]entities.Technology, 0, len(values))
 	for _, v := range values {
 		t, e := entities.NewTechnology(entities.TechnologyParams{Name: v.Name})
@@ -615,7 +423,7 @@ func newTechnologies(values []createTechnology) ([]entities.Technology, error) {
 	}
 	return result, nil
 }
-func newTechnologyParams(values []createTechnology) ([]entities.TechnologyParams, error) {
+func newTechnologyParams(values []TechnologyRequest) ([]entities.TechnologyParams, error) {
 	result := make([]entities.TechnologyParams, 0, len(values))
 	for _, v := range values {
 		result = append(result, entities.TechnologyParams{Name: v.Name})
@@ -673,25 +481,4 @@ func stringValue(v *string) string {
 		return ""
 	}
 	return *v
-}
-func isValidationError(err error) bool { return err != nil && (domainErr(err) || valueErr(err)) }
-func domainErr(err error) bool {
-	return fmt.Sprintf("%v", err) != "" && (containsError(err, domain.ErrInvalidResume) ||
-		containsError(err, domain.ErrInvalidEntity) || containsError(err, domain.ErrResumeInvariant) ||
-		containsError(err, domain.ErrDuplicateEntity))
-}
-func valueErr(err error) bool { return containsError(err, valueobjects.ErrInvalidValue) }
-func containsError(err, target error) bool {
-	for err != nil {
-		if err == target {
-			return true
-		}
-		type unwrapper interface{ Unwrap() error }
-		u, ok := err.(unwrapper)
-		if !ok {
-			return false
-		}
-		err = u.Unwrap()
-	}
-	return false
 }
