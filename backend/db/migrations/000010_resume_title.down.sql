@@ -1,2 +1,0 @@
-ALTER TABLE resumes
-    DROP COLUMN IF EXISTS title;

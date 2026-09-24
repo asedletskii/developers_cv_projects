@@ -215,10 +215,10 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
 	var hardCount, softCount, languageCount, technologyCount int
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard_v2").Scan(&hardCount))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft_v2").Scan(&softCount))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_languages_v2").Scan(&languageCount))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_technologies_v2").Scan(&technologyCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&hardCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&softCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_languages").Scan(&languageCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_technologies").Scan(&technologyCount))
 	require.Greater(t, hardCount, 0)
 	require.Greater(t, softCount, 0)
 	require.Greater(t, languageCount, 0)

@@ -36,7 +36,7 @@ const publicResumeQuerySQL = `SELECT
         'subtitle', ct.subtitle_ru
     ) END,
     jsonb_build_object('phone', c.phone, 'telegram', c.telegram, 'email', c.email),
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('language', l.language, 'grade', l.grade) ORDER BY l.position) FROM resume_languages_v2 l WHERE l.resume_id = r.id), '[]'::jsonb),
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('language', l.language, 'grade', l.grade) ORDER BY l.position) FROM resume_languages l WHERE l.resume_id = r.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'id', e.id::text,
         'company', e.company,
@@ -45,35 +45,35 @@ const publicResumeQuerySQL = `SELECT
         'startDate', to_char(e.start_date, 'YYYY-MM'),
         'endDate', CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END,
         'description', e.description,
-        'achievements', COALESCE((SELECT jsonb_agg(a.value ORDER BY a.position) FROM resume_experience_achievements_v2 a WHERE a.experience_id = e.id), '[]'::jsonb),
-        'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', x.name) ORDER BY x.position) FROM resume_experience_technologies_v2 x WHERE x.experience_id = e.id), '[]'::jsonb)
-    ) ORDER BY e.sort_order) FROM resume_experiences_v2 e WHERE e.resume_id = r.id), '[]'::jsonb),
+        'achievements', COALESCE((SELECT jsonb_agg(a.value ORDER BY a.position) FROM resume_experience_achievements a WHERE a.experience_id = e.id), '[]'::jsonb),
+        'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', x.name) ORDER BY x.position) FROM resume_experience_technologies x WHERE x.experience_id = e.id), '[]'::jsonb)
+    ) ORDER BY e.sort_order) FROM resume_experiences e WHERE e.resume_id = r.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'id', e.id::text, 'location', e.location, 'university', e.university, 'grade', e.grade,
         'programName', e.program_name, 'profileName', e.profile_name, 'faculty', e.faculty,
         'course', e.course, 'endDate', CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY') END
-    ) ORDER BY e.sort_order) FROM resume_educations_v2 e WHERE e.resume_id = r.id), '[]'::jsonb),
+    ) ORDER BY e.sort_order) FROM resume_educations e WHERE e.resume_id = r.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'id', c1.id::text, 'name', c1.name, 'organization', c1.organization,
         'endDate', to_char(c1.end_date, 'YYYY-MM'), 'hours', c1.hours, 'certificateLink', c1.certificate_link
-    ) ORDER BY c1.sort_order) FROM resume_courses_v2 c1 WHERE c1.resume_id = r.id), '[]'::jsonb),
+    ) ORDER BY c1.sort_order) FROM resume_courses c1 WHERE c1.resume_id = r.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'id', a1.id::text, 'type', a1.type, 'title', a1.title, 'description', a1.description,
         'date', CASE WHEN a1.date IS NULL THEN NULL ELSE to_char(a1.date, 'YYYY-MM') END, 'link', a1.link
-    ) ORDER BY a1.sort_order) FROM resume_activities_v2 a1 WHERE a1.resume_id = r.id), '[]'::jsonb),
-    COALESCE((SELECT jsonb_agg(h.value ORDER BY h.position) FROM resume_skill_hard_v2 h WHERE h.skills_id = sk.id), '[]'::jsonb),
-    COALESCE((SELECT jsonb_agg(s.value ORDER BY s.position) FROM resume_skill_soft_v2 s WHERE s.skills_id = sk.id), '[]'::jsonb),
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t.name) ORDER BY t.position) FROM resume_technologies_v2 t WHERE t.resume_id = r.id), '[]'::jsonb),
+    ) ORDER BY a1.sort_order) FROM resume_activities a1 WHERE a1.resume_id = r.id), '[]'::jsonb),
+    COALESCE((SELECT jsonb_agg(h.value ORDER BY h.position) FROM resume_skill_hard h WHERE h.skills_id = sk.id), '[]'::jsonb),
+    COALESCE((SELECT jsonb_agg(s.value ORDER BY s.position) FROM resume_skill_soft s WHERE s.skills_id = sk.id), '[]'::jsonb),
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t.name) ORDER BY t.position) FROM resume_technologies t WHERE t.resume_id = r.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'id', pr.id::text, 'name', pr.name, 'description', pr.description,
-        'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', pt.name) ORDER BY pt.position) FROM resume_project_technologies_v2 pt WHERE pt.project_id = pr.id), '[]'::jsonb),
+        'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', pt.name) ORDER BY pt.position) FROM resume_project_technologies pt WHERE pt.project_id = pr.id), '[]'::jsonb),
         'link', pr.link
-    ) ORDER BY pr.sort_order) FROM resume_projects_v2 pr WHERE pr.resume_id = r.id), '[]'::jsonb)
+    ) ORDER BY pr.sort_order) FROM resume_projects pr WHERE pr.resume_id = r.id), '[]'::jsonb)
 FROM resume_roots r
 JOIN resume_profiles p ON p.resume_id = r.id
 JOIN resume_presentations rp ON rp.resume_id = r.id
-LEFT JOIN resume_contacts_v2 c ON c.resume_id = r.id
-LEFT JOIN resume_contacts_text_v2 ct ON ct.contacts_id = c.id
-LEFT JOIN resume_skills_v2 sk ON sk.resume_id = r.id
+LEFT JOIN resume_contacts c ON c.resume_id = r.id
+LEFT JOIN resume_contacts_text ct ON ct.contacts_id = c.id
+LEFT JOIN resume_skills sk ON sk.resume_id = r.id
 WHERE r.id = $1
 `

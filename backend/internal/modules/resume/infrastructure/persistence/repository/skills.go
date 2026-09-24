@@ -22,21 +22,21 @@ func (r *SkillsRepository) CreateSkills(ctx context.Context, a *domain.Skills, u
 		return e
 	}
 	var n int64
-	tx.Model(&gormmodel.ResumeSkillsV2{}).Where("resume_id=?", a.ResumeID().UUID()).Count(&n)
+	tx.Model(&gormmodel.ResumeSkills{}).Where("resume_id=?", a.ResumeID().UUID()).Count(&n)
 	if n > 0 {
 		return domain.ErrDuplicateEntity
 	}
-	m := gormmodel.ResumeSkillsV2{ID: a.ID().UUID(), ResumeID: a.ResumeID().UUID()}
+	m := gormmodel.ResumeSkills{ID: a.ID().UUID(), ResumeID: a.ResumeID().UUID()}
 	if e = tx.Create(&m).Error; e != nil {
 		return e
 	}
 	for i, v := range a.HardSkills() {
-		if e = tx.Create(&gormmodel.ResumeSkillHardV2{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
+		if e = tx.Create(&gormmodel.ResumeSkillHard{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
 			return e
 		}
 	}
 	for i, v := range a.SoftSkills() {
-		if e = tx.Create(&gormmodel.ResumeSkillSoftV2{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
+		if e = tx.Create(&gormmodel.ResumeSkillSoft{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
 			return e
 		}
 	}
@@ -47,15 +47,15 @@ func (r *SkillsRepository) GetSkills(ctx context.Context, q commands.GetSkillsQu
 	if e != nil {
 		return nil, e
 	}
-	var m gormmodel.ResumeSkillsV2
+	var m gormmodel.ResumeSkills
 	if e = tx.Where("resume_id=?", q.ResumeID.UUID()).First(&m).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}
 		return nil, e
 	}
-	var h []gormmodel.ResumeSkillHardV2
-	var s []gormmodel.ResumeSkillSoftV2
+	var h []gormmodel.ResumeSkillHard
+	var s []gormmodel.ResumeSkillSoft
 	tx.Where("skills_id=?", m.ID).Order("position").Find(&h)
 	tx.Where("skills_id=?", m.ID).Order("position").Find(&s)
 	hp := make([]enums.HardSkill, len(h))
@@ -81,26 +81,26 @@ func (r *SkillsRepository) UpdateSkills(ctx context.Context, a *domain.Skills, u
 	if e != nil {
 		return e
 	}
-	var m gormmodel.ResumeSkillsV2
+	var m gormmodel.ResumeSkills
 	if e = tx.Where("id=? AND resume_id=?", a.ID().UUID(), a.ResumeID().UUID()).First(&m).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return domain.ErrEntityNotFound
 		}
 		return e
 	}
-	if e = tx.Where("skills_id=?", m.ID).Delete(&gormmodel.ResumeSkillHardV2{}).Error; e != nil {
+	if e = tx.Where("skills_id=?", m.ID).Delete(&gormmodel.ResumeSkillHard{}).Error; e != nil {
 		return e
 	}
-	if e = tx.Where("skills_id=?", m.ID).Delete(&gormmodel.ResumeSkillSoftV2{}).Error; e != nil {
+	if e = tx.Where("skills_id=?", m.ID).Delete(&gormmodel.ResumeSkillSoft{}).Error; e != nil {
 		return e
 	}
 	for i, v := range a.HardSkills() {
-		if e = tx.Create(&gormmodel.ResumeSkillHardV2{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
+		if e = tx.Create(&gormmodel.ResumeSkillHard{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
 			return e
 		}
 	}
 	for i, v := range a.SoftSkills() {
-		if e = tx.Create(&gormmodel.ResumeSkillSoftV2{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
+		if e = tx.Create(&gormmodel.ResumeSkillSoft{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
 			return e
 		}
 	}

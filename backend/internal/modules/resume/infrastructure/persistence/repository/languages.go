@@ -39,7 +39,7 @@ func (r *LanguagesRepository) ListLanguages(ctx context.Context, q commands.List
 	if e != nil {
 		return nil, e
 	}
-	var ms []gormmodel.ResumeLanguageV2
+	var ms []gormmodel.ResumeLanguage
 	if e = tx.Where("resume_id=?", q.ResumeID.UUID()).Order("position").Find(&ms).Error; e != nil {
 		return nil, e
 	}
@@ -58,7 +58,7 @@ func (r *LanguagesRepository) GetLanguage(ctx context.Context, q commands.GetLan
 	if e != nil {
 		return domain.ResumeLanguageEntry{}, e
 	}
-	var m gormmodel.ResumeLanguageV2
+	var m gormmodel.ResumeLanguage
 	if e = tx.Where("id=? AND resume_id=?", q.LanguageID.UUID(), q.ResumeID.UUID()).First(&m).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return domain.ResumeLanguageEntry{}, domain.ErrEntityNotFound
@@ -76,7 +76,7 @@ func (r *LanguagesRepository) UpdateLanguage(ctx context.Context, c commands.Upd
 	if e != nil {
 		return e
 	}
-	res := tx.Model(&gormmodel.ResumeLanguageV2{}).Where("id=? AND resume_id=?", c.LanguageID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{"language": m.Language, "position": m.Position, "grade": m.Grade})
+	res := tx.Model(&gormmodel.ResumeLanguage{}).Where("id=? AND resume_id=?", c.LanguageID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{"language": m.Language, "position": m.Position, "grade": m.Grade})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -90,7 +90,7 @@ func (r *LanguagesRepository) DeleteLanguage(ctx context.Context, c commands.Del
 	if e != nil {
 		return e
 	}
-	res := tx.Where("id=? AND resume_id=?", c.LanguageID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeLanguageV2{})
+	res := tx.Where("id=? AND resume_id=?", c.LanguageID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeLanguage{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -99,23 +99,23 @@ func (r *LanguagesRepository) DeleteLanguage(ctx context.Context, c commands.Del
 	}
 	return nil
 }
-func languageModel(in commands.LanguageInput, rid valueobjects.ID) (gormmodel.ResumeLanguageV2, error) {
+func languageModel(in commands.LanguageInput, rid valueobjects.ID) (gormmodel.ResumeLanguage, error) {
 	if in.ID.IsZero() {
-		return gormmodel.ResumeLanguageV2{}, fmt.Errorf("language id is required")
+		return gormmodel.ResumeLanguage{}, fmt.Errorf("language id is required")
 	}
 	if _, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{
 		ID: in.ID, Language: in.Language, Grade: in.Grade, Position: in.Position,
 	}); err != nil {
-		return gormmodel.ResumeLanguageV2{}, err
+		return gormmodel.ResumeLanguage{}, err
 	}
-	m := gormmodel.ResumeLanguageV2{ID: in.ID.UUID(), ResumeID: rid.UUID(), Language: string(in.Language), Position: in.Position}
+	m := gormmodel.ResumeLanguage{ID: in.ID.UUID(), ResumeID: rid.UUID(), Language: string(in.Language), Position: in.Position}
 	if in.Grade != nil {
 		x := string(*in.Grade)
 		m.Grade = &x
 	}
 	return m, nil
 }
-func mapLanguage(m gormmodel.ResumeLanguageV2) (domain.ResumeLanguageEntry, error) {
+func mapLanguage(m gormmodel.ResumeLanguage) (domain.ResumeLanguageEntry, error) {
 	id, e := valueobjects.IDFromUUID(m.ID)
 	if e != nil {
 		return domain.ResumeLanguageEntry{}, e

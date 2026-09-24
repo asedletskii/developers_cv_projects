@@ -78,7 +78,7 @@ type ResumeContacts struct {
 	Email    *string
 }
 
-func (ResumeContacts) TableName() string { return "resume_contacts_v2" }
+func (ResumeContacts) TableName() string { return "resume_contacts" }
 
 type ResumeContactHidden struct {
 	ContactsID uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -96,30 +96,30 @@ type ResumeContactsText struct {
 	SubtitleEN *string
 }
 
-func (ResumeContactsText) TableName() string { return "resume_contacts_text_v2" }
+func (ResumeContactsText) TableName() string { return "resume_contacts_text" }
 
-type ResumeSkillsV2 struct {
+type ResumeSkills struct {
 	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ResumeID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
 }
-type ResumeSkillHardV2 struct {
+type ResumeSkillHard struct {
 	SkillsID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Value    string    `gorm:"type:text;primaryKey"`
 	Position int       `gorm:"not null"`
 }
-type ResumeSkillSoftV2 struct {
+type ResumeSkillSoft struct {
 	SkillsID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Value    string    `gorm:"type:text;primaryKey"`
 	Position int       `gorm:"not null"`
 }
-type ResumeLanguageV2 struct {
+type ResumeLanguage struct {
 	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ResumeID uuid.UUID `gorm:"type:uuid;not null;index"`
 	Language string    `gorm:"type:text;not null"`
 	Position int       `gorm:"not null"`
 	Grade    *string
 }
-type ResumeTechnologyV2 struct {
+type ResumeTechnology struct {
 	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ResumeID uuid.UUID `gorm:"type:uuid;not null;index"`
 	Name     string    `gorm:"type:text;not null"`
@@ -127,11 +127,11 @@ type ResumeTechnologyV2 struct {
 	Grade    *string
 }
 
-func (ResumeSkillsV2) TableName() string     { return "resume_skills_v2" }
-func (ResumeSkillHardV2) TableName() string  { return "resume_skill_hard_v2" }
-func (ResumeSkillSoftV2) TableName() string  { return "resume_skill_soft_v2" }
-func (ResumeLanguageV2) TableName() string   { return "resume_languages_v2" }
-func (ResumeTechnologyV2) TableName() string { return "resume_technologies_v2" }
+func (ResumeSkills) TableName() string     { return "resume_skills" }
+func (ResumeSkillHard) TableName() string  { return "resume_skill_hard" }
+func (ResumeSkillSoft) TableName() string  { return "resume_skill_soft" }
+func (ResumeLanguage) TableName() string   { return "resume_languages" }
+func (ResumeTechnology) TableName() string { return "resume_technologies" }
 
 type ResumeExperience struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -158,9 +158,9 @@ type ResumeExperienceTechnology struct {
 	Grade        *string
 }
 
-func (ResumeExperience) TableName() string            { return "resume_experiences_v2" }
-func (ResumeExperienceAchievement) TableName() string { return "resume_experience_achievements_v2" }
-func (ResumeExperienceTechnology) TableName() string  { return "resume_experience_technologies_v2" }
+func (ResumeExperience) TableName() string            { return "resume_experiences" }
+func (ResumeExperienceAchievement) TableName() string { return "resume_experience_achievements" }
+func (ResumeExperienceTechnology) TableName() string  { return "resume_experience_technologies" }
 
 type ResumeEducation struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -176,7 +176,7 @@ type ResumeEducation struct {
 	EndDate     *string `gorm:"type:date"`
 }
 
-func (ResumeEducation) TableName() string { return "resume_educations_v2" }
+func (ResumeEducation) TableName() string { return "resume_educations" }
 
 type ResumeCourse struct {
 	ID              uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -189,7 +189,7 @@ type ResumeCourse struct {
 	CertificateLink *string
 }
 
-func (ResumeCourse) TableName() string { return "resume_courses_v2" }
+func (ResumeCourse) TableName() string { return "resume_courses" }
 
 type ResumeActivity struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -202,7 +202,7 @@ type ResumeActivity struct {
 	Link        *string
 }
 
-func (ResumeActivity) TableName() string { return "resume_activities_v2" }
+func (ResumeActivity) TableName() string { return "resume_activities" }
 
 type ResumeProject struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -240,7 +240,7 @@ type ResumeProjectContributor struct {
 	Email     *string
 }
 
-func (ResumeProject) TableName() string            { return "resume_projects_v2" }
-func (ResumeProjectScreenshot) TableName() string  { return "resume_project_screenshots_v2" }
-func (ResumeProjectTechnology) TableName() string  { return "resume_project_technologies_v2" }
-func (ResumeProjectContributor) TableName() string { return "resume_project_contributors_v2" }
+func (ResumeProject) TableName() string            { return "resume_projects" }
+func (ResumeProjectScreenshot) TableName() string  { return "resume_project_screenshots" }
+func (ResumeProjectTechnology) TableName() string  { return "resume_project_technologies" }
+func (ResumeProjectContributor) TableName() string { return "resume_project_contributors" }

@@ -39,7 +39,7 @@ func (r *TechnologiesRepository) ListTechnologies(ctx context.Context, q command
 	if e != nil {
 		return nil, e
 	}
-	var ms []gormmodel.ResumeTechnologyV2
+	var ms []gormmodel.ResumeTechnology
 	if e = tx.Where("resume_id=?", q.ResumeID.UUID()).Order("position").Find(&ms).Error; e != nil {
 		return nil, e
 	}
@@ -58,7 +58,7 @@ func (r *TechnologiesRepository) GetTechnology(ctx context.Context, q commands.G
 	if e != nil {
 		return domain.ResumeTechnologyEntry{}, e
 	}
-	var m gormmodel.ResumeTechnologyV2
+	var m gormmodel.ResumeTechnology
 	if e = tx.Where("id=? AND resume_id=?", q.TechnologyID.UUID(), q.ResumeID.UUID()).First(&m).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return domain.ResumeTechnologyEntry{}, domain.ErrEntityNotFound
@@ -76,7 +76,7 @@ func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c command
 	if e != nil {
 		return e
 	}
-	res := tx.Model(&gormmodel.ResumeTechnologyV2{}).Where("id=? AND resume_id=?", c.TechnologyID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{"name": m.Name, "position": m.Position, "grade": m.Grade})
+	res := tx.Model(&gormmodel.ResumeTechnology{}).Where("id=? AND resume_id=?", c.TechnologyID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{"name": m.Name, "position": m.Position, "grade": m.Grade})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -90,7 +90,7 @@ func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c command
 	if e != nil {
 		return e
 	}
-	res := tx.Where("id=? AND resume_id=?", c.TechnologyID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeTechnologyV2{})
+	res := tx.Where("id=? AND resume_id=?", c.TechnologyID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeTechnology{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -99,24 +99,24 @@ func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c command
 	}
 	return nil
 }
-func technologyModel(in commands.TechnologyInput, rid valueobjects.ID) (gormmodel.ResumeTechnologyV2, error) {
+func technologyModel(in commands.TechnologyInput, rid valueobjects.ID) (gormmodel.ResumeTechnology, error) {
 	if in.ID.IsZero() {
-		return gormmodel.ResumeTechnologyV2{}, fmt.Errorf("technology id is required")
+		return gormmodel.ResumeTechnology{}, fmt.Errorf("technology id is required")
 	}
 	entry, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{
 		ID: in.ID, Name: in.Name, Grade: in.Grade, Position: in.Position,
 	})
 	if err != nil {
-		return gormmodel.ResumeTechnologyV2{}, err
+		return gormmodel.ResumeTechnology{}, err
 	}
-	m := gormmodel.ResumeTechnologyV2{ID: in.ID.UUID(), ResumeID: rid.UUID(), Name: entry.Name(), Position: entry.Position()}
+	m := gormmodel.ResumeTechnology{ID: in.ID.UUID(), ResumeID: rid.UUID(), Name: entry.Name(), Position: entry.Position()}
 	if in.Grade != nil {
 		x := string(*in.Grade)
 		m.Grade = &x
 	}
 	return m, nil
 }
-func mapTechnology(m gormmodel.ResumeTechnologyV2) (domain.ResumeTechnologyEntry, error) {
+func mapTechnology(m gormmodel.ResumeTechnology) (domain.ResumeTechnologyEntry, error) {
 	id, e := valueobjects.IDFromUUID(m.ID)
 	if e != nil {
 		return domain.ResumeTechnologyEntry{}, e

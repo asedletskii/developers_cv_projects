@@ -106,7 +106,7 @@ func applyProfileMigrations(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	for _, migration := range []string{"000008_users.up.sql", "000011_user_profiles.up.sql", "000012_user_profiles_seed.up.sql"} {
+	for _, migration := range []string{"000001_users.up.sql", "000002_user_profiles.up.sql"} {
 		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", migration))
 		require.NoError(t, err)
 		_, err = conn.Exec(ctx, string(content))
