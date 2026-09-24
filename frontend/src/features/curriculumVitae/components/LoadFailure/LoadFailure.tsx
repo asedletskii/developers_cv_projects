@@ -5,10 +5,15 @@ import { Link as RouterLink } from 'react-router'
 
 type Props = {
   error: CurriculumVitaeError
+
+  /** Что не загрузилось — от этого зависит только заголовок и текст */
+  subject?: 'resume' | 'profile'
 }
 
-export const LoadFailure = ({ error }: Props) => {
+export const LoadFailure = ({ error, subject = 'resume' }: Props) => {
   const translate = useTranslate('CurriculumVitae.Error')
+  const translateProfile = useTranslate('Lk.Error')
+  const translateMessage = subject === 'profile' ? translateProfile : translate
 
   const isNotFound = error.kind === 'notFound'
 
@@ -30,11 +35,11 @@ export const LoadFailure = ({ error }: Props) => {
       sx={{ flex: 1, minHeight: '70vh', px: 2 }}
     >
       <Typography variant="h3">
-        {translate(isNotFound ? 'notFoundTitle' : 'failedTitle')}
+        {translateMessage(isNotFound ? 'notFoundTitle' : 'failedTitle')}
       </Typography>
 
       <Typography sx={{ color: 'text.secondary' }}>
-        {translate(isNotFound ? 'notFoundText' : 'failedText')}
+        {translateMessage(isNotFound ? 'notFoundText' : 'failedText')}
       </Typography>
 
       {diagnostics && (

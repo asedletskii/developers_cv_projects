@@ -1,14 +1,14 @@
 # API резюме: контракт для бэкенда
 
-Источник правды по типам: [`src/features/curriculumVitae/types/`](../src/features/curriculumVitae/types/)
-(`curriculumVitae.ts` — поля, `enums.ts` — перечисления). Пример ответа: мок
-[`curriculumVitae.mock.ts`](../src/features/curriculumVitae/api/curriculumVitae.mock.ts).
+Источник правды по типам: [`frontend/src/features/curriculumVitae/types/`](../frontend/src/features/curriculumVitae/types/)
+(`curriculumVitae.ts` — поля, `enums.ts` — перечисления). Все вызовы API —
+[`curriculumVitae.api.ts`](../frontend/src/features/curriculumVitae/api/curriculumVitae.api.ts).
 
 ## Эндпоинты
 
-`GET /cv/{cvId}?lang={ru|en}` → `Person`
+`GET /cv/{resumeId}` → `Person`
 
-`cvId` is a UUID.
+`resumeId` is a UUID.
 
 | Код   | Результат                                         |
 | ----- | ------------------------------------------------- |
@@ -16,12 +16,13 @@
 | `404` | Нет такого резюме (страница «не найдено»)         |
 | иное  | Страница «не удалось загрузить»                   |
 
-- `Person.id` = `cvId` из URL.
-- Тексты (свободные поля) сервер отдаёт на языке `lang`. Enum-значения — только коды, подписи на фронте.
+- `Person.id` = `resumeId` из URL.
+- Тексты — одной строкой, без локализации (`lang` не передаётся). Enum-значения — только коды,
+  подписи на фронте.
 - Публичный эндпоинт не должен отвечать `401` (клиент на 401 дёргает `/auth/refresh`).
 - CORS: конкретный origin + `Access-Control-Allow-Credentials: true` (axios с `withCredentials`).
 
-Редактирование этого же резюме (`PUT /cv/{cvId}`) и API личного кабинета — в отдельном файле,
+Редактирование этого же резюме (`PUT /lk/resume/{resumeId}`) и API личного кабинета — в отдельном файле,
 [`lk-api.md`](./lk-api.md).
 
 ## Person
@@ -205,7 +206,7 @@
 
 - `resumeLink` на другом домене: чтобы файл скачивался, а не открывался, нужен `Content-Disposition: attachment`.
 - Внешние ссылки (`link`, `certificateLink`, `photoPath`, `resumeLink`) фронт не валидирует: проверять схему `http(s)` на сервере.
-- Фронт пока работает на моках. Включить реальный API — фронт заменит вызов в thunk `getPersonData` (`curriculumVitae.thunks.ts`); базовый URL зашит в `src/shared/api/axios.config.ts`.
+- Базовый URL API — `src/shared/api/axios.config.ts` (`VITE_API_BASE_URL`, по умолчанию `/api/v1`).
 
 ## Деплой (CD)
 
@@ -242,4 +243,4 @@ CI (`.github/workflows/ci.yml`) при пуше в `main`: собирает и �
 ## Личный кабинет и редактирование резюме
 
 Отдельный файл — [`lk-api.md`](./lk-api.md): профиль, список резюме пользователя, переименование
-резюме и `PUT /cv/{cvId}` для полного редактирования.
+резюме и `PUT /lk/resume/{resumeId}` для полного редактирования.

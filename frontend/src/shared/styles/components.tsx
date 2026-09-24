@@ -70,6 +70,20 @@ export const components: ThemeOptions['components'] = {
     },
   },
 
+  // Стандартный вариант (подчёркивание, без рамки-«коробки») — компактнее и ближе по духу к
+  // тексту резюме, чем outlined по умолчанию. Единственное место в приложении с TextField —
+  // редактор резюме в ЛК, поэтому дефолт меняем глобально, а не в каждом поле по отдельности.
+  // `inputLabel.shrink: true` всегда — поля заполняются значениями резюме через RHF `reset()`
+  // (значение проставляется в DOM напрямую, а не через onChange), из-за чего MUI не всегда
+  // успевает сам заметить, что поле не пустое, и подпись наезжает на текст.
+  MuiTextField: {
+    defaultProps: {
+      variant: 'standard',
+      size: 'small',
+      slotProps: { inputLabel: { shrink: true } },
+    },
+  },
+
   MuiTab: {
     styleOverrides: {
       root: ({ theme }) => ({

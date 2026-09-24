@@ -56,14 +56,6 @@ export enum HardSkill {
   Api = 'api',
 }
 
-/** Уровень владения технологией */
-export enum TechnologyGrade {
-  Intern = 'intern',
-  Junior = 'junior',
-  Middle = 'middle',
-  Senior = 'senior',
-}
-
 /** Уровень образования (в JSON приходит числом) */
 export enum EducationLevel {
   Secondary = 0,
