@@ -9,17 +9,19 @@ import (
 	gethandler "developers-cv/backend/internal/modules/resume/transport/http/get"
 	listhandler "developers-cv/backend/internal/modules/resume/transport/http/list"
 	patchhandler "developers-cv/backend/internal/modules/resume/transport/http/patch"
+	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
 	resumeroot "developers-cv/backend/internal/modules/resume/transport/http/root"
 	updatehandler "developers-cv/backend/internal/modules/resume/transport/http/update"
 )
 
 type Handler struct {
-	create *createhandler.Handler
-	get    *gethandler.Handler
-	list   *listhandler.Handler
-	patch  *patchhandler.Handler
-	update *updatehandler.Handler
-	root   *resumeroot.Handler
+	create  *createhandler.Handler
+	get     *gethandler.Handler
+	list    *listhandler.Handler
+	patch   *patchhandler.Handler
+	update  *updatehandler.Handler
+	root    *resumeroot.Handler
+	profile *profilehandler.Handler
 }
 
 func NewHandler(
@@ -32,14 +34,18 @@ func NewHandler(
 	getRoot *commands.GetResumeRootHandler,
 	updateRoot *commands.UpdateResumeRootHandler,
 	deleteRoot *commands.DeleteResumeRootHandler,
+	createProfile *commands.CreateResumeProfileHandler,
+	getProfile *commands.GetResumeProfileHandler,
+	updateProfile *commands.UpdateResumeProfileHandler,
 ) *Handler {
 	return &Handler{
-		create: createhandler.NewHandler(createResume, getResume),
-		get:    gethandler.NewHandler(getResume),
-		list:   listhandler.NewHandler(listResumes),
-		patch:  patchhandler.NewHandler(patchResume),
-		update: updatehandler.NewHandler(updateResume, getResume),
-		root:   resumeroot.NewHandler(createRoot, getRoot, updateRoot, deleteRoot),
+		create:  createhandler.NewHandler(createResume, getResume),
+		get:     gethandler.NewHandler(getResume),
+		list:    listhandler.NewHandler(listResumes),
+		patch:   patchhandler.NewHandler(patchResume),
+		update:  updatehandler.NewHandler(updateResume, getResume),
+		root:    resumeroot.NewHandler(createRoot, getRoot, updateRoot, deleteRoot),
+		profile: profilehandler.NewHandler(createProfile, getProfile, updateProfile),
 	}
 }
 
@@ -71,3 +77,7 @@ func (h *Handler) CreateResumeRoot(c *gin.Context) { h.root.Create(c) }
 func (h *Handler) GetResumeRoot(c *gin.Context)    { h.root.Get(c) }
 func (h *Handler) UpdateResumeRoot(c *gin.Context) { h.root.Update(c) }
 func (h *Handler) DeleteResumeRoot(c *gin.Context) { h.root.Delete(c) }
+
+func (h *Handler) CreateResumeProfile(c *gin.Context) { h.profile.Create(c) }
+func (h *Handler) GetResumeProfile(c *gin.Context)    { h.profile.Get(c) }
+func (h *Handler) UpdateResumeProfile(c *gin.Context) { h.profile.Update(c) }
