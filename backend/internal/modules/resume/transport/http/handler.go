@@ -5,6 +5,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	contactshandler "developers-cv/backend/internal/modules/resume/transport/http/contacts"
 	createhandler "developers-cv/backend/internal/modules/resume/transport/http/create"
 	gethandler "developers-cv/backend/internal/modules/resume/transport/http/get"
 	listhandler "developers-cv/backend/internal/modules/resume/transport/http/list"
@@ -15,13 +16,14 @@ import (
 )
 
 type Handler struct {
-	create  *createhandler.Handler
-	get     *gethandler.Handler
-	list    *listhandler.Handler
-	patch   *patchhandler.Handler
-	update  *updatehandler.Handler
-	root    *resumeroot.Handler
-	profile *profilehandler.Handler
+	create   *createhandler.Handler
+	get      *gethandler.Handler
+	list     *listhandler.Handler
+	patch    *patchhandler.Handler
+	update   *updatehandler.Handler
+	root     *resumeroot.Handler
+	profile  *profilehandler.Handler
+	contacts *contactshandler.Handler
 }
 
 func NewHandler(
@@ -37,15 +39,19 @@ func NewHandler(
 	createProfile *commands.CreateResumeProfileHandler,
 	getProfile *commands.GetResumeProfileHandler,
 	updateProfile *commands.UpdateResumeProfileHandler,
+	createContacts *commands.CreateResumeContactsHandler,
+	getContacts *commands.GetResumeContactsHandler,
+	updateContacts *commands.UpdateResumeContactsHandler,
 ) *Handler {
 	return &Handler{
-		create:  createhandler.NewHandler(createResume, getResume),
-		get:     gethandler.NewHandler(getResume),
-		list:    listhandler.NewHandler(listResumes),
-		patch:   patchhandler.NewHandler(patchResume),
-		update:  updatehandler.NewHandler(updateResume, getResume),
-		root:    resumeroot.NewHandler(createRoot, getRoot, updateRoot, deleteRoot),
-		profile: profilehandler.NewHandler(createProfile, getProfile, updateProfile),
+		create:   createhandler.NewHandler(createResume, getResume),
+		get:      gethandler.NewHandler(getResume),
+		list:     listhandler.NewHandler(listResumes),
+		patch:    patchhandler.NewHandler(patchResume),
+		update:   updatehandler.NewHandler(updateResume, getResume),
+		root:     resumeroot.NewHandler(createRoot, getRoot, updateRoot, deleteRoot),
+		profile:  profilehandler.NewHandler(createProfile, getProfile, updateProfile),
+		contacts: contactshandler.NewHandler(createContacts, getContacts, updateContacts),
 	}
 }
 
@@ -78,6 +84,9 @@ func (h *Handler) GetResumeRoot(c *gin.Context)    { h.root.Get(c) }
 func (h *Handler) UpdateResumeRoot(c *gin.Context) { h.root.Update(c) }
 func (h *Handler) DeleteResumeRoot(c *gin.Context) { h.root.Delete(c) }
 
-func (h *Handler) CreateResumeProfile(c *gin.Context) { h.profile.Create(c) }
-func (h *Handler) GetResumeProfile(c *gin.Context)    { h.profile.Get(c) }
-func (h *Handler) UpdateResumeProfile(c *gin.Context) { h.profile.Update(c) }
+func (h *Handler) CreateResumeProfile(c *gin.Context)  { h.profile.Create(c) }
+func (h *Handler) GetResumeProfile(c *gin.Context)     { h.profile.Get(c) }
+func (h *Handler) UpdateResumeProfile(c *gin.Context)  { h.profile.Update(c) }
+func (h *Handler) CreateResumeContacts(c *gin.Context) { h.contacts.Create(c) }
+func (h *Handler) GetResumeContacts(c *gin.Context)    { h.contacts.Get(c) }
+func (h *Handler) UpdateResumeContacts(c *gin.Context) { h.contacts.Update(c) }

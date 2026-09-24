@@ -555,3 +555,71 @@ func newTestResume(t *testing.T, userID useridentity.ID) *domain.Resume {
 func stringPtr(value string) *string {
 	return &value
 }
+
+func TestPostgresContactsVerticalSlice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyMigrations(t, ctx, dsn)
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	owner := useridentity.NewID()
+	foreign := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, owner)
+	insertResumeTestUser(t, ctx, dsn, foreign)
+	legacyResume := newTestResume(t, owner)
+	repo := repository.NewResumeRepository(gormDB)
+	uow := database.NewUnitOfWork(gormDB)
+	presentation := domain.ResumePresentation{Greeting: legacyResume.Greeting(), Availability: legacyResume.Availability(), ResumeLink: legacyResume.ResumeLink(), Theme: legacyResume.Theme(), Sections: legacyResume.Sections()}
+	root, err := domain.NewResumeRoot(domain.ResumeRootParams{ID: legacyResume.ID(), UserID: owner, Title: legacyResume.Title(), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), Presentation: presentation})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.CreateRoot(tx, commands.CreateResumeRootRepositoryCommand{Resume: root})
+	}))
+
+	email, err := valueobjects.NewEmail("contacts@example.com")
+	require.NoError(t, err)
+	contactsEntity, err := entities.NewContacts(entities.ContactsParams{Phone: "+79999999999", Email: &email})
+	require.NoError(t, err)
+	contacts, err := domain.NewContacts(domain.ContactsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Contacts: contactsEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyPhone}})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.CreateContacts(tx, commands.CreateResumeContactsRepositoryCommand{Contacts: contacts, UserID: owner})
+	}))
+
+	loaded, err := repo.GetContacts(ctx, commands.GetResumeContactsQuery{ResumeID: root.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, "+79999999999", *loaded.Contacts().Phone())
+	require.Equal(t, "contacts@example.com", loaded.Contacts().Email().String())
+	require.Equal(t, []enums.ContactKey{enums.ContactKeyPhone}, loaded.HiddenContacts())
+
+	_, err = repo.GetContacts(ctx, commands.GetResumeContactsQuery{ResumeID: root.ID(), UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	beforeRoot, err := repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{ResumeID: root.ID(), UserID: owner})
+	require.NoError(t, err)
+	updatedEmail, err := valueobjects.NewEmail("updated@example.com")
+	require.NoError(t, err)
+	updatedEntity, err := entities.NewContacts(entities.ContactsParams{Email: &updatedEmail})
+	require.NoError(t, err)
+	updatedContacts, err := domain.NewContacts(domain.ContactsParams{ID: contacts.ID(), ResumeID: root.ID(), Contacts: updatedEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.UpdateContacts(tx, commands.UpdateResumeContactsRepositoryCommand{Contacts: updatedContacts, UserID: owner})
+	}))
+	afterRoot, err := repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{ResumeID: root.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, beforeRoot.Presentation().Greeting.First().RU(), afterRoot.Presentation().Greeting.First().RU())
+	require.Equal(t, beforeRoot.Presentation().Sections, afterRoot.Presentation().Sections)
+}

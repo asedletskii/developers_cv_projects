@@ -1,4 +1,3 @@
--- Phase 2: Profile becomes an independently editable singleton aggregate owned by Resume.
 CREATE TABLE resume_profiles (
     id uuid PRIMARY KEY,
     resume_id uuid NOT NULL UNIQUE REFERENCES resume_roots(id) ON DELETE CASCADE,
@@ -29,7 +28,6 @@ CREATE TABLE resume_profile_work_formats (
 );
 CREATE INDEX idx_resume_profile_work_formats_profile_position ON resume_profile_work_formats(profile_id, position);
 
--- Backfill from the legacy Resume rows. Legacy storage remains untouched for rollback/compatibility.
 INSERT INTO resume_profiles (id, resume_id, name, surname, patronymic, position, photo_path, date_of_birth, location, relocation)
 SELECT gen_random_uuid(), r.id, r.name, r.surname, r.patronymic, r.position, r.photo_path, r.date_of_birth, r.location, r.relocation
 FROM resumes r

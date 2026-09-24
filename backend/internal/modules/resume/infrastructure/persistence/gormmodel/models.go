@@ -283,3 +283,31 @@ type ResumeProfileWorkFormat struct {
 }
 
 func (ResumeProfileWorkFormat) TableName() string { return "resume_profile_work_formats" }
+
+type ResumeContacts struct {
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	Phone    *string
+	Telegram *string
+	Email    *string
+}
+
+func (ResumeContacts) TableName() string { return "resume_contacts_v2" }
+
+type ResumeContactHidden struct {
+	ContactsID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Value      string    `gorm:"type:text;primaryKey"`
+	Position   int       `gorm:"not null"`
+}
+
+func (ResumeContactHidden) TableName() string { return "resume_contact_hidden" }
+
+type ResumeContactsText struct {
+	ContactsID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	TitleRU    *string
+	TitleEN    *string
+	SubtitleRU *string
+	SubtitleEN *string
+}
+
+func (ResumeContactsText) TableName() string { return "resume_contacts_text_v2" }
