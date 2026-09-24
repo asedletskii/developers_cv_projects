@@ -19,6 +19,9 @@ import (
 )
 
 func (r *ResumeRepository) Get(ctx context.Context, query commands.GetResumeRepositoryQuery) (*domain.Resume, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("get resume: repository dependencies are nil")
+	}
 	userID := query.UserID
 	id := query.ResumeID
 	var resumeModel gormmodel.Resume

@@ -31,6 +31,9 @@ func NewGetResumeHandler(reader GetResumeReader) *GetResumeHandler {
 }
 
 func (h *GetResumeHandler) Handle(ctx context.Context, query GetResumeQuery) (Resume, error) {
+	if h == nil || h.reader == nil {
+		return Resume{}, fmt.Errorf("get resume handler dependencies are nil")
+	}
 	if query.UserID != nil && query.UserID.IsZero() {
 		return Resume{}, fmt.Errorf("invalid user id")
 	}

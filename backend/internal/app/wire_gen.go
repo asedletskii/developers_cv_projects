@@ -11,10 +11,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
-	userapplication "developers-cv/backend/internal/modules/user/application"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
-	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
+	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/database"
@@ -72,10 +71,9 @@ func Initialize() (*Application, error) {
 	getResumeReaderValue := newGetResumeReader(poolValue)
 	listResumesReaderValue := newListResumesReader(poolValue)
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
-	userRepositoryValue := userrepository.NewUserRepository(gormDBValue)
+	userReaderValue := userreaders.NewUserReader(gormDBValue)
 	getProfileReaderValue := newGetProfileReader(poolValue)
-	var userRepository userapplication.UserRepository = userRepositoryValue
-	mockAuthenticatorValue := userauth.NewMockAuthenticator(userRepository)
+	mockAuthenticatorValue := userauth.NewMockAuthenticator(userReaderValue)
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)

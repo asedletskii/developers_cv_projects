@@ -1,4 +1,4 @@
-package repository
+package readers
 
 import (
 	"context"
@@ -13,17 +13,17 @@ import (
 	"developers-cv/backend/internal/platform/database"
 )
 
-type UserRepository struct {
+type UserReader struct {
 	db *gorm.DB
 }
 
-func NewUserRepository(db *gorm.DB) *UserRepository {
-	return &UserRepository{db: db}
+func NewUserReader(db *gorm.DB) *UserReader {
+	return &UserReader{db: db}
 }
 
-func (r *UserRepository) GetByID(ctx context.Context, id valueobjects.ID) (*domain.User, error) {
+func (r *UserReader) GetByID(ctx context.Context, id valueobjects.ID) (*domain.User, error) {
 	if r == nil || r.db == nil {
-		return nil, fmt.Errorf("get user: repository dependencies are nil")
+		return nil, fmt.Errorf("get user: reader dependencies are nil")
 	}
 	if id.IsZero() {
 		return nil, fmt.Errorf("get user: %w", domain.ErrInvalidUser)
@@ -37,31 +37,8 @@ func (r *UserRepository) GetByID(ctx context.Context, id valueobjects.ID) (*doma
 		}
 		return nil, fmt.Errorf("get user: %w", err)
 	}
+
 	return fromModel(model)
-}
-
-func (r *UserRepository) Save(ctx context.Context, user *domain.User) error {
-	if r == nil || r.db == nil {
-		return fmt.Errorf("save user: repository dependencies are nil")
-	}
-	if user == nil {
-		return fmt.Errorf("save user: %w", domain.ErrInvalidUser)
-	}
-
-	db := database.DBFromContext(ctx, r.db)
-	model := toModel(user)
-	if err := db.WithContext(ctx).Save(&model).Error; err != nil {
-		return fmt.Errorf("save user: %w", err)
-	}
-	return nil
-}
-
-func toModel(user *domain.User) gormmodel.User {
-	return gormmodel.User{
-		ID:        user.ID().UUID(),
-		CreatedAt: user.CreatedAt(),
-		UpdatedAt: user.UpdatedAt(),
-	}
 }
 
 func fromModel(model gormmodel.User) (*domain.User, error) {

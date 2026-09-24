@@ -12,6 +12,9 @@ import (
 )
 
 func (r *ResumeRepository) Create(ctx context.Context, command commands.CreateResumeRepositoryCommand) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("create resume: repository dependencies are nil")
+	}
 	resume := command.Resume
 	if resume == nil {
 		return fmt.Errorf("create resume: %w", domain.ErrInvalidResume)

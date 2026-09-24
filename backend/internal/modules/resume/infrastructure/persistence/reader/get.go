@@ -21,6 +21,9 @@ func (r *GetResumeReader) GetResume(
 	ctx context.Context,
 	query queries.GetResumeQuery,
 ) (queries.Resume, error) {
+	if r == nil || r.pool == nil {
+		return queries.Resume{}, fmt.Errorf("get resume: reader dependencies are nil")
+	}
 	var userID *uuid.UUID
 	if query.UserID != nil {
 		value := query.UserID.UUID()

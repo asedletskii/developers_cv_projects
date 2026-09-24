@@ -12,10 +12,9 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository/resume"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
-	userapplication "developers-cv/backend/internal/modules/user/application"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
-	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
+	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 
 	"developers-cv/backend/internal/platform/config"
@@ -48,8 +47,8 @@ func Initialize() (*Application, error) {
 		wire.Bind(new(resumecommands.GetResumeRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.UpdateResumeTitleRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
-		userrepository.NewUserRepository,
-		wire.Bind(new(userapplication.UserRepository), new(*userrepository.UserRepository)),
+		userreaders.NewUserReader,
+		wire.Bind(new(userqueries.UserReader), new(*userreaders.UserReader)),
 		userauth.NewMockAuthenticator,
 		newAuthenticate,
 		resumequeries.NewGetResumeHandler,

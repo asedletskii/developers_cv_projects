@@ -16,6 +16,9 @@ import (
 )
 
 func (r *ResumeRepository) Update(ctx context.Context, command commands.UpdateResumeRepositoryCommand) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("update resume: repository dependencies are nil")
+	}
 	resume := command.Resume
 	if resume == nil {
 		return fmt.Errorf("update resume: %w", domain.ErrInvalidResume)
@@ -52,6 +55,9 @@ func replaceAggregate(ctx context.Context, tx *gorm.DB, resume *domain.Resume) e
 }
 
 func (r *ResumeRepository) UpdateTitle(ctx context.Context, command commands.UpdateResumeTitleRepositoryCommand) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("update resume title: repository dependencies are nil")
+	}
 	userID := command.UserID
 	resumeID := command.ResumeID
 	title := command.Title

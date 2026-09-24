@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"developers-cv/backend/internal/modules/user/application"
+	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
@@ -19,10 +19,10 @@ const MockUserIDHeader = "X-Mock-User-ID"
 var ErrUnauthenticated = errors.New("unauthenticated")
 
 type MockAuthenticator struct {
-	repository application.UserRepository
+	repository queries.UserReader
 }
 
-func NewMockAuthenticator(repository application.UserRepository) *MockAuthenticator {
+func NewMockAuthenticator(repository queries.UserReader) *MockAuthenticator {
 	return &MockAuthenticator{repository: repository}
 }
 

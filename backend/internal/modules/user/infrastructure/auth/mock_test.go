@@ -12,12 +12,12 @@ import (
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-type fakeUserRepository struct {
+type fakeUserReader struct {
 	users map[uuid.UUID]*domain.User
 	err   error
 }
 
-func (r *fakeUserRepository) GetByID(_ context.Context, id valueobjects.ID) (*domain.User, error) {
+func (r *fakeUserReader) GetByID(_ context.Context, id valueobjects.ID) (*domain.User, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -28,11 +28,6 @@ func (r *fakeUserRepository) GetByID(_ context.Context, id valueobjects.ID) (*do
 	return user, nil
 }
 
-func (r *fakeUserRepository) Save(_ context.Context, user *domain.User) error {
-	r.users[user.ID().UUID()] = user
-	return nil
-}
-
 func TestMockAuthenticatorAuthenticatesExistingUser(t *testing.T) {
 	userID := uuid.New()
 	id, err := valueobjects.IDFromUUID(userID)
@@ -40,7 +35,7 @@ func TestMockAuthenticatorAuthenticatesExistingUser(t *testing.T) {
 	user, err := domain.NewUser(domain.UserParams{ID: id})
 	require.NoError(t, err)
 
-	authenticator := NewMockAuthenticator(&fakeUserRepository{
+	authenticator := NewMockAuthenticator(&fakeUserReader{
 		users: map[uuid.UUID]*domain.User{userID: user},
 	})
 	request := httptest.NewRequest("GET", "/", nil)
@@ -53,7 +48,7 @@ func TestMockAuthenticatorAuthenticatesExistingUser(t *testing.T) {
 }
 
 func TestMockAuthenticatorRejectsMissingUser(t *testing.T) {
-	authenticator := NewMockAuthenticator(&fakeUserRepository{users: map[uuid.UUID]*domain.User{}})
+	authenticator := NewMockAuthenticator(&fakeUserReader{users: map[uuid.UUID]*domain.User{}})
 	request := httptest.NewRequest("GET", "/", nil)
 
 	_, err := authenticator.Authenticate(context.Background(), request)
@@ -62,7 +57,7 @@ func TestMockAuthenticatorRejectsMissingUser(t *testing.T) {
 }
 
 func TestMockAuthenticatorRejectsUnknownUser(t *testing.T) {
-	authenticator := NewMockAuthenticator(&fakeUserRepository{users: map[uuid.UUID]*domain.User{}})
+	authenticator := NewMockAuthenticator(&fakeUserReader{users: map[uuid.UUID]*domain.User{}})
 	request := httptest.NewRequest("GET", "/", nil)
 	request.Header.Set(MockUserIDHeader, uuid.NewString())
 
