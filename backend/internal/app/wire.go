@@ -17,6 +17,7 @@ import (
 	educationshttp "developers-cv/backend/internal/modules/resume/transport/http/educations"
 	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
+	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
@@ -42,6 +43,7 @@ func Initialize() (*Application, error) {
 		telemetry.New,
 		telemetry.NewMetrics,
 		newGetResumeReader,
+		newPublicResumeReader,
 		newListResumesReader,
 		database.NewGORMFromConfig,
 		newGetProfileReader,
@@ -75,6 +77,7 @@ func Initialize() (*Application, error) {
 		userauth.NewMockAuthenticator,
 		newAuthenticate,
 		resumequeries.NewGetResumeHandler,
+		resumequeries.NewPublicResumeQueryHandler,
 		resumequeries.NewListResumesHandler,
 		userqueries.NewGetProfileHandler,
 		userhttp.NewHandler,
@@ -134,6 +137,7 @@ func Initialize() (*Application, error) {
 		courseshttp.NewHandler,
 		activitieshttp.NewHandler,
 		projectshttp.NewHandler,
+		publichandler.NewHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
 		httpserver.NewServer,

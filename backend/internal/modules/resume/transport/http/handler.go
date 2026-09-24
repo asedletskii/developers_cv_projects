@@ -17,6 +17,7 @@ import (
 	patchhandler "developers-cv/backend/internal/modules/resume/transport/http/patch"
 	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
 	projectsHandler "developers-cv/backend/internal/modules/resume/transport/http/projects"
+	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
 	resumeroot "developers-cv/backend/internal/modules/resume/transport/http/root"
 	skillsHandler "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologiesHandler "developers-cv/backend/internal/modules/resume/transport/http/technologies"
@@ -40,6 +41,7 @@ type Handler struct {
 	courses      *coursesHandler.Handler
 	activities   *activitiesHandler.Handler
 	projects     *projectsHandler.Handler
+	public       *publichandler.Handler
 }
 
 func NewHandler(
@@ -66,6 +68,7 @@ func NewHandler(
 	courses *coursesHandler.Handler,
 	activities *activitiesHandler.Handler,
 	projects *projectsHandler.Handler,
+	public *publichandler.Handler,
 ) *Handler {
 	return &Handler{
 		create:       createhandler.NewHandler(createResume, getResume),
@@ -84,6 +87,7 @@ func NewHandler(
 		courses:      courses,
 		activities:   activities,
 		projects:     projects,
+		public:       public,
 	}
 }
 
@@ -96,7 +100,7 @@ func (h *Handler) GetResume(c *gin.Context) {
 }
 
 func (h *Handler) GetPublicResume(c *gin.Context) {
-	h.get.Public(c)
+	h.public.Handle(c)
 }
 
 func (h *Handler) ListResumes(c *gin.Context) {

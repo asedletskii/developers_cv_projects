@@ -13,6 +13,7 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
+	publichttp "developers-cv/backend/internal/modules/resume/transport/http/public"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
@@ -40,7 +41,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
@@ -73,7 +74,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
@@ -107,7 +108,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
@@ -123,13 +124,13 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
 }
 
-type routerGetResumeReader struct{}
+type routerPublicResumeReader struct{}
 
-func (routerGetResumeReader) GetResume(
+func (routerPublicResumeReader) GetPublicResume(
 	_ context.Context,
-	query resumequeries.GetResumeQuery,
-) (resumequeries.Resume, error) {
-	return resumequeries.Resume{ID: query.ID.String(), Name: "Public Resume"}, nil
+	query resumequeries.PublicResumeQuery,
+) (resumequeries.PublicResumeView, error) {
+	return resumequeries.PublicResumeView{ID: query.ID.String(), Name: "Public Resume"}, nil
 }
 
 func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
@@ -143,7 +144,7 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 		HTTP: config.HTTPConfig{},
 	}
 	log := zaptest.NewLogger(t)
-	handler := resumehttp.NewHandler(resumequeries.NewGetResumeHandler(routerGetResumeReader{}), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, publichttp.NewHandler(resumequeries.NewPublicResumeQueryHandler(routerPublicResumeReader{})))
 	router, err := NewRouter(
 		cfg,
 		log,
@@ -192,7 +193,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{})),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return userID, nil
@@ -224,7 +225,7 @@ func TestRouterDoesNotExposePrivateCVOrDeleteRoutes(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)

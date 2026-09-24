@@ -17,6 +17,7 @@ import (
 	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	languageshttp "developers-cv/backend/internal/modules/resume/transport/http/languages"
 	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
+	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
 	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
@@ -77,6 +78,7 @@ func Initialize() (*Application, error) {
 	}
 
 	getResumeReaderValue := newGetResumeReader(poolValue)
+	publicResumeReaderValue := newPublicResumeReader(poolValue)
 	listResumesReaderValue := newListResumesReader(poolValue)
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
 	userReaderValue := userreaders.NewUserReader(gormDBValue)
@@ -144,10 +146,12 @@ func Initialize() (*Application, error) {
 	activitiesHandlerValue := activitieshttp.NewHandler(createActivityHandlerValue, listActivitiesHandlerValue, getActivityHandlerValue, updateActivityHandlerValue, deleteActivityHandlerValue)
 	projectsHandlerValue := projectshttp.NewHandler(createProjectHandlerValue, listProjectsHandlerValue, getProjectHandlerValue, updateProjectHandlerValue, deleteProjectHandlerValue)
 	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
+	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(publicResumeReaderValue)
+	publicHandlerValue := publichandler.NewHandler(publicResumeQueryHandlerValue)
 	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue, publicHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,
