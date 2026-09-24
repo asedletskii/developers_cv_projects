@@ -57,7 +57,7 @@ func (r *ContactsRepository) CreateContacts(ctx context.Context, c commands.Crea
 	}
 	return nil
 }
-func (r *ContactsRepository) GetContacts(ctx context.Context, q commands.GetResumeContactsQuery) (*domain.Contacts, error) {
+func (r *ContactsRepository) GetContacts(ctx context.Context, q commands.GetResumeContactsCommand) (*domain.Contacts, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get contacts: repository dependencies are nil")
 	}

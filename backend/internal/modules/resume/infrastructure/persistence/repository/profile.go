@@ -54,7 +54,7 @@ func (r *ProfileRepository) CreateProfile(ctx context.Context, c commands.Create
 	}
 	return nil
 }
-func (r *ProfileRepository) GetProfile(ctx context.Context, q commands.GetResumeProfileQuery) (*domain.Profile, error) {
+func (r *ProfileRepository) GetProfile(ctx context.Context, q commands.GetResumeProfileCommand) (*domain.Profile, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get profile: repository dependencies are nil")
 	}
@@ -77,7 +77,7 @@ func (r *ProfileRepository) UpdateProfile(ctx context.Context, c commands.Update
 	if e != nil {
 		return fmt.Errorf("update profile: %w", e)
 	}
-	_, e = r.GetProfile(ctx, commands.GetResumeProfileQuery{ResumeID: c.Profile.ResumeID(), UserID: c.UserID})
+	_, e = r.GetProfile(ctx, commands.GetResumeProfileCommand{ResumeID: c.Profile.ResumeID(), UserID: c.UserID})
 	if e != nil {
 		return e
 	}

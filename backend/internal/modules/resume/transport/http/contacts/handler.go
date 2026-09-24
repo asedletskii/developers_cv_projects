@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
@@ -17,11 +18,11 @@ import (
 
 type Handler struct {
 	create *commands.CreateResumeContactsHandler
-	get    *commands.GetResumeContactsHandler
+	get    *queries.GetResumeContactsQueryHandler
 	update *commands.UpdateResumeContactsHandler
 }
 
-func NewHandler(c *commands.CreateResumeContactsHandler, g *commands.GetResumeContactsHandler, u *commands.UpdateResumeContactsHandler) *Handler {
+func NewHandler(c *commands.CreateResumeContactsHandler, g *queries.GetResumeContactsQueryHandler, u *commands.UpdateResumeContactsHandler) *Handler {
 	return &Handler{create: c, get: g, update: u}
 }
 
@@ -108,35 +109,6 @@ func (r Request) params(rid valueobjects.ID) (domain.ContactsParams, error) {
 	}
 	return domain.ContactsParams{ResumeID: rid, Contacts: cs, HiddenContacts: hidden, Text: text}, nil
 }
-func view(a *domain.Contacts) Response {
-	c := a.Contacts()
-	var tg, em *string
-	if v := c.Telegram(); v != nil {
-		x := v.String()
-		tg = &x
-	}
-	if v := c.Email(); v != nil {
-		x := v.String()
-		em = &x
-	}
-	hidden := make([]string, len(a.HiddenContacts()))
-	for i, v := range a.HiddenContacts() {
-		hidden[i] = string(v)
-	}
-	var text *ContactsTextResponse
-	if t := a.Text(); t != nil {
-		text = &ContactsTextResponse{}
-	}
-	if t := a.Text(); t != nil {
-		if v := t.Title(); v != nil {
-			text.Title = &LocalizedTextResponse{RU: v.RU(), EN: v.EN()}
-		}
-		if v := t.Subtitle(); v != nil {
-			text.Subtitle = &LocalizedTextResponse{RU: v.RU(), EN: v.EN()}
-		}
-	}
-	return Response{ID: a.ID().String(), ResumeID: a.ResumeID().String(), Phone: c.Phone(), Telegram: tg, Email: em, HiddenContacts: hidden, ContactsText: text}
-}
 func (h *Handler) Create(c *gin.Context) { h.handleCreate(c) }
 func (h *Handler) handleCreate(c *gin.Context) {
 	if h == nil || h.create == nil || h.get == nil {
@@ -166,12 +138,12 @@ func (h *Handler) handleCreate(c *gin.Context) {
 		writeError(c, e)
 		return
 	}
-	a, e := h.get.Handle(c.Request.Context(), commands.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
+	a, e := h.get.Handle(c.Request.Context(), queries.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
 	if e != nil {
-		common.WriteError(c, e)
+		common.WriteQueryError(c, e)
 		return
 	}
-	c.JSON(http.StatusCreated, view(a))
+	c.JSON(http.StatusCreated, a)
 }
 func (h *Handler) Get(c *gin.Context) {
 	if h == nil || h.get == nil {
@@ -186,12 +158,12 @@ func (h *Handler) Get(c *gin.Context) {
 	if !ok {
 		return
 	}
-	a, e := h.get.Handle(c.Request.Context(), commands.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
+	a, e := h.get.Handle(c.Request.Context(), queries.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
 	if e != nil {
-		writeError(c, e)
+		common.WriteQueryError(c, e)
 		return
 	}
-	c.JSON(http.StatusOK, view(a))
+	c.JSON(http.StatusOK, a)
 }
 func (h *Handler) Update(c *gin.Context) {
 	if h == nil || h.update == nil || h.get == nil {
@@ -220,12 +192,12 @@ func (h *Handler) Update(c *gin.Context) {
 		writeError(c, e)
 		return
 	}
-	a, e := h.get.Handle(c.Request.Context(), commands.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
+	a, e := h.get.Handle(c.Request.Context(), queries.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
 	if e != nil {
-		common.WriteError(c, e)
+		common.WriteQueryError(c, e)
 		return
 	}
-	c.JSON(http.StatusOK, view(a))
+	c.JSON(http.StatusOK, a)
 }
 func writeError(c *gin.Context, e error) {
 	if errors.Is(e, domain.ErrDuplicateEntity) {

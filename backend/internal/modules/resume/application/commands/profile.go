@@ -14,7 +14,7 @@ type CreateResumeProfileCommand struct {
 	UserID       useridentity.ID
 	Profile      domain.ProfileParams
 }
-type GetResumeProfileQuery struct {
+type GetResumeProfileCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
 }
@@ -28,7 +28,7 @@ type CreateResumeProfileRepository interface {
 	CreateProfile(context.Context, CreateResumeProfileRepositoryCommand) error
 }
 type GetResumeProfileRepository interface {
-	GetProfile(context.Context, GetResumeProfileQuery) (*domain.Profile, error)
+	GetProfile(context.Context, GetResumeProfileCommand) (*domain.Profile, error)
 }
 type UpdateResumeProfileRepository interface {
 	UpdateProfile(context.Context, UpdateResumeProfileRepositoryCommand) error
@@ -74,21 +74,6 @@ func (h *CreateResumeProfileHandler) Handle(ctx context.Context, c CreateResumeP
 	return created.ID(), nil
 }
 
-type GetResumeProfileHandler struct{ repository GetResumeProfileRepository }
-
-func NewGetResumeProfileHandler(r GetResumeProfileRepository) *GetResumeProfileHandler {
-	return &GetResumeProfileHandler{repository: r}
-}
-func (h *GetResumeProfileHandler) Handle(ctx context.Context, q GetResumeProfileQuery) (*domain.Profile, error) {
-	if h == nil || h.repository == nil {
-		return nil, fmt.Errorf("get resume profile handler dependencies are nil")
-	}
-	if q.ResumeID.IsZero() || q.UserID.IsZero() {
-		return nil, fmt.Errorf("invalid get resume profile query")
-	}
-	return h.repository.GetProfile(ctx, q)
-}
-
 type UpdateResumeProfileHandler struct {
 	repository GetResumeProfileRepository
 	updater    UpdateResumeProfileRepository
@@ -106,7 +91,7 @@ func (h *UpdateResumeProfileHandler) Handle(ctx context.Context, c UpdateResumeP
 		return fmt.Errorf("invalid update resume profile command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, e := h.repository.GetProfile(tx, GetResumeProfileQuery{ResumeID: c.ResumeID, UserID: c.UserID})
+		current, e := h.repository.GetProfile(tx, GetResumeProfileCommand{ResumeID: c.ResumeID, UserID: c.UserID})
 		if e != nil {
 			return e
 		}

@@ -14,7 +14,7 @@ type CreateResumeContactsCommand struct {
 	UserID       useridentity.ID
 	Contacts     domain.ContactsParams
 }
-type GetResumeContactsQuery struct {
+type GetResumeContactsCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
 }
@@ -37,7 +37,7 @@ type CreateResumeContactsRepository interface {
 	CreateContacts(context.Context, CreateResumeContactsRepositoryCommand) error
 }
 type GetResumeContactsRepository interface {
-	GetContacts(context.Context, GetResumeContactsQuery) (*domain.Contacts, error)
+	GetContacts(context.Context, GetResumeContactsCommand) (*domain.Contacts, error)
 }
 type UpdateResumeContactsRepository interface {
 	UpdateContacts(context.Context, UpdateResumeContactsRepositoryCommand) error
@@ -75,21 +75,6 @@ func (h *CreateResumeContactsHandler) Handle(ctx context.Context, c CreateResume
 	return created.ID(), nil
 }
 
-type GetResumeContactsHandler struct{ repository GetResumeContactsRepository }
-
-func NewGetResumeContactsHandler(r GetResumeContactsRepository) *GetResumeContactsHandler {
-	return &GetResumeContactsHandler{repository: r}
-}
-func (h *GetResumeContactsHandler) Handle(ctx context.Context, q GetResumeContactsQuery) (*domain.Contacts, error) {
-	if h == nil || h.repository == nil {
-		return nil, fmt.Errorf("get resume contacts handler dependencies are nil")
-	}
-	if q.ResumeID.IsZero() || q.UserID.IsZero() {
-		return nil, fmt.Errorf("invalid get resume contacts query")
-	}
-	return h.repository.GetContacts(ctx, q)
-}
-
 type UpdateResumeContactsHandler struct {
 	repository GetResumeContactsRepository
 	updater    UpdateResumeContactsRepository
@@ -107,7 +92,7 @@ func (h *UpdateResumeContactsHandler) Handle(ctx context.Context, c UpdateResume
 		return fmt.Errorf("invalid update resume contacts command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, e := h.repository.GetContacts(tx, GetResumeContactsQuery{ResumeID: c.ResumeID, UserID: c.UserID})
+		current, e := h.repository.GetContacts(tx, GetResumeContactsCommand{ResumeID: c.ResumeID, UserID: c.UserID})
 		if e != nil {
 			return e
 		}

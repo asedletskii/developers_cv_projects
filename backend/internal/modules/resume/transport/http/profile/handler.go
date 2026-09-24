@@ -2,6 +2,7 @@ package profile
 
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -15,11 +16,11 @@ import (
 
 type Handler struct {
 	create *commands.CreateResumeProfileHandler
-	get    *commands.GetResumeProfileHandler
+	get    *queries.GetResumeProfileQueryHandler
 	update *commands.UpdateResumeProfileHandler
 }
 
-func NewHandler(c *commands.CreateResumeProfileHandler, g *commands.GetResumeProfileHandler, u *commands.UpdateResumeProfileHandler) *Handler {
+func NewHandler(c *commands.CreateResumeProfileHandler, g *queries.GetResumeProfileQueryHandler, u *commands.UpdateResumeProfileHandler) *Handler {
 	return &Handler{create: c, get: g, update: u}
 }
 
@@ -63,14 +64,6 @@ func (r Request) params(resumeID valueobjects.ID) (domain.ProfileParams, error) 
 	}
 	return domain.ProfileParams{ResumeID: resumeID, Name: r.Name, Surname: r.Surname, Patronymic: r.Patronymic, Position: r.Position, PhotoPath: photo, DateOfBirth: dob, Location: r.Location, Relocation: r.Relocation, WorkFormats: fs}, nil
 }
-func view(p *domain.Profile) Response {
-	fs := p.WorkFormats()
-	out := make([]string, len(fs))
-	for i, v := range fs {
-		out[i] = string(v)
-	}
-	return Response{ID: p.ID().String(), ResumeID: p.ResumeID().String(), Name: p.Name(), Surname: p.Surname(), Patronymic: p.Patronymic(), Position: p.Position(), PhotoPath: p.PhotoPath().String(), DateOfBirth: p.DateOfBirth().String(), Location: p.Location(), Relocation: p.Relocation(), WorkFormat: out}
-}
 func (h *Handler) Create(c *gin.Context) {
 	if h == nil || h.create == nil || h.get == nil {
 		common.WriteError(c, errors.New("create profile handler dependencies are nil"))
@@ -99,13 +92,13 @@ func (h *Handler) Create(c *gin.Context) {
 		writeProfileError(c, e)
 		return
 	}
-	p, e := h.get.Handle(c.Request.Context(), commands.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
+	p, e := h.get.Handle(c.Request.Context(), queries.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
 	if e != nil {
-		common.WriteError(c, e)
+		common.WriteQueryError(c, e)
 		return
 	}
 	_ = id
-	c.JSON(http.StatusCreated, view(p))
+	c.JSON(http.StatusCreated, p)
 }
 func (h *Handler) Get(c *gin.Context) {
 	if h == nil || h.get == nil {
@@ -120,12 +113,12 @@ func (h *Handler) Get(c *gin.Context) {
 	if !ok {
 		return
 	}
-	p, e := h.get.Handle(c.Request.Context(), commands.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
+	p, e := h.get.Handle(c.Request.Context(), queries.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
 	if e != nil {
-		writeProfileError(c, e)
+		common.WriteQueryError(c, e)
 		return
 	}
-	c.JSON(http.StatusOK, view(p))
+	c.JSON(http.StatusOK, p)
 }
 func (h *Handler) Update(c *gin.Context) {
 	if h == nil || h.update == nil || h.get == nil {
@@ -154,12 +147,12 @@ func (h *Handler) Update(c *gin.Context) {
 		writeProfileError(c, e)
 		return
 	}
-	p, e := h.get.Handle(c.Request.Context(), commands.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
+	p, e := h.get.Handle(c.Request.Context(), queries.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
 	if e != nil {
-		common.WriteError(c, e)
+		common.WriteQueryError(c, e)
 		return
 	}
-	c.JSON(http.StatusOK, view(p))
+	c.JSON(http.StatusOK, p)
 }
 func writeProfileError(c *gin.Context, e error) {
 	if errors.Is(e, domain.ErrDuplicateEntity) {

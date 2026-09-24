@@ -7,19 +7,18 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	apperrors "developers-cv/backend/internal/platform/http/errors"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
 	create *commands.CreateResumeRootHandler
-	get    *commands.GetResumeRootHandler
+	get    *queries.GetResumeRootQueryHandler
 	update *commands.UpdateResumeRootHandler
 	delete *commands.DeleteResumeRootHandler
 }
 
-func NewHandler(c *commands.CreateResumeRootHandler, g *commands.GetResumeRootHandler, u *commands.UpdateResumeRootHandler, d *commands.DeleteResumeRootHandler) *Handler {
+func NewHandler(c *commands.CreateResumeRootHandler, g *queries.GetResumeRootQueryHandler, u *commands.UpdateResumeRootHandler, d *commands.DeleteResumeRootHandler) *Handler {
 	return &Handler{create: c, get: g, update: u, delete: d}
 }
 func (h *Handler) Create(c *gin.Context) {
@@ -46,12 +45,12 @@ func (h *Handler) Create(c *gin.Context) {
 		common.WriteCommandError(c, err)
 		return
 	}
-	resume, err := h.get.Handle(c.Request.Context(), commands.GetResumeRootRepositoryQuery{UserID: uid, ResumeID: id})
+	resume, err := h.get.Handle(c.Request.Context(), queries.GetResumeRootQuery{UserID: uid, ResumeID: id})
 	if err != nil {
-		common.WriteError(c, apperrors.Internal(err))
+		common.WriteQueryError(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, queries.ResumeRootToView(resume))
+	c.JSON(http.StatusCreated, resume)
 }
 func (h *Handler) Get(c *gin.Context) {
 	if h == nil || h.get == nil {
@@ -66,12 +65,12 @@ func (h *Handler) Get(c *gin.Context) {
 	if !ok {
 		return
 	}
-	resume, err := h.get.Handle(c.Request.Context(), commands.GetResumeRootRepositoryQuery{UserID: uid, ResumeID: id})
+	resume, err := h.get.Handle(c.Request.Context(), queries.GetResumeRootQuery{UserID: uid, ResumeID: id})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, queries.ResumeRootToView(resume))
+	c.JSON(http.StatusOK, resume)
 }
 func (h *Handler) Update(c *gin.Context) {
 	if h == nil || h.update == nil {
@@ -100,12 +99,12 @@ func (h *Handler) Update(c *gin.Context) {
 		common.WriteCommandError(c, err)
 		return
 	}
-	resume, err := h.get.Handle(c.Request.Context(), commands.GetResumeRootRepositoryQuery{UserID: uid, ResumeID: id})
+	resume, err := h.get.Handle(c.Request.Context(), queries.GetResumeRootQuery{UserID: uid, ResumeID: id})
 	if err != nil {
-		common.WriteError(c, apperrors.Internal(err))
+		common.WriteQueryError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, queries.ResumeRootToView(resume))
+	c.JSON(http.StatusOK, resume)
 }
 func (h *Handler) Delete(c *gin.Context) {
 	if h == nil || h.delete == nil {
@@ -120,7 +119,7 @@ func (h *Handler) Delete(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.delete.Handle(c.Request.Context(), commands.GetResumeRootRepositoryQuery{UserID: uid, ResumeID: id}); err != nil {
+	if err := h.delete.Handle(c.Request.Context(), commands.DeleteResumeRootCommand{UserID: uid, ResumeID: id}); err != nil {
 		common.WriteCommandError(c, err)
 		return
 	}

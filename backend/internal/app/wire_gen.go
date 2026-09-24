@@ -9,6 +9,7 @@ import (
 
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
 	activitieshttp "developers-cv/backend/internal/modules/resume/transport/http/activities"
@@ -79,6 +80,10 @@ func Initialize() (*Application, error) {
 
 	publicResumeReaderValue := newPublicResumeReader(poolValue)
 	listResumesReaderValue := newListResumesReader(poolValue)
+	resumeRootReaderValue := resumereaders.NewResumeRootReader(poolValue)
+	profileReaderValue := resumereaders.NewProfileReader(poolValue)
+	contactsReaderValue := resumereaders.NewContactsReader(poolValue)
+	skillsReaderValue := resumereaders.NewSkillsReader(poolValue)
 	resumeRootRepositoryValue := resumerepository.NewResumeRootRepository(gormDBValue)
 	profileRepositoryValue := resumerepository.NewProfileRepository(gormDBValue)
 	contactsRepositoryValue := resumerepository.NewContactsRepository(gormDBValue)
@@ -96,18 +101,18 @@ func Initialize() (*Application, error) {
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
 	createResumeRootHandlerValue := resumecommands.NewCreateResumeRootHandler(resumeRootRepositoryValue, unitOfWorkValue)
-	getResumeRootHandlerValue := resumecommands.NewGetResumeRootHandler(resumeRootRepositoryValue)
+	getResumeRootQueryHandlerValue := queries.NewGetResumeRootQueryHandler(resumeRootReaderValue)
+	getResumeProfileQueryHandlerValue := queries.NewGetResumeProfileQueryHandler(profileReaderValue)
+	getResumeContactsQueryHandlerValue := queries.NewGetResumeContactsQueryHandler(contactsReaderValue)
+	getSkillsQueryHandlerValue := queries.NewGetSkillsQueryHandler(skillsReaderValue)
 	updateResumeRootHandlerValue := resumecommands.NewUpdateResumeRootHandler(resumeRootRepositoryValue, resumeRootRepositoryValue, unitOfWorkValue)
 	deleteResumeRootHandlerValue := resumecommands.NewDeleteResumeRootHandler(resumeRootRepositoryValue, unitOfWorkValue)
 	createResumeProfileHandlerValue := resumecommands.NewCreateResumeProfileHandler(profileRepositoryValue, unitOfWorkValue)
-	getResumeProfileHandlerValue := resumecommands.NewGetResumeProfileHandler(profileRepositoryValue)
 	updateResumeProfileHandlerValue := resumecommands.NewUpdateResumeProfileHandler(profileRepositoryValue, profileRepositoryValue, unitOfWorkValue)
 	createResumeContactsHandlerValue := resumecommands.NewCreateResumeContactsHandler(contactsRepositoryValue, unitOfWorkValue)
-	getResumeContactsHandlerValue := resumecommands.NewGetResumeContactsHandler(contactsRepositoryValue)
 	updateResumeContactsHandlerValue := resumecommands.NewUpdateResumeContactsHandler(contactsRepositoryValue, contactsRepositoryValue, unitOfWorkValue)
 	createSkillsHandlerValue := resumecommands.NewCreateSkillsHandler(skillsRepositoryValue, unitOfWorkValue)
-	getSkillsHandlerValue := resumecommands.NewGetSkillsHandler(skillsRepositoryValue)
-	updateSkillsHandlerValue := resumecommands.NewUpdateSkillsHandler(skillsRepositoryValue, unitOfWorkValue)
+	updateSkillsHandlerValue := resumecommands.NewUpdateSkillsHandler(skillsRepositoryValue, skillsRepositoryValue, unitOfWorkValue)
 	createLanguageHandlerValue := resumecommands.NewCreateLanguageHandler(languagesRepositoryValue, unitOfWorkValue)
 	listLanguagesHandlerValue := resumecommands.NewListLanguagesHandler(languagesRepositoryValue)
 	getLanguageHandlerValue := resumecommands.NewGetLanguageHandler(languagesRepositoryValue)
@@ -143,7 +148,7 @@ func Initialize() (*Application, error) {
 	getProjectHandlerValue := resumecommands.NewGetProjectHandler(projectRepositoryValue)
 	updateProjectHandlerValue := resumecommands.NewUpdateProjectHandler(projectRepositoryValue, unitOfWorkValue)
 	deleteProjectHandlerValue := resumecommands.NewDeleteProjectHandler(projectRepositoryValue, unitOfWorkValue)
-	skillsHandlerValue := skillshttp.NewHandler(createSkillsHandlerValue, getSkillsHandlerValue, updateSkillsHandlerValue)
+	skillsHandlerValue := skillshttp.NewHandler(createSkillsHandlerValue, getSkillsQueryHandlerValue, updateSkillsHandlerValue)
 	languagesHandlerValue := languageshttp.NewHandler(createLanguageHandlerValue, listLanguagesHandlerValue, getLanguageHandlerValue, updateLanguageHandlerValue, deleteLanguageHandlerValue)
 	technologiesHandlerValue := technologieshttp.NewHandler(createTechnologyHandlerValue, listTechnologiesHandlerValue, getTechnologyHandlerValue, updateTechnologyHandlerValue, deleteTechnologyHandlerValue)
 	experiencesHandlerValue := experienceshttp.NewHandler(createExperienceHandlerValue, listExperiencesHandlerValue, getExperienceHandlerValue, updateExperienceHandlerValue, deleteExperienceHandlerValue)
@@ -156,7 +161,7 @@ func Initialize() (*Application, error) {
 	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
-	resumeHandlerValue := http.NewHandler(listResumesHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue, publicHandlerValue)
+	resumeHandlerValue := http.NewHandler(listResumesHandlerValue, createResumeRootHandlerValue, getResumeRootQueryHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileQueryHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsQueryHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue, publicHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,

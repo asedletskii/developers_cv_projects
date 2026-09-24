@@ -11,12 +11,14 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-var _ commands.SkillsRepository = (*SkillsRepository)(nil)
+var _ commands.CreateSkillsRepository = (*SkillsRepository)(nil)
+var _ commands.GetSkillsRepository = (*SkillsRepository)(nil)
+var _ commands.UpdateSkillsRepository = (*SkillsRepository)(nil)
 
-func (r *SkillsRepository) CreateSkills(ctx context.Context, a *domain.Skills, uid useridentity.ID) error {
+func (r *SkillsRepository) CreateSkills(ctx context.Context, c commands.CreateSkillsRepositoryCommand) error {
+	a, uid := c.Skills, c.UserID
 	tx, e := r.owned(ctx, a.ResumeID(), uid)
 	if e != nil {
 		return e
@@ -42,7 +44,7 @@ func (r *SkillsRepository) CreateSkills(ctx context.Context, a *domain.Skills, u
 	}
 	return nil
 }
-func (r *SkillsRepository) GetSkills(ctx context.Context, q commands.GetSkillsQuery) (*domain.Skills, error) {
+func (r *SkillsRepository) GetSkills(ctx context.Context, q commands.GetSkillsCommand) (*domain.Skills, error) {
 	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
 	if e != nil {
 		return nil, e
@@ -76,7 +78,8 @@ func (r *SkillsRepository) GetSkills(ctx context.Context, q commands.GetSkillsQu
 	}
 	return domain.NewSkills(domain.SkillsParams{ID: id, ResumeID: rid, Hard: hp, Soft: sp})
 }
-func (r *SkillsRepository) UpdateSkills(ctx context.Context, a *domain.Skills, uid useridentity.ID) error {
+func (r *SkillsRepository) UpdateSkills(ctx context.Context, c commands.UpdateSkillsRepositoryCommand) error {
+	a, uid := c.Skills, c.UserID
 	tx, e := r.owned(ctx, a.ResumeID(), uid)
 	if e != nil {
 		return e

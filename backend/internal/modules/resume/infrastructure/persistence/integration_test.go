@@ -170,16 +170,16 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 		return contactsRepo.CreateContacts(tx, commands.CreateResumeContactsRepositoryCommand{Contacts: contacts, UserID: owner})
 	}))
 
-	loaded, err := contactsRepo.GetContacts(ctx, commands.GetResumeContactsQuery{ResumeID: root.ID(), UserID: owner})
+	loaded, err := contactsRepo.GetContacts(ctx, commands.GetResumeContactsCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, "+79999999999", *loaded.Contacts().Phone())
 	require.Equal(t, "contacts@example.com", loaded.Contacts().Email().String())
 	require.Equal(t, []enums.ContactKey{enums.ContactKeyPhone}, loaded.HiddenContacts())
 
-	_, err = contactsRepo.GetContacts(ctx, commands.GetResumeContactsQuery{ResumeID: root.ID(), UserID: foreign})
+	_, err = contactsRepo.GetContacts(ctx, commands.GetResumeContactsCommand{ResumeID: root.ID(), UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
-	beforeRoot, err := rootRepo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{ResumeID: root.ID(), UserID: owner})
+	beforeRoot, err := rootRepo.GetRoot(ctx, commands.GetResumeRootCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	updatedEmail, err := valueobjects.NewEmail("updated@example.com")
 	require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return contactsRepo.UpdateContacts(tx, commands.UpdateResumeContactsRepositoryCommand{Contacts: updatedContacts, UserID: owner})
 	}))
-	afterRoot, err := rootRepo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{ResumeID: root.ID(), UserID: owner})
+	afterRoot, err := rootRepo.GetRoot(ctx, commands.GetResumeRootCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, beforeRoot.Presentation().Greeting.First().RU(), afterRoot.Presentation().Greeting.First().RU())
 	require.Equal(t, beforeRoot.Presentation().Sections, afterRoot.Presentation().Sections)
@@ -251,11 +251,11 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return skillsRepo.CreateSkills(tx, skills, owner)
 	}))
-	loadedSkills, err := skillsRepo.GetSkills(ctx, commands.GetSkillsQuery{ResumeID: root.ID(), UserID: owner})
+	loadedSkills, err := skillsRepo.GetSkills(ctx, commands.GetSkillsCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, hard, loadedSkills.HardSkills())
 	require.Equal(t, soft, loadedSkills.SoftSkills())
-	_, err = skillsRepo.GetSkills(ctx, commands.GetSkillsQuery{ResumeID: root.ID(), UserID: foreign})
+	_, err = skillsRepo.GetSkills(ctx, commands.GetSkillsCommand{ResumeID: root.ID(), UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	languageID := valueobjects.NewID()

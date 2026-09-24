@@ -15,7 +15,7 @@ type CreateSkillsCommand struct {
 	UserID       useridentity.ID
 	Hard, Soft   []string
 }
-type GetSkillsQuery struct {
+type GetSkillsCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
 }
@@ -24,18 +24,30 @@ type UpdateSkillsCommand struct {
 	UserID     useridentity.ID
 	Hard, Soft []string
 }
-type SkillsRepository interface {
-	CreateSkills(context.Context, *domain.Skills, useridentity.ID) error
-	GetSkills(context.Context, GetSkillsQuery) (*domain.Skills, error)
-	UpdateSkills(context.Context, *domain.Skills, useridentity.ID) error
+type CreateSkillsRepository interface {
+	CreateSkills(context.Context, CreateSkillsRepositoryCommand) error
+}
+type GetSkillsRepository interface {
+	GetSkills(context.Context, GetSkillsCommand) (*domain.Skills, error)
+}
+type UpdateSkillsRepository interface {
+	UpdateSkills(context.Context, UpdateSkillsRepositoryCommand) error
+}
+type CreateSkillsRepositoryCommand struct {
+	Skills *domain.Skills
+	UserID useridentity.ID
+}
+type UpdateSkillsRepositoryCommand struct {
+	Skills *domain.Skills
+	UserID useridentity.ID
 }
 
 type CreateSkillsHandler struct {
-	r SkillsRepository
+	r CreateSkillsRepository
 	u UnitOfWork
 }
 
-func NewCreateSkillsHandler(r SkillsRepository, u UnitOfWork) *CreateSkillsHandler {
+func NewCreateSkillsHandler(r CreateSkillsRepository, u UnitOfWork) *CreateSkillsHandler {
 	return &CreateSkillsHandler{r, u}
 }
 func (h *CreateSkillsHandler) Handle(ctx context.Context, c CreateSkillsCommand) (valueobjects.ID, error) {
@@ -52,7 +64,7 @@ func (h *CreateSkillsHandler) Handle(ctx context.Context, c CreateSkillsCommand)
 		if e != nil {
 			return e
 		}
-		return h.r.CreateSkills(tx, a, c.UserID)
+		return h.r.CreateSkills(tx, CreateSkillsRepositoryCommand{Skills: a, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -60,30 +72,21 @@ func (h *CreateSkillsHandler) Handle(ctx context.Context, c CreateSkillsCommand)
 	return a.ID(), nil
 }
 
-type GetSkillsHandler struct{ r SkillsRepository }
-
-func NewGetSkillsHandler(r SkillsRepository) *GetSkillsHandler { return &GetSkillsHandler{r} }
-func (h *GetSkillsHandler) Handle(ctx context.Context, q GetSkillsQuery) (*domain.Skills, error) {
-	if h == nil || h.r == nil {
-		return nil, fmt.Errorf("get skills dependencies are nil")
-	}
-	return h.r.GetSkills(ctx, q)
-}
-
 type UpdateSkillsHandler struct {
-	r SkillsRepository
-	u UnitOfWork
+	r   GetSkillsRepository
+	u   UpdateSkillsRepository
+	uow UnitOfWork
 }
 
-func NewUpdateSkillsHandler(r SkillsRepository, u UnitOfWork) *UpdateSkillsHandler {
-	return &UpdateSkillsHandler{r, u}
+func NewUpdateSkillsHandler(r GetSkillsRepository, u UpdateSkillsRepository, uow UnitOfWork) *UpdateSkillsHandler {
+	return &UpdateSkillsHandler{r: r, u: u, uow: uow}
 }
 func (h *UpdateSkillsHandler) Handle(ctx context.Context, c UpdateSkillsCommand) error {
-	if h == nil || h.r == nil || h.u == nil {
+	if h == nil || h.r == nil || h.u == nil || h.uow == nil {
 		return fmt.Errorf("update skills dependencies are nil")
 	}
-	return h.u.Do(ctx, func(tx context.Context) error {
-		cur, e := h.r.GetSkills(tx, GetSkillsQuery{ResumeID: c.ResumeID, UserID: c.UserID})
+	return h.uow.Do(ctx, func(tx context.Context) error {
+		cur, e := h.r.GetSkills(tx, GetSkillsCommand{ResumeID: c.ResumeID, UserID: c.UserID})
 		if e != nil {
 			return e
 		}
@@ -91,7 +94,7 @@ func (h *UpdateSkillsHandler) Handle(ctx context.Context, c UpdateSkillsCommand)
 		if e != nil {
 			return e
 		}
-		return h.r.UpdateSkills(tx, a, c.UserID)
+		return h.u.UpdateSkills(tx, UpdateSkillsRepositoryCommand{Skills: a, UserID: c.UserID})
 	})
 }
 func toHard(v []string) []enums.HardSkill {

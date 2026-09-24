@@ -24,7 +24,11 @@ type UpdateResumeRootCommand struct {
 	Presentation domain.ResumePresentation
 }
 
-type GetResumeRootRepositoryQuery struct {
+type GetResumeRootCommand struct {
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+}
+type DeleteResumeRootCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
 }
@@ -36,13 +40,13 @@ type CreateResumeRootRepository interface {
 	CreateRoot(context.Context, CreateResumeRootRepositoryCommand) error
 }
 type GetResumeRootRepository interface {
-	GetRoot(context.Context, GetResumeRootRepositoryQuery) (*domain.ResumeRoot, error)
+	GetRoot(context.Context, GetResumeRootCommand) (*domain.ResumeRoot, error)
 }
 type UpdateResumeRootRepository interface {
 	UpdateRoot(context.Context, UpdateResumeRootRepositoryCommand) error
 }
 type DeleteResumeRootRepository interface {
-	DeleteRoot(context.Context, GetResumeRootRepositoryQuery) error
+	DeleteRoot(context.Context, DeleteResumeRootCommand) error
 }
 
 type CreateResumeRootHandler struct {
@@ -74,21 +78,6 @@ func (h *CreateResumeRootHandler) Handle(ctx context.Context, c CreateResumeRoot
 	return c.ID, nil
 }
 
-type GetResumeRootHandler struct{ repository GetResumeRootRepository }
-
-func NewGetResumeRootHandler(repository GetResumeRootRepository) *GetResumeRootHandler {
-	return &GetResumeRootHandler{repository: repository}
-}
-func (h *GetResumeRootHandler) Handle(ctx context.Context, q GetResumeRootRepositoryQuery) (*domain.ResumeRoot, error) {
-	if h == nil || h.repository == nil {
-		return nil, fmt.Errorf("get resume root handler dependencies are nil")
-	}
-	if q.ResumeID.IsZero() || q.UserID.IsZero() {
-		return nil, fmt.Errorf("invalid get resume root query")
-	}
-	return h.repository.GetRoot(ctx, q)
-}
-
 type UpdateResumeRootHandler struct {
 	repository GetResumeRootRepository
 	updater    UpdateResumeRootRepository
@@ -106,7 +95,7 @@ func (h *UpdateResumeRootHandler) Handle(ctx context.Context, c UpdateResumeRoot
 		return fmt.Errorf("invalid update resume root command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.repository.GetRoot(tx, GetResumeRootRepositoryQuery{ResumeID: c.ResumeID, UserID: c.UserID})
+		current, err := h.repository.GetRoot(tx, GetResumeRootCommand{ResumeID: c.ResumeID, UserID: c.UserID})
 		if err != nil {
 			return err
 		}
@@ -126,12 +115,12 @@ type DeleteResumeRootHandler struct {
 func NewDeleteResumeRootHandler(repository DeleteResumeRootRepository, uow UnitOfWork) *DeleteResumeRootHandler {
 	return &DeleteResumeRootHandler{repository: repository, uow: uow}
 }
-func (h *DeleteResumeRootHandler) Handle(ctx context.Context, q GetResumeRootRepositoryQuery) error {
+func (h *DeleteResumeRootHandler) Handle(ctx context.Context, c DeleteResumeRootCommand) error {
 	if h == nil || h.repository == nil || h.uow == nil {
 		return fmt.Errorf("delete resume root handler dependencies are nil")
 	}
-	if q.ResumeID.IsZero() || q.UserID.IsZero() {
-		return fmt.Errorf("invalid delete resume root query")
+	if c.ResumeID.IsZero() || c.UserID.IsZero() {
+		return fmt.Errorf("invalid delete resume root command")
 	}
-	return h.uow.Do(ctx, func(tx context.Context) error { return h.repository.DeleteRoot(tx, q) })
+	return h.uow.Do(ctx, func(tx context.Context) error { return h.repository.DeleteRoot(tx, c) })
 }

@@ -42,7 +42,7 @@ func (r *ResumeRootRepository) CreateRoot(ctx context.Context, c commands.Create
 	}
 	return nil
 }
-func (r *ResumeRootRepository) GetRoot(ctx context.Context, q commands.GetResumeRootRepositoryQuery) (*domain.ResumeRoot, error) {
+func (r *ResumeRootRepository) GetRoot(ctx context.Context, q commands.GetResumeRootCommand) (*domain.ResumeRoot, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get resume root: repository dependencies are nil")
 	}
@@ -102,7 +102,7 @@ func (r *ResumeRootRepository) UpdateRoot(ctx context.Context, c commands.Update
 	}
 	return nil
 }
-func (r *ResumeRootRepository) DeleteRoot(ctx context.Context, q commands.GetResumeRootRepositoryQuery) error {
+func (r *ResumeRootRepository) DeleteRoot(ctx context.Context, q commands.DeleteResumeRootCommand) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("delete resume root: %w", err)
