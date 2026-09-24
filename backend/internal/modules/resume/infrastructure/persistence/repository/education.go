@@ -14,14 +14,17 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.EducationsRepository = (*EducationRepository)(nil)
+var _ commands.CreateEducationRepository = (*EducationRepository)(nil)
+var _ commands.GetEducationRepository = (*EducationRepository)(nil)
+var _ commands.UpdateEducationRepository = (*EducationRepository)(nil)
+var _ commands.DeleteEducationRepository = (*EducationRepository)(nil)
 
-func (r *EducationRepository) CreateEducation(ctx context.Context, c commands.CreateEducationCommand) error {
+func (r *EducationRepository) CreateEducation(ctx context.Context, c commands.CreateEducationRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	item, err := educationModel(c.Input)
+	item, err := educationModel(c.Education)
 	if err != nil {
 		return err
 	}
@@ -38,27 +41,7 @@ func (r *EducationRepository) CreateEducation(ctx context.Context, c commands.Cr
 	return nil
 }
 
-func (r *EducationRepository) ListEducations(ctx context.Context, q commands.ListEducationsQuery) ([]*domain.Education, error) {
-	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
-	if err != nil {
-		return nil, err
-	}
-	var models []gormmodel.ResumeEducation
-	if err := tx.Where("resume_id = ?", q.ResumeID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
-		return nil, err
-	}
-	out := make([]*domain.Education, 0, len(models))
-	for _, model := range models {
-		item, err := mapEducation(model)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
-	}
-	return out, nil
-}
-
-func (r *EducationRepository) GetEducation(ctx context.Context, q commands.GetEducationQuery) (*domain.Education, error) {
+func (r *EducationRepository) GetEducation(ctx context.Context, q commands.GetEducationCommand) (*domain.Education, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -73,16 +56,16 @@ func (r *EducationRepository) GetEducation(ctx context.Context, q commands.GetEd
 	return mapEducation(model)
 }
 
-func (r *EducationRepository) UpdateEducation(ctx context.Context, c commands.UpdateEducationCommand) error {
+func (r *EducationRepository) UpdateEducation(ctx context.Context, c commands.UpdateEducationRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	model, err := educationModel(c.Input)
+	model, err := educationModel(c.Education)
 	if err != nil {
 		return err
 	}
-	result := tx.Model(&gormmodel.ResumeEducation{}).Where("id = ? AND resume_id = ?", c.EducationID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{
+	result := tx.Model(&gormmodel.ResumeEducation{}).Where("id = ? AND resume_id = ?", c.Education.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{
 		"location": model.Location, "university": model.University, "grade": model.Grade,
 		"program_name": model.ProgramName, "profile_name": model.ProfileName, "faculty": model.Faculty,
 		"course": model.Course, "end_date": model.EndDate,
@@ -111,11 +94,7 @@ func (r *EducationRepository) DeleteEducation(ctx context.Context, c commands.De
 	return nil
 }
 
-func educationModel(input commands.EducationInput) (gormmodel.ResumeEducation, error) {
-	item, err := domain.NewEducation(domain.EducationParams{ID: input.ID, ResumeID: input.ResumeID, Location: input.Location, University: input.University, Grade: input.Grade, ProgramName: input.ProgramName, ProfileName: input.ProfileName, Faculty: input.Faculty, Course: input.Course, EndDate: input.EndDate})
-	if err != nil {
-		return gormmodel.ResumeEducation{}, err
-	}
+func educationModel(item *domain.Education) (gormmodel.ResumeEducation, error) {
 	model := gormmodel.ResumeEducation{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Location: item.Location(), University: item.University(), Grade: int(item.Grade()), ProgramName: item.ProgramName(), ProfileName: item.ProfileName(), Faculty: item.Faculty(), Course: item.Course()}
 	if item.EndDate() != nil {
 		value := item.EndDate().String() + "-01-01"

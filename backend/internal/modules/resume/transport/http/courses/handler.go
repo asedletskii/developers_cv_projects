@@ -2,6 +2,7 @@ package courses
 
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
@@ -15,13 +16,13 @@ import (
 
 type Handler struct {
 	create *commands.CreateCourseHandler
-	list   *commands.ListCoursesHandler
-	get    *commands.GetCourseHandler
+	list   *queries.ListCoursesQueryHandler
+	get    *queries.GetCourseQueryHandler
 	update *commands.UpdateCourseHandler
 	delete *commands.DeleteCourseHandler
 }
 
-func NewHandler(create *commands.CreateCourseHandler, list *commands.ListCoursesHandler, get *commands.GetCourseHandler, update *commands.UpdateCourseHandler, delete *commands.DeleteCourseHandler) *Handler {
+func NewHandler(create *commands.CreateCourseHandler, list *queries.ListCoursesQueryHandler, get *queries.GetCourseQueryHandler, update *commands.UpdateCourseHandler, delete *commands.DeleteCourseHandler) *Handler {
 	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
 }
 
@@ -32,15 +33,7 @@ type CourseRequest struct {
 	Hours           *int    `json:"hours,omitempty"`
 	CertificateLink *string `json:"certificateLink,omitempty"`
 }
-type CourseResponse struct {
-	ID              string  `json:"id"`
-	ResumeID        string  `json:"resumeId"`
-	Name            string  `json:"name"`
-	Organization    string  `json:"organization"`
-	EndDate         string  `json:"endDate"`
-	Hours           *int    `json:"hours,omitempty"`
-	CertificateLink *string `json:"certificateLink,omitempty"`
-}
+type CourseResponse = queries.CourseView
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)
@@ -62,40 +55,36 @@ func (h *Handler) Create(c *gin.Context) {
 		write(c, err)
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, courseView(rid, item))
+	c.JSON(http.StatusCreated, item)
 }
 func (h *Handler) List(c *gin.Context) {
 	uid, rid, ok := ids(c)
 	if !ok {
 		return
 	}
-	items, err := h.list.Handle(c.Request.Context(), commands.ListCoursesQuery{ResumeID: rid, UserID: uid})
+	items, err := h.list.Handle(c.Request.Context(), queries.ListCoursesQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	out := make([]CourseResponse, len(items))
-	for i, item := range items {
-		out[i] = courseView(rid, item)
-	}
-	c.JSON(http.StatusOK, out)
+	c.JSON(http.StatusOK, items)
 }
 func (h *Handler) Get(c *gin.Context) {
 	uid, rid, id, ok := itemIDs(c)
 	if !ok {
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, courseView(rid, item))
+	c.JSON(http.StatusOK, item)
 }
 func (h *Handler) Update(c *gin.Context) {
 	uid, rid, id, ok := itemIDs(c)
@@ -116,12 +105,12 @@ func (h *Handler) Update(c *gin.Context) {
 		write(c, err)
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, courseView(rid, item))
+	c.JSON(http.StatusOK, item)
 }
 func (h *Handler) Delete(c *gin.Context) {
 	uid, rid, id, ok := itemIDs(c)
@@ -149,16 +138,6 @@ func courseInput(body CourseRequest) (commands.CourseInput, error) {
 	}
 	return commands.CourseInput{Name: body.Name, Organization: body.Organization, EndDate: end, Hours: body.Hours, CertificateLink: link}, nil
 }
-func courseView(resumeID valueobjects.ID, item *domain.Course) CourseResponse {
-	return CourseResponse{ID: item.ID().String(), ResumeID: resumeID.String(), Name: item.Name(), Organization: item.Organization(), EndDate: item.EndDate().String(), Hours: item.Hours(), CertificateLink: externalURLString(item.CertificateLink())}
-}
-func externalURLString(v *valueobjects.ExternalURL) *string {
-	if v == nil {
-		return nil
-	}
-	s := v.String()
-	return &s
-}
 func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
 	uid, ok := common.RequireUserID(c)
 	if !ok {
@@ -180,7 +159,7 @@ func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID,
 	return uid, rid, id, true
 }
 func write(c *gin.Context, err error) {
-	if errors.Is(err, domain.ErrEntityNotFound) {
+	if errors.Is(err, queries.ErrResumeNotFound) || errors.Is(err, domain.ErrEntityNotFound) {
 		common.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))
 		return
 	}

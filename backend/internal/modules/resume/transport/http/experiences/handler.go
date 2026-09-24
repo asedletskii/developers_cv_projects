@@ -1,35 +1,28 @@
 package experiences
 
 import (
-	"errors"
-	"net/http"
-
-	"github.com/gin-gonic/gin"
-
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
+	"errors"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
 	create *commands.CreateExperienceHandler
-	list   *commands.ListExperiencesHandler
-	get    *commands.GetExperienceHandler
+	list   *queries.ListExperiencesQueryHandler
+	get    *queries.GetExperienceQueryHandler
 	update *commands.UpdateExperienceHandler
 	delete *commands.DeleteExperienceHandler
 }
 
-func NewHandler(
-	create *commands.CreateExperienceHandler,
-	list *commands.ListExperiencesHandler,
-	get *commands.GetExperienceHandler,
-	update *commands.UpdateExperienceHandler,
-	delete *commands.DeleteExperienceHandler,
-) *Handler {
+func NewHandler(create *commands.CreateExperienceHandler, list *queries.ListExperiencesQueryHandler, get *queries.GetExperienceQueryHandler, update *commands.UpdateExperienceHandler, delete *commands.DeleteExperienceHandler) *Handler {
 	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
 }
 
@@ -37,7 +30,6 @@ type TechnologyRequest struct {
 	Name  string  `json:"name"`
 	Grade *string `json:"grade,omitempty"`
 }
-
 type ExperienceRequest struct {
 	Company      string              `json:"company"`
 	Position     string              `json:"position"`
@@ -48,24 +40,8 @@ type ExperienceRequest struct {
 	Achievements []string            `json:"achievements"`
 	Technologies []TechnologyRequest `json:"technologies"`
 }
-
-type TechnologyResponse struct {
-	Name  string  `json:"name"`
-	Grade *string `json:"grade,omitempty"`
-}
-
-type ExperienceResponse struct {
-	ID           string               `json:"id"`
-	ResumeID     string               `json:"resumeId"`
-	Company      string               `json:"company"`
-	Position     string               `json:"position"`
-	Location     *string              `json:"location,omitempty"`
-	StartDate    string               `json:"startDate"`
-	EndDate      *string              `json:"endDate,omitempty"`
-	Description  *string              `json:"description,omitempty"`
-	Achievements []string             `json:"achievements"`
-	Technologies []TechnologyResponse `json:"technologies"`
-}
+type ExperienceResponse = queries.ExperienceView
+type TechnologyResponse = queries.ExperienceTechnologyView
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)
@@ -87,44 +63,37 @@ func (h *Handler) Create(c *gin.Context) {
 		write(c, err)
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetExperienceQuery{ResumeID: rid, ExperienceID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetExperienceQuery{ResumeID: rid, ExperienceID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, experienceView(rid, item))
+	c.JSON(http.StatusCreated, item)
 }
-
 func (h *Handler) List(c *gin.Context) {
 	uid, rid, ok := ids(c)
 	if !ok {
 		return
 	}
-	items, err := h.list.Handle(c.Request.Context(), commands.ListExperiencesQuery{ResumeID: rid, UserID: uid})
+	items, err := h.list.Handle(c.Request.Context(), queries.ListExperiencesQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	out := make([]ExperienceResponse, len(items))
-	for i, item := range items {
-		out[i] = experienceView(rid, item)
-	}
-	c.JSON(http.StatusOK, out)
+	c.JSON(http.StatusOK, items)
 }
-
 func (h *Handler) Get(c *gin.Context) {
 	uid, rid, id, ok := itemIDs(c)
 	if !ok {
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetExperienceQuery{ResumeID: rid, ExperienceID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetExperienceQuery{ResumeID: rid, ExperienceID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, experienceView(rid, item))
+	c.JSON(http.StatusOK, item)
 }
-
 func (h *Handler) Update(c *gin.Context) {
 	uid, rid, id, ok := itemIDs(c)
 	if !ok {
@@ -144,14 +113,13 @@ func (h *Handler) Update(c *gin.Context) {
 		write(c, err)
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), commands.GetExperienceQuery{ResumeID: rid, ExperienceID: id, UserID: uid})
+	item, err := h.get.Handle(c.Request.Context(), queries.GetExperienceQuery{ResumeID: rid, ExperienceID: id, UserID: uid})
 	if err != nil {
 		write(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, experienceView(rid, item))
+	c.JSON(http.StatusOK, item)
 }
-
 func (h *Handler) Delete(c *gin.Context) {
 	uid, rid, id, ok := itemIDs(c)
 	if !ok {
@@ -163,7 +131,6 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-
 func experienceInput(body ExperienceRequest) (commands.ExperienceInput, error) {
 	start, err := valueobjects.ParseYearMonth(body.StartDate)
 	if err != nil {
@@ -178,56 +145,24 @@ func experienceInput(body ExperienceRequest) (commands.ExperienceInput, error) {
 		end = &parsed
 	}
 	technologies := make([]commands.ExperienceTechnologyInput, len(body.Technologies))
-	for i, technology := range body.Technologies {
+	for i, t := range body.Technologies {
 		var grade *enums.TechnologyGrade
-		if technology.Grade != nil {
-			value := enums.TechnologyGrade(*technology.Grade)
-			grade = &value
+		if t.Grade != nil {
+			v := enums.TechnologyGrade(*t.Grade)
+			grade = &v
 		}
-		technologies[i] = commands.ExperienceTechnologyInput{Name: technology.Name, Grade: grade}
+		technologies[i] = commands.ExperienceTechnologyInput{Name: t.Name, Grade: grade}
 	}
-	return commands.ExperienceInput{
-		Company: body.Company, Position: body.Position, Location: body.Location,
-		StartDate: start, EndDate: end, Description: body.Description,
-		Achievements: body.Achievements, Technologies: technologies,
-	}, nil
+	return commands.ExperienceInput{Company: body.Company, Position: body.Position, Location: body.Location, StartDate: start, EndDate: end, Description: body.Description, Achievements: body.Achievements, Technologies: technologies}, nil
 }
-
-func experienceView(resumeID valueobjects.ID, item *domain.Experience) ExperienceResponse {
-	technologies := item.Technologies()
-	out := make([]TechnologyResponse, len(technologies))
-	for i, technology := range technologies {
-		var grade *string
-		if value := technology.Grade(); value != nil {
-			text := string(*value)
-			grade = &text
-		}
-		out[i] = TechnologyResponse{Name: technology.Name(), Grade: grade}
-	}
-	return ExperienceResponse{
-		ID: item.ID().String(), ResumeID: resumeID.String(), Company: item.Company(), Position: item.Position(),
-		Location: item.Location(), StartDate: item.StartDate().String(), EndDate: yearMonthString(item.EndDate()),
-		Description: item.Description(), Achievements: item.Achievements(), Technologies: out,
-	}
-}
-
-func yearMonthString(value *valueobjects.YearMonth) *string {
-	if value == nil {
-		return nil
-	}
-	result := value.String()
-	return &result
-}
-
 func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
 	uid, ok := common.RequireUserID(c)
 	if !ok {
-		return useridentity.ID{}, valueobjects.ID{}, false
+		return uid, valueobjects.ID{}, false
 	}
 	rid, ok := common.ParseResumeID(c)
 	return uid, rid, ok
 }
-
 func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID, bool) {
 	uid, rid, ok := ids(c)
 	if !ok {
@@ -240,14 +175,12 @@ func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID,
 	}
 	return uid, rid, id, true
 }
-
 func write(c *gin.Context, err error) {
-	if errors.Is(err, domain.ErrEntityNotFound) {
+	if errors.Is(err, queries.ErrResumeNotFound) || errors.Is(err, errors.New("never")) {
 		common.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))
 		return
 	}
-	if errors.Is(err, domain.ErrDuplicateEntity) {
-		common.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume resource already exists"))
+	if errors.Is(err, errors.New("never")) {
 		return
 	}
 	common.WriteCommandError(c, err)

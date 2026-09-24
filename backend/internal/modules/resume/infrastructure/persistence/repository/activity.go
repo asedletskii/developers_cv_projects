@@ -13,14 +13,17 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.ActivitiesRepository = (*ActivityRepository)(nil)
+var _ commands.CreateActivityRepository = (*ActivityRepository)(nil)
+var _ commands.GetActivityRepository = (*ActivityRepository)(nil)
+var _ commands.UpdateActivityRepository = (*ActivityRepository)(nil)
+var _ commands.DeleteActivityRepository = (*ActivityRepository)(nil)
 
-func (r *ActivityRepository) CreateActivity(ctx context.Context, c commands.CreateActivityCommand) error {
+func (r *ActivityRepository) CreateActivity(ctx context.Context, c commands.CreateActivityRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	item, err := activityModel(c.Input)
+	item, err := activityModel(c.Activity)
 	if err != nil {
 		return err
 	}
@@ -36,26 +39,7 @@ func (r *ActivityRepository) CreateActivity(ctx context.Context, c commands.Crea
 	}
 	return nil
 }
-func (r *ActivityRepository) ListActivities(ctx context.Context, q commands.ListActivitiesQuery) ([]*domain.Activity, error) {
-	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
-	if err != nil {
-		return nil, err
-	}
-	var models []gormmodel.ResumeActivity
-	if err := tx.Where("resume_id = ?", q.ResumeID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
-		return nil, err
-	}
-	out := make([]*domain.Activity, 0, len(models))
-	for _, model := range models {
-		item, err := mapActivity(model)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
-	}
-	return out, nil
-}
-func (r *ActivityRepository) GetActivity(ctx context.Context, q commands.GetActivityQuery) (*domain.Activity, error) {
+func (r *ActivityRepository) GetActivity(ctx context.Context, q commands.GetActivityCommand) (*domain.Activity, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -69,16 +53,16 @@ func (r *ActivityRepository) GetActivity(ctx context.Context, q commands.GetActi
 	}
 	return mapActivity(model)
 }
-func (r *ActivityRepository) UpdateActivity(ctx context.Context, c commands.UpdateActivityCommand) error {
+func (r *ActivityRepository) UpdateActivity(ctx context.Context, c commands.UpdateActivityRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	model, err := activityModel(c.Input)
+	model, err := activityModel(c.Activity)
 	if err != nil {
 		return err
 	}
-	result := tx.Model(&gormmodel.ResumeActivity{}).Where("id = ? AND resume_id = ?", c.ActivityID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{"type": model.Type, "title": model.Title, "description": model.Description, "date": model.Date, "link": model.Link})
+	result := tx.Model(&gormmodel.ResumeActivity{}).Where("id = ? AND resume_id = ?", c.Activity.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{"type": model.Type, "title": model.Title, "description": model.Description, "date": model.Date, "link": model.Link})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -101,11 +85,7 @@ func (r *ActivityRepository) DeleteActivity(ctx context.Context, c commands.Dele
 	}
 	return nil
 }
-func activityModel(input commands.ActivityInput) (gormmodel.ResumeActivity, error) {
-	item, err := domain.NewActivity(domain.ActivityParams{ID: input.ID, ResumeID: input.ResumeID, Type: input.Type, Title: input.Title, Description: input.Description, Date: input.Date, Link: input.Link})
-	if err != nil {
-		return gormmodel.ResumeActivity{}, err
-	}
+func activityModel(item *domain.Activity) (gormmodel.ResumeActivity, error) {
 	model := gormmodel.ResumeActivity{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Type: string(item.Type()), Title: item.Title(), Description: item.Description(), Link: externalURLString(item.Link())}
 	if item.Date() != nil {
 		value := item.Date().String() + "-01"

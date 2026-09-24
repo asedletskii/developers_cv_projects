@@ -2,159 +2,141 @@ package commands
 
 import (
 	"context"
-
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	"fmt"
 )
 
 type ExperienceTechnologyInput struct {
 	Name  string
 	Grade *enums.TechnologyGrade
 }
-
 type ExperienceInput struct {
-	ID           valueobjects.ID
-	ResumeID     valueobjects.ID
-	Company      string
-	Position     string
-	Location     *string
-	StartDate    valueobjects.YearMonth
-	EndDate      *valueobjects.YearMonth
-	Description  *string
-	Achievements []string
-	Technologies []ExperienceTechnologyInput
+	ID, ResumeID      valueobjects.ID
+	Company, Position string
+	Location          *string
+	StartDate         valueobjects.YearMonth
+	EndDate           *valueobjects.YearMonth
+	Description       *string
+	Achievements      []string
+	Technologies      []ExperienceTechnologyInput
 }
-
 type CreateExperienceCommand struct {
 	ID, ResumeID valueobjects.ID
 	UserID       useridentity.ID
 	Input        ExperienceInput
 }
-
-type ListExperiencesQuery struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-
-type GetExperienceQuery struct {
+type GetExperienceCommand struct {
 	ResumeID, ExperienceID valueobjects.ID
 	UserID                 useridentity.ID
 }
-
 type UpdateExperienceCommand struct {
 	ResumeID, ExperienceID valueobjects.ID
 	UserID                 useridentity.ID
 	Input                  ExperienceInput
 }
-
 type DeleteExperienceCommand struct {
 	ResumeID, ExperienceID valueobjects.ID
 	UserID                 useridentity.ID
 }
-
-type ExperiencesRepository interface {
-	CreateExperience(context.Context, CreateExperienceCommand) error
-	ListExperiences(context.Context, ListExperiencesQuery) ([]*domain.Experience, error)
-	GetExperience(context.Context, GetExperienceQuery) (*domain.Experience, error)
-	UpdateExperience(context.Context, UpdateExperienceCommand) error
+type CreateExperienceRepositoryCommand struct {
+	Experience *domain.Experience
+	ResumeID   valueobjects.ID
+	UserID     useridentity.ID
+}
+type UpdateExperienceRepositoryCommand struct {
+	Experience *domain.Experience
+	ResumeID   valueobjects.ID
+	UserID     useridentity.ID
+}
+type CreateExperienceRepository interface {
+	CreateExperience(context.Context, CreateExperienceRepositoryCommand) error
+}
+type GetExperienceRepository interface {
+	GetExperience(context.Context, GetExperienceCommand) (*domain.Experience, error)
+}
+type UpdateExperienceRepository interface {
+	UpdateExperience(context.Context, UpdateExperienceRepositoryCommand) error
+}
+type DeleteExperienceRepository interface {
 	DeleteExperience(context.Context, DeleteExperienceCommand) error
 }
-
 type CreateExperienceHandler struct {
-	repository ExperiencesRepository
-	uow        UnitOfWork
+	r CreateExperienceRepository
+	u UnitOfWork
 }
 
-func NewCreateExperienceHandler(repository ExperiencesRepository, uow UnitOfWork) *CreateExperienceHandler {
-	return &CreateExperienceHandler{repository: repository, uow: uow}
+func NewCreateExperienceHandler(r CreateExperienceRepository, u UnitOfWork) *CreateExperienceHandler {
+	return &CreateExperienceHandler{r: r, u: u}
 }
-
-func (h *CreateExperienceHandler) Handle(ctx context.Context, command CreateExperienceCommand) (valueobjects.ID, error) {
-	if command.ID.IsZero() {
-		command.ID = valueobjects.NewID()
+func (h *CreateExperienceHandler) Handle(ctx context.Context, c CreateExperienceCommand) (valueobjects.ID, error) {
+	if h == nil || h.r == nil || h.u == nil {
+		return valueobjects.ID{}, fmt.Errorf("create experience dependencies are nil")
 	}
-	command.Input.ID = command.ID
-	command.Input.ResumeID = command.ResumeID
-	if _, err := experienceFromInput(command.Input); err != nil {
+	if c.ID.IsZero() {
+		c.ID = valueobjects.NewID()
+	}
+	c.Input.ID, c.Input.ResumeID = c.ID, c.ResumeID
+	a, err := experienceFromInput(c.Input)
+	if err != nil {
 		return valueobjects.ID{}, err
 	}
-	return command.ID, h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.CreateExperience(tx, command)
+	err = h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.CreateExperience(tx, CreateExperienceRepositoryCommand{Experience: a, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
-}
-
-type ListExperiencesHandler struct{ repository ExperiencesRepository }
-
-func NewListExperiencesHandler(repository ExperiencesRepository) *ListExperiencesHandler {
-	return &ListExperiencesHandler{repository: repository}
-}
-
-func (h *ListExperiencesHandler) Handle(ctx context.Context, query ListExperiencesQuery) ([]*domain.Experience, error) {
-	return h.repository.ListExperiences(ctx, query)
-}
-
-type GetExperienceHandler struct{ repository ExperiencesRepository }
-
-func NewGetExperienceHandler(repository ExperiencesRepository) *GetExperienceHandler {
-	return &GetExperienceHandler{repository: repository}
-}
-
-func (h *GetExperienceHandler) Handle(ctx context.Context, query GetExperienceQuery) (*domain.Experience, error) {
-	return h.repository.GetExperience(ctx, query)
+	if err != nil {
+		return valueobjects.ID{}, err
+	}
+	return a.ID(), nil
 }
 
 type UpdateExperienceHandler struct {
-	repository ExperiencesRepository
-	uow        UnitOfWork
+	r   GetExperienceRepository
+	u   UpdateExperienceRepository
+	uow UnitOfWork
 }
 
-func NewUpdateExperienceHandler(repository ExperiencesRepository, uow UnitOfWork) *UpdateExperienceHandler {
-	return &UpdateExperienceHandler{repository: repository, uow: uow}
+func NewUpdateExperienceHandler(r GetExperienceRepository, u UpdateExperienceRepository, uow UnitOfWork) *UpdateExperienceHandler {
+	return &UpdateExperienceHandler{r: r, u: u, uow: uow}
 }
-
-func (h *UpdateExperienceHandler) Handle(ctx context.Context, command UpdateExperienceCommand) error {
-	command.Input.ID = command.ExperienceID
-	command.Input.ResumeID = command.ResumeID
-	if _, err := experienceFromInput(command.Input); err != nil {
-		return err
+func (h *UpdateExperienceHandler) Handle(ctx context.Context, c UpdateExperienceCommand) error {
+	if h == nil || h.r == nil || h.u == nil || h.uow == nil {
+		return fmt.Errorf("update experience dependencies are nil")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.UpdateExperience(tx, command)
+		current, err := h.r.GetExperience(tx, GetExperienceCommand{ResumeID: c.ResumeID, ExperienceID: c.ExperienceID, UserID: c.UserID})
+		if err != nil {
+			return err
+		}
+		c.Input.ID, c.Input.ResumeID = current.ID(), c.ResumeID
+		updated, err := experienceFromInput(c.Input)
+		if err != nil {
+			return err
+		}
+		return h.u.UpdateExperience(tx, UpdateExperienceRepositoryCommand{Experience: updated, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
 type DeleteExperienceHandler struct {
-	repository ExperiencesRepository
-	uow        UnitOfWork
+	r DeleteExperienceRepository
+	u UnitOfWork
 }
 
-func NewDeleteExperienceHandler(repository ExperiencesRepository, uow UnitOfWork) *DeleteExperienceHandler {
-	return &DeleteExperienceHandler{repository: repository, uow: uow}
+func NewDeleteExperienceHandler(r DeleteExperienceRepository, u UnitOfWork) *DeleteExperienceHandler {
+	return &DeleteExperienceHandler{r: r, u: u}
 }
-
-func (h *DeleteExperienceHandler) Handle(ctx context.Context, command DeleteExperienceCommand) error {
-	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.DeleteExperience(tx, command)
-	})
-}
-
-func experienceFromInput(input ExperienceInput) (*domain.Experience, error) {
-	technologies := make([]domain.ExperienceTechnologyParams, len(input.Technologies))
-	for i, technology := range input.Technologies {
-		technologies[i] = domain.ExperienceTechnologyParams{Name: technology.Name, Grade: technology.Grade}
+func (h *DeleteExperienceHandler) Handle(ctx context.Context, c DeleteExperienceCommand) error {
+	if h == nil || h.r == nil || h.u == nil {
+		return fmt.Errorf("delete experience dependencies are nil")
 	}
-	return domain.NewExperience(domain.ExperienceParams{
-		ID:           input.ID,
-		ResumeID:     input.ResumeID,
-		Company:      input.Company,
-		Position:     input.Position,
-		Location:     input.Location,
-		StartDate:    input.StartDate,
-		EndDate:      input.EndDate,
-		Description:  input.Description,
-		Achievements: input.Achievements,
-		Technologies: technologies,
-	})
+	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteExperience(tx, c) })
+}
+func experienceFromInput(input ExperienceInput) (*domain.Experience, error) {
+	ts := make([]domain.ExperienceTechnologyParams, len(input.Technologies))
+	for i, t := range input.Technologies {
+		ts[i] = domain.ExperienceTechnologyParams{Name: t.Name, Grade: t.Grade}
+	}
+	return domain.NewExperience(domain.ExperienceParams{ID: input.ID, ResumeID: input.ResumeID, Company: input.Company, Position: input.Position, Location: input.Location, StartDate: input.StartDate, EndDate: input.EndDate, Description: input.Description, Achievements: input.Achievements, Technologies: ts})
 }

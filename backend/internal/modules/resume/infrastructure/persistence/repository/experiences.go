@@ -15,14 +15,17 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.ExperiencesRepository = (*ExperiencesRepository)(nil)
+var _ commands.CreateExperienceRepository = (*ExperiencesRepository)(nil)
+var _ commands.GetExperienceRepository = (*ExperiencesRepository)(nil)
+var _ commands.UpdateExperienceRepository = (*ExperiencesRepository)(nil)
+var _ commands.DeleteExperienceRepository = (*ExperiencesRepository)(nil)
 
-func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c commands.CreateExperienceCommand) error {
+func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c commands.CreateExperienceRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	item, err := experienceModel(c.Input)
+	item, err := experienceModel(c.Experience)
 	if err != nil {
 		return err
 	}
@@ -43,30 +46,10 @@ func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c commands
 		}
 		return err
 	}
-	return replaceExperienceChildren(tx, item.ID, c.Input)
+	return replaceExperienceChildren(tx, item.ID, c.Experience)
 }
 
-func (r *ExperiencesRepository) ListExperiences(ctx context.Context, q commands.ListExperiencesQuery) ([]*domain.Experience, error) {
-	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
-	if err != nil {
-		return nil, err
-	}
-	var models []gormmodel.ResumeExperience
-	if err := tx.Where("resume_id = ?", q.ResumeID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
-		return nil, err
-	}
-	out := make([]*domain.Experience, 0, len(models))
-	for _, model := range models {
-		item, err := mapExperience(tx, model)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
-	}
-	return out, nil
-}
-
-func (r *ExperiencesRepository) GetExperience(ctx context.Context, q commands.GetExperienceQuery) (*domain.Experience, error) {
+func (r *ExperiencesRepository) GetExperience(ctx context.Context, q commands.GetExperienceCommand) (*domain.Experience, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -81,17 +64,17 @@ func (r *ExperiencesRepository) GetExperience(ctx context.Context, q commands.Ge
 	return mapExperience(tx, model)
 }
 
-func (r *ExperiencesRepository) UpdateExperience(ctx context.Context, c commands.UpdateExperienceCommand) error {
+func (r *ExperiencesRepository) UpdateExperience(ctx context.Context, c commands.UpdateExperienceRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	model, err := experienceModel(c.Input)
+	model, err := experienceModel(c.Experience)
 	if err != nil {
 		return err
 	}
 	result := tx.Model(&gormmodel.ResumeExperience{}).
-		Where("id = ? AND resume_id = ?", c.ExperienceID.UUID(), c.ResumeID.UUID()).
+		Where("id = ? AND resume_id = ?", c.Experience.ID().UUID(), c.ResumeID.UUID()).
 		Updates(map[string]any{
 			"company":     model.Company,
 			"position":    model.Position,
@@ -106,7 +89,7 @@ func (r *ExperiencesRepository) UpdateExperience(ctx context.Context, c commands
 	if result.RowsAffected == 0 {
 		return domain.ErrEntityNotFound
 	}
-	if err := replaceExperienceChildren(tx, c.ExperienceID.UUID(), c.Input); err != nil {
+	if err := replaceExperienceChildren(tx, c.Experience.ID().UUID(), c.Experience); err != nil {
 		return err
 	}
 	return nil
@@ -127,23 +110,11 @@ func (r *ExperiencesRepository) DeleteExperience(ctx context.Context, c commands
 	return nil
 }
 
-func experienceModel(input commands.ExperienceInput) (gormmodel.ResumeExperience, error) {
-	if input.ID.IsZero() || input.ResumeID.IsZero() {
+func experienceModel(item *domain.Experience) (gormmodel.ResumeExperience, error) {
+	if item == nil || item.ID().IsZero() || item.ResumeID().IsZero() {
 		return gormmodel.ResumeExperience{}, fmt.Errorf("experience identity is required")
 	}
-	item, err := newExperienceFromInput(input)
-	if err != nil {
-		return gormmodel.ResumeExperience{}, err
-	}
-	model := gormmodel.ResumeExperience{
-		ID:          item.ID().UUID(),
-		ResumeID:    item.ResumeID().UUID(),
-		Company:     item.Company(),
-		Position:    item.Position(),
-		Location:    item.Location(),
-		StartDate:   item.StartDate().String() + "-01",
-		Description: item.Description(),
-	}
+	model := gormmodel.ResumeExperience{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Company: item.Company(), Position: item.Position(), Location: item.Location(), StartDate: item.StartDate().String() + "-01", Description: item.Description()}
 	if item.EndDate() != nil {
 		value := item.EndDate().String() + "-01"
 		model.EndDate = &value
@@ -151,10 +122,9 @@ func experienceModel(input commands.ExperienceInput) (gormmodel.ResumeExperience
 	return model, nil
 }
 
-func replaceExperienceChildren(tx *gorm.DB, experienceID uuid.UUID, input commands.ExperienceInput) error {
-	item, err := newExperienceFromInput(input)
-	if err != nil {
-		return err
+func replaceExperienceChildren(tx *gorm.DB, experienceID uuid.UUID, item *domain.Experience) error {
+	if item == nil {
+		return fmt.Errorf("experience is required")
 	}
 	if err := tx.Where("experience_id = ?", experienceID).Delete(&gormmodel.ResumeExperienceAchievement{}).Error; err != nil {
 		return err
@@ -236,17 +206,5 @@ func mapExperience(tx *gorm.DB, model gormmodel.ResumeExperience) (*domain.Exper
 		Description:  model.Description,
 		Achievements: achievementValues,
 		Technologies: technologyParams,
-	})
-}
-
-func newExperienceFromInput(input commands.ExperienceInput) (*domain.Experience, error) {
-	technologies := make([]domain.ExperienceTechnologyParams, len(input.Technologies))
-	for i, technology := range input.Technologies {
-		technologies[i] = domain.ExperienceTechnologyParams{Name: technology.Name, Grade: technology.Grade}
-	}
-	return domain.NewExperience(domain.ExperienceParams{
-		ID: input.ID, ResumeID: input.ResumeID, Company: input.Company, Position: input.Position,
-		Location: input.Location, StartDate: input.StartDate, EndDate: input.EndDate,
-		Description: input.Description, Achievements: input.Achievements, Technologies: technologies,
 	})
 }

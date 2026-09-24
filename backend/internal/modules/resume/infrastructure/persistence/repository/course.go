@@ -12,14 +12,17 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CoursesRepository = (*CourseRepository)(nil)
+var _ commands.CreateCourseRepository = (*CourseRepository)(nil)
+var _ commands.GetCourseRepository = (*CourseRepository)(nil)
+var _ commands.UpdateCourseRepository = (*CourseRepository)(nil)
+var _ commands.DeleteCourseRepository = (*CourseRepository)(nil)
 
-func (r *CourseRepository) CreateCourse(ctx context.Context, c commands.CreateCourseCommand) error {
+func (r *CourseRepository) CreateCourse(ctx context.Context, c commands.CreateCourseRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	item, err := courseModel(c.Input)
+	item, err := courseModel(c.Course)
 	if err != nil {
 		return err
 	}
@@ -35,26 +38,7 @@ func (r *CourseRepository) CreateCourse(ctx context.Context, c commands.CreateCo
 	}
 	return nil
 }
-func (r *CourseRepository) ListCourses(ctx context.Context, q commands.ListCoursesQuery) ([]*domain.Course, error) {
-	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
-	if err != nil {
-		return nil, err
-	}
-	var models []gormmodel.ResumeCourse
-	if err := tx.Where("resume_id = ?", q.ResumeID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
-		return nil, err
-	}
-	out := make([]*domain.Course, 0, len(models))
-	for _, model := range models {
-		item, err := mapCourse(model)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
-	}
-	return out, nil
-}
-func (r *CourseRepository) GetCourse(ctx context.Context, q commands.GetCourseQuery) (*domain.Course, error) {
+func (r *CourseRepository) GetCourse(ctx context.Context, q commands.GetCourseCommand) (*domain.Course, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -68,16 +52,16 @@ func (r *CourseRepository) GetCourse(ctx context.Context, q commands.GetCourseQu
 	}
 	return mapCourse(model)
 }
-func (r *CourseRepository) UpdateCourse(ctx context.Context, c commands.UpdateCourseCommand) error {
+func (r *CourseRepository) UpdateCourse(ctx context.Context, c commands.UpdateCourseRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	model, err := courseModel(c.Input)
+	model, err := courseModel(c.Course)
 	if err != nil {
 		return err
 	}
-	result := tx.Model(&gormmodel.ResumeCourse{}).Where("id = ? AND resume_id = ?", c.CourseID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{"name": model.Name, "organization": model.Organization, "end_date": model.EndDate, "hours": model.Hours, "certificate_link": model.CertificateLink})
+	result := tx.Model(&gormmodel.ResumeCourse{}).Where("id = ? AND resume_id = ?", c.Course.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{"name": model.Name, "organization": model.Organization, "end_date": model.EndDate, "hours": model.Hours, "certificate_link": model.CertificateLink})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -100,11 +84,7 @@ func (r *CourseRepository) DeleteCourse(ctx context.Context, c commands.DeleteCo
 	}
 	return nil
 }
-func courseModel(input commands.CourseInput) (gormmodel.ResumeCourse, error) {
-	item, err := domain.NewCourse(domain.CourseParams{ID: input.ID, ResumeID: input.ResumeID, Name: input.Name, Organization: input.Organization, EndDate: input.EndDate, Hours: input.Hours, CertificateLink: input.CertificateLink})
-	if err != nil {
-		return gormmodel.ResumeCourse{}, err
-	}
+func courseModel(item *domain.Course) (gormmodel.ResumeCourse, error) {
 	return gormmodel.ResumeCourse{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Name: item.Name(), Organization: item.Organization(), EndDate: item.EndDate().String() + "-01", Hours: item.Hours(), CertificateLink: externalURLString(item.CertificateLink())}, nil
 }
 func mapCourse(model gormmodel.ResumeCourse) (*domain.Course, error) {

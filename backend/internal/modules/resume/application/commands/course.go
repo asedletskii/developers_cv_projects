@@ -2,10 +2,10 @@ package commands
 
 import (
 	"context"
-
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	"fmt"
 )
 
 type CourseInput struct {
@@ -20,11 +20,7 @@ type CreateCourseCommand struct {
 	UserID       useridentity.ID
 	Input        CourseInput
 }
-type ListCoursesQuery struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-type GetCourseQuery struct {
+type GetCourseCommand struct {
 	ResumeID, CourseID valueobjects.ID
 	UserID             useridentity.ID
 }
@@ -37,77 +33,97 @@ type DeleteCourseCommand struct {
 	ResumeID, CourseID valueobjects.ID
 	UserID             useridentity.ID
 }
-
-type CoursesRepository interface {
-	CreateCourse(context.Context, CreateCourseCommand) error
-	ListCourses(context.Context, ListCoursesQuery) ([]*domain.Course, error)
-	GetCourse(context.Context, GetCourseQuery) (*domain.Course, error)
-	UpdateCourse(context.Context, UpdateCourseCommand) error
+type CreateCourseRepositoryCommand struct {
+	Course   *domain.Course
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+}
+type UpdateCourseRepositoryCommand struct {
+	Course   *domain.Course
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+}
+type CreateCourseRepository interface {
+	CreateCourse(context.Context, CreateCourseRepositoryCommand) error
+}
+type GetCourseRepository interface {
+	GetCourse(context.Context, GetCourseCommand) (*domain.Course, error)
+}
+type UpdateCourseRepository interface {
+	UpdateCourse(context.Context, UpdateCourseRepositoryCommand) error
+}
+type DeleteCourseRepository interface {
 	DeleteCourse(context.Context, DeleteCourseCommand) error
 }
 type CreateCourseHandler struct {
-	repository CoursesRepository
-	uow        UnitOfWork
+	r CreateCourseRepository
+	u UnitOfWork
 }
 
-func NewCreateCourseHandler(repository CoursesRepository, uow UnitOfWork) *CreateCourseHandler {
-	return &CreateCourseHandler{repository: repository, uow: uow}
+func NewCreateCourseHandler(r CreateCourseRepository, u UnitOfWork) *CreateCourseHandler {
+	return &CreateCourseHandler{r: r, u: u}
 }
-func (h *CreateCourseHandler) Handle(ctx context.Context, command CreateCourseCommand) (valueobjects.ID, error) {
-	if command.ID.IsZero() {
-		command.ID = valueobjects.NewID()
+func (h *CreateCourseHandler) Handle(ctx context.Context, c CreateCourseCommand) (valueobjects.ID, error) {
+	if h == nil || h.r == nil || h.u == nil {
+		return valueobjects.ID{}, fmt.Errorf("create course dependencies are nil")
 	}
-	command.Input.ID, command.Input.ResumeID = command.ID, command.ResumeID
-	if _, err := courseFromInput(command.Input); err != nil {
+	if c.ID.IsZero() {
+		c.ID = valueobjects.NewID()
+	}
+	c.Input.ID, c.Input.ResumeID = c.ID, c.ResumeID
+	a, err := courseFromInput(c.Input)
+	if err != nil {
 		return valueobjects.ID{}, err
 	}
-	return command.ID, h.uow.Do(ctx, func(tx context.Context) error { return h.repository.CreateCourse(tx, command) })
-}
-
-type ListCoursesHandler struct{ repository CoursesRepository }
-
-func NewListCoursesHandler(repository CoursesRepository) *ListCoursesHandler {
-	return &ListCoursesHandler{repository: repository}
-}
-func (h *ListCoursesHandler) Handle(ctx context.Context, query ListCoursesQuery) ([]*domain.Course, error) {
-	return h.repository.ListCourses(ctx, query)
-}
-
-type GetCourseHandler struct{ repository CoursesRepository }
-
-func NewGetCourseHandler(repository CoursesRepository) *GetCourseHandler {
-	return &GetCourseHandler{repository: repository}
-}
-func (h *GetCourseHandler) Handle(ctx context.Context, query GetCourseQuery) (*domain.Course, error) {
-	return h.repository.GetCourse(ctx, query)
+	err = h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.CreateCourse(tx, CreateCourseRepositoryCommand{Course: a, ResumeID: c.ResumeID, UserID: c.UserID})
+	})
+	if err != nil {
+		return valueobjects.ID{}, err
+	}
+	return a.ID(), nil
 }
 
 type UpdateCourseHandler struct {
-	repository CoursesRepository
-	uow        UnitOfWork
+	r   GetCourseRepository
+	u   UpdateCourseRepository
+	uow UnitOfWork
 }
 
-func NewUpdateCourseHandler(repository CoursesRepository, uow UnitOfWork) *UpdateCourseHandler {
-	return &UpdateCourseHandler{repository: repository, uow: uow}
+func NewUpdateCourseHandler(r GetCourseRepository, u UpdateCourseRepository, uow UnitOfWork) *UpdateCourseHandler {
+	return &UpdateCourseHandler{r: r, u: u, uow: uow}
 }
-func (h *UpdateCourseHandler) Handle(ctx context.Context, command UpdateCourseCommand) error {
-	command.Input.ID, command.Input.ResumeID = command.CourseID, command.ResumeID
-	if _, err := courseFromInput(command.Input); err != nil {
-		return err
+func (h *UpdateCourseHandler) Handle(ctx context.Context, c UpdateCourseCommand) error {
+	if h == nil || h.r == nil || h.u == nil || h.uow == nil {
+		return fmt.Errorf("update course dependencies are nil")
 	}
-	return h.uow.Do(ctx, func(tx context.Context) error { return h.repository.UpdateCourse(tx, command) })
+	return h.uow.Do(ctx, func(tx context.Context) error {
+		current, err := h.r.GetCourse(tx, GetCourseCommand{ResumeID: c.ResumeID, CourseID: c.CourseID, UserID: c.UserID})
+		if err != nil {
+			return err
+		}
+		c.Input.ID, c.Input.ResumeID = current.ID(), c.ResumeID
+		updated, err := courseFromInput(c.Input)
+		if err != nil {
+			return err
+		}
+		return h.u.UpdateCourse(tx, UpdateCourseRepositoryCommand{Course: updated, ResumeID: c.ResumeID, UserID: c.UserID})
+	})
 }
 
 type DeleteCourseHandler struct {
-	repository CoursesRepository
-	uow        UnitOfWork
+	r DeleteCourseRepository
+	u UnitOfWork
 }
 
-func NewDeleteCourseHandler(repository CoursesRepository, uow UnitOfWork) *DeleteCourseHandler {
-	return &DeleteCourseHandler{repository: repository, uow: uow}
+func NewDeleteCourseHandler(r DeleteCourseRepository, u UnitOfWork) *DeleteCourseHandler {
+	return &DeleteCourseHandler{r: r, u: u}
 }
-func (h *DeleteCourseHandler) Handle(ctx context.Context, command DeleteCourseCommand) error {
-	return h.uow.Do(ctx, func(tx context.Context) error { return h.repository.DeleteCourse(tx, command) })
+func (h *DeleteCourseHandler) Handle(ctx context.Context, c DeleteCourseCommand) error {
+	if h == nil || h.r == nil || h.u == nil {
+		return fmt.Errorf("delete course dependencies are nil")
+	}
+	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteCourse(tx, c) })
 }
 func courseFromInput(input CourseInput) (*domain.Course, error) {
 	return domain.NewCourse(domain.CourseParams{ID: input.ID, ResumeID: input.ResumeID, Name: input.Name, Organization: input.Organization, EndDate: input.EndDate, Hours: input.Hours, CertificateLink: input.CertificateLink})
