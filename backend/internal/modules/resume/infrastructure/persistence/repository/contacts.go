@@ -171,7 +171,7 @@ func mapContacts(m gormmodel.ResumeContacts, h []gormmodel.ResumeContactHidden, 
 		}
 		em = &x
 	}
-	contacts, e := entities.NewContacts(entities.ContactsParams{Phone: stringValue(m.Phone), Telegram: tg, Email: em})
+	contacts, e := entities.NewContacts(entities.ContactsParams{Phone: pointerStringValue(m.Phone), Telegram: tg, Email: em})
 	if e != nil {
 		return nil, e
 	}
@@ -225,4 +225,11 @@ func mapContacts(m gormmodel.ResumeContacts, h []gormmodel.ResumeContactHidden, 
 		return nil, e
 	}
 	return domain.NewContacts(domain.ContactsParams{ID: id, ResumeID: rid, Contacts: contacts, HiddenContacts: hidden, Text: text})
+}
+
+func pointerStringValue(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
 }

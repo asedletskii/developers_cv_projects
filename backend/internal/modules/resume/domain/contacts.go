@@ -48,3 +48,17 @@ func (c *Contacts) HiddenContacts() []enums.ContactKey {
 	return append([]enums.ContactKey(nil), c.hiddenContacts...)
 }
 func (c *Contacts) Text() *valueobjects.ContactsText { return cloneContactsText(c.text) }
+
+func cloneContactsText(value *valueobjects.ContactsText) *valueobjects.ContactsText {
+	if value == nil {
+		return nil
+	}
+	copy, err := valueobjects.NewContactsText(valueobjects.ContactsTextParams{
+		Title:    value.Title(),
+		Subtitle: value.Subtitle(),
+	})
+	if err != nil {
+		return nil
+	}
+	return &copy
+}

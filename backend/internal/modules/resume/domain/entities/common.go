@@ -40,37 +40,6 @@ func cloneTechnologyGrade(value *enums.TechnologyGrade) *enums.TechnologyGrade {
 	return &copy
 }
 
-type ResumeLanguageParams struct {
-	Language enums.LanguageType
-	Grade    *enums.LanguageGrade
-}
-
-type ResumeLanguage struct {
-	language enums.LanguageType
-	grade    *enums.LanguageGrade
-}
-
-func NewResumeLanguage(params ResumeLanguageParams) (ResumeLanguage, error) {
-	if !params.Language.IsValid() {
-		return ResumeLanguage{}, fmt.Errorf("%w: invalid language", valueobjects.ErrInvalidValue)
-	}
-	if params.Grade != nil && !params.Grade.IsValid() {
-		return ResumeLanguage{}, fmt.Errorf("%w: invalid language grade", valueobjects.ErrInvalidValue)
-	}
-	return ResumeLanguage{language: params.Language, grade: cloneLanguageGrade(params.Grade)}, nil
-}
-
-func (l ResumeLanguage) Language() enums.LanguageType { return l.language }
-func (l ResumeLanguage) Grade() *enums.LanguageGrade  { return cloneLanguageGrade(l.grade) }
-
-func cloneLanguageGrade(value *enums.LanguageGrade) *enums.LanguageGrade {
-	if value == nil {
-		return nil
-	}
-	copy := *value
-	return &copy
-}
-
 type ContributorParams struct {
 	Name     string
 	Surname  string

@@ -28,7 +28,7 @@ func (r *ListResumesReader) ListResumes(
 
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT id::text, title FROM resumes WHERE user_id = $1 ORDER BY updated_at DESC, id`,
+		`SELECT id::text, title FROM resume_roots WHERE user_id = $1 ORDER BY updated_at DESC, id`,
 		query.UserID.UUID(),
 	)
 	if err != nil {

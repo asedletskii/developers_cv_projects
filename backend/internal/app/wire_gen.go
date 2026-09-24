@@ -77,7 +77,6 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
-	getResumeReaderValue := newGetResumeReader(poolValue)
 	publicResumeReaderValue := newPublicResumeReader(poolValue)
 	listResumesReaderValue := newListResumesReader(poolValue)
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
@@ -86,9 +85,6 @@ func Initialize() (*Application, error) {
 	mockAuthenticatorValue := userauth.NewMockAuthenticator(userReaderValue)
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
-	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
-	updateResumeHandlerValue := resumecommands.NewUpdateResumeHandler(resumeRepositoryValue, resumeRepositoryValue, unitOfWorkValue)
-	patchResumeHandlerValue := resumecommands.NewPatchResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	createResumeRootHandlerValue := resumecommands.NewCreateResumeRootHandler(resumeRepositoryValue, unitOfWorkValue)
 	getResumeRootHandlerValue := resumecommands.NewGetResumeRootHandler(resumeRepositoryValue)
 	updateResumeRootHandlerValue := resumecommands.NewUpdateResumeRootHandler(resumeRepositoryValue, resumeRepositoryValue, unitOfWorkValue)
@@ -145,13 +141,12 @@ func Initialize() (*Application, error) {
 	coursesHandlerValue := courseshttp.NewHandler(createCourseHandlerValue, listCoursesHandlerValue, getCourseHandlerValue, updateCourseHandlerValue, deleteCourseHandlerValue)
 	activitiesHandlerValue := activitieshttp.NewHandler(createActivityHandlerValue, listActivitiesHandlerValue, getActivityHandlerValue, updateActivityHandlerValue, deleteActivityHandlerValue)
 	projectsHandlerValue := projectshttp.NewHandler(createProjectHandlerValue, listProjectsHandlerValue, getProjectHandlerValue, updateProjectHandlerValue, deleteProjectHandlerValue)
-	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
 	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(publicResumeReaderValue)
 	publicHandlerValue := publichandler.NewHandler(publicResumeQueryHandlerValue)
 	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue, publicHandlerValue)
+	resumeHandlerValue := http.NewHandler(listResumesHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue, publicHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,

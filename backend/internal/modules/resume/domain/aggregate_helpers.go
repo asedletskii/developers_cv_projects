@@ -10,6 +10,14 @@ func cloneInt(value *int) *int {
 	return &copy
 }
 
+func cloneString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
 func cloneYear(value *valueobjects.Year) *valueobjects.Year {
 	if value == nil {
 		return nil
