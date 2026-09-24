@@ -1,4 +1,4 @@
-package reader
+package readers
 
 import (
 	"context"
@@ -17,8 +17,11 @@ func NewListResumesReader(pool *pgxpool.Pool) *ListResumesReader {
 
 func (r *ListResumesReader) ListResumes(
 	ctx context.Context,
-	query queries.GetListResumesQuery,
+	query queries.ListResumesQuery,
 ) ([]queries.ResumeListItem, error) {
+	if r == nil || r.pool == nil {
+		return nil, fmt.Errorf("list resumes: reader dependencies are nil")
+	}
 	if query.UserID.IsZero() {
 		return nil, fmt.Errorf("invalid user id")
 	}

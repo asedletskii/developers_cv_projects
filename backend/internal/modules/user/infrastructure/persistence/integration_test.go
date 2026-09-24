@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	"developers-cv/backend/internal/modules/user/domain"
+	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
-	"developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
+	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/platform/database"
 )
 
-func TestPostgresUserRepositoryRoundTrip(t *testing.T) {
+func TestPostgresUserReaderGetUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
@@ -43,19 +43,28 @@ func TestPostgresUserRepositoryRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	repo := repository.NewUserRepository(gormDB)
-	id, err := valueobjects.IDFromUUID(uuid.New())
+	config, err := pgx.ParseConfig(dsn)
 	require.NoError(t, err)
+	conn, err := pgx.ConnectConfig(ctx, config)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	userID := uuid.New()
 	createdAt := time.Date(2026, 9, 23, 8, 0, 0, 0, time.UTC)
-	user, err := domain.NewUser(domain.UserParams{ID: id, CreatedAt: createdAt, UpdatedAt: createdAt})
+	_, err = conn.Exec(ctx,
+		`INSERT INTO users (id, created_at, updated_at) VALUES ($1, $2, $2)`,
+		userID, createdAt,
+	)
 	require.NoError(t, err)
 
-	require.NoError(t, repo.Save(ctx, user))
-
-	loaded, err := repo.GetByID(ctx, id)
+	identity, err := valueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
-	require.Equal(t, user.ID().String(), loaded.ID().String())
-	require.Equal(t, user.CreatedAt(), loaded.CreatedAt())
+
+	user, err := readers.NewUserReader(gormDB).GetUser(ctx, queries.GetUserQuery{ID: identity})
+	require.NoError(t, err)
+	require.Equal(t, identity, user.ID())
+	require.Equal(t, createdAt, user.CreatedAt())
+	require.Equal(t, createdAt, user.UpdatedAt())
 }
 
 func applyUsersMigration(t *testing.T, ctx context.Context, dsn string) {

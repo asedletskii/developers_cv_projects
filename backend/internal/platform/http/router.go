@@ -76,14 +76,8 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, userHandler *
 	api := engine.Group("/api/v1")
 	lk := api.Group("/lk")
 	lk.Use(middleware.Authentication(authenticate))
-	lk.GET("/profile", userHandler.GetProfile)
-	lk.GET("/resumes", resumeHandler.ListResumes)
-	lk.GET("/resume/:resumeId", resumeHandler.GetResume)
-	lk.POST("/resume", resumeHandler.CreateResume)
-	lk.PUT("/resume/:resumeId", resumeHandler.UpdateResume)
-	lk.PATCH("/resume/:resumeId", resumeHandler.PatchResume)
-
-	api.GET("/cv/:resumeId", resumeHandler.GetPublicResume)
+	userhttp.RegisterRoutes(userHandler, lk)
+	resumehttp.RegisterRoutes(resumeHandler, api, lk)
 	engine.NoRoute(func(c *gin.Context) {
 		writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})

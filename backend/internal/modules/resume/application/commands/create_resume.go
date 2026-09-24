@@ -43,11 +43,11 @@ type CreateResumeCommand struct {
 }
 
 type CreateResumeHandler struct {
-	repository ResumeRepository
+	repository CreateResumeRepository
 	uow        UnitOfWork
 }
 
-func NewCreateResumeHandler(repository ResumeRepository, uow UnitOfWork) *CreateResumeHandler {
+func NewCreateResumeHandler(repository CreateResumeRepository, uow UnitOfWork) *CreateResumeHandler {
 	return &CreateResumeHandler{repository: repository, uow: uow}
 }
 
@@ -65,7 +65,7 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, command CreateResumeCo
 		if err != nil {
 			return err
 		}
-		return h.repository.Save(txCtx, resume)
+		return h.repository.Create(txCtx, CreateResumeRepositoryCommand{Resume: resume})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err

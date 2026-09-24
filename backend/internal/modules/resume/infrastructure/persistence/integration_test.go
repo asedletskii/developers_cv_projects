@@ -23,13 +23,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/reader"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
-	userqueries "developers-cv/backend/internal/modules/user/application/queries"
-	userdomain "developers-cv/backend/internal/modules/user/domain"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
-	userreader "developers-cv/backend/internal/modules/user/infrastructure/persistence/reader"
-	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	"developers-cv/backend/internal/platform/postgres"
 )
@@ -91,21 +87,9 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	t.Cleanup(pool.Close)
 
 	repo := repository.NewResumeRepository(gormDB)
-	userRepository := userrepository.NewUserRepository(gormDB)
 
 	userID := useridentity.NewID()
-	user := newTestUser(t, userID)
-
-	require.NoError(t, userRepository.Save(ctx, user))
-
-	profileConn, err := pgx.Connect(ctx, dsn)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, profileConn.Close(ctx)) })
-	_, err = profileConn.Exec(ctx, `
-		INSERT INTO user_profiles (user_id, name, surname, position, location, photo_path)
-		VALUES ($1, 'Profile Name', 'Profile Surname', 'Profile Position', 'Profile Location', '/profiles/profile.svg')
-	`, userID.UUID())
-	require.NoError(t, err)
+	insertResumeTestUser(t, ctx, dsn, userID)
 
 	uow := database.NewUnitOfWork(gormDB)
 
@@ -116,12 +100,12 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 		uow.Do(
 			ctx,
 			func(txCtx context.Context) error {
-				return repo.Save(txCtx, resume)
+				return repo.Create(txCtx, commands.CreateResumeRepositoryCommand{Resume: resume})
 			},
 		),
 	)
 
-	loaded, err := repo.GetByID(ctx, userID, resume.ID())
+	loaded, err := repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: userID, ResumeID: resume.ID()})
 	require.NoError(t, err)
 
 	require.Equal(t, resume.ID().String(), loaded.ID().String())
@@ -130,21 +114,8 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, userID.UUID(), loaded.UserID().UUID())
 	require.Len(t, loaded.Experience(), 1)
 
-	profile, err := userreader.NewGetProfileReader(pool).GetProfile(
-		ctx,
-		userqueries.GetProfileQuery{UserID: userID},
-	)
-	require.NoError(t, err)
-	require.Equal(t, "Profile Name", profile.Name)
-	require.Equal(t, "Profile Surname", profile.Surname)
-	require.Equal(t, "Profile Position", *profile.Position)
-	require.NotEqual(t, loaded.Name(), profile.Name)
-	require.NotEqual(t, loaded.Surname(), profile.Surname)
-
 	otherUserID := useridentity.NewID()
-	otherUser := newTestUser(t, otherUserID)
-
-	require.NoError(t, userRepository.Save(ctx, otherUser))
+	insertResumeTestUser(t, ctx, dsn, otherUserID)
 
 	otherResume := newTestResume(t, otherUserID)
 
@@ -153,17 +124,17 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 		uow.Do(
 			ctx,
 			func(txCtx context.Context) error {
-				return repo.Save(txCtx, otherResume)
+				return repo.Create(txCtx, commands.CreateResumeRepositoryCommand{Resume: otherResume})
 			},
 		),
 	)
 
-	_, err = repo.GetByID(ctx, otherUserID, resume.ID())
+	_, err = repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: otherUserID, ResumeID: resume.ID()})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
-	listItems, err := reader.NewListResumesReader(pool).ListResumes(
+	listItems, err := readers.NewListResumesReader(pool).ListResumes(
 		ctx,
-		queries.GetListResumesQuery{
+		queries.ListResumesQuery{
 			UserID: userID,
 		},
 	)
@@ -173,9 +144,9 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, resume.ID().String(), listItems[0].ID)
 	require.Equal(t, resume.Title(), listItems[0].Title)
 
-	otherListItems, err := reader.NewListResumesReader(pool).ListResumes(
+	otherListItems, err := readers.NewListResumesReader(pool).ListResumes(
 		ctx,
-		queries.GetListResumesQuery{
+		queries.ListResumesQuery{
 			UserID: otherUserID,
 		},
 	)
@@ -184,7 +155,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Len(t, otherListItems, 1)
 	require.Equal(t, otherResume.ID().String(), otherListItems[0].ID)
 
-	readModel, err := reader.NewGetResumeReader(pool).GetResume(
+	readModel, err := readers.NewGetResumeReader(pool).GetResume(
 		ctx,
 		queries.GetResumeQuery{
 			UserID: &userID,
@@ -202,7 +173,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Len(t, readModel.Experience, 1)
 	require.Equal(t, "2024-01", readModel.Experience[0].StartDate)
 
-	_, err = reader.NewGetResumeReader(pool).GetResume(
+	_, err = readers.NewGetResumeReader(pool).GetResume(
 		ctx,
 		queries.GetResumeQuery{
 			UserID: &otherUserID,
@@ -212,7 +183,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	)
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
 
-	publicReadModel, err := reader.NewGetResumeReader(pool).GetResume(
+	publicReadModel, err := readers.NewGetResumeReader(pool).GetResume(
 		ctx,
 		queries.GetResumeQuery{
 			ID:   resume.ID().UUID(),
@@ -236,7 +207,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	loadedAfterPatch, err := repo.GetByID(ctx, userID, resume.ID())
+	loadedAfterPatch, err := repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: userID, ResumeID: resume.ID()})
 	require.NoError(t, err)
 
 	require.Equal(t, "Go Backend Engineer", loadedAfterPatch.Title())
@@ -275,7 +246,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 		loadedAfterPatch.Projects()[0].Contributors()[0].Name(),
 	)
 
-	patched, err := reader.NewGetResumeReader(pool).GetResume(
+	patched, err := readers.NewGetResumeReader(pool).GetResume(
 		ctx,
 		queries.GetResumeQuery{
 			ID:   resume.ID().UUID(),
@@ -355,17 +326,17 @@ func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
 	}
 }
 
-func newTestUser(t *testing.T, userID useridentity.ID) *userdomain.User {
+func insertResumeTestUser(t *testing.T, ctx context.Context, dsn string, userID useridentity.ID) {
 	t.Helper()
 
-	user, err := userdomain.NewUser(
-		userdomain.UserParams{
-			ID: userID,
-		},
-	)
+	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, conn.Close(ctx))
+	})
 
-	return user
+	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID.UUID())
+	require.NoError(t, err)
 }
 
 func newTestResume(t *testing.T, userID useridentity.ID) *domain.Resume {

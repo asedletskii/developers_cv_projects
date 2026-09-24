@@ -16,7 +16,7 @@ import (
 
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
-	"developers-cv/backend/internal/modules/user/infrastructure/persistence/reader"
+	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 )
 
 func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
@@ -49,7 +49,7 @@ func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
 	insertProfile(t, ctx, dsn, firstID, "Антон", "Седлецкий", "Frontend", "Новосибирск")
 	insertProfile(t, ctx, dsn, secondID, "Second", "User", "Backend", "Москва")
 
-	getProfileReader := reader.NewGetProfileReader(pool)
+	getProfileReader := readers.NewGetProfileReader(pool)
 	firstIdentity, err := valueobjects.IDFromUUID(firstID)
 	require.NoError(t, err)
 	secondIdentity, err := valueobjects.IDFromUUID(secondID)
@@ -94,7 +94,7 @@ func TestPostgresGetProfileReaderReturnsNotFoundForMissingProfile(t *testing.T) 
 	identity, err := valueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
-	_, err = reader.NewGetProfileReader(pool).GetProfile(ctx, queries.GetProfileQuery{UserID: identity})
+	_, err = readers.NewGetProfileReader(pool).GetProfile(ctx, queries.GetProfileQuery{UserID: identity})
 	require.ErrorIs(t, err, queries.ErrProfileNotFound)
 }
 
@@ -162,7 +162,7 @@ func TestPostgresGetProfileReaderReturnsSeededDemoProfiles(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { pool.Close() })
 
-	profile, err := reader.NewGetProfileReader(pool).GetProfile(ctx, queries.GetProfileQuery{
+	profile, err := readers.NewGetProfileReader(pool).GetProfile(ctx, queries.GetProfileQuery{
 		UserID: mustUserID(t, "10000000-0000-0000-0000-000000000001"),
 	})
 	require.NoError(t, err)

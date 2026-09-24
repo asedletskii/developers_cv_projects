@@ -1,4 +1,4 @@
-package http
+package profile
 
 import (
 	"context"
@@ -26,7 +26,19 @@ func (r *stubGetProfileReader) GetProfile(_ context.Context, query queries.GetPr
 	return r.profile, r.err
 }
 
-func TestGetProfileReturnsAuthenticatedUserProfile(t *testing.T) {
+func newTestEngine(userID uuid.UUID, authErr error, handler *Handler) *gin.Engine {
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		if authErr != nil {
+			return uuid.Nil, authErr
+		}
+		return userID, nil
+	}))
+	engine.GET("/api/v1/lk/profile", handler.Get)
+	return engine
+}
+
+func TestGetReturnsAuthenticatedUserProfile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
 	identity, err := valueobjects.IDFromUUID(userID)
@@ -41,12 +53,7 @@ func TestGetProfileReturnsAuthenticatedUserProfile(t *testing.T) {
 		Location:   stringPtr("Новосибирск"),
 		PhotoPath:  stringPtr("/mock/avatar.svg"),
 	}}
-	handler := NewHandler(queries.NewGetProfileHandler(reader))
-	engine := gin.New()
-	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
-		return userID, nil
-	}))
-	engine.GET("/api/v1/lk/profile", handler.GetProfile)
+	engine := newTestEngine(userID, nil, NewHandler(queries.NewGetProfileHandler(reader)))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
 	w := httptest.NewRecorder()
@@ -60,14 +67,9 @@ func TestGetProfileReturnsAuthenticatedUserProfile(t *testing.T) {
 	require.Equal(t, identity, reader.userID)
 }
 
-func TestGetProfileRequiresAuthentication(t *testing.T) {
+func TestGetRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}))
-	engine := gin.New()
-	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
-		return uuid.Nil, middleware.ErrUnauthenticated
-	}))
-	engine.GET("/api/v1/lk/profile", handler.GetProfile)
+	engine := newTestEngine(uuid.Nil, middleware.ErrUnauthenticated, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{})))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
 	w := httptest.NewRecorder()
@@ -77,14 +79,9 @@ func TestGetProfileRequiresAuthentication(t *testing.T) {
 	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
 }
 
-func TestGetProfileReturnsNotFound(t *testing.T) {
+func TestGetReturnsNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{err: queries.ErrProfileNotFound}))
-	engine := gin.New()
-	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
-		return uuid.New(), nil
-	}))
-	engine.GET("/api/v1/lk/profile", handler.GetProfile)
+	engine := newTestEngine(uuid.New(), nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{err: queries.ErrProfileNotFound})))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
 	w := httptest.NewRecorder()
@@ -94,24 +91,14 @@ func TestGetProfileReturnsNotFound(t *testing.T) {
 	require.Contains(t, w.Body.String(), "Profile not found")
 }
 
-func TestGetProfileHasNoUserIDInputSurface(t *testing.T) {
+func TestGetIgnoresUserIDQueryParameter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
-	reader := &stubGetProfileReader{profile: queries.Profile{
-		ID:      userID.String(),
-		Name:    "Anton",
-		Surname: "User",
-	}}
-	handler := NewHandler(queries.NewGetProfileHandler(reader))
-	engine := gin.New()
-	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
-		return userID, nil
-	}))
-	engine.GET("/api/v1/lk/profile", handler.GetProfile)
+	reader := &stubGetProfileReader{profile: queries.Profile{ID: userID.String(), Name: "Anton", Surname: "User"}}
+	engine := newTestEngine(userID, nil, NewHandler(queries.NewGetProfileHandler(reader)))
 
 	foreignID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile?userId="+foreignID.String(), nil)
-	req.Header.Set("X-Mock-User-ID", foreignID.String())
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 

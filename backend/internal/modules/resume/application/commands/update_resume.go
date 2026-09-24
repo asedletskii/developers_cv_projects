@@ -55,16 +55,17 @@ func (c UpdateResumeCommand) resumeInput() resumeInput {
 }
 
 type UpdateResumeHandler struct {
-	repository ResumeRepository
-	uow        UnitOfWork
+	repository       GetResumeRepository
+	updateRepository UpdateResumeRepository
+	uow              UnitOfWork
 }
 
-func NewUpdateResumeHandler(repository ResumeRepository, uow UnitOfWork) *UpdateResumeHandler {
-	return &UpdateResumeHandler{repository: repository, uow: uow}
+func NewUpdateResumeHandler(repository GetResumeRepository, updateRepository UpdateResumeRepository, uow UnitOfWork) *UpdateResumeHandler {
+	return &UpdateResumeHandler{repository: repository, updateRepository: updateRepository, uow: uow}
 }
 
 func (h *UpdateResumeHandler) Handle(ctx context.Context, command UpdateResumeCommand) (valueobjects.ID, error) {
-	if h == nil || h.repository == nil || h.uow == nil {
+	if h == nil || h.repository == nil || h.updateRepository == nil || h.uow == nil {
 		return valueobjects.ID{}, fmt.Errorf("update resume handler dependencies are nil")
 	}
 	if command.ResumeID.IsZero() || command.UserID.IsZero() {
@@ -72,7 +73,7 @@ func (h *UpdateResumeHandler) Handle(ctx context.Context, command UpdateResumeCo
 	}
 
 	err := h.uow.Do(ctx, func(txCtx context.Context) error {
-		current, err := h.repository.GetByID(txCtx, command.UserID, command.ResumeID)
+		current, err := h.repository.Get(txCtx, GetResumeRepositoryQuery{UserID: command.UserID, ResumeID: command.ResumeID})
 		if err != nil {
 			return err
 		}
@@ -81,7 +82,7 @@ func (h *UpdateResumeHandler) Handle(ctx context.Context, command UpdateResumeCo
 		if err != nil {
 			return err
 		}
-		return h.repository.Save(txCtx, replacement)
+		return h.updateRepository.Update(txCtx, UpdateResumeRepositoryCommand{Resume: replacement})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -96,17 +97,17 @@ type PatchResumeCommand struct {
 }
 
 type PatchResumeHandler struct {
-	repository ResumeRepository
+	repository UpdateResumeTitleRepository
 	uow        UnitOfWork
-}
-
-func NewPatchResumeHandler(repository ResumeRepository, uow UnitOfWork) *PatchResumeHandler {
-	return &PatchResumeHandler{repository: repository, uow: uow}
 }
 
 type PatchResumeResult struct {
 	ResumeID valueobjects.ID
 	Title    string
+}
+
+func NewPatchResumeHandler(repository UpdateResumeTitleRepository, uow UnitOfWork) *PatchResumeHandler {
+	return &PatchResumeHandler{repository: repository, uow: uow}
 }
 
 func (h *PatchResumeHandler) Handle(ctx context.Context, command PatchResumeCommand) (PatchResumeResult, error) {
@@ -123,7 +124,7 @@ func (h *PatchResumeHandler) Handle(ctx context.Context, command PatchResumeComm
 
 	title := strings.TrimSpace(command.Title)
 	err := h.uow.Do(ctx, func(txCtx context.Context) error {
-		return h.repository.UpdateTitle(txCtx, command.UserID, command.ResumeID, title)
+		return h.repository.UpdateTitle(txCtx, UpdateResumeTitleRepositoryCommand{UserID: command.UserID, ResumeID: command.ResumeID, Title: title})
 	})
 	if err != nil {
 		return PatchResumeResult{}, err

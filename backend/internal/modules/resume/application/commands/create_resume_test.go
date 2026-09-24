@@ -13,29 +13,34 @@ import (
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
+type fakeUnitOfWork struct {
+	calls int
+	ctx   context.Context
+	err   error
+}
+
 type fakeResumeRepository struct {
 	saved *domain.Resume
 	err   error
 	calls int
 }
 
-func (f *fakeResumeRepository) GetByID(context.Context, useridentity.ID, valueobjects.ID) (*domain.Resume, error) {
+func (f *fakeResumeRepository) Create(_ context.Context, command CreateResumeRepositoryCommand) error {
+	f.calls++
+	f.saved = command.Resume
+	return f.err
+}
+
+func (f *fakeResumeRepository) Update(context.Context, UpdateResumeRepositoryCommand) error {
+	return f.err
+}
+
+func (f *fakeResumeRepository) Get(context.Context, GetResumeRepositoryQuery) (*domain.Resume, error) {
 	return nil, nil
 }
-func (f *fakeResumeRepository) Save(_ context.Context, resume *domain.Resume) error {
-	f.calls++
-	f.saved = resume
-	return f.err
-}
 
-func (f *fakeResumeRepository) UpdateTitle(context.Context, useridentity.ID, valueobjects.ID, string) error {
+func (f *fakeResumeRepository) UpdateTitle(context.Context, UpdateResumeTitleRepositoryCommand) error {
 	return f.err
-}
-
-type fakeUnitOfWork struct {
-	err   error
-	calls int
-	ctx   context.Context
 }
 
 func (f *fakeUnitOfWork) Do(ctx context.Context, fn func(context.Context) error) error {
@@ -173,5 +178,5 @@ func TestCreateResumeHandlerPassesAggregateToRepository(t *testing.T) {
 	require.Equal(t, command.UserID.UUID(), repo.saved.UserID().UUID())
 }
 
-var _ ResumeRepository = (*fakeResumeRepository)(nil)
+var _ CreateResumeRepository = (*fakeResumeRepository)(nil)
 var _ UnitOfWork = (*fakeUnitOfWork)(nil)

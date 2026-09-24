@@ -15,7 +15,7 @@ type stubListResumesReader struct {
 	userID useridentity.ID
 }
 
-func (s *stubListResumesReader) ListResumes(_ context.Context, query GetListResumesQuery) ([]ResumeListItem, error) {
+func (s *stubListResumesReader) ListResumes(_ context.Context, query ListResumesQuery) ([]ResumeListItem, error) {
 	s.userID = query.UserID
 	return s.items, s.err
 }
@@ -25,7 +25,7 @@ func TestListResumesUsesUserID(t *testing.T) {
 	h := NewListResumesHandler(reader)
 	userID := useridentity.NewID()
 
-	items, err := h.Handle(context.Background(), GetListResumesQuery{UserID: userID})
+	items, err := h.Handle(context.Background(), ListResumesQuery{UserID: userID})
 
 	require.NoError(t, err)
 	require.Equal(t, userID.UUID(), reader.userID.UUID())
@@ -36,7 +36,7 @@ func TestListResumesRejectsEmptyUserID(t *testing.T) {
 	reader := &stubListResumesReader{}
 	h := NewListResumesHandler(reader)
 
-	_, err := h.Handle(context.Background(), GetListResumesQuery{})
+	_, err := h.Handle(context.Background(), ListResumesQuery{})
 
 	require.Error(t, err)
 	require.True(t, reader.userID.IsZero())

@@ -230,7 +230,7 @@ func parse() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	postgresPassword, err := envString("POSTGRES_PASSWORD", "change-me-postgres")
+	postgresPassword, err := envString("POSTGRES_PASSWORD", "")
 	if err != nil {
 		return Config{}, err
 	}
