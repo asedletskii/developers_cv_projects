@@ -219,3 +219,44 @@ type ProjectContributor struct {
 	Telegram  *string
 	Email     *string
 }
+
+type ResumeRoot struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	Title     string    `gorm:"not null"`
+	CreatedAt time.Time `gorm:"not null"`
+	UpdatedAt time.Time `gorm:"not null"`
+}
+
+func (ResumeRoot) TableName() string { return "resume_roots" }
+
+type ResumePresentation struct {
+	ResumeID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	GreetingFirstRU     string    `gorm:"not null"`
+	GreetingFirstEN     string    `gorm:"not null"`
+	GreetingSecondRU    string    `gorm:"not null"`
+	GreetingSecondEN    string    `gorm:"not null"`
+	GreetingHighlightRU string    `gorm:"not null"`
+	GreetingHighlightEN string    `gorm:"not null"`
+	GreetingThirdRU     string    `gorm:"not null"`
+	GreetingThirdEN     string    `gorm:"not null"`
+	AvailabilityStatus  *string
+	AvailabilityFrom    *time.Time `gorm:"type:date"`
+	AvailabilityNoteRU  *string
+	AvailabilityNoteEN  *string
+	ResumeLink          *string
+	ThemePrimary        *string
+	ThemeSecondary      *string
+}
+
+func (ResumePresentation) TableName() string { return "resume_presentations" }
+
+type ResumePresentationSection struct {
+	ResumeID  uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SectionID string    `gorm:"type:text;primaryKey"`
+	Position  int       `gorm:"not null"`
+	Enabled   bool      `gorm:"not null"`
+	Collapsed bool      `gorm:"not null"`
+}
+
+func (ResumePresentationSection) TableName() string { return "resume_presentation_sections" }

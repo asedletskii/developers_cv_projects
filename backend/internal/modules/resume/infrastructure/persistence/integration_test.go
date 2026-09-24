@@ -65,6 +65,13 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 
 	require.NoError(t, conn.Ping(ctx))
 
+	var rootCount, legacyCount, presentationCount int
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resumes").Scan(&legacyCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_roots").Scan(&rootCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_presentations").Scan(&presentationCount))
+	require.Equal(t, legacyCount, rootCount)
+	require.Equal(t, legacyCount, presentationCount)
+
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 
@@ -94,6 +101,65 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	uow := database.NewUnitOfWork(gormDB)
 
 	resume := newTestResume(t, userID)
+
+	// Phase 1 root vertical slice: the new root repository owns only root + presentation tables.
+	presentation := domain.ResumePresentation{
+		Greeting:     resume.Greeting(),
+		Availability: resume.Availability(),
+		ResumeLink:   resume.ResumeLink(),
+		Theme:        resume.Theme(),
+		Sections:     resume.Sections(),
+	}
+	root, err := domain.NewResumeRoot(domain.ResumeRootParams{
+		ID: resume.ID(), UserID: userID, Title: resume.Title(),
+		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), Presentation: presentation,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.CreateRoot(txCtx, commands.CreateResumeRootRepositoryCommand{Resume: root})
+	}))
+
+	loadedRoot, err := repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{UserID: userID, ResumeID: root.ID()})
+	require.NoError(t, err)
+	require.Equal(t, root.ID(), loadedRoot.ID())
+	require.Equal(t, root.Title(), loadedRoot.Title())
+	require.Equal(t, root.Presentation().Greeting.First().RU(), loadedRoot.Presentation().Greeting.First().RU())
+	require.Len(t, loadedRoot.Presentation().Sections, len(root.Presentation().Sections))
+
+	updatedRoot, err := domain.NewResumeRoot(domain.ResumeRootParams{
+		ID: root.ID(), UserID: userID, Title: "Updated root",
+		CreatedAt: root.CreatedAt(), UpdatedAt: time.Now().UTC(), Presentation: root.Presentation(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.UpdateRoot(txCtx, commands.UpdateResumeRootRepositoryCommand{Resume: updatedRoot})
+	}))
+
+	loadedRoot, err = repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{UserID: userID, ResumeID: root.ID()})
+	require.NoError(t, err)
+	require.Equal(t, "Updated root", loadedRoot.Title())
+
+	foreignUserID := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, foreignUserID)
+	_, err = repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{UserID: foreignUserID, ResumeID: root.ID()})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	missingRoot, err := domain.NewResumeRoot(domain.ResumeRootParams{
+		ID: valueobjects.NewID(), UserID: userID, Title: "Missing",
+		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), Presentation: presentation,
+	})
+	require.NoError(t, err)
+	err = uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.UpdateRoot(txCtx, commands.UpdateResumeRootRepositoryCommand{Resume: missingRoot})
+	})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.DeleteRoot(txCtx, commands.GetResumeRootRepositoryQuery{UserID: userID, ResumeID: root.ID()})
+	}))
+	_, err = repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{UserID: userID, ResumeID: root.ID()})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	require.NoError(
 		t,

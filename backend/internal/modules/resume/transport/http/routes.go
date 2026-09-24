@@ -4,6 +4,10 @@ import "github.com/gin-gonic/gin"
 
 func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup) {
 	lk.GET("/resumes", handler.ListResumes)
+	lk.POST("/resumes", handler.CreateResumeRoot)
+	lk.GET("/resumes/:resumeId", handler.GetResumeRoot)
+	lk.PUT("/resumes/:resumeId", handler.UpdateResumeRoot)
+	lk.DELETE("/resumes/:resumeId", handler.DeleteResumeRoot)
 	lk.GET("/resume/:resumeId", handler.GetResume)
 	lk.POST("/resume", handler.CreateResume)
 	lk.PUT("/resume/:resumeId", handler.UpdateResume)

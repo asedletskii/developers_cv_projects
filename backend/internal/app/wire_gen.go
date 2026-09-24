@@ -79,11 +79,15 @@ func Initialize() (*Application, error) {
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	updateResumeHandlerValue := resumecommands.NewUpdateResumeHandler(resumeRepositoryValue, resumeRepositoryValue, unitOfWorkValue)
 	patchResumeHandlerValue := resumecommands.NewPatchResumeHandler(resumeRepositoryValue, unitOfWorkValue)
+	createResumeRootHandlerValue := resumecommands.NewCreateResumeRootHandler(resumeRepositoryValue, unitOfWorkValue)
+	getResumeRootHandlerValue := resumecommands.NewGetResumeRootHandler(resumeRepositoryValue)
+	updateResumeRootHandlerValue := resumecommands.NewUpdateResumeRootHandler(resumeRepositoryValue, resumeRepositoryValue, unitOfWorkValue)
+	deleteResumeRootHandlerValue := resumecommands.NewDeleteResumeRootHandler(resumeRepositoryValue, unitOfWorkValue)
 	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
 	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,
