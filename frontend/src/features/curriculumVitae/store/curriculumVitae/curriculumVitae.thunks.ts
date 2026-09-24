@@ -1,4 +1,4 @@
-import { curriculumVitaeApi } from '@features/curriculumVitae/api'
+import { curriculumVitaeApiMock } from '@features/curriculumVitae/api'
 import { CurriculumVitaeError, Person } from '@features/curriculumVitae/types'
 import { parseApiError } from '@features/curriculumVitae/utils'
 import { createAsyncThunk } from '@reduxjs/toolkit'
@@ -14,14 +14,32 @@ export const getPersonData = createAsyncThunk<
   Person,
   GetPersonDataArg,
   { rejectValue: CurriculumVitaeError }
->('getPersonData', async ({ cvId, lang }, { rejectWithValue, signal }) => {
+>('getPersonData', async ({ cvId, lang }, { rejectWithValue }) => {
   try {
-    // signal приходит из thunkAPI: отмена диспатча (см. .abort() в компоненте) реально обрывает
-    // HTTP-запрос, а не просто перестаёт ждать его в браузере
-    return await curriculumVitaeApi.getPersonData(cvId, lang, signal)
+    // На моках, без бэкенда (см. docs/backend-api.md). Чтобы вернуться на реальный API —
+    // curriculumVitaeApiMock.getPersonData(cvId, lang) → curriculumVitaeApi.getPersonData(cvId, lang, signal)
+    return await curriculumVitaeApiMock.getPersonData(cvId, lang)
   } catch (e) {
     // showToast({ messageKey: 'cannotGetPersonData', type: 'error' })
 
+    return rejectWithValue(parseApiError(e))
+  }
+})
+
+type UpdatePersonDataArg = {
+  cvId: string
+  person: Person
+}
+
+export const updatePersonData = createAsyncThunk<
+  Person,
+  UpdatePersonDataArg,
+  { rejectValue: CurriculumVitaeError }
+>('updatePersonData', async ({ cvId, person }, { rejectWithValue }) => {
+  try {
+    // На моках, без бэкенда — см. комментарий у getPersonData
+    return await curriculumVitaeApiMock.updatePersonData(cvId, person)
+  } catch (e) {
     return rejectWithValue(parseApiError(e))
   }
 })

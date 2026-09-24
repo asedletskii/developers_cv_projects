@@ -5,12 +5,14 @@ const CurriculumVitaeScreen = lazy(
   () => import('./screens/CurriculumVitaeScreen/CurriculumVitaeScreen'),
 )
 
+// Смонтировано под общим `<Route path="cv">` из PageRouter — сюда добавляются только
+// дочерние маршруты, без своей обёртки, чтобы не спорить с другими фичами за префикс /cv
 export const curriculumVitaeRoutes = {
   pages: (
-    <Route path="cv">
+    <>
       {/* Без id показывать нечего — уходим на главную */}
       <Route index element={<Navigate to="/" replace />} />
       <Route path=":cvId" element={<CurriculumVitaeScreen />} />
-    </Route>
+    </>
   ),
 }

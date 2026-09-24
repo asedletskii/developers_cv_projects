@@ -13,6 +13,13 @@ class CurriculumVitaeApi {
     return normalizePerson(response.data)
   }
 
+  async updatePersonData(cvId: string, person: Person, signal?: AbortSignal): Promise<Person> {
+    const url = `${this.baseUrl}/${encodeURIComponent(cvId)}`
+
+    const response = await api.put<Person>(url, person, { signal })
+    return normalizePerson(response.data)
+  }
+
   async getProject(projectId: string): Promise<Project> {
     const url = `${this.baseUrl}/projectId=${projectId}`
 

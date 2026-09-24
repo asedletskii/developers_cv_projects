@@ -13,7 +13,6 @@ import {
   SectionId,
   SoftSkill,
   Technology,
-  TechnologyGrade,
   WorkFormat,
 } from '@features/curriculumVitae/types'
 import { Languages } from '@shared/types'
@@ -243,15 +242,15 @@ const personStore: Person = {
   ],
 
   technologies: [
-    { name: 'TypeScript', grade: TechnologyGrade.Senior },
-    { name: 'React', grade: TechnologyGrade.Senior },
-    { name: 'Redux Toolkit', grade: TechnologyGrade.Middle },
-    { name: 'MUI', grade: TechnologyGrade.Senior },
-    { name: 'GSAP', grade: TechnologyGrade.Middle },
-    { name: 'Vite', grade: TechnologyGrade.Middle },
-    { name: 'Node.js', grade: TechnologyGrade.Middle },
-    { name: 'PostgreSQL', grade: TechnologyGrade.Junior },
-    { name: 'Docker', grade: TechnologyGrade.Junior },
+    { name: 'TypeScript' },
+    { name: 'React' },
+    { name: 'Redux Toolkit' },
+    { name: 'MUI' },
+    { name: 'GSAP' },
+    { name: 'Vite' },
+    { name: 'Node.js' },
+    { name: 'PostgreSQL' },
+    { name: 'Docker' },
   ],
 
   projects: [
@@ -364,9 +363,9 @@ const contactsTexts: Record<string, Record<Languages, ContactsText>> = {
   },
 }
 
-/** Ошибка той же формы, что у axios при 404 */
+/** Ошибка той же формы, что у axios при 404 — включая `isAxiosError`, иначе parseApiError её не узнает */
 const notFoundError = (message: string) =>
-  Object.assign(new Error(message), { response: { status: 404 } })
+  Object.assign(new Error(message), { isAxiosError: true, response: { status: 404 } })
 
 const projectsStore: Record<string, Project> = Object.fromEntries(
   personStore.projects.map((project) => [
@@ -410,6 +409,43 @@ class CurriculumVitaeApiMock {
       },
       updatedAt: dayjs().subtract(3, 'day').toISOString(),
     }
+  }
+
+  async updatePersonData(cvId: string, person: Person): Promise<Person> {
+    await delay()
+
+    if (!personStores[cvId]) {
+      throw notFoundError('CV not found')
+    }
+
+    personStores[cvId] = { ...person, id: cvId }
+
+    // ponytail: мок хранит только одну версию greeting/contactsText/availability.note (не по
+    // языкам отдельно) — после редактирования оба языка показывают тот же текст, пока его не
+    // отредактируют повторно на другом языке. Апгрейд: писать в обе ветки greetings/contactsTexts.
+    greetings[cvId] = { ru: person.greeting, en: person.greeting }
+    if (person.contactsText) {
+      contactsTexts[cvId] = { ru: person.contactsText, en: person.contactsText }
+    }
+    if (person.availability?.note) {
+      availabilityNotes[cvId] = { ru: person.availability.note, en: person.availability.note }
+    }
+
+    return this.getPersonData(cvId)
+  }
+
+  /** Создаёт новое резюме и отдаёт его целиком — `id` в теле игнорируется, генерируется новый. */
+  async createPersonData(person: Person): Promise<Person> {
+    await delay()
+
+    const id = crypto.randomUUID()
+    personStores[id] = { ...person, id }
+    greetings[id] = { ru: person.greeting, en: person.greeting }
+    if (person.contactsText) {
+      contactsTexts[id] = { ru: person.contactsText, en: person.contactsText }
+    }
+
+    return this.getPersonData(id)
   }
 
   async getProject(projectId: string): Promise<Project> {

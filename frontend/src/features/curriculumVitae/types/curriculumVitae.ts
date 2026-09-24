@@ -8,7 +8,6 @@ import {
   LanguageType,
   SectionId,
   SoftSkill,
-  TechnologyGrade,
   WorkFormat,
 } from './enums'
 
@@ -156,9 +155,6 @@ export type Greeting = {
 export type Technology = {
   /** Название */
   name: string
-
-  /** Уровень владения */
-  grade?: TechnologyGrade
 }
 
 export type Contacts = {
