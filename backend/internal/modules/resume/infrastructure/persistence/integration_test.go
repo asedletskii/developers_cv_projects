@@ -42,8 +42,7 @@ func newTestRoot(t *testing.T, userID useridentity.ID) *domain.ResumeRoot {
 	greeting := valueobjects.NewGreeting(valueobjects.GreetingParams{First: first, Second: second, SecondHighlight: highlight, Third: third})
 	presentation := domain.ResumePresentation{Greeting: greeting, Sections: []valueobjects.SectionSettings{}}
 	root, err := domain.NewResumeRoot(domain.ResumeRootParams{
-		ID: valueobjects.NewID(), UserID: userID, Title: "Test Resume",
-		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), Presentation: presentation,
+		ID: valueobjects.NewID(), UserID: userID, Title: "Test Resume", Presentation: presentation,
 	})
 	require.NoError(t, err)
 	return root
@@ -162,6 +161,12 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 		return rootRepo.CreateRoot(tx, commands.CreateResumeRootRepositoryCommand{Resume: root})
 	}))
 
+	var createdAt, updatedAt time.Time
+	require.NoError(t, conn.QueryRow(ctx, "SELECT created_at, updated_at FROM resume_roots WHERE id = $1", root.ID().UUID()).Scan(&createdAt, &updatedAt))
+	require.False(t, createdAt.IsZero())
+	require.False(t, updatedAt.IsZero())
+	require.WithinDuration(t, createdAt, updatedAt, time.Second)
+
 	email, err := valueobjects.NewEmail("contacts@example.com")
 	require.NoError(t, err)
 	contactsEntity, err := entities.NewContacts(entities.ContactsParams{Phone: "+79999999999", Email: &email})
@@ -183,6 +188,9 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 
 	beforeRoot, err := rootRepo.GetRoot(ctx, commands.GetResumeRootCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
+	var beforeUpdatedAt time.Time
+	require.NoError(t, conn.QueryRow(ctx, "SELECT updated_at FROM resume_roots WHERE id = $1", root.ID().UUID()).Scan(&beforeUpdatedAt))
+	time.Sleep(time.Millisecond)
 	updatedEmail, err := valueobjects.NewEmail("updated@example.com")
 	require.NoError(t, err)
 	updatedEntity, err := entities.NewContacts(entities.ContactsParams{Email: &updatedEmail})
@@ -194,6 +202,9 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	}))
 	afterRoot, err := rootRepo.GetRoot(ctx, commands.GetResumeRootCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
+	var afterUpdatedAt time.Time
+	require.NoError(t, conn.QueryRow(ctx, "SELECT updated_at FROM resume_roots WHERE id = $1", root.ID().UUID()).Scan(&afterUpdatedAt))
+	require.True(t, afterUpdatedAt.After(beforeUpdatedAt))
 	require.Equal(t, beforeRoot.Presentation().Greeting.First().RU(), afterRoot.Presentation().Greeting.First().RU())
 	require.Equal(t, beforeRoot.Presentation().Sections, afterRoot.Presentation().Sections)
 }

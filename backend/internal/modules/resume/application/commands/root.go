@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -64,9 +63,8 @@ func (h *CreateResumeRootHandler) Handle(ctx context.Context, c CreateResumeRoot
 	if c.ID.IsZero() {
 		c.ID = valueobjects.NewID()
 	}
-	now := time.Now().UTC()
 	err := h.uow.Do(ctx, func(tx context.Context) error {
-		resume, err := domain.NewResumeRoot(domain.ResumeRootParams{ID: c.ID, UserID: c.UserID, Title: c.Title, CreatedAt: now, UpdatedAt: now, Presentation: c.Presentation})
+		resume, err := domain.NewResumeRoot(domain.ResumeRootParams{ID: c.ID, UserID: c.UserID, Title: c.Title, Presentation: c.Presentation})
 		if err != nil {
 			return err
 		}
@@ -99,7 +97,7 @@ func (h *UpdateResumeRootHandler) Handle(ctx context.Context, c UpdateResumeRoot
 		if err != nil {
 			return err
 		}
-		updated, err := domain.NewResumeRoot(domain.ResumeRootParams{ID: current.ID(), UserID: current.UserID(), Title: c.Title, CreatedAt: current.CreatedAt(), UpdatedAt: time.Now().UTC(), Presentation: c.Presentation})
+		updated, err := domain.NewResumeRoot(domain.ResumeRootParams{ID: current.ID(), UserID: current.UserID(), Title: c.Title, Presentation: c.Presentation})
 		if err != nil {
 			return err
 		}

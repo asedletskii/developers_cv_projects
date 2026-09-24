@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -29,6 +30,9 @@ func (r *ResumeRootRepository) CreateRoot(ctx context.Context, c commands.Create
 	if err != nil {
 		return err
 	}
+	now := time.Now().UTC()
+	m.CreatedAt = now
+	m.UpdatedAt = now
 	if err := tx.WithContext(ctx).Create(&m).Error; err != nil {
 		return fmt.Errorf("create resume root: %w", err)
 	}
@@ -76,7 +80,7 @@ func (r *ResumeRootRepository) UpdateRoot(ctx context.Context, c commands.Update
 	if err != nil {
 		return err
 	}
-	result := tx.WithContext(ctx).Model(&gormmodel.ResumeRoot{}).Where("id = ? AND user_id = ?", m.ID, m.UserID).Updates(map[string]any{"title": m.Title, "updated_at": m.UpdatedAt})
+	result := tx.WithContext(ctx).Model(&gormmodel.ResumeRoot{}).Where("id = ? AND user_id = ?", m.ID, m.UserID).Updates(map[string]any{"title": m.Title, "updated_at": time.Now().UTC()})
 	if result.Error != nil {
 		return fmt.Errorf("update resume root: %w", result.Error)
 	}
@@ -121,7 +125,7 @@ func rootModels(r *domain.ResumeRoot) (gormmodel.ResumeRoot, gormmodel.ResumePre
 		return gormmodel.ResumeRoot{}, gormmodel.ResumePresentation{}, nil, fmt.Errorf("resume root is nil")
 	}
 	p := r.Presentation()
-	m := gormmodel.ResumeRoot{ID: r.ID().UUID(), UserID: r.UserID().UUID(), Title: r.Title(), CreatedAt: r.CreatedAt(), UpdatedAt: r.UpdatedAt()}
+	m := gormmodel.ResumeRoot{ID: r.ID().UUID(), UserID: r.UserID().UUID(), Title: r.Title()}
 	pm := gormmodel.ResumePresentation{ResumeID: r.ID().UUID(), GreetingFirstRU: p.Greeting.First().RU(), GreetingFirstEN: p.Greeting.First().EN(), GreetingSecondRU: p.Greeting.Second().RU(), GreetingSecondEN: p.Greeting.Second().EN(), GreetingHighlightRU: p.Greeting.SecondHighlight().RU(), GreetingHighlightEN: p.Greeting.SecondHighlight().EN(), GreetingThirdRU: p.Greeting.Third().RU(), GreetingThirdEN: p.Greeting.Third().EN()}
 	if p.Availability != nil {
 		s := string(p.Availability.Status())
@@ -253,5 +257,5 @@ func mapRoot(m gormmodel.ResumeRoot, p gormmodel.ResumePresentation, ss []gormmo
 		}
 		sections = append(sections, v)
 	}
-	return domain.NewResumeRoot(domain.ResumeRootParams{ID: id, UserID: uid, Title: m.Title, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt, Presentation: domain.ResumePresentation{Theme: theme, Greeting: g, Availability: av, ResumeLink: link, Sections: sections}})
+	return domain.NewResumeRoot(domain.ResumeRootParams{ID: id, UserID: uid, Title: m.Title, Presentation: domain.ResumePresentation{Theme: theme, Greeting: g, Availability: av, ResumeLink: link, Sections: sections}})
 }
