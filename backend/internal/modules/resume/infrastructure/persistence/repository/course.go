@@ -12,9 +12,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CoursesRepository = (*ResumeRepository)(nil)
+var _ commands.CoursesRepository = (*CourseRepository)(nil)
 
-func (r *ResumeRepository) CreateCourse(ctx context.Context, c commands.CreateCourseCommand) error {
+func (r *CourseRepository) CreateCourse(ctx context.Context, c commands.CreateCourseCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (r *ResumeRepository) CreateCourse(ctx context.Context, c commands.CreateCo
 	}
 	return nil
 }
-func (r *ResumeRepository) ListCourses(ctx context.Context, q commands.ListCoursesQuery) ([]*domain.Course, error) {
+func (r *CourseRepository) ListCourses(ctx context.Context, q commands.ListCoursesQuery) ([]*domain.Course, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (r *ResumeRepository) ListCourses(ctx context.Context, q commands.ListCours
 	}
 	return out, nil
 }
-func (r *ResumeRepository) GetCourse(ctx context.Context, q commands.GetCourseQuery) (*domain.Course, error) {
+func (r *CourseRepository) GetCourse(ctx context.Context, q commands.GetCourseQuery) (*domain.Course, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (r *ResumeRepository) GetCourse(ctx context.Context, q commands.GetCourseQu
 	}
 	return mapCourse(model)
 }
-func (r *ResumeRepository) UpdateCourse(ctx context.Context, c commands.UpdateCourseCommand) error {
+func (r *CourseRepository) UpdateCourse(ctx context.Context, c commands.UpdateCourseCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (r *ResumeRepository) UpdateCourse(ctx context.Context, c commands.UpdateCo
 	}
 	return nil
 }
-func (r *ResumeRepository) DeleteCourse(ctx context.Context, c commands.DeleteCourseCommand) error {
+func (r *CourseRepository) DeleteCourse(ctx context.Context, c commands.DeleteCourseCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

@@ -14,9 +14,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.EducationsRepository = (*ResumeRepository)(nil)
+var _ commands.EducationsRepository = (*EducationRepository)(nil)
 
-func (r *ResumeRepository) CreateEducation(ctx context.Context, c commands.CreateEducationCommand) error {
+func (r *EducationRepository) CreateEducation(ctx context.Context, c commands.CreateEducationCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func (r *ResumeRepository) CreateEducation(ctx context.Context, c commands.Creat
 	return nil
 }
 
-func (r *ResumeRepository) ListEducations(ctx context.Context, q commands.ListEducationsQuery) ([]*domain.Education, error) {
+func (r *EducationRepository) ListEducations(ctx context.Context, q commands.ListEducationsQuery) ([]*domain.Education, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func (r *ResumeRepository) ListEducations(ctx context.Context, q commands.ListEd
 	return out, nil
 }
 
-func (r *ResumeRepository) GetEducation(ctx context.Context, q commands.GetEducationQuery) (*domain.Education, error) {
+func (r *EducationRepository) GetEducation(ctx context.Context, q commands.GetEducationQuery) (*domain.Education, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (r *ResumeRepository) GetEducation(ctx context.Context, q commands.GetEduca
 	return mapEducation(model)
 }
 
-func (r *ResumeRepository) UpdateEducation(ctx context.Context, c commands.UpdateEducationCommand) error {
+func (r *EducationRepository) UpdateEducation(ctx context.Context, c commands.UpdateEducationCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (r *ResumeRepository) UpdateEducation(ctx context.Context, c commands.Updat
 	return nil
 }
 
-func (r *ResumeRepository) DeleteEducation(ctx context.Context, c commands.DeleteEducationCommand) error {
+func (r *EducationRepository) DeleteEducation(ctx context.Context, c commands.DeleteEducationCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

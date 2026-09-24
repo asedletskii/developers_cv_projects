@@ -14,9 +14,9 @@ import (
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-var _ commands.SkillsRepository = (*ResumeRepository)(nil)
+var _ commands.SkillsRepository = (*SkillsRepository)(nil)
 
-func (r *ResumeRepository) CreateSkills(ctx context.Context, a *domain.Skills, uid useridentity.ID) error {
+func (r *SkillsRepository) CreateSkills(ctx context.Context, a *domain.Skills, uid useridentity.ID) error {
 	tx, e := r.owned(ctx, a.ResumeID(), uid)
 	if e != nil {
 		return e
@@ -42,7 +42,7 @@ func (r *ResumeRepository) CreateSkills(ctx context.Context, a *domain.Skills, u
 	}
 	return nil
 }
-func (r *ResumeRepository) GetSkills(ctx context.Context, q commands.GetSkillsQuery) (*domain.Skills, error) {
+func (r *SkillsRepository) GetSkills(ctx context.Context, q commands.GetSkillsQuery) (*domain.Skills, error) {
 	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
 	if e != nil {
 		return nil, e
@@ -76,7 +76,7 @@ func (r *ResumeRepository) GetSkills(ctx context.Context, q commands.GetSkillsQu
 	}
 	return domain.NewSkills(domain.SkillsParams{ID: id, ResumeID: rid, Hard: hp, Soft: sp})
 }
-func (r *ResumeRepository) UpdateSkills(ctx context.Context, a *domain.Skills, uid useridentity.ID) error {
+func (r *SkillsRepository) UpdateSkills(ctx context.Context, a *domain.Skills, uid useridentity.ID) error {
 	tx, e := r.owned(ctx, a.ResumeID(), uid)
 	if e != nil {
 		return e

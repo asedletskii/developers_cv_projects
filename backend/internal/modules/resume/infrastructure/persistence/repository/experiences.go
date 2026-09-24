@@ -15,9 +15,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.ExperiencesRepository = (*ResumeRepository)(nil)
+var _ commands.ExperiencesRepository = (*ExperiencesRepository)(nil)
 
-func (r *ResumeRepository) CreateExperience(ctx context.Context, c commands.CreateExperienceCommand) error {
+func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c commands.CreateExperienceCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -46,7 +46,7 @@ func (r *ResumeRepository) CreateExperience(ctx context.Context, c commands.Crea
 	return replaceExperienceChildren(tx, item.ID, c.Input)
 }
 
-func (r *ResumeRepository) ListExperiences(ctx context.Context, q commands.ListExperiencesQuery) ([]*domain.Experience, error) {
+func (r *ExperiencesRepository) ListExperiences(ctx context.Context, q commands.ListExperiencesQuery) ([]*domain.Experience, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (r *ResumeRepository) ListExperiences(ctx context.Context, q commands.ListE
 	return out, nil
 }
 
-func (r *ResumeRepository) GetExperience(ctx context.Context, q commands.GetExperienceQuery) (*domain.Experience, error) {
+func (r *ExperiencesRepository) GetExperience(ctx context.Context, q commands.GetExperienceQuery) (*domain.Experience, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (r *ResumeRepository) GetExperience(ctx context.Context, q commands.GetExpe
 	return mapExperience(tx, model)
 }
 
-func (r *ResumeRepository) UpdateExperience(ctx context.Context, c commands.UpdateExperienceCommand) error {
+func (r *ExperiencesRepository) UpdateExperience(ctx context.Context, c commands.UpdateExperienceCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func (r *ResumeRepository) UpdateExperience(ctx context.Context, c commands.Upda
 	return nil
 }
 
-func (r *ResumeRepository) DeleteExperience(ctx context.Context, c commands.DeleteExperienceCommand) error {
+func (r *ExperiencesRepository) DeleteExperience(ctx context.Context, c commands.DeleteExperienceCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

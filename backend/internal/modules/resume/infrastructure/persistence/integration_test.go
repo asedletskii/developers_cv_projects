@@ -6,6 +6,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -146,12 +148,16 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	foreign := useridentity.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	insertResumeTestUser(t, ctx, dsn, foreign)
-	repo := repository.NewResumeRepository(gormDB)
+	rootRepo := repository.NewResumeRootRepository(gormDB)
+	contactsRepo := repository.NewContactsRepository(gormDB)
+	skillsRepo := repository.NewSkillsRepository(gormDB)
+	languagesRepo := repository.NewLanguagesRepository(gormDB)
+	technologiesRepo := repository.NewTechnologiesRepository(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
 	root := newTestRoot(t, owner)
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return repo.CreateRoot(tx, commands.CreateResumeRootRepositoryCommand{Resume: root})
+		return rootRepo.CreateRoot(tx, commands.CreateResumeRootRepositoryCommand{Resume: root})
 	}))
 
 	email, err := valueobjects.NewEmail("contacts@example.com")
@@ -161,19 +167,19 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	contacts, err := domain.NewContacts(domain.ContactsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Contacts: contactsEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyPhone}})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return repo.CreateContacts(tx, commands.CreateResumeContactsRepositoryCommand{Contacts: contacts, UserID: owner})
+		return contactsRepo.CreateContacts(tx, commands.CreateResumeContactsRepositoryCommand{Contacts: contacts, UserID: owner})
 	}))
 
-	loaded, err := repo.GetContacts(ctx, commands.GetResumeContactsQuery{ResumeID: root.ID(), UserID: owner})
+	loaded, err := contactsRepo.GetContacts(ctx, commands.GetResumeContactsQuery{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, "+79999999999", *loaded.Contacts().Phone())
 	require.Equal(t, "contacts@example.com", loaded.Contacts().Email().String())
 	require.Equal(t, []enums.ContactKey{enums.ContactKeyPhone}, loaded.HiddenContacts())
 
-	_, err = repo.GetContacts(ctx, commands.GetResumeContactsQuery{ResumeID: root.ID(), UserID: foreign})
+	_, err = contactsRepo.GetContacts(ctx, commands.GetResumeContactsQuery{ResumeID: root.ID(), UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
-	beforeRoot, err := repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{ResumeID: root.ID(), UserID: owner})
+	beforeRoot, err := rootRepo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	updatedEmail, err := valueobjects.NewEmail("updated@example.com")
 	require.NoError(t, err)
@@ -182,9 +188,9 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	updatedContacts, err := domain.NewContacts(domain.ContactsParams{ID: contacts.ID(), ResumeID: root.ID(), Contacts: updatedEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return repo.UpdateContacts(tx, commands.UpdateResumeContactsRepositoryCommand{Contacts: updatedContacts, UserID: owner})
+		return contactsRepo.UpdateContacts(tx, commands.UpdateResumeContactsRepositoryCommand{Contacts: updatedContacts, UserID: owner})
 	}))
-	afterRoot, err := repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{ResumeID: root.ID(), UserID: owner})
+	afterRoot, err := rootRepo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, beforeRoot.Presentation().Greeting.First().RU(), afterRoot.Presentation().Greeting.First().RU())
 	require.Equal(t, beforeRoot.Presentation().Sections, afterRoot.Presentation().Sections)
@@ -227,11 +233,15 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	insertResumeTestUser(t, ctx, dsn, owner)
 	insertResumeTestUser(t, ctx, dsn, foreign)
 
-	repo := repository.NewResumeRepository(gormDB)
+	rootRepo := repository.NewResumeRootRepository(gormDB)
+	contactsRepo := repository.NewContactsRepository(gormDB)
+	skillsRepo := repository.NewSkillsRepository(gormDB)
+	languagesRepo := repository.NewLanguagesRepository(gormDB)
+	technologiesRepo := repository.NewTechnologiesRepository(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
 	root := newTestRoot(t, owner)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return repo.CreateRoot(tx, commands.CreateResumeRootRepositoryCommand{Resume: root})
+		return rootRepo.CreateRoot(tx, commands.CreateResumeRootRepositoryCommand{Resume: root})
 	}))
 
 	hard := []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}
@@ -239,34 +249,34 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	skills, err := domain.NewSkills(domain.SkillsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Hard: hard, Soft: soft})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return repo.CreateSkills(tx, skills, owner)
+		return skillsRepo.CreateSkills(tx, skills, owner)
 	}))
-	loadedSkills, err := repo.GetSkills(ctx, commands.GetSkillsQuery{ResumeID: root.ID(), UserID: owner})
+	loadedSkills, err := skillsRepo.GetSkills(ctx, commands.GetSkillsQuery{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, hard, loadedSkills.HardSkills())
 	require.Equal(t, soft, loadedSkills.SoftSkills())
-	_, err = repo.GetSkills(ctx, commands.GetSkillsQuery{ResumeID: root.ID(), UserID: foreign})
+	_, err = skillsRepo.GetSkills(ctx, commands.GetSkillsQuery{ResumeID: root.ID(), UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	languageID := valueobjects.NewID()
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return repo.CreateLanguage(tx, commands.LanguageInput{ID: languageID, Language: enums.LanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0}, root.ID(), owner)
+		return languagesRepo.CreateLanguage(tx, commands.LanguageInput{ID: languageID, Language: enums.LanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0}, root.ID(), owner)
 	}))
-	languages, err := repo.ListLanguages(ctx, commands.ListLanguagesQuery{ResumeID: root.ID(), UserID: owner})
+	languages, err := languagesRepo.ListLanguages(ctx, commands.ListLanguagesQuery{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Len(t, languages, 1)
 	require.Equal(t, languageID, languages[0].ID())
-	_, err = repo.GetLanguage(ctx, commands.GetLanguageQuery{ResumeID: root.ID(), LanguageID: languageID, UserID: foreign})
+	_, err = languagesRepo.GetLanguage(ctx, commands.GetLanguageQuery{ResumeID: root.ID(), LanguageID: languageID, UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	technologyID := valueobjects.NewID()
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return repo.CreateTechnology(tx, commands.TechnologyInput{ID: technologyID, Name: "Go", Grade: technologyGradePtr(enums.TechnologyGradeSenior), Position: 0}, root.ID(), owner)
+		return technologiesRepo.CreateTechnology(tx, commands.TechnologyInput{ID: technologyID, Name: "Go", Grade: technologyGradePtr(enums.TechnologyGradeSenior), Position: 0}, root.ID(), owner)
 	}))
-	technology, err := repo.GetTechnology(ctx, commands.GetTechnologyQuery{ResumeID: root.ID(), TechnologyID: technologyID, UserID: owner})
+	technology, err := technologiesRepo.GetTechnology(ctx, commands.GetTechnologyQuery{ResumeID: root.ID(), TechnologyID: technologyID, UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, "Go", technology.Name())
-	_, err = repo.GetTechnology(ctx, commands.GetTechnologyQuery{ResumeID: root.ID(), TechnologyID: technologyID, UserID: foreign})
+	_, err = technologiesRepo.GetTechnology(ctx, commands.GetTechnologyQuery{ResumeID: root.ID(), TechnologyID: technologyID, UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 }
 

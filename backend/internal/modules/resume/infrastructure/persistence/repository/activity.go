@@ -13,9 +13,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.ActivitiesRepository = (*ResumeRepository)(nil)
+var _ commands.ActivitiesRepository = (*ActivityRepository)(nil)
 
-func (r *ResumeRepository) CreateActivity(ctx context.Context, c commands.CreateActivityCommand) error {
+func (r *ActivityRepository) CreateActivity(ctx context.Context, c commands.CreateActivityCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -36,7 +36,7 @@ func (r *ResumeRepository) CreateActivity(ctx context.Context, c commands.Create
 	}
 	return nil
 }
-func (r *ResumeRepository) ListActivities(ctx context.Context, q commands.ListActivitiesQuery) ([]*domain.Activity, error) {
+func (r *ActivityRepository) ListActivities(ctx context.Context, q commands.ListActivitiesQuery) ([]*domain.Activity, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (r *ResumeRepository) ListActivities(ctx context.Context, q commands.ListAc
 	}
 	return out, nil
 }
-func (r *ResumeRepository) GetActivity(ctx context.Context, q commands.GetActivityQuery) (*domain.Activity, error) {
+func (r *ActivityRepository) GetActivity(ctx context.Context, q commands.GetActivityQuery) (*domain.Activity, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (r *ResumeRepository) GetActivity(ctx context.Context, q commands.GetActivi
 	}
 	return mapActivity(model)
 }
-func (r *ResumeRepository) UpdateActivity(ctx context.Context, c commands.UpdateActivityCommand) error {
+func (r *ActivityRepository) UpdateActivity(ctx context.Context, c commands.UpdateActivityCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (r *ResumeRepository) UpdateActivity(ctx context.Context, c commands.Update
 	}
 	return nil
 }
-func (r *ResumeRepository) DeleteActivity(ctx context.Context, c commands.DeleteActivityCommand) error {
+func (r *ActivityRepository) DeleteActivity(ctx context.Context, c commands.DeleteActivityCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

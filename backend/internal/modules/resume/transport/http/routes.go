@@ -6,8 +6,6 @@ func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup)
 	lk.GET("/resumes", handler.ListResumes)
 	lk.POST("/resumes", handler.CreateResumeRoot)
 	lk.GET("/resumes/:resumeId", handler.GetResumeRoot)
-	// Keep the singular resume path registered so private-route authentication is enforced consistently.
-	lk.GET("/resume/:resumeId", handler.GetResumeRoot)
 	lk.PUT("/resumes/:resumeId", handler.UpdateResumeRoot)
 	lk.DELETE("/resumes/:resumeId", handler.DeleteResumeRoot)
 	lk.POST("/resume/:resumeId/profile", handler.CreateResumeProfile)

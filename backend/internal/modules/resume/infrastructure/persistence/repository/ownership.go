@@ -13,7 +13,7 @@ import (
 	"developers-cv/backend/internal/platform/database"
 )
 
-func (r *ResumeRepository) owned(ctx context.Context, resumeID valueobjects.ID, uid useridentity.ID) (*gorm.DB, error) {
+func (r *baseRepository) owned(ctx context.Context, resumeID valueobjects.ID, uid useridentity.ID) (*gorm.DB, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("repository dependencies are nil")
 	}

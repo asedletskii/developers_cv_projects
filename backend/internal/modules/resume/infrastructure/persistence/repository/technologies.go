@@ -15,9 +15,9 @@ import (
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-var _ commands.TechnologiesRepository = (*ResumeRepository)(nil)
+var _ commands.TechnologiesRepository = (*TechnologiesRepository)(nil)
 
-func (r *ResumeRepository) CreateTechnology(ctx context.Context, in commands.TechnologyInput, rid valueobjects.ID, uid useridentity.ID) error {
+func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, in commands.TechnologyInput, rid valueobjects.ID, uid useridentity.ID) error {
 	tx, e := r.owned(ctx, rid, uid)
 	if e != nil {
 		return e
@@ -34,7 +34,7 @@ func (r *ResumeRepository) CreateTechnology(ctx context.Context, in commands.Tec
 	}
 	return nil
 }
-func (r *ResumeRepository) ListTechnologies(ctx context.Context, q commands.ListTechnologiesQuery) ([]domain.ResumeTechnologyEntry, error) {
+func (r *TechnologiesRepository) ListTechnologies(ctx context.Context, q commands.ListTechnologiesQuery) ([]domain.ResumeTechnologyEntry, error) {
 	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
 	if e != nil {
 		return nil, e
@@ -53,7 +53,7 @@ func (r *ResumeRepository) ListTechnologies(ctx context.Context, q commands.List
 	}
 	return out, nil
 }
-func (r *ResumeRepository) GetTechnology(ctx context.Context, q commands.GetTechnologyQuery) (domain.ResumeTechnologyEntry, error) {
+func (r *TechnologiesRepository) GetTechnology(ctx context.Context, q commands.GetTechnologyQuery) (domain.ResumeTechnologyEntry, error) {
 	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
 	if e != nil {
 		return domain.ResumeTechnologyEntry{}, e
@@ -67,7 +67,7 @@ func (r *ResumeRepository) GetTechnology(ctx context.Context, q commands.GetTech
 	}
 	return mapTechnology(m)
 }
-func (r *ResumeRepository) UpdateTechnology(ctx context.Context, c commands.UpdateTechnologyCommand) error {
+func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c commands.UpdateTechnologyCommand) error {
 	tx, e := r.owned(ctx, c.ResumeID, c.UserID)
 	if e != nil {
 		return e
@@ -85,7 +85,7 @@ func (r *ResumeRepository) UpdateTechnology(ctx context.Context, c commands.Upda
 	}
 	return nil
 }
-func (r *ResumeRepository) DeleteTechnology(ctx context.Context, c commands.DeleteTechnologyCommand) error {
+func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c commands.DeleteTechnologyCommand) error {
 	tx, e := r.owned(ctx, c.ResumeID, c.UserID)
 	if e != nil {
 		return e

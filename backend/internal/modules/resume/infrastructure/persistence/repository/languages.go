@@ -15,9 +15,9 @@ import (
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-var _ commands.LanguagesRepository = (*ResumeRepository)(nil)
+var _ commands.LanguagesRepository = (*LanguagesRepository)(nil)
 
-func (r *ResumeRepository) CreateLanguage(ctx context.Context, in commands.LanguageInput, rid valueobjects.ID, uid useridentity.ID) error {
+func (r *LanguagesRepository) CreateLanguage(ctx context.Context, in commands.LanguageInput, rid valueobjects.ID, uid useridentity.ID) error {
 	tx, e := r.owned(ctx, rid, uid)
 	if e != nil {
 		return e
@@ -34,7 +34,7 @@ func (r *ResumeRepository) CreateLanguage(ctx context.Context, in commands.Langu
 	}
 	return nil
 }
-func (r *ResumeRepository) ListLanguages(ctx context.Context, q commands.ListLanguagesQuery) ([]domain.ResumeLanguageEntry, error) {
+func (r *LanguagesRepository) ListLanguages(ctx context.Context, q commands.ListLanguagesQuery) ([]domain.ResumeLanguageEntry, error) {
 	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
 	if e != nil {
 		return nil, e
@@ -53,7 +53,7 @@ func (r *ResumeRepository) ListLanguages(ctx context.Context, q commands.ListLan
 	}
 	return out, nil
 }
-func (r *ResumeRepository) GetLanguage(ctx context.Context, q commands.GetLanguageQuery) (domain.ResumeLanguageEntry, error) {
+func (r *LanguagesRepository) GetLanguage(ctx context.Context, q commands.GetLanguageQuery) (domain.ResumeLanguageEntry, error) {
 	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
 	if e != nil {
 		return domain.ResumeLanguageEntry{}, e
@@ -67,7 +67,7 @@ func (r *ResumeRepository) GetLanguage(ctx context.Context, q commands.GetLangua
 	}
 	return mapLanguage(m)
 }
-func (r *ResumeRepository) UpdateLanguage(ctx context.Context, c commands.UpdateLanguageCommand) error {
+func (r *LanguagesRepository) UpdateLanguage(ctx context.Context, c commands.UpdateLanguageCommand) error {
 	tx, e := r.owned(ctx, c.ResumeID, c.UserID)
 	if e != nil {
 		return e
@@ -85,7 +85,7 @@ func (r *ResumeRepository) UpdateLanguage(ctx context.Context, c commands.Update
 	}
 	return nil
 }
-func (r *ResumeRepository) DeleteLanguage(ctx context.Context, c commands.DeleteLanguageCommand) error {
+func (r *LanguagesRepository) DeleteLanguage(ctx context.Context, c commands.DeleteLanguageCommand) error {
 	tx, e := r.owned(ctx, c.ResumeID, c.UserID)
 	if e != nil {
 		return e

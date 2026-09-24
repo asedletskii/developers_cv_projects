@@ -16,11 +16,11 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ commands.CreateResumeContactsRepository = (*ResumeRepository)(nil)
-var _ commands.GetResumeContactsRepository = (*ResumeRepository)(nil)
-var _ commands.UpdateResumeContactsRepository = (*ResumeRepository)(nil)
+var _ commands.CreateResumeContactsRepository = (*ContactsRepository)(nil)
+var _ commands.GetResumeContactsRepository = (*ContactsRepository)(nil)
+var _ commands.UpdateResumeContactsRepository = (*ContactsRepository)(nil)
 
-func (r *ResumeRepository) CreateContacts(ctx context.Context, c commands.CreateResumeContactsRepositoryCommand) error {
+func (r *ContactsRepository) CreateContacts(ctx context.Context, c commands.CreateResumeContactsRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("create contacts: %w", e)
@@ -57,7 +57,7 @@ func (r *ResumeRepository) CreateContacts(ctx context.Context, c commands.Create
 	}
 	return nil
 }
-func (r *ResumeRepository) GetContacts(ctx context.Context, q commands.GetResumeContactsQuery) (*domain.Contacts, error) {
+func (r *ContactsRepository) GetContacts(ctx context.Context, q commands.GetResumeContactsQuery) (*domain.Contacts, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get contacts: repository dependencies are nil")
 	}
@@ -83,7 +83,7 @@ func (r *ResumeRepository) GetContacts(ctx context.Context, q commands.GetResume
 	}
 	return mapContacts(m, hidden, tp)
 }
-func (r *ResumeRepository) UpdateContacts(ctx context.Context, c commands.UpdateResumeContactsRepositoryCommand) error {
+func (r *ContactsRepository) UpdateContacts(ctx context.Context, c commands.UpdateResumeContactsRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("update contacts: %w", e)

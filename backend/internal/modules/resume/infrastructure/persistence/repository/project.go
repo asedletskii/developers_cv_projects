@@ -15,9 +15,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.ProjectsRepository = (*ResumeRepository)(nil)
+var _ commands.ProjectsRepository = (*ProjectRepository)(nil)
 
-func (r *ResumeRepository) CreateProject(ctx context.Context, c commands.CreateProjectCommand) error {
+func (r *ProjectRepository) CreateProject(ctx context.Context, c commands.CreateProjectCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func (r *ResumeRepository) CreateProject(ctx context.Context, c commands.CreateP
 	return writeProjectChildren(ctx, tx, &item, c.Input)
 }
 
-func (r *ResumeRepository) ListProjects(ctx context.Context, q commands.ListProjectsQuery) ([]*domain.Project, error) {
+func (r *ProjectRepository) ListProjects(ctx context.Context, q commands.ListProjectsQuery) ([]*domain.Project, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (r *ResumeRepository) ListProjects(ctx context.Context, q commands.ListProj
 	return out, nil
 }
 
-func (r *ResumeRepository) GetProject(ctx context.Context, q commands.GetProjectQuery) (*domain.Project, error) {
+func (r *ProjectRepository) GetProject(ctx context.Context, q commands.GetProjectQuery) (*domain.Project, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func (r *ResumeRepository) GetProject(ctx context.Context, q commands.GetProject
 	return r.mapProject(ctx, tx, model)
 }
 
-func (r *ResumeRepository) UpdateProject(ctx context.Context, c commands.UpdateProjectCommand) error {
+func (r *ProjectRepository) UpdateProject(ctx context.Context, c commands.UpdateProjectCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -108,7 +108,7 @@ func (r *ResumeRepository) UpdateProject(ctx context.Context, c commands.UpdateP
 	return writeProjectChildren(ctx, tx, &model, c.Input)
 }
 
-func (r *ResumeRepository) DeleteProject(ctx context.Context, c commands.DeleteProjectCommand) error {
+func (r *ProjectRepository) DeleteProject(ctx context.Context, c commands.DeleteProjectCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -162,7 +162,7 @@ func writeProjectChildren(ctx context.Context, tx *gorm.DB, model *gormmodel.Res
 	return nil
 }
 
-func (r *ResumeRepository) mapProject(ctx context.Context, tx *gorm.DB, model gormmodel.ResumeProject) (*domain.Project, error) {
+func (r *ProjectRepository) mapProject(ctx context.Context, tx *gorm.DB, model gormmodel.ResumeProject) (*domain.Project, error) {
 	id, err := valueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return nil, err

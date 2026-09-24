@@ -15,12 +15,12 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ commands.CreateResumeRootRepository = (*ResumeRepository)(nil)
-var _ commands.GetResumeRootRepository = (*ResumeRepository)(nil)
-var _ commands.UpdateResumeRootRepository = (*ResumeRepository)(nil)
-var _ commands.DeleteResumeRootRepository = (*ResumeRepository)(nil)
+var _ commands.CreateResumeRootRepository = (*ResumeRootRepository)(nil)
+var _ commands.GetResumeRootRepository = (*ResumeRootRepository)(nil)
+var _ commands.UpdateResumeRootRepository = (*ResumeRootRepository)(nil)
+var _ commands.DeleteResumeRootRepository = (*ResumeRootRepository)(nil)
 
-func (r *ResumeRepository) CreateRoot(ctx context.Context, c commands.CreateResumeRootRepositoryCommand) error {
+func (r *ResumeRootRepository) CreateRoot(ctx context.Context, c commands.CreateResumeRootRepositoryCommand) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("create resume root: %w", err)
@@ -42,7 +42,7 @@ func (r *ResumeRepository) CreateRoot(ctx context.Context, c commands.CreateResu
 	}
 	return nil
 }
-func (r *ResumeRepository) GetRoot(ctx context.Context, q commands.GetResumeRootRepositoryQuery) (*domain.ResumeRoot, error) {
+func (r *ResumeRootRepository) GetRoot(ctx context.Context, q commands.GetResumeRootRepositoryQuery) (*domain.ResumeRoot, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get resume root: repository dependencies are nil")
 	}
@@ -67,7 +67,7 @@ func (r *ResumeRepository) GetRoot(ctx context.Context, q commands.GetResumeRoot
 	}
 	return mapRoot(m, p, ss)
 }
-func (r *ResumeRepository) UpdateRoot(ctx context.Context, c commands.UpdateResumeRootRepositoryCommand) error {
+func (r *ResumeRootRepository) UpdateRoot(ctx context.Context, c commands.UpdateResumeRootRepositoryCommand) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("update resume root: %w", err)
@@ -102,7 +102,7 @@ func (r *ResumeRepository) UpdateRoot(ctx context.Context, c commands.UpdateResu
 	}
 	return nil
 }
-func (r *ResumeRepository) DeleteRoot(ctx context.Context, q commands.GetResumeRootRepositoryQuery) error {
+func (r *ResumeRootRepository) DeleteRoot(ctx context.Context, q commands.GetResumeRootRepositoryQuery) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("delete resume root: %w", err)

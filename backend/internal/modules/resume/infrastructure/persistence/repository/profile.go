@@ -14,11 +14,11 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ commands.CreateResumeProfileRepository = (*ResumeRepository)(nil)
-var _ commands.GetResumeProfileRepository = (*ResumeRepository)(nil)
-var _ commands.UpdateResumeProfileRepository = (*ResumeRepository)(nil)
+var _ commands.CreateResumeProfileRepository = (*ProfileRepository)(nil)
+var _ commands.GetResumeProfileRepository = (*ProfileRepository)(nil)
+var _ commands.UpdateResumeProfileRepository = (*ProfileRepository)(nil)
 
-func (r *ResumeRepository) CreateProfile(ctx context.Context, c commands.CreateResumeProfileRepositoryCommand) error {
+func (r *ProfileRepository) CreateProfile(ctx context.Context, c commands.CreateResumeProfileRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("create profile: %w", e)
@@ -54,7 +54,7 @@ func (r *ResumeRepository) CreateProfile(ctx context.Context, c commands.CreateR
 	}
 	return nil
 }
-func (r *ResumeRepository) GetProfile(ctx context.Context, q commands.GetResumeProfileQuery) (*domain.Profile, error) {
+func (r *ProfileRepository) GetProfile(ctx context.Context, q commands.GetResumeProfileQuery) (*domain.Profile, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get profile: repository dependencies are nil")
 	}
@@ -72,7 +72,7 @@ func (r *ResumeRepository) GetProfile(ctx context.Context, q commands.GetResumeP
 	}
 	return mapProfile(m, fs)
 }
-func (r *ResumeRepository) UpdateProfile(ctx context.Context, c commands.UpdateResumeProfileRepositoryCommand) error {
+func (r *ProfileRepository) UpdateProfile(ctx context.Context, c commands.UpdateResumeProfileRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("update profile: %w", e)
