@@ -52,7 +52,7 @@ func (h *Handler) ListResumes(c *gin.Context) {
 		writeError(c, apperrors.Internal(err))
 		return
 	}
-	items, err := h.listResumes.Handle(c.Request.Context(), queries.GetListResumesQuery{UserID: id})
+	items, err := h.listResumes.Handle(c.Request.Context(), queries.ListResumesQuery{UserID: id})
 	if err != nil {
 		writeError(c, apperrors.Internal(err))
 		return

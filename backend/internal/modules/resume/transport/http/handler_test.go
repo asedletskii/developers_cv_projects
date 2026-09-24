@@ -172,18 +172,21 @@ var _ queries.GetResumeReader = &stubGetResumeReader{}
 
 type fakeCreateResumeRepository struct{ saved *domain.Resume }
 
-func (f *fakeCreateResumeRepository) GetByID(
-	context.Context,
-	useridentity.ID,
-	valueobjects.ID,
-) (*domain.Resume, error) {
-	return nil, nil
-}
-func (f *fakeCreateResumeRepository) Save(_ context.Context, resume *domain.Resume) error {
-	f.saved = resume
+func (f *fakeCreateResumeRepository) Create(_ context.Context, command commands.CreateResumeRepositoryCommand) error {
+	f.saved = command.Resume
 	return nil
 }
-func (f *fakeCreateResumeRepository) UpdateTitle(context.Context, useridentity.ID, valueobjects.ID, string) error {
+
+func (f *fakeCreateResumeRepository) Update(_ context.Context, command commands.UpdateResumeRepositoryCommand) error {
+	f.saved = command.Resume
+	return nil
+}
+
+func (f *fakeCreateResumeRepository) Get(_ context.Context, _ commands.GetResumeRepositoryQuery) (*domain.Resume, error) {
+	return nil, nil
+}
+
+func (f *fakeCreateResumeRepository) UpdateTitle(_ context.Context, _ commands.UpdateResumeTitleRepositoryCommand) error {
 	return nil
 }
 
@@ -271,7 +274,7 @@ type stubListReader struct {
 	userID useridentity.ID
 }
 
-func (r *stubListReader) ListResumes(_ context.Context, query queries.GetListResumesQuery) ([]queries.ResumeListItem, error) {
+func (r *stubListReader) ListResumes(_ context.Context, query queries.ListResumesQuery) ([]queries.ResumeListItem, error) {
 	r.userID = query.UserID
 	return r.items, nil
 }
@@ -320,24 +323,24 @@ type updateResumeRepositoryStub struct {
 	err    error
 }
 
-func (r *updateResumeRepositoryStub) GetByID(_ context.Context, _ useridentity.ID, _ valueobjects.ID) (*domain.Resume, error) {
+func (r *updateResumeRepositoryStub) Get(_ context.Context, query commands.GetResumeRepositoryQuery) (*domain.Resume, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
 	return r.resume, nil
 }
 
-func (r *updateResumeRepositoryStub) Save(_ context.Context, resume *domain.Resume) error {
-	r.saved = resume
+func (r *updateResumeRepositoryStub) Update(_ context.Context, command commands.UpdateResumeRepositoryCommand) error {
+	r.saved = command.Resume
 	return nil
 }
 
-func (r *updateResumeRepositoryStub) UpdateTitle(_ context.Context, _ useridentity.ID, _ valueobjects.ID, title string) error {
+func (r *updateResumeRepositoryStub) UpdateTitle(_ context.Context, command commands.UpdateResumeTitleRepositoryCommand) error {
 	if r.err != nil {
 		return r.err
 	}
 	if r.resume != nil {
-		if err := r.resume.Rename(title); err != nil {
+		if err := r.resume.Rename(command.Title); err != nil {
 			return err
 		}
 	}
@@ -434,7 +437,7 @@ func TestUpdateResumeHTTPPreservesTitle(t *testing.T) {
 	repo := &updateResumeRepositoryStub{resume: resume}
 	handler := NewHandler(
 		queries.NewGetResumeHandler(&stubGetResumeReader{resume: queries.Resume{ID: resumeID.String(), Name: "Updated"}}), nil, nil,
-		commands.NewUpdateResumeHandler(repo, updateResumeUoWStub{}), nil,
+		commands.NewUpdateResumeHandler(repo, repo, updateResumeUoWStub{}), nil,
 	)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))

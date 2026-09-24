@@ -23,29 +23,25 @@ type updateRepositoryStub struct {
 	lastResumeID valueobjects.ID
 }
 
-func (r *updateRepositoryStub) GetByID(
-	_ context.Context,
-	userID useridentity.ID,
-	resumeID valueobjects.ID,
-) (*domain.Resume, error) {
-	r.lastUserID = userID
-	r.lastResumeID = resumeID
+func (r *updateRepositoryStub) Get(_ context.Context, query GetResumeRepositoryQuery) (*domain.Resume, error) {
+	r.lastUserID = query.UserID
+	r.lastResumeID = query.ResumeID
 	if r.err != nil {
 		return nil, r.err
 	}
 	return r.resume, nil
 }
 
-func (r *updateRepositoryStub) Save(_ context.Context, resume *domain.Resume) error {
-	r.saved = resume
+func (r *updateRepositoryStub) Update(_ context.Context, command UpdateResumeRepositoryCommand) error {
+	r.saved = command.Resume
 	return nil
 }
 
-func (r *updateRepositoryStub) UpdateTitle(_ context.Context, userID useridentity.ID, resumeID valueobjects.ID, title string) error {
+func (r *updateRepositoryStub) UpdateTitle(_ context.Context, command UpdateResumeTitleRepositoryCommand) error {
 	r.updateCalls++
-	r.lastUserID = userID
-	r.lastResumeID = resumeID
-	r.title = title
+	r.lastUserID = command.UserID
+	r.lastResumeID = command.ResumeID
+	r.title = command.Title
 	return r.err
 }
 
@@ -59,7 +55,7 @@ func TestUpdateResumeHandlerPreservesTitleAndUsesOwnerScope(t *testing.T) {
 	owner := useridentity.NewID()
 	resume := testUpdateResume(t, owner, "Manually renamed")
 	repo := &updateRepositoryStub{resume: resume}
-	handler := NewUpdateResumeHandler(repo, updateUnitOfWorkStub{})
+	handler := NewUpdateResumeHandler(repo, repo, updateUnitOfWorkStub{})
 
 	id := resume.ID()
 	command := UpdateResumeCommand{
@@ -90,7 +86,7 @@ func TestUpdateResumeHandlerReturnsNotFoundForForeignResume(t *testing.T) {
 	otherUser := useridentity.NewID()
 	resume := testUpdateResume(t, owner, "Manual title")
 	repo := &updateRepositoryStub{err: domain.ErrEntityNotFound}
-	handler := NewUpdateResumeHandler(repo, updateUnitOfWorkStub{})
+	handler := NewUpdateResumeHandler(repo, repo, updateUnitOfWorkStub{})
 
 	_, err := handler.Handle(context.Background(), UpdateResumeCommand{
 		ResumeID: resume.ID(),

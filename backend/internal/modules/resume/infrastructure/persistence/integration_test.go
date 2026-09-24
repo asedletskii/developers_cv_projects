@@ -116,12 +116,12 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 		uow.Do(
 			ctx,
 			func(txCtx context.Context) error {
-				return repo.Save(txCtx, resume)
+				return repo.Create(txCtx, commands.CreateResumeRepositoryCommand{Resume: resume})
 			},
 		),
 	)
 
-	loaded, err := repo.GetByID(ctx, userID, resume.ID())
+	loaded, err := repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: userID, ResumeID: resume.ID()})
 	require.NoError(t, err)
 
 	require.Equal(t, resume.ID().String(), loaded.ID().String())
@@ -153,17 +153,17 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 		uow.Do(
 			ctx,
 			func(txCtx context.Context) error {
-				return repo.Save(txCtx, otherResume)
+				return repo.Create(txCtx, commands.CreateResumeRepositoryCommand{Resume: otherResume})
 			},
 		),
 	)
 
-	_, err = repo.GetByID(ctx, otherUserID, resume.ID())
+	_, err = repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: otherUserID, ResumeID: resume.ID()})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	listItems, err := reader.NewListResumesReader(pool).ListResumes(
 		ctx,
-		queries.GetListResumesQuery{
+		queries.ListResumesQuery{
 			UserID: userID,
 		},
 	)
@@ -175,7 +175,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 
 	otherListItems, err := reader.NewListResumesReader(pool).ListResumes(
 		ctx,
-		queries.GetListResumesQuery{
+		queries.ListResumesQuery{
 			UserID: otherUserID,
 		},
 	)
@@ -236,7 +236,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	loadedAfterPatch, err := repo.GetByID(ctx, userID, resume.ID())
+	loadedAfterPatch, err := repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: userID, ResumeID: resume.ID()})
 	require.NoError(t, err)
 
 	require.Equal(t, "Go Backend Engineer", loadedAfterPatch.Title())

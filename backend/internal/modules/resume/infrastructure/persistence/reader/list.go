@@ -17,7 +17,7 @@ func NewListResumesReader(pool *pgxpool.Pool) *ListResumesReader {
 
 func (r *ListResumesReader) ListResumes(
 	ctx context.Context,
-	query queries.GetListResumesQuery,
+	query queries.ListResumesQuery,
 ) ([]queries.ResumeListItem, error) {
 	if query.UserID.IsZero() {
 		return nil, fmt.Errorf("invalid user id")
@@ -47,3 +47,5 @@ func (r *ListResumesReader) ListResumes(
 
 	return items, nil
 }
+
+var _ queries.ListResumesReader = (*ListResumesReader)(nil)
