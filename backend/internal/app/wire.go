@@ -8,10 +8,18 @@ import (
 	"github.com/google/wire"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
+	userapplication "developers-cv/backend/internal/modules/user/application"
+	userqueries "developers-cv/backend/internal/modules/user/application/queries"
+	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
+	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
+	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 
 	"developers-cv/backend/internal/platform/config"
+	"developers-cv/backend/internal/platform/database"
 	httpserver "developers-cv/backend/internal/platform/http"
 	"developers-cv/backend/internal/platform/logger"
 	"developers-cv/backend/internal/platform/telemetry"
@@ -29,10 +37,25 @@ func Initialize() (*Application, error) {
 		newHealthService,
 		telemetry.New,
 		telemetry.NewMetrics,
-
-		newPersonReader,
-
-		resumequeries.NewGetPersonHandler,
+		newGetResumeReader,
+		newListResumesReader,
+		database.NewGORMFromConfig,
+		newGetProfileReader,
+		database.NewUnitOfWork,
+		resumerepository.NewResumeRepository,
+		wire.Bind(new(resumecommands.ResumeRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
+		userrepository.NewUserRepository,
+		wire.Bind(new(userapplication.UserRepository), new(*userrepository.UserRepository)),
+		userauth.NewMockAuthenticator,
+		newAuthenticate,
+		resumequeries.NewGetResumeHandler,
+		resumequeries.NewListResumesHandler,
+		userqueries.NewGetProfileHandler,
+		userhttp.NewHandler,
+		resumecommands.NewCreateResumeHandler,
+		resumecommands.NewUpdateResumeHandler,
+		resumecommands.NewPatchResumeHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
 		httpserver.NewServer,

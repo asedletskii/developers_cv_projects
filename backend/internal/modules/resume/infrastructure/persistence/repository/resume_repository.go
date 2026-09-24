@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -17,80 +20,123 @@ import (
 	"developers-cv/backend/internal/platform/database"
 )
 
-type PersonRepository struct {
+type ResumeRepository struct {
 	db *gorm.DB
 }
 
-func NewPersonRepository(db *gorm.DB) *PersonRepository { return &PersonRepository{db: db} }
+func NewResumeRepository(db *gorm.DB) *ResumeRepository { return &ResumeRepository{db: db} }
 
-func (r *PersonRepository) GetByID(ctx context.Context, id valueobjects.ID) (*domain.Person, error) {
-	var personModel gormmodel.Person
+func (r *ResumeRepository) GetByID(ctx context.Context, userID useridentity.ID, id valueobjects.ID) (*domain.Resume, error) {
+	var resumeModel gormmodel.Resume
 	db := database.DBFromContext(ctx, r.db)
-	if err := db.WithContext(ctx).First(&personModel, "id = ?", id.UUID()).Error; err != nil {
+	if userID.IsZero() {
+		return nil, fmt.Errorf("get resume: invalid user id")
+	}
+	if id.IsZero() {
+		return nil, fmt.Errorf("get resume: invalid resume id")
+	}
+	if err := db.WithContext(ctx).First(&resumeModel, "id = ? AND user_id = ?", id.UUID(), userID.UUID()).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}
-		return nil, fmt.Errorf("get person: %w", err)
+		return nil, fmt.Errorf("get resume: %w", err)
 	}
-	return r.loadAggregate(ctx, db, personModel)
+	return r.loadAggregate(ctx, db, resumeModel)
 }
 
-func (r *PersonRepository) Save(ctx context.Context, person *domain.Person) error {
-	if person == nil {
-		return fmt.Errorf("save person: %w", domain.ErrInvalidPerson)
+func (r *ResumeRepository) UpdateTitle(
+	ctx context.Context,
+	userID useridentity.ID,
+	resumeID valueobjects.ID,
+	title string,
+) error {
+	if userID.IsZero() {
+		return fmt.Errorf("update resume title: invalid user id")
 	}
+	if resumeID.IsZero() {
+		return fmt.Errorf("update resume title: invalid resume id")
+	}
+	if err := domain.ValidateResumeTitle(title); err != nil {
+		return err
+	}
+
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
-		return fmt.Errorf("save person: %w", err)
+		return fmt.Errorf("update resume title: %w", err)
 	}
-	if err := r.replaceAggregate(ctx, tx, person); err != nil {
-		return fmt.Errorf("save person: %w", err)
+
+	result := tx.WithContext(ctx).
+		Model(&gormmodel.Resume{}).
+		Where("id = ? AND user_id = ?", resumeID.UUID(), userID.UUID()).
+		Updates(map[string]any{
+			"title":      title,
+			"updated_at": time.Now().UTC(),
+		})
+	if result.Error != nil {
+		return fmt.Errorf("update resume title: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrEntityNotFound
 	}
 	return nil
 }
 
-func (r *PersonRepository) replaceAggregate(ctx context.Context, tx *gorm.DB, person *domain.Person) error {
-	m := toPersonModel(person)
+func (r *ResumeRepository) Save(ctx context.Context, resume *domain.Resume) error {
+	if resume == nil {
+		return fmt.Errorf("save resume: %w", domain.ErrInvalidResume)
+	}
+	tx, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return fmt.Errorf("save resume: %w", err)
+	}
+	if err := r.replaceAggregate(ctx, tx, resume); err != nil {
+		return fmt.Errorf("save resume: %w", err)
+	}
+	return nil
+}
+
+func (r *ResumeRepository) replaceAggregate(ctx context.Context, tx *gorm.DB, resume *domain.Resume) error {
+	m := toResumeModel(resume)
 	if err := tx.WithContext(ctx).Save(&m).Error; err != nil {
 		return err
 	}
 
-	personID := person.ID().UUID()
-	if err := deleteChildren(ctx, tx, personID); err != nil {
+	resumeID := resume.ID().UUID()
+	if err := deleteChildren(ctx, tx, resumeID); err != nil {
 		return err
 	}
-	if err := createProfile(ctx, tx, person); err != nil {
+	if err := createProfile(ctx, tx, resume); err != nil {
 		return err
 	}
-	if err := createSettings(ctx, tx, person); err != nil {
+	if err := createSettings(ctx, tx, resume); err != nil {
 		return err
 	}
-	if err := createContent(ctx, tx, person); err != nil {
+	if err := createContent(ctx, tx, resume); err != nil {
 		return err
 	}
-	return createProjects(ctx, tx, person)
+	return createProjects(ctx, tx, resume)
 }
 
-func deleteChildren(ctx context.Context, tx *gorm.DB, personID uuid.UUID) error {
+func deleteChildren(ctx context.Context, tx *gorm.DB, resumeID uuid.UUID) error {
 	models := []any{
 		&gormmodel.Greeting{}, &gormmodel.Availability{}, &gormmodel.Theme{}, &gormmodel.ContactsText{},
-		&gormmodel.Contact{}, &gormmodel.Section{}, &gormmodel.PersonWorkFormat{},
-		&gormmodel.PersonHiddenContact{}, &gormmodel.PersonHardSkill{}, &gormmodel.PersonSoftSkill{},
-		&gormmodel.PersonLanguage{}, &gormmodel.PersonTechnology{}, &gormmodel.Experience{},
+		&gormmodel.Contact{}, &gormmodel.Section{}, &gormmodel.ResumeWorkFormat{},
+		&gormmodel.ResumeHiddenContact{}, &gormmodel.ResumeHardSkill{}, &gormmodel.ResumeSoftSkill{},
+		&gormmodel.ResumeLanguage{}, &gormmodel.ResumeTechnology{}, &gormmodel.Experience{},
 		&gormmodel.Education{}, &gormmodel.Course{}, &gormmodel.Activity{}, &gormmodel.Project{},
 	}
 	for _, model := range models {
-		if err := tx.WithContext(ctx).Delete(model, "person_id = ?", personID).Error; err != nil {
+		if err := tx.WithContext(ctx).Delete(model, "resume_id = ?", resumeID).Error; err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func createProfile(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
+func createProfile(ctx context.Context, tx *gorm.DB, p *domain.Resume) error {
 	g := p.Greeting()
 	gm := gormmodel.Greeting{
-		PersonID:          p.ID().UUID(),
+		ResumeID:          p.ID().UUID(),
 		FirstRU:           g.First().RU(),
 		FirstEN:           g.First().EN(),
 		SecondRU:          g.Second().RU(),
@@ -105,13 +151,13 @@ func createProfile(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	}
 	if v := p.Availability(); v != nil {
 		m := gormmodel.Availability{
-			PersonID: p.ID().UUID(),
+			ResumeID: p.ID().UUID(),
 			Status:   string(v.Status()),
 			NoteRU:   localizedPart(v.Note(), "ru"),
 			NoteEN:   localizedPart(v.Note(), "en"),
 		}
 		if v.From() != nil {
-			value := v.From().String()
+			value := v.From().Time()
 			m.From = &value
 		}
 		if err := tx.WithContext(ctx).Create(&m).Error; err != nil {
@@ -120,7 +166,7 @@ func createProfile(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	}
 	if v := p.Theme(); v != nil {
 		m := gormmodel.Theme{
-			PersonID:  p.ID().UUID(),
+			ResumeID:  p.ID().UUID(),
 			Primary:   colorPtr(v.Primary),
 			Secondary: colorPtr(v.Secondary),
 		}
@@ -130,7 +176,7 @@ func createProfile(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	}
 	if v := p.ContactsText(); v != nil {
 		m := gormmodel.ContactsText{
-			PersonID:   p.ID().UUID(),
+			ResumeID:   p.ID().UUID(),
 			TitleRU:    localizedPtr(v.Title(), "ru"),
 			TitleEN:    localizedPtr(v.Title(), "en"),
 			SubtitleRU: localizedPtr(v.Subtitle(), "ru"),
@@ -141,7 +187,7 @@ func createProfile(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 		}
 	}
 	c := p.Contacts()
-	cm := gormmodel.Contact{PersonID: p.ID().UUID(), Phone: c.Phone()}
+	cm := gormmodel.Contact{ResumeID: p.ID().UUID(), Phone: c.Phone()}
 	if v := c.Telegram(); v != nil {
 		value := v.String()
 		cm.Telegram = &value
@@ -156,12 +202,12 @@ func createProfile(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	return tx.WithContext(ctx).Create(&cm).Error
 }
 
-func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
+func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Resume) error {
 	pid := p.ID().UUID()
 	for i, v := range p.Sections() {
 		if err := tx.WithContext(ctx).Create(
 			&gormmodel.Section{
-				PersonID:  pid,
+				ResumeID:  pid,
 				SectionID: string(v.ID()),
 				Position:  i,
 				Enabled:   v.Enabled(),
@@ -172,8 +218,8 @@ func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	}
 	for i, v := range p.WorkFormats() {
 		if err := tx.WithContext(ctx).Create(
-			&gormmodel.PersonWorkFormat{
-				PersonID: pid,
+			&gormmodel.ResumeWorkFormat{
+				ResumeID: pid,
 				Value:    string(v),
 				Position: i,
 			}).Error; err != nil {
@@ -182,8 +228,8 @@ func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	}
 	for i, v := range p.HiddenContacts() {
 		if err := tx.WithContext(ctx).Create(
-			&gormmodel.PersonHiddenContact{
-				PersonID: pid,
+			&gormmodel.ResumeHiddenContact{
+				ResumeID: pid,
 				Value:    string(v),
 				Position: i,
 			}).Error; err != nil {
@@ -192,8 +238,8 @@ func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	}
 	for i, v := range p.HardSkills() {
 		if err := tx.WithContext(ctx).Create(
-			&gormmodel.PersonHardSkill{
-				PersonID: pid,
+			&gormmodel.ResumeHardSkill{
+				ResumeID: pid,
 				Value:    string(v),
 				Position: i,
 			}).Error; err != nil {
@@ -202,8 +248,8 @@ func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	}
 	for i, v := range p.SoftSkills() {
 		if err := tx.WithContext(ctx).Create(
-			&gormmodel.PersonSoftSkill{
-				PersonID: pid,
+			&gormmodel.ResumeSoftSkill{
+				ResumeID: pid,
 				Value:    string(v),
 				Position: i,
 			}).Error; err != nil {
@@ -211,8 +257,8 @@ func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 		}
 	}
 	for i, v := range p.Languages() {
-		m := gormmodel.PersonLanguage{
-			PersonID: pid,
+		m := gormmodel.ResumeLanguage{
+			ResumeID: pid,
 			Language: string(v.Language()),
 			Position: i,
 			Grade:    enumPtr(v.Grade()),
@@ -222,8 +268,8 @@ func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 		}
 	}
 	for i, v := range p.Technologies() {
-		m := gormmodel.PersonTechnology{
-			PersonID: pid,
+		m := gormmodel.ResumeTechnology{
+			ResumeID: pid,
 			Name:     v.Name(),
 			Position: i,
 			Grade:    enumPtr(v.Grade()),
@@ -235,12 +281,12 @@ func createSettings(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	return nil
 }
 
-func createContent(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
+func createContent(ctx context.Context, tx *gorm.DB, p *domain.Resume) error {
 	pid := p.ID().UUID()
 	for i, v := range p.Experience() {
 		m := gormmodel.Experience{
 			ID:          v.ID().UUID(),
-			PersonID:    pid,
+			ResumeID:    pid,
 			Position:    i,
 			Company:     v.Company(),
 			JobPosition: v.Position(),
@@ -280,7 +326,7 @@ func createContent(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	for i, v := range p.Education() {
 		m := gormmodel.Education{
 			ID:          v.ID().UUID(),
-			PersonID:    pid,
+			ResumeID:    pid,
 			Position:    i,
 			Location:    v.Location(),
 			University:  v.University(),
@@ -301,7 +347,7 @@ func createContent(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	for i, v := range p.Courses() {
 		m := gormmodel.Course{
 			ID:           v.ID().UUID(),
-			PersonID:     pid,
+			ResumeID:     pid,
 			Position:     i,
 			Name:         v.Name(),
 			Organization: v.Organization(),
@@ -319,7 +365,7 @@ func createContent(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	for i, v := range p.Activities() {
 		m := gormmodel.Activity{
 			ID:          v.ID().UUID(),
-			PersonID:    pid,
+			ResumeID:    pid,
 			Position:    i,
 			Type:        string(v.Type()),
 			Title:       v.Title(),
@@ -337,12 +383,12 @@ func createContent(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	return nil
 }
 
-func createProjects(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
+func createProjects(ctx context.Context, tx *gorm.DB, p *domain.Resume) error {
 	pid := p.ID().UUID()
 	for i, v := range p.Projects() {
 		m := gormmodel.Project{
 			ID:          v.ID().UUID(),
-			PersonID:    pid,
+			ResumeID:    pid,
 			Position:    i,
 			Name:        v.Name(),
 			Description: v.Description(),
@@ -400,17 +446,19 @@ func createProjects(ctx context.Context, tx *gorm.DB, p *domain.Person) error {
 	return nil
 }
 
-func toPersonModel(p *domain.Person) gormmodel.Person {
+func toResumeModel(p *domain.Resume) gormmodel.Resume {
 	now := time.Now().UTC()
-	return gormmodel.Person{
+	return gormmodel.Resume{
 		ID:          p.ID().UUID(),
+		UserID:      p.UserID().UUID(),
 		Name:        p.Name(),
 		Surname:     p.Surname(),
 		Patronymic:  p.Patronymic(),
 		Position:    p.Position(),
+		Title:       p.Title(),
 		ResumeLink:  assetPathPtr(p.ResumeLink()),
 		PhotoPath:   p.PhotoPath().String(),
-		DateOfBirth: p.DateOfBirth().String(),
+		DateOfBirth: p.DateOfBirth().Time(),
 		Location:    p.Location(),
 		Relocation:  p.Relocation(),
 		UpdatedAt:   now,
@@ -459,15 +507,15 @@ func enumPtr[T ~string](v *T) *string {
 	return &value
 }
 
-func (r *PersonRepository) loadAggregate(
+func (r *ResumeRepository) loadAggregate(
 	ctx context.Context,
-	db *gorm.DB, pm gormmodel.Person,
-) (*domain.Person, error) {
+	db *gorm.DB, pm gormmodel.Resume,
+) (*domain.Resume, error) {
 	id, err := valueobjects.IDFromUUID(pm.ID)
 	if err != nil {
 		return nil, err
 	}
-	date, err := valueobjects.ParseDate(pm.DateOfBirth)
+	date, err := valueobjects.NewDate(pm.DateOfBirth)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +533,7 @@ func (r *PersonRepository) loadAggregate(
 	}
 	var patronymic = cloneString(pm.Patronymic)
 	var greeting gormmodel.Greeting
-	if err := db.WithContext(ctx).First(&greeting, "person_id = ?", pm.ID).Error; err != nil {
+	if err := db.WithContext(ctx).First(&greeting, "resume_id = ?", pm.ID).Error; err != nil {
 		return nil, err
 	}
 	gt, err := newGreeting(greeting)
@@ -496,12 +544,18 @@ func (r *PersonRepository) loadAggregate(
 	if err != nil {
 		return nil, err
 	}
-	params := domain.PersonParams{
+	userID, err := useridentity.IDFromUUID(pm.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("map resume user id: %w", err)
+	}
+	params := domain.ResumeParams{
 		ID:          id,
+		UserID:      userID,
 		Name:        pm.Name,
 		Surname:     pm.Surname,
 		Patronymic:  patronymic,
 		Position:    pm.Position,
+		Title:       pm.Title,
 		ResumeLink:  resume,
 		Greeting:    gt,
 		PhotoPath:   photo,
@@ -519,7 +573,7 @@ func (r *PersonRepository) loadAggregate(
 	if err := r.loadContent(ctx, db, pm.ID, &params); err != nil {
 		return nil, err
 	}
-	return domain.NewPerson(params)
+	return domain.NewResume(params)
 }
 
 func newGreeting(m gormmodel.Greeting) (valueobjects.Greeting, error) {
@@ -542,13 +596,13 @@ func newGreeting(m gormmodel.Greeting) (valueobjects.Greeting, error) {
 	return valueobjects.NewGreeting(valueobjects.GreetingParams{First: f, Second: s, SecondHighlight: h, Third: t}), nil
 }
 
-func (r *PersonRepository) loadOptionalProfile(ctx context.Context, db *gorm.DB, id uuid.UUID, p *domain.PersonParams) error {
+func (r *ResumeRepository) loadOptionalProfile(ctx context.Context, db *gorm.DB, id uuid.UUID, p *domain.ResumeParams) error {
 	var m gormmodel.Availability
-	if err := db.WithContext(ctx).First(&m, "person_id = ?", id).Error; err == nil {
+	if err := db.WithContext(ctx).First(&m, "resume_id = ?", id).Error; err == nil {
 		status := enums.AvailabilityStatus(m.Status)
 		var from *valueobjects.Date
 		if m.From != nil {
-			value, e := valueobjects.ParseDate(*m.From)
+			value, e := valueobjects.NewDate(*m.From)
 			if e != nil {
 				return e
 			}
@@ -580,7 +634,7 @@ func (r *PersonRepository) loadOptionalProfile(ctx context.Context, db *gorm.DB,
 		return err
 	}
 	var theme gormmodel.Theme
-	if err := db.WithContext(ctx).First(&theme, "person_id = ?", id).Error; err == nil {
+	if err := db.WithContext(ctx).First(&theme, "resume_id = ?", id).Error; err == nil {
 		var primary, secondary *valueobjects.Color
 		if theme.Primary != nil {
 			value, e := valueobjects.NewColor(*theme.Primary)
@@ -609,7 +663,7 @@ func (r *PersonRepository) loadOptionalProfile(ctx context.Context, db *gorm.DB,
 		return err
 	}
 	var text gormmodel.ContactsText
-	if err := db.WithContext(ctx).First(&text, "person_id = ?", id).Error; err == nil {
+	if err := db.WithContext(ctx).First(&text, "resume_id = ?", id).Error; err == nil {
 		var title, subtitle *valueobjects.LocalizedText
 		if text.TitleRU != nil || text.TitleEN != nil {
 			value, e := valueobjects.NewLocalizedText(
@@ -651,13 +705,13 @@ func (r *PersonRepository) loadOptionalProfile(ctx context.Context, db *gorm.DB,
 	return nil
 }
 
-func (r *PersonRepository) loadContacts(
+func (r *ResumeRepository) loadContacts(
 	ctx context.Context,
 	db *gorm.DB,
 	id uuid.UUID,
 ) (entities.Contacts, error) {
 	var m gormmodel.Contact
-	if err := db.WithContext(ctx).First(&m, "person_id = ?", id).Error; err != nil {
+	if err := db.WithContext(ctx).First(&m, "resume_id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return entities.EmptyContacts(), nil
 		}
@@ -688,14 +742,14 @@ func (r *PersonRepository) loadContacts(
 	)
 }
 
-func (r *PersonRepository) loadSettings(
+func (r *ResumeRepository) loadSettings(
 	ctx context.Context,
 	db *gorm.DB,
 	id uuid.UUID,
-	p *domain.PersonParams,
+	p *domain.ResumeParams,
 ) error {
 	var sections []gormmodel.Section
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&sections).Error; err != nil {
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&sections).Error; err != nil {
 		return err
 	}
 	p.Sections = make([]valueobjects.SectionSettings, 0, len(sections))
@@ -712,43 +766,43 @@ func (r *PersonRepository) loadSettings(
 		}
 		p.Sections = append(p.Sections, v)
 	}
-	var formats []gormmodel.PersonWorkFormat
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&formats).Error; err != nil {
+	var formats []gormmodel.ResumeWorkFormat
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&formats).Error; err != nil {
 		return err
 	}
 	p.WorkFormats = make([]enums.WorkFormat, 0, len(formats))
 	for _, m := range formats {
 		p.WorkFormats = append(p.WorkFormats, enums.WorkFormat(m.Value))
 	}
-	var hidden []gormmodel.PersonHiddenContact
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&hidden).Error; err != nil {
+	var hidden []gormmodel.ResumeHiddenContact
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&hidden).Error; err != nil {
 		return err
 	}
 	p.HiddenContacts = make([]enums.ContactKey, 0, len(hidden))
 	for _, m := range hidden {
 		p.HiddenContacts = append(p.HiddenContacts, enums.ContactKey(m.Value))
 	}
-	var hard []gormmodel.PersonHardSkill
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&hard).Error; err != nil {
+	var hard []gormmodel.ResumeHardSkill
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&hard).Error; err != nil {
 		return err
 	}
 	p.HardSkills = make([]enums.HardSkill, 0, len(hard))
 	for _, m := range hard {
 		p.HardSkills = append(p.HardSkills, enums.HardSkill(m.Value))
 	}
-	var soft []gormmodel.PersonSoftSkill
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&soft).Error; err != nil {
+	var soft []gormmodel.ResumeSoftSkill
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&soft).Error; err != nil {
 		return err
 	}
 	p.SoftSkills = make([]enums.SoftSkill, 0, len(soft))
 	for _, m := range soft {
 		p.SoftSkills = append(p.SoftSkills, enums.SoftSkill(m.Value))
 	}
-	var langs []gormmodel.PersonLanguage
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&langs).Error; err != nil {
+	var langs []gormmodel.ResumeLanguage
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&langs).Error; err != nil {
 		return err
 	}
-	p.Languages = make([]entities.PersonLanguage, 0, len(langs))
+	p.Languages = make([]entities.ResumeLanguage, 0, len(langs))
 	for _, m := range langs {
 		l := enums.LanguageType(m.Language)
 		var g *enums.LanguageGrade
@@ -756,14 +810,14 @@ func (r *PersonRepository) loadSettings(
 			v := enums.LanguageGrade(*m.Grade)
 			g = &v
 		}
-		v, e := entities.NewPersonLanguage(entities.PersonLanguageParams{Language: l, Grade: g})
+		v, e := entities.NewResumeLanguage(entities.ResumeLanguageParams{Language: l, Grade: g})
 		if e != nil {
 			return e
 		}
 		p.Languages = append(p.Languages, v)
 	}
-	var tech []gormmodel.PersonTechnology
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&tech).Error; err != nil {
+	var tech []gormmodel.ResumeTechnology
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&tech).Error; err != nil {
 		return err
 	}
 	p.Technologies = make([]entities.Technology, 0, len(tech))
@@ -782,14 +836,14 @@ func (r *PersonRepository) loadSettings(
 	return nil
 }
 
-func (r *PersonRepository) loadContent(
+func (r *ResumeRepository) loadContent(
 	ctx context.Context,
 	db *gorm.DB,
 	id uuid.UUID,
-	p *domain.PersonParams,
+	p *domain.ResumeParams,
 ) error {
 	var experiences []gormmodel.Experience
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&experiences).Error; err != nil {
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&experiences).Error; err != nil {
 		return err
 	}
 	p.Experience = make([]entities.Experience, 0, len(experiences))
@@ -854,7 +908,7 @@ func (r *PersonRepository) loadContent(
 		p.Experience = append(p.Experience, v)
 	}
 	var education []gormmodel.Education
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&education).Error; err != nil {
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&education).Error; err != nil {
 		return err
 	}
 	p.Education = make([]entities.Education, 0, len(education))
@@ -890,7 +944,7 @@ func (r *PersonRepository) loadContent(
 		p.Education = append(p.Education, v)
 	}
 	var courses []gormmodel.Course
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&courses).Error; err != nil {
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&courses).Error; err != nil {
 		return err
 	}
 	p.Courses = make([]entities.Course, 0, len(courses))
@@ -927,7 +981,7 @@ func (r *PersonRepository) loadContent(
 		p.Courses = append(p.Courses, v)
 	}
 	var activities []gormmodel.Activity
-	if err := db.WithContext(ctx).Where("person_id = ?", id).Order("position").Find(&activities).Error; err != nil {
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&activities).Error; err != nil {
 		return err
 	}
 	p.Activities = make([]entities.Activity, 0, len(activities))
@@ -966,6 +1020,122 @@ func (r *PersonRepository) loadContent(
 			return e
 		}
 		p.Activities = append(p.Activities, v)
+	}
+
+	var projects []gormmodel.Project
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&projects).Error; err != nil {
+		return err
+	}
+	p.Projects = make([]entities.Project, 0, len(projects))
+	for _, m := range projects {
+		projectID, e := valueobjects.IDFromUUID(m.ID)
+		if e != nil {
+			return e
+		}
+
+		var description, role *string
+		description = cloneString(m.Description)
+		role = cloneString(m.Role)
+
+		var link *valueobjects.ExternalURL
+		if m.Link != nil {
+			v, e := valueobjects.NewExternalURL(*m.Link)
+			if e != nil {
+				return e
+			}
+			link = &v
+		}
+		var gitLink *valueobjects.ExternalURL
+		if m.GitLink != nil {
+			v, e := valueobjects.NewExternalURL(*m.GitLink)
+			if e != nil {
+				return e
+			}
+			gitLink = &v
+		}
+
+		var screenshots []gormmodel.ProjectScreenshot
+		if err := db.WithContext(ctx).Where("project_id = ?", m.ID).Order("position").Find(&screenshots).Error; err != nil {
+			return err
+		}
+		screenshotValues := make([]valueobjects.AssetPath, 0, len(screenshots))
+		for _, screenshot := range screenshots {
+			v, e := valueobjects.NewAssetPath(screenshot.Path)
+			if e != nil {
+				return e
+			}
+			screenshotValues = append(screenshotValues, v)
+		}
+
+		var stack []gormmodel.ProjectTechnology
+		if err := db.WithContext(ctx).Where("project_id = ?", m.ID).Order("position").Find(&stack).Error; err != nil {
+			return err
+		}
+		stackValues := make([]entities.Technology, 0, len(stack))
+		for _, technology := range stack {
+			var grade *enums.TechnologyGrade
+			if technology.Grade != nil {
+				v := enums.TechnologyGrade(*technology.Grade)
+				grade = &v
+			}
+			v, e := entities.NewTechnology(entities.TechnologyParams{Name: technology.Name, Grade: grade})
+			if e != nil {
+				return e
+			}
+			stackValues = append(stackValues, v)
+		}
+
+		var contributors []gormmodel.ProjectContributor
+		if err := db.WithContext(ctx).Where("project_id = ?", m.ID).Order("position").Find(&contributors).Error; err != nil {
+			return err
+		}
+		contributorValues := make([]entities.Contributor, 0, len(contributors))
+		for _, contributor := range contributors {
+			var telegram *valueobjects.Telegram
+			if contributor.Telegram != nil {
+				v, e := valueobjects.NewTelegram(*contributor.Telegram)
+				if e != nil {
+					return e
+				}
+				telegram = &v
+			}
+			var email *valueobjects.Email
+			if contributor.Email != nil {
+				v, e := valueobjects.NewEmail(*contributor.Email)
+				if e != nil {
+					return e
+				}
+				email = &v
+			}
+			contacts := entities.EmptyContacts()
+			if contributor.Phone != nil || telegram != nil || email != nil {
+				phone := ""
+				if contributor.Phone != nil {
+					phone = *contributor.Phone
+				}
+				contacts, e = entities.NewContacts(entities.ContactsParams{Phone: phone, Telegram: telegram, Email: email})
+				if e != nil {
+					return e
+				}
+			}
+			v, e := entities.NewContributor(entities.ContributorParams{
+				Name: contributor.Name, Surname: contributor.Surname, Role: contributor.Role, Contacts: contacts,
+			})
+			if e != nil {
+				return e
+			}
+			contributorValues = append(contributorValues, v)
+		}
+
+		v, e := entities.NewProject(entities.ProjectParams{
+			ID: projectID, Name: m.Name, Description: description, Role: role,
+			Screenshots: screenshotValues, Link: link, GitLink: gitLink,
+			Stack: stackValues, Contributors: contributorValues,
+		})
+		if e != nil {
+			return e
+		}
+		p.Projects = append(p.Projects, v)
 	}
 	return nil
 }

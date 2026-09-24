@@ -7,15 +7,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
 
-func newTestPerson(t *testing.T) *Person {
+func newTestResume(t *testing.T) *Resume {
 	t.Helper()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
+	userID := useridentity.NewID()
 	date, err := valueobjects.ParseDate("1998-04-12")
 	require.NoError(t, err)
 	photoPath, err := valueobjects.NewAssetPath("/mock/avatar.svg")
@@ -25,8 +28,9 @@ func newTestPerson(t *testing.T) *Person {
 	section, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: enums.SectionAbout, Enabled: true})
 	require.NoError(t, err)
 
-	person, err := NewPerson(PersonParams{
+	resume, err := NewResume(ResumeParams{
 		ID:          id,
+		UserID:      userID,
 		Name:        "Anton",
 		Surname:     "Sedletskii",
 		Position:    "Frontend",
@@ -38,10 +42,12 @@ func newTestPerson(t *testing.T) *Person {
 		WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote},
 	})
 	require.NoError(t, err)
-	return person
+	require.Equal(t, resume.Position(), resume.Title())
+	return resume
 }
 
-func TestPersonRejectsDuplicateSections(t *testing.T) {
+func TestResumeRejectsDuplicateSections(t *testing.T) {
+	userID := useridentity.NewID()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
 	date, err := valueobjects.ParseDate("1998-04-12")
@@ -53,15 +59,15 @@ func TestPersonRejectsDuplicateSections(t *testing.T) {
 	contacts, err := entities.NewContacts(entities.ContactsParams{Phone: "+79999999999"})
 	require.NoError(t, err)
 
-	_, err = NewPerson(PersonParams{
-		ID: id, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
+	_, err = NewResume(ResumeParams{
+		ID: id, UserID: userID, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
 		DateOfBirth: date, Location: "Novosibirsk", Sections: []valueobjects.SectionSettings{section, section}, Contacts: contacts,
 	})
 	require.ErrorIs(t, err, ErrDuplicateEntity)
 }
 
-func TestPersonAddAndRemoveExperience(t *testing.T) {
-	person := newTestPerson(t)
+func TestResumeAddAndRemoveExperience(t *testing.T) {
+	resume := newTestResume(t)
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
 	start, err := valueobjects.ParseYearMonth("2025-01")
@@ -69,15 +75,16 @@ func TestPersonAddAndRemoveExperience(t *testing.T) {
 	experience, err := entities.NewExperience(entities.ExperienceParams{ID: id, Company: "Acme", Position: "Developer", StartDate: start})
 	require.NoError(t, err)
 
-	require.NoError(t, person.AddExperience(experience))
-	require.Len(t, person.Experience(), 1)
-	require.ErrorIs(t, person.AddExperience(experience), ErrDuplicateEntity)
-	require.NoError(t, person.RemoveExperience(id))
-	require.Empty(t, person.Experience())
-	require.ErrorIs(t, person.RemoveExperience(id), ErrEntityNotFound)
+	require.NoError(t, resume.AddExperience(experience))
+	require.Len(t, resume.Experience(), 1)
+	require.ErrorIs(t, resume.AddExperience(experience), ErrDuplicateEntity)
+	require.NoError(t, resume.RemoveExperience(id))
+	require.Empty(t, resume.Experience())
+	require.ErrorIs(t, resume.RemoveExperience(id), ErrEntityNotFound)
 }
 
-func TestPersonRejectsFutureDateOfBirth(t *testing.T) {
+func TestResumeRejectsFutureDateOfBirth(t *testing.T) {
+	userID := useridentity.NewID()
 	id, err := valueobjects.IDFromUUID(uuid.New())
 	require.NoError(t, err)
 	date, err := valueobjects.NewDate(time.Now().UTC().AddDate(1, 0, 0))
@@ -87,9 +94,24 @@ func TestPersonRejectsFutureDateOfBirth(t *testing.T) {
 	contacts, err := entities.NewContacts(entities.ContactsParams{Phone: "+79999999999"})
 	require.NoError(t, err)
 
-	_, err = NewPerson(PersonParams{
-		ID: id, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
+	_, err = NewResume(ResumeParams{
+		ID: id, UserID: userID, Name: "Anton", Surname: "Sedletskii", Position: "Frontend", PhotoPath: photoPath,
 		DateOfBirth: date, Location: "Novosibirsk", Contacts: contacts,
 	})
 	require.Error(t, err)
+}
+
+func TestResumeRenameChangesTitleWithoutChangingPosition(t *testing.T) {
+	resume := newTestResume(t)
+	position := resume.Position()
+
+	require.NoError(t, resume.Rename("Go Backend Engineer"))
+	require.Equal(t, "Go Backend Engineer", resume.Title())
+	require.Equal(t, position, resume.Position())
+}
+
+func TestResumeRenameRejectsEmptyTitle(t *testing.T) {
+	resume := newTestResume(t)
+
+	require.ErrorIs(t, resume.Rename("   "), ErrResumeInvariant)
 }

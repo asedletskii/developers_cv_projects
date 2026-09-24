@@ -7,9 +7,17 @@ package app
 import (
 	"context"
 
+	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
+	userapplication "developers-cv/backend/internal/modules/user/application"
+	userqueries "developers-cv/backend/internal/modules/user/application/queries"
+	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
+	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
+	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
+	"developers-cv/backend/internal/platform/database"
 	httpserver "developers-cv/backend/internal/platform/http"
 	"developers-cv/backend/internal/platform/logger"
 	"developers-cv/backend/internal/platform/telemetry"
@@ -53,9 +61,31 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
-	personReaderValue := newPersonReader(poolValue)
-	getPersonHandlerValue := queries.NewGetPersonHandler(personReaderValue)
-	resumeHandlerValue := http.NewHandler(getPersonHandlerValue)
+	gormDBValue, err := database.NewGORMFromConfig(configValue)
+	if err != nil {
+		if poolValue != nil {
+			poolValue.Close()
+		}
+		return nil, err
+	}
+
+	getResumeReaderValue := newGetResumeReader(poolValue)
+	listResumesReaderValue := newListResumesReader(poolValue)
+	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
+	userRepositoryValue := userrepository.NewUserRepository(gormDBValue)
+	getProfileReaderValue := newGetProfileReader(poolValue)
+	var userRepository userapplication.UserRepository = userRepositoryValue
+	mockAuthenticatorValue := userauth.NewMockAuthenticator(userRepository)
+	authenticateValue := newAuthenticate(mockAuthenticatorValue)
+	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
+	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
+	updateResumeHandlerValue := resumecommands.NewUpdateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
+	patchResumeHandlerValue := resumecommands.NewPatchResumeHandler(resumeRepositoryValue, unitOfWorkValue)
+	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
+	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
+	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
+	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,
@@ -63,8 +93,13 @@ func Initialize() (*Application, error) {
 		healthValue,
 		metricsValue,
 		resumeHandlerValue,
+		userHandlerValue,
+		authenticateValue,
 	)
 	if err != nil {
+		if gormDBValue != nil {
+			_ = database.Close(gormDBValue)
+		}
 		if poolValue != nil {
 			poolValue.Close()
 		}
@@ -83,6 +118,7 @@ func Initialize() (*Application, error) {
 		telemetryValue,
 		loggerValue,
 		poolValue,
+		gormDBValue,
 	)
 
 	return applicationValue, nil

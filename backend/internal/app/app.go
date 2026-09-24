@@ -7,9 +7,11 @@ import (
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 
 	"go.uber.org/zap"
 
+	"developers-cv/backend/internal/platform/database"
 	httpserver "developers-cv/backend/internal/platform/http"
 	"developers-cv/backend/internal/platform/telemetry"
 )
@@ -19,6 +21,7 @@ type Application struct {
 	telemetry    *telemetry.Service
 	logger       *zap.Logger
 	postgresPool *pgxpool.Pool
+	gormDB       *gorm.DB
 	once         sync.Once
 	shutdownErr  error
 }
@@ -28,12 +31,14 @@ func NewApplication(
 	telemetryService *telemetry.Service,
 	logger *zap.Logger,
 	postgresPool *pgxpool.Pool,
+	gormDB *gorm.DB,
 ) *Application {
 	return &Application{
 		server:       server,
 		telemetry:    telemetryService,
 		logger:       logger,
 		postgresPool: postgresPool,
+		gormDB:       gormDB,
 	}
 }
 
@@ -59,6 +64,9 @@ func (a *Application) Shutdown(ctx context.Context) error {
 		serverErr := a.server.Shutdown(ctx)
 		telemetryErr := a.telemetry.Shutdown(ctx)
 		var dbErr error
+		if a.gormDB != nil {
+			dbErr = database.Close(a.gormDB)
+		}
 		if a.postgresPool != nil {
 			a.postgresPool.Close()
 		}

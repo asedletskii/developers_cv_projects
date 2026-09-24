@@ -3,9 +3,9 @@ package domain
 import "errors"
 
 var (
-	ErrInvalidPerson   = errors.New("invalid person")
+	ErrInvalidResume   = errors.New("invalid resume")
 	ErrInvalidEntity   = errors.New("invalid entity")
-	ErrPersonInvariant = errors.New("person invariant violation")
+	ErrResumeInvariant = errors.New("resume invariant violation")
 	ErrEntityNotFound  = errors.New("entity not found")
 	ErrDuplicateEntity = errors.New("duplicate entity")
 )
