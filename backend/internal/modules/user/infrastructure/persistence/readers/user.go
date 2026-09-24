@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/gormmodel"
@@ -21,17 +22,17 @@ func NewUserReader(db *gorm.DB) *UserReader {
 	return &UserReader{db: db}
 }
 
-func (r *UserReader) GetByID(ctx context.Context, id valueobjects.ID) (*domain.User, error) {
+func (r *UserReader) GetUser(ctx context.Context, query queries.GetUserQuery) (*domain.User, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get user: reader dependencies are nil")
 	}
-	if id.IsZero() {
+	if query.ID.IsZero() {
 		return nil, fmt.Errorf("get user: %w", domain.ErrInvalidUser)
 	}
 
 	var model gormmodel.User
 	db := database.DBFromContext(ctx, r.db)
-	if err := db.WithContext(ctx).First(&model, "id = ?", id.UUID()).Error; err != nil {
+	if err := db.WithContext(ctx).First(&model, "id = ?", query.ID.UUID()).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}

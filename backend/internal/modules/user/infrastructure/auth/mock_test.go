@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
@@ -17,11 +18,11 @@ type fakeUserReader struct {
 	err   error
 }
 
-func (r *fakeUserReader) GetByID(_ context.Context, id valueobjects.ID) (*domain.User, error) {
+func (r *fakeUserReader) GetUser(_ context.Context, query queries.GetUserQuery) (*domain.User, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-	user, ok := r.users[id.UUID()]
+	user, ok := r.users[query.ID.UUID()]
 	if !ok {
 		return nil, domain.ErrEntityNotFound
 	}

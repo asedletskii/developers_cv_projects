@@ -7,6 +7,10 @@ import (
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
+type GetUserQuery struct {
+	ID valueobjects.ID
+}
+
 type UserReader interface {
-	GetByID(ctx context.Context, id valueobjects.ID) (*domain.User, error)
+	GetUser(ctx context.Context, query GetUserQuery) (*domain.User, error)
 }

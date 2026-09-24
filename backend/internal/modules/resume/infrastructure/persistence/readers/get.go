@@ -1,4 +1,4 @@
-package reader
+package readers
 
 import (
 	"context"
@@ -113,5 +113,3 @@ func (r *GetResumeReader) GetResume(
 	}
 	return p, nil
 }
-
-var _ queries.GetResumeReader = (*GetResumeReader)(nil)

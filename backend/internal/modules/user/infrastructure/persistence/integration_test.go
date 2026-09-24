@@ -14,12 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
+	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/platform/database"
 )
 
-func TestPostgresUserReaderGetByID(t *testing.T) {
+func TestPostgresUserReaderGetUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
@@ -59,7 +60,7 @@ func TestPostgresUserReaderGetByID(t *testing.T) {
 	identity, err := valueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
-	user, err := readers.NewUserReader(gormDB).GetByID(ctx, identity)
+	user, err := readers.NewUserReader(gormDB).GetUser(ctx, queries.GetUserQuery{ID: identity})
 	require.NoError(t, err)
 	require.Equal(t, identity, user.ID())
 	require.Equal(t, createdAt, user.CreatedAt())

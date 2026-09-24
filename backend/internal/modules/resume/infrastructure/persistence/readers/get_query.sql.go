@@ -1,4 +1,4 @@
-package reader
+package readers
 
 const resumeQuerySQL = `SELECT
     p.id::text,

@@ -19,15 +19,15 @@ const MockUserIDHeader = "X-Mock-User-ID"
 var ErrUnauthenticated = errors.New("unauthenticated")
 
 type MockAuthenticator struct {
-	repository queries.UserReader
+	reader queries.UserReader
 }
 
-func NewMockAuthenticator(repository queries.UserReader) *MockAuthenticator {
-	return &MockAuthenticator{repository: repository}
+func NewMockAuthenticator(reader queries.UserReader) *MockAuthenticator {
+	return &MockAuthenticator{reader: reader}
 }
 
 func (a *MockAuthenticator) Authenticate(ctx context.Context, request *http.Request) (uuid.UUID, error) {
-	if a == nil || a.repository == nil {
+	if a == nil || a.reader == nil {
 		return uuid.Nil, fmt.Errorf("mock authenticator dependencies are nil")
 	}
 
@@ -45,7 +45,7 @@ func (a *MockAuthenticator) Authenticate(ctx context.Context, request *http.Requ
 	if err != nil {
 		return uuid.Nil, ErrUnauthenticated
 	}
-	if _, err := a.repository.GetByID(ctx, userID); err != nil {
+	if _, err := a.reader.GetUser(ctx, queries.GetUserQuery{ID: userID}); err != nil {
 		if errors.Is(err, domain.ErrEntityNotFound) {
 			return uuid.Nil, ErrUnauthenticated
 		}

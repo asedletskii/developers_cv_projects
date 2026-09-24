@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumereader "developers-cv/backend/internal/modules/resume/infrastructure/persistence/reader"
+	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
@@ -35,11 +35,11 @@ func newPostgresPool(
 }
 
 func newGetResumeReader(pool *pgxpool.Pool) resumequeries.GetResumeReader {
-	return resumereader.NewGetResumeReader(pool)
+	return resumereaders.NewGetResumeReader(pool)
 }
 
 func newListResumesReader(pool *pgxpool.Pool) resumequeries.ListResumesReader {
-	return resumereader.NewListResumesReader(pool)
+	return resumereaders.NewListResumesReader(pool)
 }
 
 func newGetProfileReader(pool *pgxpool.Pool) userqueries.GetProfileReader {

@@ -1,4 +1,4 @@
-package reader
+package readers
 
 import (
 	"context"
@@ -50,5 +50,3 @@ func (r *ListResumesReader) ListResumes(
 
 	return items, nil
 }
-
-var _ queries.ListResumesReader = (*ListResumesReader)(nil)

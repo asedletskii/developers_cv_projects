@@ -23,7 +23,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/reader"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/platform/database"
@@ -132,7 +132,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	_, err = repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: otherUserID, ResumeID: resume.ID()})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
-	listItems, err := reader.NewListResumesReader(pool).ListResumes(
+	listItems, err := readers.NewListResumesReader(pool).ListResumes(
 		ctx,
 		queries.ListResumesQuery{
 			UserID: userID,
@@ -144,7 +144,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, resume.ID().String(), listItems[0].ID)
 	require.Equal(t, resume.Title(), listItems[0].Title)
 
-	otherListItems, err := reader.NewListResumesReader(pool).ListResumes(
+	otherListItems, err := readers.NewListResumesReader(pool).ListResumes(
 		ctx,
 		queries.ListResumesQuery{
 			UserID: otherUserID,
@@ -155,7 +155,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Len(t, otherListItems, 1)
 	require.Equal(t, otherResume.ID().String(), otherListItems[0].ID)
 
-	readModel, err := reader.NewGetResumeReader(pool).GetResume(
+	readModel, err := readers.NewGetResumeReader(pool).GetResume(
 		ctx,
 		queries.GetResumeQuery{
 			UserID: &userID,
@@ -173,7 +173,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Len(t, readModel.Experience, 1)
 	require.Equal(t, "2024-01", readModel.Experience[0].StartDate)
 
-	_, err = reader.NewGetResumeReader(pool).GetResume(
+	_, err = readers.NewGetResumeReader(pool).GetResume(
 		ctx,
 		queries.GetResumeQuery{
 			UserID: &otherUserID,
@@ -183,7 +183,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	)
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
 
-	publicReadModel, err := reader.NewGetResumeReader(pool).GetResume(
+	publicReadModel, err := readers.NewGetResumeReader(pool).GetResume(
 		ctx,
 		queries.GetResumeQuery{
 			ID:   resume.ID().UUID(),
@@ -246,7 +246,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 		loadedAfterPatch.Projects()[0].Contributors()[0].Name(),
 	)
 
-	patched, err := reader.NewGetResumeReader(pool).GetResume(
+	patched, err := readers.NewGetResumeReader(pool).GetResume(
 		ctx,
 		queries.GetResumeQuery{
 			ID:   resume.ID().UUID(),

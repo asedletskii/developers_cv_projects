@@ -10,7 +10,7 @@ import (
 
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository/resume"
+	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
