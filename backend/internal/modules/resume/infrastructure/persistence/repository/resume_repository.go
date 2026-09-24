@@ -120,7 +120,7 @@ func createProfile(ctx context.Context, tx *gorm.DB, p *domain.Resume) error {
 			NoteEN:   localizedPart(v.Note(), "en"),
 		}
 		if v.From() != nil {
-			value := v.From().String()
+			value := v.From().Time()
 			m.From = &value
 		}
 		if err := tx.WithContext(ctx).Create(&m).Error; err != nil {
@@ -421,7 +421,7 @@ func toResumeModel(p *domain.Resume) gormmodel.Resume {
 		Title:       p.Title(),
 		ResumeLink:  assetPathPtr(p.ResumeLink()),
 		PhotoPath:   p.PhotoPath().String(),
-		DateOfBirth: p.DateOfBirth().String(),
+		DateOfBirth: p.DateOfBirth().Time(),
 		Location:    p.Location(),
 		Relocation:  p.Relocation(),
 		UpdatedAt:   now,
@@ -478,7 +478,7 @@ func (r *ResumeRepository) loadAggregate(
 	if err != nil {
 		return nil, err
 	}
-	date, err := valueobjects.ParseDate(pm.DateOfBirth)
+	date, err := valueobjects.NewDate(pm.DateOfBirth)
 	if err != nil {
 		return nil, err
 	}
@@ -565,7 +565,7 @@ func (r *ResumeRepository) loadOptionalProfile(ctx context.Context, db *gorm.DB,
 		status := enums.AvailabilityStatus(m.Status)
 		var from *valueobjects.Date
 		if m.From != nil {
-			value, e := valueobjects.ParseDate(*m.From)
+			value, e := valueobjects.NewDate(*m.From)
 			if e != nil {
 				return e
 			}
@@ -983,6 +983,122 @@ func (r *ResumeRepository) loadContent(
 			return e
 		}
 		p.Activities = append(p.Activities, v)
+	}
+
+	var projects []gormmodel.Project
+	if err := db.WithContext(ctx).Where("resume_id = ?", id).Order("position").Find(&projects).Error; err != nil {
+		return err
+	}
+	p.Projects = make([]entities.Project, 0, len(projects))
+	for _, m := range projects {
+		projectID, e := valueobjects.IDFromUUID(m.ID)
+		if e != nil {
+			return e
+		}
+
+		var description, role *string
+		description = cloneString(m.Description)
+		role = cloneString(m.Role)
+
+		var link *valueobjects.ExternalURL
+		if m.Link != nil {
+			v, e := valueobjects.NewExternalURL(*m.Link)
+			if e != nil {
+				return e
+			}
+			link = &v
+		}
+		var gitLink *valueobjects.ExternalURL
+		if m.GitLink != nil {
+			v, e := valueobjects.NewExternalURL(*m.GitLink)
+			if e != nil {
+				return e
+			}
+			gitLink = &v
+		}
+
+		var screenshots []gormmodel.ProjectScreenshot
+		if err := db.WithContext(ctx).Where("project_id = ?", m.ID).Order("position").Find(&screenshots).Error; err != nil {
+			return err
+		}
+		screenshotValues := make([]valueobjects.AssetPath, 0, len(screenshots))
+		for _, screenshot := range screenshots {
+			v, e := valueobjects.NewAssetPath(screenshot.Path)
+			if e != nil {
+				return e
+			}
+			screenshotValues = append(screenshotValues, v)
+		}
+
+		var stack []gormmodel.ProjectTechnology
+		if err := db.WithContext(ctx).Where("project_id = ?", m.ID).Order("position").Find(&stack).Error; err != nil {
+			return err
+		}
+		stackValues := make([]entities.Technology, 0, len(stack))
+		for _, technology := range stack {
+			var grade *enums.TechnologyGrade
+			if technology.Grade != nil {
+				v := enums.TechnologyGrade(*technology.Grade)
+				grade = &v
+			}
+			v, e := entities.NewTechnology(entities.TechnologyParams{Name: technology.Name, Grade: grade})
+			if e != nil {
+				return e
+			}
+			stackValues = append(stackValues, v)
+		}
+
+		var contributors []gormmodel.ProjectContributor
+		if err := db.WithContext(ctx).Where("project_id = ?", m.ID).Order("position").Find(&contributors).Error; err != nil {
+			return err
+		}
+		contributorValues := make([]entities.Contributor, 0, len(contributors))
+		for _, contributor := range contributors {
+			var telegram *valueobjects.Telegram
+			if contributor.Telegram != nil {
+				v, e := valueobjects.NewTelegram(*contributor.Telegram)
+				if e != nil {
+					return e
+				}
+				telegram = &v
+			}
+			var email *valueobjects.Email
+			if contributor.Email != nil {
+				v, e := valueobjects.NewEmail(*contributor.Email)
+				if e != nil {
+					return e
+				}
+				email = &v
+			}
+			contacts := entities.EmptyContacts()
+			if contributor.Phone != nil || telegram != nil || email != nil {
+				phone := ""
+				if contributor.Phone != nil {
+					phone = *contributor.Phone
+				}
+				contacts, e = entities.NewContacts(entities.ContactsParams{Phone: phone, Telegram: telegram, Email: email})
+				if e != nil {
+					return e
+				}
+			}
+			v, e := entities.NewContributor(entities.ContributorParams{
+				Name: contributor.Name, Surname: contributor.Surname, Role: contributor.Role, Contacts: contacts,
+			})
+			if e != nil {
+				return e
+			}
+			contributorValues = append(contributorValues, v)
+		}
+
+		v, e := entities.NewProject(entities.ProjectParams{
+			ID: projectID, Name: m.Name, Description: description, Role: role,
+			Screenshots: screenshotValues, Link: link, GitLink: gitLink,
+			Stack: stackValues, Contributors: contributorValues,
+		})
+		if e != nil {
+			return e
+		}
+		p.Projects = append(p.Projects, v)
 	}
 	return nil
 }

@@ -30,6 +30,7 @@ func TestPostgresUserRepositoryRoundTrip(t *testing.T) {
 		testpostgres.WithDatabase("developers_cv"),
 		testpostgres.WithUsername("developers_cv"),
 		testpostgres.WithPassword("test-password"),
+		testpostgres.BasicWaitStrategies(),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, container.Terminate(ctx)) })
