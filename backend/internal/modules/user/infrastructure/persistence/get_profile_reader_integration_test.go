@@ -19,7 +19,7 @@ import (
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/reader"
 )
 
-func TestPostgresGetUserReaderReturnsUserProfile(t *testing.T) {
+func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
@@ -36,7 +36,7 @@ func TestPostgresGetUserReaderReturnsUserProfile(t *testing.T) {
 
 	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
-	applyUserProfileMigrations(t, ctx, dsn)
+	applyProfileMigrations(t, ctx, dsn)
 
 	pool, err := pgxpool.New(ctx, dsn)
 	require.NoError(t, err)
@@ -49,24 +49,24 @@ func TestPostgresGetUserReaderReturnsUserProfile(t *testing.T) {
 	insertProfile(t, ctx, dsn, firstID, "Антон", "Седлецкий", "Frontend", "Новосибирск")
 	insertProfile(t, ctx, dsn, secondID, "Second", "User", "Backend", "Москва")
 
-	getUserReader := reader.NewGetUserReader(pool)
+	getProfileReader := reader.NewGetProfileReader(pool)
 	firstIdentity, err := valueobjects.IDFromUUID(firstID)
 	require.NoError(t, err)
 	secondIdentity, err := valueobjects.IDFromUUID(secondID)
 	require.NoError(t, err)
 
-	firstUser, err := getUserReader.GetUser(ctx, queries.GetUserQuery{UserID: firstIdentity})
+	firstProfile, err := getProfileReader.GetProfile(ctx, queries.GetProfileQuery{UserID: firstIdentity})
 	require.NoError(t, err)
-	require.Equal(t, "Антон", firstUser.Name)
-	require.Equal(t, "Frontend", *firstUser.Position)
+	require.Equal(t, "Антон", firstProfile.Name)
+	require.Equal(t, "Frontend", *firstProfile.Position)
 
-	secondUser, err := getUserReader.GetUser(ctx, queries.GetUserQuery{UserID: secondIdentity})
+	secondProfile, err := getProfileReader.GetProfile(ctx, queries.GetProfileQuery{UserID: secondIdentity})
 	require.NoError(t, err)
-	require.Equal(t, "Second", secondUser.Name)
-	require.Equal(t, "Backend", *secondUser.Position)
+	require.Equal(t, "Second", secondProfile.Name)
+	require.Equal(t, "Backend", *secondProfile.Position)
 }
 
-func TestPostgresGetUserReaderReturnsNotFoundForMissingProfile(t *testing.T) {
+func TestPostgresGetProfileReaderReturnsNotFoundForMissingProfile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
@@ -83,7 +83,7 @@ func TestPostgresGetUserReaderReturnsNotFoundForMissingProfile(t *testing.T) {
 
 	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
-	applyUserProfileMigrations(t, ctx, dsn)
+	applyProfileMigrations(t, ctx, dsn)
 
 	pool, err := pgxpool.New(ctx, dsn)
 	require.NoError(t, err)
@@ -94,11 +94,11 @@ func TestPostgresGetUserReaderReturnsNotFoundForMissingProfile(t *testing.T) {
 	identity, err := valueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
-	_, err = reader.NewGetUserReader(pool).GetUser(ctx, queries.GetUserQuery{UserID: identity})
-	require.ErrorIs(t, err, queries.ErrUserNotFound)
+	_, err = reader.NewGetProfileReader(pool).GetProfile(ctx, queries.GetProfileQuery{UserID: identity})
+	require.ErrorIs(t, err, queries.ErrProfileNotFound)
 }
 
-func applyUserProfileMigrations(t *testing.T, ctx context.Context, dsn string) {
+func applyProfileMigrations(t *testing.T, ctx context.Context, dsn string) {
 	t.Helper()
 	config, err := pgx.ParseConfig(dsn)
 	require.NoError(t, err)
@@ -106,7 +106,7 @@ func applyUserProfileMigrations(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	for _, migration := range []string{"000008_users.up.sql", "000011_user_profiles.up.sql"} {
+	for _, migration := range []string{"000008_users.up.sql", "000011_user_profiles.up.sql", "000012_user_profiles_seed.up.sql"} {
 		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", migration))
 		require.NoError(t, err)
 		_, err = conn.Exec(ctx, string(content))
@@ -137,4 +137,45 @@ func insertProfile(t *testing.T, ctx context.Context, dsn string, userID uuid.UU
 		VALUES ($1, $2, $3, $4, $5)
 	`, userID, name, surname, position, location)
 	require.NoError(t, err)
+}
+
+func TestPostgresGetProfileReaderReturnsSeededDemoProfiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine",
+		testpostgres.WithDatabase("developers_cv"),
+		testpostgres.WithUsername("developers_cv"),
+		testpostgres.WithPassword("test-password"),
+		testpostgres.BasicWaitStrategies(),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, container.Terminate(ctx)) })
+
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyProfileMigrations(t, ctx, dsn)
+
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { pool.Close() })
+
+	profile, err := reader.NewGetProfileReader(pool).GetProfile(ctx, queries.GetProfileQuery{
+		UserID: mustUserID(t, "10000000-0000-0000-0000-000000000001"),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Антон", profile.Name)
+	require.Equal(t, "Профиль", profile.Surname)
+	require.Equal(t, "Profile Owner", *profile.Position)
+}
+
+func mustUserID(t *testing.T, value string) valueobjects.ID {
+	t.Helper()
+	id, err := uuid.Parse(value)
+	require.NoError(t, err)
+	identity, err := valueobjects.IDFromUUID(id)
+	require.NoError(t, err)
+	return identity
 }

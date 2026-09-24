@@ -1,6 +1,6 @@
 package queries
 
-type User struct {
+type Profile struct {
 	ID         string  `json:"userId"`
 	Name       string  `json:"name"`
 	Surname    string  `json:"surname"`

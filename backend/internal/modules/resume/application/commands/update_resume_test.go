@@ -17,6 +17,8 @@ type updateRepositoryStub struct {
 	resume       *domain.Resume
 	saved        *domain.Resume
 	err          error
+	title        string
+	updateCalls  int
 	lastUserID   useridentity.ID
 	lastResumeID valueobjects.ID
 }
@@ -37,6 +39,14 @@ func (r *updateRepositoryStub) GetByID(
 func (r *updateRepositoryStub) Save(_ context.Context, resume *domain.Resume) error {
 	r.saved = resume
 	return nil
+}
+
+func (r *updateRepositoryStub) UpdateTitle(_ context.Context, userID useridentity.ID, resumeID valueobjects.ID, title string) error {
+	r.updateCalls++
+	r.lastUserID = userID
+	r.lastResumeID = resumeID
+	r.title = title
+	return r.err
 }
 
 type updateUnitOfWorkStub struct{}
@@ -92,25 +102,39 @@ func TestUpdateResumeHandlerReturnsNotFoundForForeignResume(t *testing.T) {
 	require.Equal(t, resume.ID(), repo.lastResumeID)
 }
 
-func TestPatchResumeHandlerChangesOnlyTitle(t *testing.T) {
+func TestPatchResumeHandlerUpdatesOnlyTitleWithinOwnerScope(t *testing.T) {
 	owner := useridentity.NewID()
 	resume := testUpdateResume(t, owner, "Old title")
-	position := resume.Position()
-	name := resume.Name()
 	repo := &updateRepositoryStub{resume: resume}
 	handler := NewPatchResumeHandler(repo, updateUnitOfWorkStub{})
 
 	result, err := handler.Handle(context.Background(), PatchResumeCommand{
 		ResumeID: resume.ID(),
 		UserID:   owner,
-		Title:    "New title",
+		Title:    " New title ",
 	})
 	require.NoError(t, err)
 	require.Equal(t, resume.ID(), result.ResumeID)
 	require.Equal(t, "New title", result.Title)
-	require.Equal(t, "New title", repo.saved.Title())
-	require.Equal(t, position, repo.saved.Position())
-	require.Equal(t, name, repo.saved.Name())
+	require.Equal(t, "New title", repo.title)
+	require.Equal(t, 1, repo.updateCalls)
+	require.Equal(t, owner, repo.lastUserID)
+	require.Equal(t, resume.ID(), repo.lastResumeID)
+	require.Nil(t, repo.saved)
+}
+
+func TestPatchResumeHandlerRejectsEmptyTitleWithoutRepositoryCall(t *testing.T) {
+	repo := &updateRepositoryStub{}
+	handler := NewPatchResumeHandler(repo, updateUnitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), PatchResumeCommand{
+		ResumeID: valueobjects.NewID(),
+		UserID:   useridentity.NewID(),
+		Title:    "   ",
+	})
+
+	require.Error(t, err)
+	require.Zero(t, repo.updateCalls)
 }
 
 func testUpdateResume(t *testing.T, userID useridentity.ID, title string) *domain.Resume {

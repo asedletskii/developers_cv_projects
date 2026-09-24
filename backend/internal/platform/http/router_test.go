@@ -165,10 +165,10 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 	require.Contains(t, w.Body.String(), "Public Resume")
 }
 
-type routerGetUserReader struct{}
+type routerGetProfileReader struct{}
 
-func (routerGetUserReader) GetUser(_ context.Context, query userqueries.GetUserQuery) (userqueries.User, error) {
-	return userqueries.User{
+func (routerGetProfileReader) GetProfile(_ context.Context, query userqueries.GetProfileQuery) (userqueries.Profile, error) {
+	return userqueries.Profile{
 		ID:      query.UserID.String(),
 		Name:    "Anton",
 		Surname: "User",
@@ -193,7 +193,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(nil, nil, nil, nil, nil),
-		userhttp.NewHandler(userqueries.NewGetUserHandler(routerGetUserReader{})),
+		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{})),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return userID, nil
 		},

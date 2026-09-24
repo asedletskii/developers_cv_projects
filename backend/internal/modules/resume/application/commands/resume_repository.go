@@ -11,4 +11,5 @@ import (
 type ResumeRepository interface {
 	GetByID(ctx context.Context, userID useridentity.ID, id valueobjects.ID) (*domain.Resume, error)
 	Save(ctx context.Context, resume *domain.Resume) error
+	UpdateTitle(ctx context.Context, userID useridentity.ID, resumeID valueobjects.ID, title string) error
 }

@@ -188,10 +188,17 @@ func (p *Resume) SoftSkills() []enums.SoftSkill            { return cloneSoftSki
 func (p *Resume) Technologies() []entities.Technology      { return cloneTechnologies(p.technologies) }
 func (p *Resume) Projects() []entities.Project             { return cloneProjects(p.projects) }
 
+func ValidateResumeTitle(title string) error {
+	if strings.TrimSpace(title) == "" {
+		return fmt.Errorf("%w: title is empty", ErrResumeInvariant)
+	}
+	return nil
+}
+
 func (p *Resume) Rename(title string) error {
 	title = strings.TrimSpace(title)
-	if title == "" {
-		return fmt.Errorf("%w: title is empty", ErrResumeInvariant)
+	if err := ValidateResumeTitle(title); err != nil {
+		return err
 	}
 	p.title = title
 	return nil

@@ -13,16 +13,16 @@ import (
 )
 
 type Handler struct {
-	getUser *queries.GetUserHandler
+	getProfile *queries.GetProfileHandler
 }
 
-func NewHandler(getUser *queries.GetUserHandler) *Handler {
-	return &Handler{getUser: getUser}
+func NewHandler(getProfile *queries.GetProfileHandler) *Handler {
+	return &Handler{getProfile: getProfile}
 }
 
 func (h *Handler) GetProfile(c *gin.Context) {
-	if h == nil || h.getUser == nil {
-		writeError(c, apperrors.Internal(errors.New("get user handler dependencies are nil")))
+	if h == nil || h.getProfile == nil {
+		writeError(c, apperrors.Internal(errors.New("get profile handler dependencies are nil")))
 		return
 	}
 
@@ -38,9 +38,9 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.getUser.Handle(c.Request.Context(), queries.GetUserQuery{UserID: identity})
+	profile, err := h.getProfile.Handle(c.Request.Context(), queries.GetProfileQuery{UserID: identity})
 	if err != nil {
-		if errors.Is(err, queries.ErrUserNotFound) {
+		if errors.Is(err, queries.ErrProfileNotFound) {
 			writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Profile not found"))
 			return
 		}
@@ -48,7 +48,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, profile)
 }
 
 func writeError(c *gin.Context, err error) {

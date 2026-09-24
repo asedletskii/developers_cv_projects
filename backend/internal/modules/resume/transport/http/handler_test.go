@@ -183,6 +183,9 @@ func (f *fakeCreateResumeRepository) Save(_ context.Context, resume *domain.Resu
 	f.saved = resume
 	return nil
 }
+func (f *fakeCreateResumeRepository) UpdateTitle(context.Context, useridentity.ID, valueobjects.ID, string) error {
+	return nil
+}
 
 type fakeCreateResumeUoW struct{ calls int }
 
@@ -329,6 +332,18 @@ func (r *updateResumeRepositoryStub) Save(_ context.Context, resume *domain.Resu
 	return nil
 }
 
+func (r *updateResumeRepositoryStub) UpdateTitle(_ context.Context, _ useridentity.ID, _ valueobjects.ID, title string) error {
+	if r.err != nil {
+		return r.err
+	}
+	if r.resume != nil {
+		if err := r.resume.Rename(title); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type updateResumeUoWStub struct{}
 
 func (updateResumeUoWStub) Do(ctx context.Context, fn func(context.Context) error) error {
@@ -363,8 +378,10 @@ func TestPatchResumeHTTPChangesTitle(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), `"id":"`+resumeID.String()+`"`)
 	require.Contains(t, w.Body.String(), `"title":"New title"`)
-	require.Equal(t, "New title", repo.saved.Title())
-	require.Equal(t, "Senior Go Developer", repo.saved.Position())
+	require.NotNil(t, repo.resume)
+	require.Equal(t, "New title", repo.resume.Title())
+	require.Equal(t, "Senior Go Developer", repo.resume.Position())
+	require.Nil(t, repo.saved)
 }
 
 func TestPatchResumeHTTPRejectsForeignResume(t *testing.T) {

@@ -42,8 +42,8 @@ func newListResumesReader(pool *pgxpool.Pool) resumequeries.ListResumesReader {
 	return resumereader.NewListResumesReader(pool)
 }
 
-func newGetUserReader(pool *pgxpool.Pool) userqueries.GetUserReader {
-	return userreader.NewGetUserReader(pool)
+func newGetProfileReader(pool *pgxpool.Pool) userqueries.GetProfileReader {
+	return userreader.NewGetProfileReader(pool)
 }
 
 func newAuthenticate(authenticator *userauth.MockAuthenticator) httpmiddleware.AuthenticateFunc {

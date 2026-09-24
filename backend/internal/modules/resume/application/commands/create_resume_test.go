@@ -28,6 +28,10 @@ func (f *fakeResumeRepository) Save(_ context.Context, resume *domain.Resume) er
 	return f.err
 }
 
+func (f *fakeResumeRepository) UpdateTitle(context.Context, useridentity.ID, valueobjects.ID, string) error {
+	return f.err
+}
+
 type fakeUnitOfWork struct {
 	err   error
 	calls int
