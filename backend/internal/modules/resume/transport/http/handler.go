@@ -7,6 +7,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	contactshandler "developers-cv/backend/internal/modules/resume/transport/http/contacts"
 	createhandler "developers-cv/backend/internal/modules/resume/transport/http/create"
+	experiencesHandler "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	gethandler "developers-cv/backend/internal/modules/resume/transport/http/get"
 	languagesHandler "developers-cv/backend/internal/modules/resume/transport/http/languages"
 	listhandler "developers-cv/backend/internal/modules/resume/transport/http/list"
@@ -30,6 +31,7 @@ type Handler struct {
 	skills       *skillsHandler.Handler
 	languages    *languagesHandler.Handler
 	technologies *technologiesHandler.Handler
+	experiences  *experiencesHandler.Handler
 }
 
 func NewHandler(
@@ -51,6 +53,7 @@ func NewHandler(
 	skills *skillsHandler.Handler,
 	languages *languagesHandler.Handler,
 	technologies *technologiesHandler.Handler,
+	experiences *experiencesHandler.Handler,
 ) *Handler {
 	return &Handler{
 		create:       createhandler.NewHandler(createResume, getResume),
@@ -64,6 +67,7 @@ func NewHandler(
 		skills:       skills,
 		languages:    languages,
 		technologies: technologies,
+		experiences:  experiences,
 	}
 }
 
@@ -116,3 +120,8 @@ func (h *Handler) ListTechnologies(c *gin.Context) { h.technologies.List(c) }
 func (h *Handler) GetTechnology(c *gin.Context)    { h.technologies.Get(c) }
 func (h *Handler) UpdateTechnology(c *gin.Context) { h.technologies.Update(c) }
 func (h *Handler) DeleteTechnology(c *gin.Context) { h.technologies.Delete(c) }
+func (h *Handler) CreateExperience(c *gin.Context) { h.experiences.Create(c) }
+func (h *Handler) ListExperiences(c *gin.Context)  { h.experiences.List(c) }
+func (h *Handler) GetExperience(c *gin.Context)    { h.experiences.Get(c) }
+func (h *Handler) UpdateExperience(c *gin.Context) { h.experiences.Update(c) }
+func (h *Handler) DeleteExperience(c *gin.Context) { h.experiences.Delete(c) }

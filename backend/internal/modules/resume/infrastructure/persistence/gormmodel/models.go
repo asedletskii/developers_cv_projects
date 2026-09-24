@@ -346,3 +346,32 @@ func (ResumeSkillHardV2) TableName() string  { return "resume_skill_hard_v2" }
 func (ResumeSkillSoftV2) TableName() string  { return "resume_skill_soft_v2" }
 func (ResumeLanguageV2) TableName() string   { return "resume_languages_v2" }
 func (ResumeTechnologyV2) TableName() string { return "resume_technologies_v2" }
+
+type ResumeExperience struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	SortOrder   int       `gorm:"not null"`
+	Company     string    `gorm:"not null"`
+	Position    string    `gorm:"not null"`
+	Location    *string
+	StartDate   string  `gorm:"type:date;not null"`
+	EndDate     *string `gorm:"type:date"`
+	Description *string
+}
+
+type ResumeExperienceAchievement struct {
+	ExperienceID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Position     int       `gorm:"primaryKey"`
+	Value        string    `gorm:"not null"`
+}
+
+type ResumeExperienceTechnology struct {
+	ExperienceID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Position     int       `gorm:"primaryKey"`
+	Name         string    `gorm:"not null"`
+	Grade        *string
+}
+
+func (ResumeExperience) TableName() string            { return "resume_experiences_v2" }
+func (ResumeExperienceAchievement) TableName() string { return "resume_experience_achievements_v2" }
+func (ResumeExperienceTechnology) TableName() string  { return "resume_experience_technologies_v2" }

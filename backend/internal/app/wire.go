@@ -12,6 +12,7 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
+	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
@@ -59,6 +60,7 @@ func Initialize() (*Application, error) {
 		wire.Bind(new(resumecommands.SkillsRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.LanguagesRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.TechnologiesRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumecommands.ExperiencesRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
 		userreaders.NewUserReader,
 		wire.Bind(new(userqueries.UserReader), new(*userreaders.UserReader)),
@@ -94,6 +96,12 @@ func Initialize() (*Application, error) {
 		resumecommands.NewGetTechnologyHandler,
 		resumecommands.NewUpdateTechnologyHandler,
 		resumecommands.NewDeleteTechnologyHandler,
+		resumecommands.NewCreateExperienceHandler,
+		resumecommands.NewListExperiencesHandler,
+		resumecommands.NewGetExperienceHandler,
+		resumecommands.NewUpdateExperienceHandler,
+		resumecommands.NewDeleteExperienceHandler,
+		experienceshttp.NewHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
 		httpserver.NewServer,

@@ -11,6 +11,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
+	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	languageshttp "developers-cv/backend/internal/modules/resume/transport/http/languages"
 	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
@@ -105,14 +106,20 @@ func Initialize() (*Application, error) {
 	getTechnologyHandlerValue := resumecommands.NewGetTechnologyHandler(resumeRepositoryValue)
 	updateTechnologyHandlerValue := resumecommands.NewUpdateTechnologyHandler(resumeRepositoryValue, unitOfWorkValue)
 	deleteTechnologyHandlerValue := resumecommands.NewDeleteTechnologyHandler(resumeRepositoryValue, unitOfWorkValue)
+	createExperienceHandlerValue := resumecommands.NewCreateExperienceHandler(resumeRepositoryValue, unitOfWorkValue)
+	listExperiencesHandlerValue := resumecommands.NewListExperiencesHandler(resumeRepositoryValue)
+	getExperienceHandlerValue := resumecommands.NewGetExperienceHandler(resumeRepositoryValue)
+	updateExperienceHandlerValue := resumecommands.NewUpdateExperienceHandler(resumeRepositoryValue, unitOfWorkValue)
+	deleteExperienceHandlerValue := resumecommands.NewDeleteExperienceHandler(resumeRepositoryValue, unitOfWorkValue)
 	skillsHandlerValue := skillshttp.NewHandler(createSkillsHandlerValue, getSkillsHandlerValue, updateSkillsHandlerValue)
 	languagesHandlerValue := languageshttp.NewHandler(createLanguageHandlerValue, listLanguagesHandlerValue, getLanguageHandlerValue, updateLanguageHandlerValue, deleteLanguageHandlerValue)
 	technologiesHandlerValue := technologieshttp.NewHandler(createTechnologyHandlerValue, listTechnologiesHandlerValue, getTechnologyHandlerValue, updateTechnologyHandlerValue, deleteTechnologyHandlerValue)
+	experiencesHandlerValue := experienceshttp.NewHandler(createExperienceHandlerValue, listExperiencesHandlerValue, getExperienceHandlerValue, updateExperienceHandlerValue, deleteExperienceHandlerValue)
 	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
 	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue)
+	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue, createResumeRootHandlerValue, getResumeRootHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,

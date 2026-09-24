@@ -140,6 +140,58 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Updated root", loadedRoot.Title())
 
+	startDate, err := valueobjects.ParseYearMonth("2024-01")
+	require.NoError(t, err)
+	grade := enums.TechnologyGradeSenior
+	experienceID := valueobjects.NewID()
+	experienceInput := commands.ExperienceInput{
+		ID: experienceID, ResumeID: root.ID(), Company: "Acme", Position: "Developer",
+		StartDate: startDate, Achievements: []string{"shipped v2"},
+		Technologies: []commands.ExperienceTechnologyInput{{Name: "Go", Grade: &grade}},
+	}
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.CreateExperience(txCtx, commands.CreateExperienceCommand{ID: experienceID, ResumeID: root.ID(), UserID: userID, Input: experienceInput})
+	}))
+	loadedExperiences, err := repo.ListExperiences(ctx, commands.ListExperiencesQuery{UserID: userID, ResumeID: root.ID()})
+	require.NoError(t, err)
+	require.Len(t, loadedExperiences, 1)
+
+	loadedExperience, err := repo.GetExperience(ctx, commands.GetExperienceQuery{UserID: userID, ResumeID: root.ID(), ExperienceID: experienceID})
+	require.NoError(t, err)
+	require.Equal(t, "Acme", loadedExperience.Company())
+	require.Equal(t, []string{"shipped v2"}, loadedExperience.Achievements())
+	require.Equal(t, "Go", loadedExperience.Technologies()[0].Name())
+	require.Equal(t, grade, *loadedExperience.Technologies()[0].Grade())
+
+	updatedStartDate, err := valueobjects.ParseYearMonth("2024-02")
+	require.NoError(t, err)
+	experienceInput.StartDate = updatedStartDate
+	experienceInput.Company = "Updated Acme"
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.UpdateExperience(txCtx, commands.UpdateExperienceCommand{ResumeID: root.ID(), ExperienceID: experienceID, UserID: userID, Input: experienceInput})
+	}))
+	loadedExperience, err = repo.GetExperience(ctx, commands.GetExperienceQuery{UserID: userID, ResumeID: root.ID(), ExperienceID: experienceID})
+	require.NoError(t, err)
+	require.Equal(t, "Updated Acme", loadedExperience.Company())
+	require.Equal(t, "2024-02", loadedExperience.StartDate().String())
+
+	foreignExperienceUserID := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, foreignExperienceUserID)
+	_, err = repo.GetExperience(ctx, commands.GetExperienceQuery{UserID: foreignExperienceUserID, ResumeID: root.ID(), ExperienceID: experienceID})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	missingExperienceID := valueobjects.NewID()
+	err = uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.UpdateExperience(txCtx, commands.UpdateExperienceCommand{ResumeID: root.ID(), ExperienceID: missingExperienceID, UserID: userID, Input: experienceInput})
+	})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		return repo.DeleteExperience(txCtx, commands.DeleteExperienceCommand{ResumeID: root.ID(), ExperienceID: experienceID, UserID: userID})
+	}))
+	_, err = repo.GetExperience(ctx, commands.GetExperienceQuery{UserID: userID, ResumeID: root.ID(), ExperienceID: experienceID})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
 	foreignUserID := useridentity.NewID()
 	insertResumeTestUser(t, ctx, dsn, foreignUserID)
 	_, err = repo.GetRoot(ctx, commands.GetResumeRootRepositoryQuery{UserID: foreignUserID, ResumeID: root.ID()})
