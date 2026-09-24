@@ -623,3 +623,103 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	require.Equal(t, beforeRoot.Presentation().Greeting.First().RU(), afterRoot.Presentation().Greeting.First().RU())
 	require.Equal(t, beforeRoot.Presentation().Sections, afterRoot.Presentation().Sections)
 }
+
+func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
+
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyMigrations(t, ctx, dsn)
+
+	conn, err := pgx.Connect(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	var hardCount, softCount, languageCount, technologyCount int
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard_v2").Scan(&hardCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft_v2").Scan(&softCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_languages_v2").Scan(&languageCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_technologies_v2").Scan(&technologyCount))
+	require.Greater(t, hardCount, 0)
+	require.Greater(t, softCount, 0)
+	require.Greater(t, languageCount, 0)
+	require.Greater(t, technologyCount, 0)
+
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+
+	owner := useridentity.NewID()
+	foreign := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, owner)
+	insertResumeTestUser(t, ctx, dsn, foreign)
+
+	resume := newTestResume(t, owner)
+	repo := repository.NewResumeRepository(gormDB)
+	uow := database.NewUnitOfWork(gormDB)
+	presentation := domain.ResumePresentation{
+		Greeting:     resume.Greeting(),
+		Availability: resume.Availability(),
+		ResumeLink:   resume.ResumeLink(),
+		Theme:        resume.Theme(),
+		Sections:     resume.Sections(),
+	}
+	root, err := domain.NewResumeRoot(domain.ResumeRootParams{
+		ID: resume.ID(), UserID: owner, Title: resume.Title(),
+		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), Presentation: presentation,
+	})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.CreateRoot(tx, commands.CreateResumeRootRepositoryCommand{Resume: root})
+	}))
+
+	hard := []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}
+	soft := []enums.SoftSkill{enums.SoftSkillCommunication, enums.SoftSkillTeamwork}
+	skills, err := domain.NewSkills(domain.SkillsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Hard: hard, Soft: soft})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.CreateSkills(tx, skills, owner)
+	}))
+	loadedSkills, err := repo.GetSkills(ctx, commands.GetSkillsQuery{ResumeID: root.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, hard, loadedSkills.HardSkills())
+	require.Equal(t, soft, loadedSkills.SoftSkills())
+	_, err = repo.GetSkills(ctx, commands.GetSkillsQuery{ResumeID: root.ID(), UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	languageID := valueobjects.NewID()
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.CreateLanguage(tx, commands.LanguageInput{ID: languageID, Language: enums.LanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0}, root.ID(), owner)
+	}))
+	languages, err := repo.ListLanguages(ctx, commands.ListLanguagesQuery{ResumeID: root.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Len(t, languages, 1)
+	require.Equal(t, languageID, languages[0].ID())
+	_, err = repo.GetLanguage(ctx, commands.GetLanguageQuery{ResumeID: root.ID(), LanguageID: languageID, UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	technologyID := valueobjects.NewID()
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return repo.CreateTechnology(tx, commands.TechnologyInput{ID: technologyID, Name: "Go", Grade: technologyGradePtr(enums.TechnologyGradeSenior), Position: 0}, root.ID(), owner)
+	}))
+	technology, err := repo.GetTechnology(ctx, commands.GetTechnologyQuery{ResumeID: root.ID(), TechnologyID: technologyID, UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, "Go", technology.Name())
+	_, err = repo.GetTechnology(ctx, commands.GetTechnologyQuery{ResumeID: root.ID(), TechnologyID: technologyID, UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+func languageGradePtr(value enums.LanguageGrade) *enums.LanguageGrade {
+	return &value
+}
+
+func technologyGradePtr(value enums.TechnologyGrade) *enums.TechnologyGrade {
+	return &value
+}

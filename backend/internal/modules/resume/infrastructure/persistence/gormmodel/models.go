@@ -311,3 +311,38 @@ type ResumeContactsText struct {
 }
 
 func (ResumeContactsText) TableName() string { return "resume_contacts_text_v2" }
+
+type ResumeSkillsV2 struct {
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+}
+type ResumeSkillHardV2 struct {
+	SkillsID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Value    string    `gorm:"type:text;primaryKey"`
+	Position int       `gorm:"not null"`
+}
+type ResumeSkillSoftV2 struct {
+	SkillsID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Value    string    `gorm:"type:text;primaryKey"`
+	Position int       `gorm:"not null"`
+}
+type ResumeLanguageV2 struct {
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID uuid.UUID `gorm:"type:uuid;not null;index"`
+	Language string    `gorm:"type:text;not null"`
+	Position int       `gorm:"not null"`
+	Grade    *string
+}
+type ResumeTechnologyV2 struct {
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID uuid.UUID `gorm:"type:uuid;not null;index"`
+	Name     string    `gorm:"type:text;not null"`
+	Position int       `gorm:"not null"`
+	Grade    *string
+}
+
+func (ResumeSkillsV2) TableName() string     { return "resume_skills_v2" }
+func (ResumeSkillHardV2) TableName() string  { return "resume_skill_hard_v2" }
+func (ResumeSkillSoftV2) TableName() string  { return "resume_skill_soft_v2" }
+func (ResumeLanguageV2) TableName() string   { return "resume_languages_v2" }
+func (ResumeTechnologyV2) TableName() string { return "resume_technologies_v2" }

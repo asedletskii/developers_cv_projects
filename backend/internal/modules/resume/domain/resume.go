@@ -75,7 +75,7 @@ type ResumeParams struct {
 	Projects       []entities.Project
 }
 
-type Skills struct {
+type LegacySkills struct {
 	Hard []enums.HardSkill
 	Soft []enums.SoftSkill
 }
@@ -274,7 +274,7 @@ func (p *Resume) SetWorkFormats(formats []enums.WorkFormat) error {
 	return nil
 }
 
-func (p *Resume) SetSkills(skills Skills) error {
+func (p *Resume) SetSkills(skills LegacySkills) error {
 	if err := validateSkills(skills.Hard, skills.Soft); err != nil {
 		return err
 	}

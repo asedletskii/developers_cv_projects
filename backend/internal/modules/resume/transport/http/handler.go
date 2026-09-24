@@ -8,22 +8,28 @@ import (
 	contactshandler "developers-cv/backend/internal/modules/resume/transport/http/contacts"
 	createhandler "developers-cv/backend/internal/modules/resume/transport/http/create"
 	gethandler "developers-cv/backend/internal/modules/resume/transport/http/get"
+	languagesHandler "developers-cv/backend/internal/modules/resume/transport/http/languages"
 	listhandler "developers-cv/backend/internal/modules/resume/transport/http/list"
 	patchhandler "developers-cv/backend/internal/modules/resume/transport/http/patch"
 	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
 	resumeroot "developers-cv/backend/internal/modules/resume/transport/http/root"
+	skillsHandler "developers-cv/backend/internal/modules/resume/transport/http/skills"
+	technologiesHandler "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 	updatehandler "developers-cv/backend/internal/modules/resume/transport/http/update"
 )
 
 type Handler struct {
-	create   *createhandler.Handler
-	get      *gethandler.Handler
-	list     *listhandler.Handler
-	patch    *patchhandler.Handler
-	update   *updatehandler.Handler
-	root     *resumeroot.Handler
-	profile  *profilehandler.Handler
-	contacts *contactshandler.Handler
+	create       *createhandler.Handler
+	get          *gethandler.Handler
+	list         *listhandler.Handler
+	patch        *patchhandler.Handler
+	update       *updatehandler.Handler
+	root         *resumeroot.Handler
+	profile      *profilehandler.Handler
+	contacts     *contactshandler.Handler
+	skills       *skillsHandler.Handler
+	languages    *languagesHandler.Handler
+	technologies *technologiesHandler.Handler
 }
 
 func NewHandler(
@@ -42,16 +48,22 @@ func NewHandler(
 	createContacts *commands.CreateResumeContactsHandler,
 	getContacts *commands.GetResumeContactsHandler,
 	updateContacts *commands.UpdateResumeContactsHandler,
+	skills *skillsHandler.Handler,
+	languages *languagesHandler.Handler,
+	technologies *technologiesHandler.Handler,
 ) *Handler {
 	return &Handler{
-		create:   createhandler.NewHandler(createResume, getResume),
-		get:      gethandler.NewHandler(getResume),
-		list:     listhandler.NewHandler(listResumes),
-		patch:    patchhandler.NewHandler(patchResume),
-		update:   updatehandler.NewHandler(updateResume, getResume),
-		root:     resumeroot.NewHandler(createRoot, getRoot, updateRoot, deleteRoot),
-		profile:  profilehandler.NewHandler(createProfile, getProfile, updateProfile),
-		contacts: contactshandler.NewHandler(createContacts, getContacts, updateContacts),
+		create:       createhandler.NewHandler(createResume, getResume),
+		get:          gethandler.NewHandler(getResume),
+		list:         listhandler.NewHandler(listResumes),
+		patch:        patchhandler.NewHandler(patchResume),
+		update:       updatehandler.NewHandler(updateResume, getResume),
+		root:         resumeroot.NewHandler(createRoot, getRoot, updateRoot, deleteRoot),
+		profile:      profilehandler.NewHandler(createProfile, getProfile, updateProfile),
+		contacts:     contactshandler.NewHandler(createContacts, getContacts, updateContacts),
+		skills:       skills,
+		languages:    languages,
+		technologies: technologies,
 	}
 }
 
@@ -90,3 +102,17 @@ func (h *Handler) UpdateResumeProfile(c *gin.Context)  { h.profile.Update(c) }
 func (h *Handler) CreateResumeContacts(c *gin.Context) { h.contacts.Create(c) }
 func (h *Handler) GetResumeContacts(c *gin.Context)    { h.contacts.Get(c) }
 func (h *Handler) UpdateResumeContacts(c *gin.Context) { h.contacts.Update(c) }
+
+func (h *Handler) CreateSkills(c *gin.Context)     { h.skills.Create(c) }
+func (h *Handler) GetSkills(c *gin.Context)        { h.skills.Get(c) }
+func (h *Handler) UpdateSkills(c *gin.Context)     { h.skills.Update(c) }
+func (h *Handler) CreateLanguage(c *gin.Context)   { h.languages.Create(c) }
+func (h *Handler) ListLanguages(c *gin.Context)    { h.languages.List(c) }
+func (h *Handler) GetLanguage(c *gin.Context)      { h.languages.Get(c) }
+func (h *Handler) UpdateLanguage(c *gin.Context)   { h.languages.Update(c) }
+func (h *Handler) DeleteLanguage(c *gin.Context)   { h.languages.Delete(c) }
+func (h *Handler) CreateTechnology(c *gin.Context) { h.technologies.Create(c) }
+func (h *Handler) ListTechnologies(c *gin.Context) { h.technologies.List(c) }
+func (h *Handler) GetTechnology(c *gin.Context)    { h.technologies.Get(c) }
+func (h *Handler) UpdateTechnology(c *gin.Context) { h.technologies.Update(c) }
+func (h *Handler) DeleteTechnology(c *gin.Context) { h.technologies.Delete(c) }
