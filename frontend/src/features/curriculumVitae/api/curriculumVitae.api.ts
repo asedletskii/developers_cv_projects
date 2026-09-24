@@ -1,29 +1,66 @@
-import { Person, Project } from '@features/curriculumVitae/types'
+import { LkProfile, LkResumeSummary, Person } from '@features/curriculumVitae/types'
 import { normalizePerson } from '@features/curriculumVitae/utils'
 import { api } from '@shared/api'
-import { Languages } from '@shared/types'
 
+/** Пока без авторизации: бэкенд узнаёт владельца `/lk/*` по этому заголовку. */
+const ownerHeaders = (userId: string) => ({ 'X-Mock-User-ID': userId })
+
+const resumeUrl = (resumeId: string) => `/lk/resume/${encodeURIComponent(resumeId)}`
+
+/** Пути ручек — как на бэкенде (`backend/internal/platform/http/router.go`). */
 class CurriculumVitaeApi {
-  baseUrl = '/cv'
-
-  async getPersonData(cvId: string, lang: Languages, signal?: AbortSignal): Promise<Person> {
-    const url = `${this.baseUrl}/${encodeURIComponent(cvId)}`
-
-    const response = await api.get<Person>(url, { params: { lang }, signal })
+  /** Публичное резюме — без владельца */
+  async getPublicResume(resumeId: string, signal?: AbortSignal): Promise<Person> {
+    const response = await api.get<Person>(`/cv/${encodeURIComponent(resumeId)}`, { signal })
     return normalizePerson(response.data)
   }
 
-  async updatePersonData(cvId: string, person: Person, signal?: AbortSignal): Promise<Person> {
-    const url = `${this.baseUrl}/${encodeURIComponent(cvId)}`
+  async getProfile(userId: string, signal?: AbortSignal): Promise<LkProfile> {
+    const response = await api.get<LkProfile>('/lk/profile', {
+      signal,
+      headers: ownerHeaders(userId),
+    })
+    return response.data
+  }
 
-    const response = await api.put<Person>(url, person, { signal })
+  async getResumes(userId: string, signal?: AbortSignal): Promise<LkResumeSummary[]> {
+    const response = await api.get<LkResumeSummary[]>('/lk/resumes', {
+      signal,
+      headers: ownerHeaders(userId),
+    })
+    return response.data
+  }
+
+  /** Резюме владельца (бэк отдаёт 404, если оно чужое) */
+  async getResume(userId: string, resumeId: string, signal?: AbortSignal): Promise<Person> {
+    const response = await api.get<Person>(resumeUrl(resumeId), {
+      signal,
+      headers: ownerHeaders(userId),
+    })
     return normalizePerson(response.data)
   }
 
-  async getProject(projectId: string): Promise<Project> {
-    const url = `${this.baseUrl}/projectId=${projectId}`
+  /** `id` в теле бэк игнорирует и генерирует новый */
+  async createResume(userId: string, person: Person): Promise<Person> {
+    const response = await api.post<Person>('/lk/resume', person, {
+      headers: ownerHeaders(userId),
+    })
+    return normalizePerson(response.data)
+  }
 
-    const response = await api.get<Project>(url)
+  async updateResume(userId: string, resumeId: string, person: Person): Promise<Person> {
+    const response = await api.put<Person>(resumeUrl(resumeId), person, {
+      headers: ownerHeaders(userId),
+    })
+    return normalizePerson(response.data)
+  }
+
+  async renameResume(userId: string, resumeId: string, title: string): Promise<LkResumeSummary> {
+    const response = await api.patch<LkResumeSummary>(
+      resumeUrl(resumeId),
+      { title },
+      { headers: ownerHeaders(userId) },
+    )
     return response.data
   }
 }

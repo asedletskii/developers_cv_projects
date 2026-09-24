@@ -5,7 +5,6 @@
       "@app/*": ["./src/app/*"],
 
       "@features/curriculumVitae/*": ["./src/features/curriculumVitae/*"],
-      "@features/lk/*": ["./src/features/lk/*"],
 
       "@shared/animations/*": ["./src/shared/animations/*"],
       "@shared/animations": ["./src/shared/animations"],
