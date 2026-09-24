@@ -3,7 +3,9 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
@@ -115,23 +117,16 @@ func (h *PatchResumeHandler) Handle(ctx context.Context, command PatchResumeComm
 		return PatchResumeResult{}, fmt.Errorf("invalid patch resume command")
 	}
 
-	var result PatchResumeResult
+	if err := domain.ValidateResumeTitle(command.Title); err != nil {
+		return PatchResumeResult{}, err
+	}
+
+	title := strings.TrimSpace(command.Title)
 	err := h.uow.Do(ctx, func(txCtx context.Context) error {
-		resume, err := h.repository.GetByID(txCtx, command.UserID, command.ResumeID)
-		if err != nil {
-			return err
-		}
-		if err := resume.Rename(command.Title); err != nil {
-			return err
-		}
-		if err := h.repository.Save(txCtx, resume); err != nil {
-			return err
-		}
-		result = PatchResumeResult{ResumeID: resume.ID(), Title: resume.Title()}
-		return nil
+		return h.repository.UpdateTitle(txCtx, command.UserID, command.ResumeID, title)
 	})
 	if err != nil {
 		return PatchResumeResult{}, err
 	}
-	return result, nil
+	return PatchResumeResult{ResumeID: command.ResumeID, Title: title}, nil
 }

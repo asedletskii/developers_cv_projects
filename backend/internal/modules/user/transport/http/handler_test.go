@@ -15,15 +15,15 @@ import (
 	"developers-cv/backend/internal/platform/http/middleware"
 )
 
-type stubGetUserReader struct {
-	user   queries.User
-	err    error
-	userID valueobjects.ID
+type stubGetProfileReader struct {
+	profile queries.Profile
+	err     error
+	userID  valueobjects.ID
 }
 
-func (r *stubGetUserReader) GetUser(_ context.Context, query queries.GetUserQuery) (queries.User, error) {
+func (r *stubGetProfileReader) GetProfile(_ context.Context, query queries.GetProfileQuery) (queries.Profile, error) {
 	r.userID = query.UserID
-	return r.user, r.err
+	return r.profile, r.err
 }
 
 func TestGetProfileReturnsAuthenticatedUserProfile(t *testing.T) {
@@ -32,7 +32,7 @@ func TestGetProfileReturnsAuthenticatedUserProfile(t *testing.T) {
 	identity, err := valueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
-	reader := &stubGetUserReader{user: queries.User{
+	reader := &stubGetProfileReader{profile: queries.Profile{
 		ID:         userID.String(),
 		Name:       "Антон",
 		Surname:    "Седлецкий",
@@ -41,7 +41,7 @@ func TestGetProfileReturnsAuthenticatedUserProfile(t *testing.T) {
 		Location:   stringPtr("Новосибирск"),
 		PhotoPath:  stringPtr("/mock/avatar.svg"),
 	}}
-	handler := NewHandler(queries.NewGetUserHandler(reader))
+	handler := NewHandler(queries.NewGetProfileHandler(reader))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
@@ -62,7 +62,7 @@ func TestGetProfileReturnsAuthenticatedUserProfile(t *testing.T) {
 
 func TestGetProfileRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetUserHandler(&stubGetUserReader{}))
+	handler := NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, middleware.ErrUnauthenticated
@@ -79,7 +79,7 @@ func TestGetProfileRequiresAuthentication(t *testing.T) {
 
 func TestGetProfileReturnsNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(queries.NewGetUserHandler(&stubGetUserReader{err: queries.ErrUserNotFound}))
+	handler := NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{err: queries.ErrProfileNotFound}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.New(), nil
@@ -97,12 +97,12 @@ func TestGetProfileReturnsNotFound(t *testing.T) {
 func TestGetProfileHasNoUserIDInputSurface(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
-	reader := &stubGetUserReader{user: queries.User{
+	reader := &stubGetProfileReader{profile: queries.Profile{
 		ID:      userID.String(),
 		Name:    "Anton",
 		Surname: "User",
 	}}
-	handler := NewHandler(queries.NewGetUserHandler(reader))
+	handler := NewHandler(queries.NewGetProfileHandler(reader))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil

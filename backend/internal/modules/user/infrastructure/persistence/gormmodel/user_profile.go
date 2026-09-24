@@ -17,3 +17,7 @@ type UserProfile struct {
 	CreatedAt  time.Time `gorm:"not null"`
 	UpdatedAt  time.Time `gorm:"not null"`
 }
+
+func (UserProfile) TableName() string {
+	return "user_profiles"
+}

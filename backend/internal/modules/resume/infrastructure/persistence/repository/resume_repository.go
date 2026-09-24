@@ -44,6 +44,43 @@ func (r *ResumeRepository) GetByID(ctx context.Context, userID useridentity.ID, 
 	return r.loadAggregate(ctx, db, resumeModel)
 }
 
+func (r *ResumeRepository) UpdateTitle(
+	ctx context.Context,
+	userID useridentity.ID,
+	resumeID valueobjects.ID,
+	title string,
+) error {
+	if userID.IsZero() {
+		return fmt.Errorf("update resume title: invalid user id")
+	}
+	if resumeID.IsZero() {
+		return fmt.Errorf("update resume title: invalid resume id")
+	}
+	if err := domain.ValidateResumeTitle(title); err != nil {
+		return err
+	}
+
+	tx, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return fmt.Errorf("update resume title: %w", err)
+	}
+
+	result := tx.WithContext(ctx).
+		Model(&gormmodel.Resume{}).
+		Where("id = ? AND user_id = ?", resumeID.UUID(), userID.UUID()).
+		Updates(map[string]any{
+			"title":      title,
+			"updated_at": time.Now().UTC(),
+		})
+	if result.Error != nil {
+		return fmt.Errorf("update resume title: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrEntityNotFound
+	}
+	return nil
+}
+
 func (r *ResumeRepository) Save(ctx context.Context, resume *domain.Resume) error {
 	if resume == nil {
 		return fmt.Errorf("save resume: %w", domain.ErrInvalidResume)

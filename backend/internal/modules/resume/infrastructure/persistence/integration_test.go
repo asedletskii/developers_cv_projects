@@ -25,8 +25,10 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/reader"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
+	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userdomain "developers-cv/backend/internal/modules/user/domain"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	userreader "developers-cv/backend/internal/modules/user/infrastructure/persistence/reader"
 	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	"developers-cv/backend/internal/platform/postgres"
@@ -96,6 +98,15 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 
 	require.NoError(t, userRepository.Save(ctx, user))
 
+	profileConn, err := pgx.Connect(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, profileConn.Close(ctx)) })
+	_, err = profileConn.Exec(ctx, `
+		INSERT INTO user_profiles (user_id, name, surname, position, location, photo_path)
+		VALUES ($1, 'Profile Name', 'Profile Surname', 'Profile Position', 'Profile Location', '/profiles/profile.svg')
+	`, userID.UUID())
+	require.NoError(t, err)
+
 	uow := database.NewUnitOfWork(gormDB)
 
 	resume := newTestResume(t, userID)
@@ -118,6 +129,17 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, resume.Title(), loaded.Title())
 	require.Equal(t, userID.UUID(), loaded.UserID().UUID())
 	require.Len(t, loaded.Experience(), 1)
+
+	profile, err := userreader.NewGetProfileReader(pool).GetProfile(
+		ctx,
+		userqueries.GetProfileQuery{UserID: userID},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "Profile Name", profile.Name)
+	require.Equal(t, "Profile Surname", profile.Surname)
+	require.Equal(t, "Profile Position", *profile.Position)
+	require.NotEqual(t, loaded.Name(), profile.Name)
+	require.NotEqual(t, loaded.Surname(), profile.Surname)
 
 	otherUserID := useridentity.NewID()
 	otherUser := newTestUser(t, otherUserID)
@@ -176,6 +198,7 @@ func TestPostgresPersistenceRoundTrip(t *testing.T) {
 	require.Equal(t, "Hello", readModel.Greeting.First)
 	require.Equal(t, "Developer", readModel.Position)
 	require.Equal(t, "Developer", readModel.Title)
+	require.Equal(t, []string{"remote", "office"}, readModel.WorkFormat)
 	require.Len(t, readModel.Experience, 1)
 	require.Equal(t, "2024-01", readModel.Experience[0].StartDate)
 
