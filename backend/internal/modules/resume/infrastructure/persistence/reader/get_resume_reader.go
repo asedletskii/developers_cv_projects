@@ -37,14 +37,14 @@ func (r *GetResumeReader) GetResume(
 	var patronymic, resumeLink *string
 	var updatedAt time.Time
 	var availabilityJSON, themeJSON, sectionsJSON, hiddenJSON, contactsTextJSON,
-		contactsJSON, languagesJSON, experienceJSON, educationJSON, coursesJSON,
+		workFormatJSON, contactsJSON, languagesJSON, experienceJSON, educationJSON, coursesJSON,
 		activitiesJSON, hardSkillsJSON, softSkillsJSON, technologiesJSON, projectsJSON []byte
 	var greetingJSON []byte
 
 	row := r.pool.QueryRow(ctx, resumeQuerySQL, query.ID, userID, string(query.Lang))
 	err := row.Scan(
 		&p.ID, &p.Name, &p.Surname, &patronymic, &p.Position, &p.Title, &updatedAt, &resumeLink, &p.PhotoPath,
-		&p.DateOfBirth, &p.Location, &p.Relocation, &greetingJSON, &availabilityJSON, &themeJSON,
+		&p.DateOfBirth, &p.Location, &p.Relocation, &workFormatJSON, &greetingJSON, &availabilityJSON, &themeJSON,
 		&sectionsJSON, &hiddenJSON, &contactsTextJSON, &contactsJSON, &languagesJSON, &experienceJSON,
 		&educationJSON, &coursesJSON, &activitiesJSON, &hardSkillsJSON, &softSkillsJSON, &technologiesJSON, &projectsJSON,
 	)
@@ -59,6 +59,9 @@ func (r *GetResumeReader) GetResume(
 	p.UpdatedAt = &updatedAt
 	p.ResumeLink = resumeLink
 	if err := unmarshal(greetingJSON, &p.Greeting); err != nil {
+		return queries.Resume{}, err
+	}
+	if err := unmarshal(ensureArray(workFormatJSON), &p.WorkFormat); err != nil {
 		return queries.Resume{}, err
 	}
 	if err := unmarshalOptional(availabilityJSON, &p.Availability); err != nil {
@@ -147,6 +150,7 @@ SELECT
     to_char(p.date_of_birth, 'YYYY-MM-DD'),
     p.location,
     p.relocation,
+    COALESCE((SELECT jsonb_agg(w.value ORDER BY w.position) FROM resume_work_formats w WHERE w.resume_id = p.id), '[]'::jsonb),
     jsonb_build_object(
         'first', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(g.first_en, ''), g.first_ru) ELSE g.first_ru END,
         'second', CASE WHEN $3 = 'en' THEN COALESCE(NULLIF(g.second_en, ''), g.second_ru) ELSE g.second_ru END,

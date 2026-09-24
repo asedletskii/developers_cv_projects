@@ -17,7 +17,6 @@ import (
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/reader"
-	"developers-cv/backend/internal/platform/database"
 )
 
 func TestPostgresGetUserReaderReturnsUserProfile(t *testing.T) {
@@ -30,6 +29,7 @@ func TestPostgresGetUserReaderReturnsUserProfile(t *testing.T) {
 		testpostgres.WithDatabase("developers_cv"),
 		testpostgres.WithUsername("developers_cv"),
 		testpostgres.WithPassword("test-password"),
+		testpostgres.BasicWaitStrategies(),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, container.Terminate(ctx)) })
@@ -76,6 +76,7 @@ func TestPostgresGetUserReaderReturnsNotFoundForMissingProfile(t *testing.T) {
 		testpostgres.WithDatabase("developers_cv"),
 		testpostgres.WithUsername("developers_cv"),
 		testpostgres.WithPassword("test-password"),
+		testpostgres.BasicWaitStrategies(),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, container.Terminate(ctx)) })

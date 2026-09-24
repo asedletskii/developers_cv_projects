@@ -16,7 +16,7 @@ type Resume struct {
 	Title       string `gorm:"not null"`
 	ResumeLink  *string
 	PhotoPath   string    `gorm:"not null"`
-	DateOfBirth string    `gorm:"type:date;not null"`
+	DateOfBirth time.Time `gorm:"type:date;not null"`
 	Location    string    `gorm:"not null"`
 	Relocation  bool      `gorm:"not null"`
 	UpdatedAt   time.Time `gorm:"not null"`
@@ -35,9 +35,9 @@ type Greeting struct {
 }
 
 type Availability struct {
-	ResumeID uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Status   string    `gorm:"not null"`
-	From     *string   `gorm:"type:date"`
+	ResumeID uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	Status   string     `gorm:"not null"`
+	From     *time.Time `gorm:"type:date"`
 	NoteRU   *string
 	NoteEN   *string
 }
@@ -69,6 +69,30 @@ type Contact struct {
 	Phone    *string
 	Telegram *string
 	Email    *string
+}
+
+func (Greeting) TableName() string {
+	return "resume_greetings"
+}
+
+func (Availability) TableName() string {
+	return "resume_availability"
+}
+
+func (Theme) TableName() string {
+	return "resume_themes"
+}
+
+func (ContactsText) TableName() string {
+	return "resume_contacts_text"
+}
+
+func (Section) TableName() string {
+	return "resume_sections"
+}
+
+func (Contact) TableName() string {
+	return "resume_contacts"
 }
 
 type ResumeWorkFormat struct {
