@@ -56,5 +56,5 @@ func (h *Handler) Handle(c *gin.Context) {
 		common.WriteQueryError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, resume)
+	c.JSON(http.StatusCreated, resume)
 }

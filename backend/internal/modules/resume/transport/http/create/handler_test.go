@@ -85,7 +85,7 @@ func TestHandlerCreatesResume(t *testing.T) {
 
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusCreated, w.Code)
 	require.Contains(t, w.Body.String(), `"id":"created"`)
 	require.Equal(t, 1, uow.calls)
 	require.NotNil(t, repo.saved)
