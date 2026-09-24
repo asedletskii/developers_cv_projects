@@ -28,7 +28,7 @@ func (r *stubListReader) ListResumes(_ context.Context, query queries.ListResume
 func TestHandlerRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	handler := NewHandler(queries.NewListResumesHandler(&stubListReader{}))
+	handler := NewHandler(queries.NewListResumesQueryHandler(&stubListReader{}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, middleware.ErrUnauthenticated
@@ -52,7 +52,7 @@ func TestHandlerReturnsCurrentUsersResumes(t *testing.T) {
 			{ID: "resume-a", Title: "Senior Go Developer"},
 		},
 	}
-	handler := NewHandler(queries.NewListResumesHandler(reader))
+	handler := NewHandler(queries.NewListResumesQueryHandler(reader))
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {

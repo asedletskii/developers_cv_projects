@@ -128,7 +128,7 @@ func Initialize() (*Application, error) {
 		userauth.NewMockAuthenticator,
 		newAuthenticate,
 		resumequeries.NewPublicResumeQueryHandler,
-		resumequeries.NewListResumesHandler,
+		resumequeries.NewListResumesQueryHandler,
 		resumequeries.NewGetResumeRootQueryHandler,
 		resumequeries.NewGetResumeProfileQueryHandler,
 		resumequeries.NewGetResumeContactsQueryHandler,

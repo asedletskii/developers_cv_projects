@@ -165,7 +165,7 @@ func Initialize() (*Application, error) {
 	projectsHandlerValue := projectshttp.NewHandler(createProjectHandlerValue, listProjectsQueryHandlerValue, getProjectQueryHandlerValue, updateProjectHandlerValue, deleteProjectHandlerValue)
 	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(publicResumeReaderValue)
 	publicHandlerValue := publichandler.NewHandler(publicResumeQueryHandlerValue)
-	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
+	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
 	resumeHandlerValue := http.NewHandler(listResumesHandlerValue, createResumeRootHandlerValue, getResumeRootQueryHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileQueryHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsQueryHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue, publicHandlerValue)

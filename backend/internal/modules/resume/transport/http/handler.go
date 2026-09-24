@@ -37,7 +37,7 @@ type Handler struct {
 }
 
 func NewHandler(
-	listResumes *queries.ListResumesHandler,
+	listResumes *queries.ListResumesQueryHandler,
 	createRoot *commands.CreateResumeRootHandler,
 	getRoot *queries.GetResumeRootQueryHandler,
 	updateRoot *commands.UpdateResumeRootHandler,
