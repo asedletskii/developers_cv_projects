@@ -47,12 +47,7 @@ func (h *Handler) Create(c *gin.Context) {
 		common.WriteCommandError(c, e)
 		return
 	}
-	x, e := h.get.Handle(c.Request.Context(), queries.GetLanguageQuery{ResumeID: rid, LanguageID: id, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusCreated, x)
+	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 func (h *Handler) List(c *gin.Context) {
 	uid, rid, ok := ids(c)
@@ -93,12 +88,7 @@ func (h *Handler) Update(c *gin.Context) {
 		common.WriteCommandError(c, e)
 		return
 	}
-	x, e := h.get.Handle(c.Request.Context(), queries.GetLanguageQuery{ResumeID: rid, LanguageID: id, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusOK, x)
+	c.Status(http.StatusNoContent)
 }
 func (h *Handler) Delete(c *gin.Context) {
 	uid, rid, id, ok := itemIDs(c, "languageId")
