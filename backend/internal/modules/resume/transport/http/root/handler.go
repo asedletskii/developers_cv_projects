@@ -45,12 +45,7 @@ func (h *Handler) Create(c *gin.Context) {
 		common.WriteCommandError(c, err)
 		return
 	}
-	resume, err := h.get.Handle(c.Request.Context(), queries.GetResumeRootQuery{UserID: uid, ResumeID: id})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, resume)
+	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 func (h *Handler) Get(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
@@ -99,12 +94,7 @@ func (h *Handler) Update(c *gin.Context) {
 		common.WriteCommandError(c, err)
 		return
 	}
-	resume, err := h.get.Handle(c.Request.Context(), queries.GetResumeRootQuery{UserID: uid, ResumeID: id})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, resume)
+	c.Status(http.StatusNoContent)
 }
 func (h *Handler) Delete(c *gin.Context) {
 	if h == nil || h.delete == nil {

@@ -37,17 +37,13 @@ func (h *Handler) Create(c *gin.Context) {
 		common.WriteInvalidBody(c)
 		return
 	}
-	_, e := h.create.Handle(c.Request.Context(), commands.CreateSkillsCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Hard: b.HardSkills, Soft: b.SoftSkills})
+	id := valueobjects.NewID()
+	_, e := h.create.Handle(c.Request.Context(), commands.CreateSkillsCommand{ID: id, ResumeID: rid, UserID: uid, Hard: b.HardSkills, Soft: b.SoftSkills})
 	if e != nil {
 		common.WriteCommandError(c, e)
 		return
 	}
-	a, e := h.get.Handle(c.Request.Context(), queries.GetSkillsQuery{ResumeID: rid, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusCreated, a)
+	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 func (h *Handler) Get(c *gin.Context) {
 	uid, rid, ok := ids(c)
@@ -75,12 +71,7 @@ func (h *Handler) Update(c *gin.Context) {
 		common.WriteCommandError(c, e)
 		return
 	}
-	a, e := h.get.Handle(c.Request.Context(), queries.GetSkillsQuery{ResumeID: rid, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusOK, a)
+	c.Status(http.StatusNoContent)
 }
 
 func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {

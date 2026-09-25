@@ -40,7 +40,7 @@ func (r ProfileRequest) input() commands.ProfileInput {
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	if h == nil || h.create == nil || h.get == nil {
+	if h == nil || h.create == nil {
 		common.WriteError(c, errors.New("create profile handler dependencies are nil"))
 		return
 	}
@@ -63,13 +63,7 @@ func (h *Handler) Create(c *gin.Context) {
 		writeProfileError(c, e)
 		return
 	}
-	p, e := h.get.Handle(c.Request.Context(), queries.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	_ = id
-	c.JSON(http.StatusCreated, p)
+	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 func (h *Handler) Get(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
@@ -92,7 +86,7 @@ func (h *Handler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, p)
 }
 func (h *Handler) Update(c *gin.Context) {
-	if h == nil || h.update == nil || h.get == nil {
+	if h == nil || h.update == nil {
 		common.WriteError(c, errors.New("update profile handler dependencies are nil"))
 		return
 	}
@@ -114,12 +108,7 @@ func (h *Handler) Update(c *gin.Context) {
 		writeProfileError(c, e)
 		return
 	}
-	p, e := h.get.Handle(c.Request.Context(), queries.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusOK, p)
+	c.Status(http.StatusNoContent)
 }
 func writeProfileError(c *gin.Context, e error) {
 	if errors.Is(e, domain.ErrDuplicateEntity) {

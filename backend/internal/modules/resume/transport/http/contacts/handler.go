@@ -56,7 +56,7 @@ func (r ContactsRequest) input() commands.ContactsInput {
 
 func (h *Handler) Create(c *gin.Context) { h.handleCreate(c) }
 func (h *Handler) handleCreate(c *gin.Context) {
-	if h == nil || h.create == nil || h.get == nil {
+	if h == nil || h.create == nil {
 		common.WriteError(c, errors.New("create contacts handler dependencies are nil"))
 		return
 	}
@@ -74,17 +74,13 @@ func (h *Handler) handleCreate(c *gin.Context) {
 		return
 	}
 	p := b.input()
-	_, e := h.create.Handle(c.Request.Context(), commands.CreateResumeContactsCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Contacts: p})
+	id := valueobjects.NewID()
+	_, e := h.create.Handle(c.Request.Context(), commands.CreateResumeContactsCommand{ID: id, ResumeID: rid, UserID: uid, Contacts: p})
 	if e != nil {
 		writeError(c, e)
 		return
 	}
-	a, e := h.get.Handle(c.Request.Context(), queries.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusCreated, a)
+	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 func (h *Handler) Get(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
@@ -107,7 +103,7 @@ func (h *Handler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, a)
 }
 func (h *Handler) Update(c *gin.Context) {
-	if h == nil || h.update == nil || h.get == nil {
+	if h == nil || h.update == nil {
 		common.WriteError(c, errors.New("update contacts handler dependencies are nil"))
 		return
 	}
@@ -129,12 +125,7 @@ func (h *Handler) Update(c *gin.Context) {
 		writeError(c, e)
 		return
 	}
-	a, e := h.get.Handle(c.Request.Context(), queries.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusOK, a)
+	c.Status(http.StatusNoContent)
 }
 func writeError(c *gin.Context, e error) {
 	if errors.Is(e, domain.ErrDuplicateEntity) {
