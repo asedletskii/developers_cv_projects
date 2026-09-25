@@ -44,7 +44,6 @@ CREATE TABLE resume_presentation_sections (
     CONSTRAINT resume_presentation_sections_position_check CHECK (position >= 0),
     CONSTRAINT resume_presentation_sections_id_check CHECK (section_id IN ('about', 'techStack', 'experience', 'skills', 'education', 'courses', 'projects', 'activities', 'contacts'))
 );
-CREATE INDEX idx_resume_presentation_sections_resume_position ON resume_presentation_sections(resume_id, position);
 
 CREATE TABLE resume_profiles (
     id uuid PRIMARY KEY,
@@ -63,7 +62,6 @@ CREATE TABLE resume_profiles (
     CONSTRAINT resume_profiles_photo_path_check CHECK (photo_path ~ '^/[^/].*$'),
     CONSTRAINT resume_profiles_location_check CHECK (length(btrim(location)) > 0)
 );
-CREATE INDEX idx_resume_profiles_resume_id ON resume_profiles(resume_id);
 
 CREATE TABLE resume_profile_work_formats (
     profile_id uuid NOT NULL REFERENCES resume_profiles(id) ON DELETE CASCADE,
@@ -74,7 +72,6 @@ CREATE TABLE resume_profile_work_formats (
     CONSTRAINT resume_profile_work_formats_value_check CHECK (value IN ('fullTime', 'partTime', 'office', 'remote', 'hybrid')),
     CONSTRAINT resume_profile_work_formats_position_check CHECK (position >= 0)
 );
-CREATE INDEX idx_resume_profile_work_formats_profile_position ON resume_profile_work_formats(profile_id, position);
 
 CREATE TABLE resume_contacts (
     id uuid PRIMARY KEY,
@@ -84,7 +81,6 @@ CREATE TABLE resume_contacts (
     email text,
     CONSTRAINT resume_contacts_presence_check CHECK (phone IS NOT NULL OR telegram IS NOT NULL OR email IS NOT NULL)
 );
-CREATE INDEX idx_resume_contacts_resume_id ON resume_contacts(resume_id);
 
 CREATE TABLE resume_contact_hidden (
     contacts_id uuid NOT NULL REFERENCES resume_contacts(id) ON DELETE CASCADE,
@@ -95,7 +91,6 @@ CREATE TABLE resume_contact_hidden (
     CONSTRAINT resume_contact_hidden_value_check CHECK (value IN ('telegram', 'email', 'phone')),
     CONSTRAINT resume_contact_hidden_position_check CHECK (position >= 0)
 );
-CREATE INDEX idx_resume_contact_hidden_position ON resume_contact_hidden(contacts_id, position);
 
 CREATE TABLE resume_contacts_text (
     contacts_id uuid PRIMARY KEY REFERENCES resume_contacts(id) ON DELETE CASCADE,
@@ -110,7 +105,6 @@ CREATE TABLE resume_skills (
     id uuid PRIMARY KEY,
     resume_id uuid NOT NULL UNIQUE REFERENCES resume_roots(id) ON DELETE CASCADE
 );
-CREATE INDEX idx_resume_skills_resume_id ON resume_skills(resume_id);
 
 CREATE TABLE resume_skill_hard (
     skills_id uuid NOT NULL REFERENCES resume_skills(id) ON DELETE CASCADE,
@@ -144,7 +138,6 @@ CREATE TABLE resume_languages (
     CONSTRAINT resume_languages_language_check CHECK (language IN ('ru', 'en', 'fr', 'de', 'kz', 'zh', 'es')),
     CONSTRAINT resume_languages_grade_check CHECK (grade IS NULL OR grade IN ('A1', 'A2', 'B1', 'B2', 'C1', 'C2'))
 );
-CREATE INDEX idx_resume_languages_resume_position ON resume_languages(resume_id, position);
 
 CREATE TABLE resume_technologies (
     id uuid PRIMARY KEY,
@@ -157,7 +150,6 @@ CREATE TABLE resume_technologies (
     CONSTRAINT resume_technologies_position_check CHECK (position >= 0),
     CONSTRAINT resume_technologies_grade_check CHECK (grade IS NULL OR grade IN ('intern', 'junior', 'middle', 'senior'))
 );
-CREATE INDEX idx_resume_technologies_resume_position ON resume_technologies(resume_id, position);
 
 CREATE TABLE resume_experiences (
     id uuid PRIMARY KEY,

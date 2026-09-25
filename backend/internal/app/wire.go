@@ -18,8 +18,11 @@ import (
 	courseshttp "developers-cv/backend/internal/modules/resume/transport/http/courses"
 	educationshttp "developers-cv/backend/internal/modules/resume/transport/http/educations"
 	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
+	languageshttp "developers-cv/backend/internal/modules/resume/transport/http/languages"
 	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
 	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
+	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
+	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
@@ -185,6 +188,9 @@ func Initialize() (*Application, error) {
 		courseshttp.NewHandler,
 		activitieshttp.NewHandler,
 		projectshttp.NewHandler,
+		skillshttp.NewHandler,
+		languageshttp.NewHandler,
+		technologieshttp.NewHandler,
 		publichandler.NewHandler,
 		resumehttp.NewHandler,
 		httpserver.NewRouter,
