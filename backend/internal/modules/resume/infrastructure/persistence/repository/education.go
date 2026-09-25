@@ -14,11 +14,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ ports.CreateEducationRepository = (*EducationRepository)(nil)
-var _ ports.GetEducationRepository = (*EducationRepository)(nil)
-var _ ports.UpdateEducationRepository = (*EducationRepository)(nil)
-var _ ports.DeleteEducationRepository = (*EducationRepository)(nil)
-
 func (r *EducationRepository) CreateEducation(ctx context.Context, c ports.CreateEducationRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {

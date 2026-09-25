@@ -14,11 +14,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ ports.CreateLanguageRepository = (*LanguagesRepository)(nil)
-var _ ports.GetLanguageRepository = (*LanguagesRepository)(nil)
-var _ ports.UpdateLanguageRepository = (*LanguagesRepository)(nil)
-var _ ports.DeleteLanguageRepository = (*LanguagesRepository)(nil)
-
 func (r *LanguagesRepository) CreateLanguage(ctx context.Context, c ports.CreateLanguageRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {

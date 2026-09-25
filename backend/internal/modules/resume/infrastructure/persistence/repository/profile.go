@@ -14,10 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ ports.CreateResumeProfileRepository = (*ProfileRepository)(nil)
-var _ ports.GetResumeProfileRepository = (*ProfileRepository)(nil)
-var _ ports.UpdateResumeProfileRepository = (*ProfileRepository)(nil)
-
 func (r *ProfileRepository) CreateProfile(ctx context.Context, c ports.CreateResumeProfileRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
