@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -41,28 +42,13 @@ type DeleteExperienceCommand struct {
 	ResumeID, ExperienceID valueobjects.ID
 	UserID                 useridentity.ID
 }
-type CreateExperienceRepositoryCommand struct {
-	Experience *domain.Experience
-	ResumeID   valueobjects.ID
-	UserID     useridentity.ID
-}
-type UpdateExperienceRepositoryCommand struct {
-	Experience *domain.Experience
-	ResumeID   valueobjects.ID
-	UserID     useridentity.ID
-}
-type CreateExperienceRepository interface {
-	CreateExperience(context.Context, CreateExperienceRepositoryCommand) error
-}
-type GetExperienceRepository interface {
-	GetExperience(context.Context, GetExperienceCommand) (*domain.Experience, error)
-}
-type UpdateExperienceRepository interface {
-	UpdateExperience(context.Context, UpdateExperienceRepositoryCommand) error
-}
-type DeleteExperienceRepository interface {
-	DeleteExperience(context.Context, DeleteExperienceCommand) error
-}
+type CreateExperienceRepository = ports.CreateExperienceRepository
+type CreateExperienceRepositoryCommand = ports.CreateExperienceRepositoryCommand
+type GetExperienceRepository = ports.GetExperienceRepository
+type UpdateExperienceRepository = ports.UpdateExperienceRepository
+type UpdateExperienceRepositoryCommand = ports.UpdateExperienceRepositoryCommand
+type DeleteExperienceRepository = ports.DeleteExperienceRepository
+
 type CreateExperienceHandler struct {
 	r CreateExperienceRepository
 	u UnitOfWork
@@ -84,7 +70,7 @@ func (h *CreateExperienceHandler) Handle(ctx context.Context, c CreateExperience
 		return valueobjects.ID{}, err
 	}
 	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateExperience(tx, CreateExperienceRepositoryCommand{Experience: a, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.r.CreateExperience(tx, ports.CreateExperienceRepositoryCommand{Experience: a, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -106,7 +92,7 @@ func (h *UpdateExperienceHandler) Handle(ctx context.Context, c UpdateExperience
 		return fmt.Errorf("update experience dependencies are nil")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.r.GetExperience(tx, GetExperienceCommand{ResumeID: c.ResumeID, ExperienceID: c.ExperienceID, UserID: c.UserID})
+		current, err := h.r.GetExperience(tx, ports.GetExperienceRepositoryCommand{ResumeID: c.ResumeID, ExperienceID: c.ExperienceID, UserID: c.UserID})
 		if err != nil {
 			return err
 		}
@@ -114,7 +100,7 @@ func (h *UpdateExperienceHandler) Handle(ctx context.Context, c UpdateExperience
 		if err := current.Replace(domain.ExperienceParams{ID: c.Input.ID, ResumeID: c.Input.ResumeID, Company: c.Input.Company, Position: c.Input.Position, Location: c.Input.Location, StartDate: c.Input.StartDate, EndDate: c.Input.EndDate, Description: c.Input.Description, Achievements: c.Input.Achievements, Technologies: experienceTechnologyParams(c.Input.Technologies)}); err != nil {
 			return err
 		}
-		return h.u.UpdateExperience(tx, UpdateExperienceRepositoryCommand{Experience: current, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateExperience(tx, ports.UpdateExperienceRepositoryCommand{Experience: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
@@ -130,7 +116,9 @@ func (h *DeleteExperienceHandler) Handle(ctx context.Context, c DeleteExperience
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete experience dependencies are nil")
 	}
-	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteExperience(tx, c) })
+	return h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.DeleteExperience(tx, ports.DeleteExperienceRepositoryCommand{ResumeID: c.ResumeID, ExperienceID: c.ExperienceID, UserID: c.UserID})
+	})
 }
 func experienceTechnologyParams(input []ExperienceTechnologyInput) []domain.ExperienceTechnologyParams {
 	out := make([]domain.ExperienceTechnologyParams, len(input))

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -36,28 +37,16 @@ type UpdateProjectCommand struct {
 	ResumeID, ProjectID valueobjects.ID
 	UserID              useridentity.ID
 	Input               ProjectInput
-	Project             *domain.Project
 }
 type DeleteProjectCommand struct {
 	ResumeID, ProjectID valueobjects.ID
 	UserID              useridentity.ID
 }
 
-type CreateProjectRepository interface {
-	CreateProject(context.Context, CreateProjectCommand) error
-}
-
-type GetProjectRepository interface {
-	GetProject(context.Context, GetProjectCommand) (*domain.Project, error)
-}
-
-type UpdateProjectRepository interface {
-	UpdateProject(context.Context, UpdateProjectCommand) error
-}
-
-type DeleteProjectRepository interface {
-	DeleteProject(context.Context, DeleteProjectCommand) error
-}
+type CreateProjectRepository = ports.CreateProjectRepository
+type GetProjectRepository = ports.GetProjectRepository
+type UpdateProjectRepository = ports.UpdateProjectRepository
+type DeleteProjectRepository = ports.DeleteProjectRepository
 
 type CreateProjectHandler struct {
 	repository CreateProjectRepository
@@ -73,10 +62,13 @@ func (h *CreateProjectHandler) Handle(ctx context.Context, command CreateProject
 		command.ID = valueobjects.NewID()
 	}
 	command.Input.ID, command.Input.ResumeID = command.ID, command.ResumeID
-	if _, err := projectFromInput(command.Input); err != nil {
+	project, err := projectFromInput(command.Input)
+	if err != nil {
 		return valueobjects.ID{}, err
 	}
-	return command.ID, h.uow.Do(ctx, func(tx context.Context) error { return h.repository.CreateProject(tx, command) })
+	return command.ID, h.uow.Do(ctx, func(tx context.Context) error {
+		return h.repository.CreateProject(tx, ports.CreateProjectRepositoryCommand{Project: project, ResumeID: command.ResumeID, UserID: command.UserID})
+	})
 }
 
 type UpdateProjectHandler struct {
@@ -91,15 +83,14 @@ func NewUpdateProjectHandler(get GetProjectRepository, repository UpdateProjectR
 
 func (h *UpdateProjectHandler) Handle(ctx context.Context, command UpdateProjectCommand) error {
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.get.GetProject(tx, GetProjectCommand{ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})
+		current, err := h.get.GetProject(tx, ports.GetProjectRepositoryCommand{ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})
 		if err != nil {
 			return err
 		}
 		if err := current.Replace(domain.ProjectParams{ID: current.ID(), ResumeID: command.ResumeID, Name: command.Input.Name, Description: command.Input.Description, Role: command.Input.Role, Screenshots: command.Input.Screenshots, Link: command.Input.Link, GitLink: command.Input.GitLink, Stack: command.Input.Stack, Contributors: command.Input.Contributors}); err != nil {
 			return err
 		}
-		command.Project = current
-		return h.repository.UpdateProject(tx, command)
+		return h.repository.UpdateProject(tx, ports.UpdateProjectRepositoryCommand{Project: current, ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})
 	})
 }
 
@@ -116,7 +107,9 @@ func (h *DeleteProjectHandler) Handle(ctx context.Context, command DeleteProject
 	if h == nil || h.repository == nil || h.uow == nil {
 		return fmt.Errorf("delete project handler dependencies are nil")
 	}
-	return h.uow.Do(ctx, func(tx context.Context) error { return h.repository.DeleteProject(tx, command) })
+	return h.uow.Do(ctx, func(tx context.Context) error {
+		return h.repository.DeleteProject(tx, ports.DeleteProjectRepositoryCommand{ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})
+	})
 }
 
 func projectFromInput(input ProjectInput) (*domain.Project, error) {

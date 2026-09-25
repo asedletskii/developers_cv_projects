@@ -6,18 +6,18 @@ import (
 
 	"gorm.io/gorm"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CreateSkillsRepository = (*SkillsRepository)(nil)
-var _ commands.GetSkillsRepository = (*SkillsRepository)(nil)
-var _ commands.UpdateSkillsRepository = (*SkillsRepository)(nil)
+var _ ports.CreateSkillsRepository = (*SkillsRepository)(nil)
+var _ ports.GetSkillsRepository = (*SkillsRepository)(nil)
+var _ ports.UpdateSkillsRepository = (*SkillsRepository)(nil)
 
-func (r *SkillsRepository) CreateSkills(ctx context.Context, c commands.CreateSkillsRepositoryCommand) error {
+func (r *SkillsRepository) CreateSkills(ctx context.Context, c ports.CreateSkillsRepositoryCommand) error {
 	a, uid := c.Skills, c.UserID
 	tx, e := r.owned(ctx, a.ResumeID(), uid)
 	if e != nil {
@@ -44,7 +44,7 @@ func (r *SkillsRepository) CreateSkills(ctx context.Context, c commands.CreateSk
 	}
 	return nil
 }
-func (r *SkillsRepository) GetSkills(ctx context.Context, q commands.GetSkillsCommand) (*domain.Skills, error) {
+func (r *SkillsRepository) GetSkills(ctx context.Context, q ports.GetSkillsRepositoryCommand) (*domain.Skills, error) {
 	tx, e := r.owned(ctx, q.ResumeID, q.UserID)
 	if e != nil {
 		return nil, e
@@ -78,7 +78,7 @@ func (r *SkillsRepository) GetSkills(ctx context.Context, q commands.GetSkillsCo
 	}
 	return domain.NewSkills(domain.SkillsParams{ID: id, ResumeID: rid, Hard: hp, Soft: sp})
 }
-func (r *SkillsRepository) UpdateSkills(ctx context.Context, c commands.UpdateSkillsRepositoryCommand) error {
+func (r *SkillsRepository) UpdateSkills(ctx context.Context, c ports.UpdateSkillsRepositoryCommand) error {
 	a, uid := c.Skills, c.UserID
 	tx, e := r.owned(ctx, a.ResumeID(), uid)
 	if e != nil {

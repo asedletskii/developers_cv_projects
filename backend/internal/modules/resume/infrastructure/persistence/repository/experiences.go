@@ -8,19 +8,19 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CreateExperienceRepository = (*ExperiencesRepository)(nil)
-var _ commands.GetExperienceRepository = (*ExperiencesRepository)(nil)
-var _ commands.UpdateExperienceRepository = (*ExperiencesRepository)(nil)
-var _ commands.DeleteExperienceRepository = (*ExperiencesRepository)(nil)
+var _ ports.CreateExperienceRepository = (*ExperiencesRepository)(nil)
+var _ ports.GetExperienceRepository = (*ExperiencesRepository)(nil)
+var _ ports.UpdateExperienceRepository = (*ExperiencesRepository)(nil)
+var _ ports.DeleteExperienceRepository = (*ExperiencesRepository)(nil)
 
-func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c commands.CreateExperienceRepositoryCommand) error {
+func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c ports.CreateExperienceRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -49,7 +49,7 @@ func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c commands
 	return replaceExperienceChildren(tx, item.ID, c.Experience)
 }
 
-func (r *ExperiencesRepository) GetExperience(ctx context.Context, q commands.GetExperienceCommand) (*domain.Experience, error) {
+func (r *ExperiencesRepository) GetExperience(ctx context.Context, q ports.GetExperienceRepositoryCommand) (*domain.Experience, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (r *ExperiencesRepository) GetExperience(ctx context.Context, q commands.Ge
 	return mapExperience(tx, model)
 }
 
-func (r *ExperiencesRepository) UpdateExperience(ctx context.Context, c commands.UpdateExperienceRepositoryCommand) error {
+func (r *ExperiencesRepository) UpdateExperience(ctx context.Context, c ports.UpdateExperienceRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func (r *ExperiencesRepository) UpdateExperience(ctx context.Context, c commands
 	return nil
 }
 
-func (r *ExperiencesRepository) DeleteExperience(ctx context.Context, c commands.DeleteExperienceCommand) error {
+func (r *ExperiencesRepository) DeleteExperience(ctx context.Context, c ports.DeleteExperienceRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

@@ -4,13 +4,14 @@ package persistence_test
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/commands"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
@@ -51,7 +52,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	uow := database.NewUnitOfWork(gormDB)
 	root := newTestRoot(t, owner)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return rootRepo.CreateRoot(tx, commands.CreateResumeRootRepositoryCommand{Resume: root})
+		return rootRepo.CreateRoot(tx, ports.CreateResumeRootRepositoryCommand{Resume: root})
 	}))
 
 	photo, err := valueobjects.NewAssetPath("/assets/profile.svg")
@@ -87,19 +88,19 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 
 	rollbackErr := errors.New("force rollback after aggregate writes")
 	err = uow.Do(ctx, func(tx context.Context) error {
-		if err := profileRepo.CreateProfile(tx, commands.CreateResumeProfileRepositoryCommand{Profile: profile, UserID: owner}); err != nil {
+		if err := profileRepo.CreateProfile(tx, ports.CreateResumeProfileRepositoryCommand{Profile: profile, UserID: owner}); err != nil {
 			return err
 		}
-		if err := contactsRepo.CreateContacts(tx, commands.CreateResumeContactsRepositoryCommand{Contacts: contacts, UserID: owner}); err != nil {
+		if err := contactsRepo.CreateContacts(tx, ports.CreateResumeContactsRepositoryCommand{Contacts: contacts, UserID: owner}); err != nil {
 			return err
 		}
-		if err := skillsRepo.CreateSkills(tx, commands.CreateSkillsRepositoryCommand{Skills: skills, UserID: owner}); err != nil {
+		if err := skillsRepo.CreateSkills(tx, ports.CreateSkillsRepositoryCommand{Skills: skills, UserID: owner}); err != nil {
 			return err
 		}
-		if err := experienceRepo.CreateExperience(tx, commands.CreateExperienceRepositoryCommand{Experience: experience, ResumeID: root.ID(), UserID: owner}); err != nil {
+		if err := experienceRepo.CreateExperience(tx, ports.CreateExperienceRepositoryCommand{Experience: experience, ResumeID: root.ID(), UserID: owner}); err != nil {
 			return err
 		}
-		if err := projectRepo.CreateProject(tx, commands.CreateProjectCommand{ID: project.ID(), ResumeID: root.ID(), UserID: owner, Input: commands.ProjectInput{Name: project.Name(), Description: project.Description(), Role: project.Role(), Screenshots: project.Screenshots(), Link: project.Link(), GitLink: project.GitLink(), Stack: project.Stack(), Contributors: project.Contributors()}}); err != nil {
+		if err := projectRepo.CreateProject(tx, ports.CreateProjectRepositoryCommand{Project: project, ResumeID: root.ID(), UserID: owner}); err != nil {
 			return err
 		}
 		return rollbackErr

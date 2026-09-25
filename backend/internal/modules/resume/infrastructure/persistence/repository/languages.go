@@ -7,19 +7,19 @@ import (
 
 	"gorm.io/gorm"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CreateLanguageRepository = (*LanguagesRepository)(nil)
-var _ commands.GetLanguageRepository = (*LanguagesRepository)(nil)
-var _ commands.UpdateLanguageRepository = (*LanguagesRepository)(nil)
-var _ commands.DeleteLanguageRepository = (*LanguagesRepository)(nil)
+var _ ports.CreateLanguageRepository = (*LanguagesRepository)(nil)
+var _ ports.GetLanguageRepository = (*LanguagesRepository)(nil)
+var _ ports.UpdateLanguageRepository = (*LanguagesRepository)(nil)
+var _ ports.DeleteLanguageRepository = (*LanguagesRepository)(nil)
 
-func (r *LanguagesRepository) CreateLanguage(ctx context.Context, c commands.CreateLanguageRepositoryCommand) error {
+func (r *LanguagesRepository) CreateLanguage(ctx context.Context, c ports.CreateLanguageRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -37,7 +37,7 @@ func (r *LanguagesRepository) CreateLanguage(ctx context.Context, c commands.Cre
 	return nil
 }
 
-func (r *LanguagesRepository) GetLanguage(ctx context.Context, q commands.GetLanguageCommand) (domain.ResumeLanguageEntry, error) {
+func (r *LanguagesRepository) GetLanguage(ctx context.Context, q ports.GetLanguageRepositoryCommand) (domain.ResumeLanguageEntry, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return domain.ResumeLanguageEntry{}, err
@@ -52,7 +52,7 @@ func (r *LanguagesRepository) GetLanguage(ctx context.Context, q commands.GetLan
 	return mapLanguage(m)
 }
 
-func (r *LanguagesRepository) UpdateLanguage(ctx context.Context, c commands.UpdateLanguageRepositoryCommand) error {
+func (r *LanguagesRepository) UpdateLanguage(ctx context.Context, c ports.UpdateLanguageRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (r *LanguagesRepository) UpdateLanguage(ctx context.Context, c commands.Upd
 	return nil
 }
 
-func (r *LanguagesRepository) DeleteLanguage(ctx context.Context, c commands.DeleteLanguageCommand) error {
+func (r *LanguagesRepository) DeleteLanguage(ctx context.Context, c ports.DeleteLanguageRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

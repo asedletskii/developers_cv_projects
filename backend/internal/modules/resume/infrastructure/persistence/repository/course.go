@@ -6,18 +6,18 @@ import (
 
 	"gorm.io/gorm"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CreateCourseRepository = (*CourseRepository)(nil)
-var _ commands.GetCourseRepository = (*CourseRepository)(nil)
-var _ commands.UpdateCourseRepository = (*CourseRepository)(nil)
-var _ commands.DeleteCourseRepository = (*CourseRepository)(nil)
+var _ ports.CreateCourseRepository = (*CourseRepository)(nil)
+var _ ports.GetCourseRepository = (*CourseRepository)(nil)
+var _ ports.UpdateCourseRepository = (*CourseRepository)(nil)
+var _ ports.DeleteCourseRepository = (*CourseRepository)(nil)
 
-func (r *CourseRepository) CreateCourse(ctx context.Context, c commands.CreateCourseRepositoryCommand) error {
+func (r *CourseRepository) CreateCourse(ctx context.Context, c ports.CreateCourseRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func (r *CourseRepository) CreateCourse(ctx context.Context, c commands.CreateCo
 	}
 	return nil
 }
-func (r *CourseRepository) GetCourse(ctx context.Context, q commands.GetCourseCommand) (*domain.Course, error) {
+func (r *CourseRepository) GetCourse(ctx context.Context, q ports.GetCourseRepositoryCommand) (*domain.Course, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (r *CourseRepository) GetCourse(ctx context.Context, q commands.GetCourseCo
 	}
 	return mapCourse(model)
 }
-func (r *CourseRepository) UpdateCourse(ctx context.Context, c commands.UpdateCourseRepositoryCommand) error {
+func (r *CourseRepository) UpdateCourse(ctx context.Context, c ports.UpdateCourseRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func (r *CourseRepository) UpdateCourse(ctx context.Context, c commands.UpdateCo
 	}
 	return nil
 }
-func (r *CourseRepository) DeleteCourse(ctx context.Context, c commands.DeleteCourseCommand) error {
+func (r *CourseRepository) DeleteCourse(ctx context.Context, c ports.DeleteCourseRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

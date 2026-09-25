@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -39,33 +40,12 @@ type DeleteLanguageCommand struct {
 	UserID               useridentity.ID
 }
 
-type CreateLanguageRepositoryCommand struct {
-	Language domain.ResumeLanguageEntry
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-
-type UpdateLanguageRepositoryCommand struct {
-	Language domain.ResumeLanguageEntry
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-
-type CreateLanguageRepository interface {
-	CreateLanguage(context.Context, CreateLanguageRepositoryCommand) error
-}
-
-type GetLanguageRepository interface {
-	GetLanguage(context.Context, GetLanguageCommand) (domain.ResumeLanguageEntry, error)
-}
-
-type UpdateLanguageRepository interface {
-	UpdateLanguage(context.Context, UpdateLanguageRepositoryCommand) error
-}
-
-type DeleteLanguageRepository interface {
-	DeleteLanguage(context.Context, DeleteLanguageCommand) error
-}
+type CreateLanguageRepository = ports.CreateLanguageRepository
+type CreateLanguageRepositoryCommand = ports.CreateLanguageRepositoryCommand
+type GetLanguageRepository = ports.GetLanguageRepository
+type UpdateLanguageRepository = ports.UpdateLanguageRepository
+type UpdateLanguageRepositoryCommand = ports.UpdateLanguageRepositoryCommand
+type DeleteLanguageRepository = ports.DeleteLanguageRepository
 
 type CreateLanguageHandler struct {
 	r CreateLanguageRepository
@@ -89,7 +69,7 @@ func (h *CreateLanguageHandler) Handle(ctx context.Context, c CreateLanguageComm
 		return valueobjects.ID{}, err
 	}
 	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateLanguage(tx, CreateLanguageRepositoryCommand{Language: a, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.r.CreateLanguage(tx, ports.CreateLanguageRepositoryCommand{Language: a, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -112,14 +92,14 @@ func (h *UpdateLanguageHandler) Handle(ctx context.Context, c UpdateLanguageComm
 		return fmt.Errorf("update language dependencies are nil")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.r.GetLanguage(tx, GetLanguageCommand{ResumeID: c.ResumeID, LanguageID: c.LanguageID, UserID: c.UserID})
+		current, err := h.r.GetLanguage(tx, ports.GetLanguageRepositoryCommand{ResumeID: c.ResumeID, LanguageID: c.LanguageID, UserID: c.UserID})
 		if err != nil {
 			return err
 		}
 		if err := current.Replace(domain.ResumeLanguageEntryParams{ID: current.ID(), Language: c.Input.Language, Grade: c.Input.Grade, Position: c.Input.Position}); err != nil {
 			return err
 		}
-		return h.u.UpdateLanguage(tx, UpdateLanguageRepositoryCommand{Language: current, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateLanguage(tx, ports.UpdateLanguageRepositoryCommand{Language: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
@@ -136,5 +116,7 @@ func (h *DeleteLanguageHandler) Handle(ctx context.Context, c DeleteLanguageComm
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete language dependencies are nil")
 	}
-	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteLanguage(tx, c) })
+	return h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.DeleteLanguage(tx, ports.DeleteLanguageRepositoryCommand{ResumeID: c.ResumeID, LanguageID: c.LanguageID, UserID: c.UserID})
+	})
 }

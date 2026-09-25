@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
@@ -33,28 +34,13 @@ type DeleteCourseCommand struct {
 	ResumeID, CourseID valueobjects.ID
 	UserID             useridentity.ID
 }
-type CreateCourseRepositoryCommand struct {
-	Course   *domain.Course
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-type UpdateCourseRepositoryCommand struct {
-	Course   *domain.Course
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-type CreateCourseRepository interface {
-	CreateCourse(context.Context, CreateCourseRepositoryCommand) error
-}
-type GetCourseRepository interface {
-	GetCourse(context.Context, GetCourseCommand) (*domain.Course, error)
-}
-type UpdateCourseRepository interface {
-	UpdateCourse(context.Context, UpdateCourseRepositoryCommand) error
-}
-type DeleteCourseRepository interface {
-	DeleteCourse(context.Context, DeleteCourseCommand) error
-}
+type CreateCourseRepository = ports.CreateCourseRepository
+type CreateCourseRepositoryCommand = ports.CreateCourseRepositoryCommand
+type GetCourseRepository = ports.GetCourseRepository
+type UpdateCourseRepository = ports.UpdateCourseRepository
+type UpdateCourseRepositoryCommand = ports.UpdateCourseRepositoryCommand
+type DeleteCourseRepository = ports.DeleteCourseRepository
+
 type CreateCourseHandler struct {
 	r CreateCourseRepository
 	u UnitOfWork
@@ -76,7 +62,7 @@ func (h *CreateCourseHandler) Handle(ctx context.Context, c CreateCourseCommand)
 		return valueobjects.ID{}, err
 	}
 	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateCourse(tx, CreateCourseRepositoryCommand{Course: a, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.r.CreateCourse(tx, ports.CreateCourseRepositoryCommand{Course: a, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -98,7 +84,7 @@ func (h *UpdateCourseHandler) Handle(ctx context.Context, c UpdateCourseCommand)
 		return fmt.Errorf("update course dependencies are nil")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.r.GetCourse(tx, GetCourseCommand{ResumeID: c.ResumeID, CourseID: c.CourseID, UserID: c.UserID})
+		current, err := h.r.GetCourse(tx, ports.GetCourseRepositoryCommand{ResumeID: c.ResumeID, CourseID: c.CourseID, UserID: c.UserID})
 		if err != nil {
 			return err
 		}
@@ -106,7 +92,7 @@ func (h *UpdateCourseHandler) Handle(ctx context.Context, c UpdateCourseCommand)
 		if err := current.Replace(domain.CourseParams{ID: c.Input.ID, ResumeID: c.Input.ResumeID, Name: c.Input.Name, Organization: c.Input.Organization, EndDate: c.Input.EndDate, Hours: c.Input.Hours, CertificateLink: c.Input.CertificateLink}); err != nil {
 			return err
 		}
-		return h.u.UpdateCourse(tx, UpdateCourseRepositoryCommand{Course: current, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateCourse(tx, ports.UpdateCourseRepositoryCommand{Course: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
@@ -122,7 +108,9 @@ func (h *DeleteCourseHandler) Handle(ctx context.Context, c DeleteCourseCommand)
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete course dependencies are nil")
 	}
-	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteCourse(tx, c) })
+	return h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.DeleteCourse(tx, ports.DeleteCourseRepositoryCommand{ResumeID: c.ResumeID, CourseID: c.CourseID, UserID: c.UserID})
+	})
 }
 func courseFromInput(input CourseInput) (*domain.Course, error) {
 	return domain.NewCourse(domain.CourseParams{ID: input.ID, ResumeID: input.ResumeID, Name: input.Name, Organization: input.Organization, EndDate: input.EndDate, Hours: input.Hours, CertificateLink: input.CertificateLink})

@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -14,11 +14,11 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ commands.CreateResumeProfileRepository = (*ProfileRepository)(nil)
-var _ commands.GetResumeProfileRepository = (*ProfileRepository)(nil)
-var _ commands.UpdateResumeProfileRepository = (*ProfileRepository)(nil)
+var _ ports.CreateResumeProfileRepository = (*ProfileRepository)(nil)
+var _ ports.GetResumeProfileRepository = (*ProfileRepository)(nil)
+var _ ports.UpdateResumeProfileRepository = (*ProfileRepository)(nil)
 
-func (r *ProfileRepository) CreateProfile(ctx context.Context, c commands.CreateResumeProfileRepositoryCommand) error {
+func (r *ProfileRepository) CreateProfile(ctx context.Context, c ports.CreateResumeProfileRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("create profile: %w", e)
@@ -54,7 +54,7 @@ func (r *ProfileRepository) CreateProfile(ctx context.Context, c commands.Create
 	}
 	return nil
 }
-func (r *ProfileRepository) GetProfile(ctx context.Context, q commands.GetResumeProfileCommand) (*domain.Profile, error) {
+func (r *ProfileRepository) GetProfile(ctx context.Context, q ports.GetResumeProfileRepositoryCommand) (*domain.Profile, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get profile: repository dependencies are nil")
 	}
@@ -72,12 +72,12 @@ func (r *ProfileRepository) GetProfile(ctx context.Context, q commands.GetResume
 	}
 	return mapProfile(m, fs)
 }
-func (r *ProfileRepository) UpdateProfile(ctx context.Context, c commands.UpdateResumeProfileRepositoryCommand) error {
+func (r *ProfileRepository) UpdateProfile(ctx context.Context, c ports.UpdateResumeProfileRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("update profile: %w", e)
 	}
-	_, e = r.GetProfile(ctx, commands.GetResumeProfileCommand{ResumeID: c.Profile.ResumeID(), UserID: c.UserID})
+	_, e = r.GetProfile(ctx, ports.GetResumeProfileRepositoryCommand{ResumeID: c.Profile.ResumeID(), UserID: c.UserID})
 	if e != nil {
 		return e
 	}

@@ -7,19 +7,19 @@ import (
 
 	"gorm.io/gorm"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CreateTechnologyRepository = (*TechnologiesRepository)(nil)
-var _ commands.GetTechnologyRepository = (*TechnologiesRepository)(nil)
-var _ commands.UpdateTechnologyRepository = (*TechnologiesRepository)(nil)
-var _ commands.DeleteTechnologyRepository = (*TechnologiesRepository)(nil)
+var _ ports.CreateTechnologyRepository = (*TechnologiesRepository)(nil)
+var _ ports.GetTechnologyRepository = (*TechnologiesRepository)(nil)
+var _ ports.UpdateTechnologyRepository = (*TechnologiesRepository)(nil)
+var _ ports.DeleteTechnologyRepository = (*TechnologiesRepository)(nil)
 
-func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, c commands.CreateTechnologyRepositoryCommand) error {
+func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, c ports.CreateTechnologyRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -37,7 +37,7 @@ func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, c command
 	return nil
 }
 
-func (r *TechnologiesRepository) GetTechnology(ctx context.Context, q commands.GetTechnologyCommand) (domain.ResumeTechnologyEntry, error) {
+func (r *TechnologiesRepository) GetTechnology(ctx context.Context, q ports.GetTechnologyRepositoryCommand) (domain.ResumeTechnologyEntry, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return domain.ResumeTechnologyEntry{}, err
@@ -52,7 +52,7 @@ func (r *TechnologiesRepository) GetTechnology(ctx context.Context, q commands.G
 	return mapTechnology(m)
 }
 
-func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c commands.UpdateTechnologyRepositoryCommand) error {
+func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c ports.UpdateTechnologyRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c command
 	return nil
 }
 
-func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c commands.DeleteTechnologyCommand) error {
+func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c ports.DeleteTechnologyRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

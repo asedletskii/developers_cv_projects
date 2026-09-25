@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -24,23 +25,11 @@ type UpdateSkillsCommand struct {
 	UserID     useridentity.ID
 	Hard, Soft []string
 }
-type CreateSkillsRepository interface {
-	CreateSkills(context.Context, CreateSkillsRepositoryCommand) error
-}
-type GetSkillsRepository interface {
-	GetSkills(context.Context, GetSkillsCommand) (*domain.Skills, error)
-}
-type UpdateSkillsRepository interface {
-	UpdateSkills(context.Context, UpdateSkillsRepositoryCommand) error
-}
-type CreateSkillsRepositoryCommand struct {
-	Skills *domain.Skills
-	UserID useridentity.ID
-}
-type UpdateSkillsRepositoryCommand struct {
-	Skills *domain.Skills
-	UserID useridentity.ID
-}
+type CreateSkillsRepository = ports.CreateSkillsRepository
+type CreateSkillsRepositoryCommand = ports.CreateSkillsRepositoryCommand
+type GetSkillsRepository = ports.GetSkillsRepository
+type UpdateSkillsRepository = ports.UpdateSkillsRepository
+type UpdateSkillsRepositoryCommand = ports.UpdateSkillsRepositoryCommand
 
 type CreateSkillsHandler struct {
 	r CreateSkillsRepository
@@ -64,7 +53,7 @@ func (h *CreateSkillsHandler) Handle(ctx context.Context, c CreateSkillsCommand)
 		if e != nil {
 			return e
 		}
-		return h.r.CreateSkills(tx, CreateSkillsRepositoryCommand{Skills: a, UserID: c.UserID})
+		return h.r.CreateSkills(tx, ports.CreateSkillsRepositoryCommand{Skills: a, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -86,14 +75,14 @@ func (h *UpdateSkillsHandler) Handle(ctx context.Context, c UpdateSkillsCommand)
 		return fmt.Errorf("update skills dependencies are nil")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		cur, e := h.r.GetSkills(tx, GetSkillsCommand{ResumeID: c.ResumeID, UserID: c.UserID})
+		cur, e := h.r.GetSkills(tx, ports.GetSkillsRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
 		if e != nil {
 			return e
 		}
 		if e := cur.Replace(domain.SkillsParams{ID: cur.ID(), ResumeID: c.ResumeID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft)}); e != nil {
 			return e
 		}
-		return h.u.UpdateSkills(tx, UpdateSkillsRepositoryCommand{Skills: cur, UserID: c.UserID})
+		return h.u.UpdateSkills(tx, ports.UpdateSkillsRepositoryCommand{Skills: cur, UserID: c.UserID})
 	})
 }
 func toHard(v []string) []enums.HardSkill {

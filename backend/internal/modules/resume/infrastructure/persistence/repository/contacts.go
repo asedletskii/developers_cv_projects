@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
@@ -16,11 +16,11 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ commands.CreateResumeContactsRepository = (*ContactsRepository)(nil)
-var _ commands.GetResumeContactsRepository = (*ContactsRepository)(nil)
-var _ commands.UpdateResumeContactsRepository = (*ContactsRepository)(nil)
+var _ ports.CreateResumeContactsRepository = (*ContactsRepository)(nil)
+var _ ports.GetResumeContactsRepository = (*ContactsRepository)(nil)
+var _ ports.UpdateResumeContactsRepository = (*ContactsRepository)(nil)
 
-func (r *ContactsRepository) CreateContacts(ctx context.Context, c commands.CreateResumeContactsRepositoryCommand) error {
+func (r *ContactsRepository) CreateContacts(ctx context.Context, c ports.CreateResumeContactsRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("create contacts: %w", e)
@@ -57,7 +57,7 @@ func (r *ContactsRepository) CreateContacts(ctx context.Context, c commands.Crea
 	}
 	return nil
 }
-func (r *ContactsRepository) GetContacts(ctx context.Context, q commands.GetResumeContactsCommand) (*domain.Contacts, error) {
+func (r *ContactsRepository) GetContacts(ctx context.Context, q ports.GetResumeContactsRepositoryCommand) (*domain.Contacts, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get contacts: repository dependencies are nil")
 	}
@@ -83,7 +83,7 @@ func (r *ContactsRepository) GetContacts(ctx context.Context, q commands.GetResu
 	}
 	return mapContacts(m, hidden, tp)
 }
-func (r *ContactsRepository) UpdateContacts(ctx context.Context, c commands.UpdateResumeContactsRepositoryCommand) error {
+func (r *ContactsRepository) UpdateContacts(ctx context.Context, c ports.UpdateResumeContactsRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("update contacts: %w", e)

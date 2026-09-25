@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -35,28 +36,13 @@ type DeleteActivityCommand struct {
 	ResumeID, ActivityID valueobjects.ID
 	UserID               useridentity.ID
 }
-type CreateActivityRepositoryCommand struct {
-	Activity *domain.Activity
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-type UpdateActivityRepositoryCommand struct {
-	Activity *domain.Activity
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-type CreateActivityRepository interface {
-	CreateActivity(context.Context, CreateActivityRepositoryCommand) error
-}
-type GetActivityRepository interface {
-	GetActivity(context.Context, GetActivityCommand) (*domain.Activity, error)
-}
-type UpdateActivityRepository interface {
-	UpdateActivity(context.Context, UpdateActivityRepositoryCommand) error
-}
-type DeleteActivityRepository interface {
-	DeleteActivity(context.Context, DeleteActivityCommand) error
-}
+type CreateActivityRepository = ports.CreateActivityRepository
+type CreateActivityRepositoryCommand = ports.CreateActivityRepositoryCommand
+type GetActivityRepository = ports.GetActivityRepository
+type UpdateActivityRepository = ports.UpdateActivityRepository
+type UpdateActivityRepositoryCommand = ports.UpdateActivityRepositoryCommand
+type DeleteActivityRepository = ports.DeleteActivityRepository
+
 type CreateActivityHandler struct {
 	r CreateActivityRepository
 	u UnitOfWork
@@ -78,7 +64,7 @@ func (h *CreateActivityHandler) Handle(ctx context.Context, c CreateActivityComm
 		return valueobjects.ID{}, err
 	}
 	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateActivity(tx, CreateActivityRepositoryCommand{Activity: a, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.r.CreateActivity(tx, ports.CreateActivityRepositoryCommand{Activity: a, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -100,7 +86,7 @@ func (h *UpdateActivityHandler) Handle(ctx context.Context, c UpdateActivityComm
 		return fmt.Errorf("update activity dependencies are nil")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.r.GetActivity(tx, GetActivityCommand{ResumeID: c.ResumeID, ActivityID: c.ActivityID, UserID: c.UserID})
+		current, err := h.r.GetActivity(tx, ports.GetActivityRepositoryCommand{ResumeID: c.ResumeID, ActivityID: c.ActivityID, UserID: c.UserID})
 		if err != nil {
 			return err
 		}
@@ -108,7 +94,7 @@ func (h *UpdateActivityHandler) Handle(ctx context.Context, c UpdateActivityComm
 		if err := current.Replace(domain.ActivityParams{ID: c.Input.ID, ResumeID: c.Input.ResumeID, Type: c.Input.Type, Title: c.Input.Title, Description: c.Input.Description, Date: c.Input.Date, Link: c.Input.Link}); err != nil {
 			return err
 		}
-		return h.u.UpdateActivity(tx, UpdateActivityRepositoryCommand{Activity: current, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateActivity(tx, ports.UpdateActivityRepositoryCommand{Activity: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
@@ -124,7 +110,9 @@ func (h *DeleteActivityHandler) Handle(ctx context.Context, c DeleteActivityComm
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete activity dependencies are nil")
 	}
-	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteActivity(tx, c) })
+	return h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.DeleteActivity(tx, ports.DeleteActivityRepositoryCommand{ResumeID: c.ResumeID, ActivityID: c.ActivityID, UserID: c.UserID})
+	})
 }
 func activityFromInput(input ActivityInput) (*domain.Activity, error) {
 	return domain.NewActivity(domain.ActivityParams{ID: input.ID, ResumeID: input.ResumeID, Type: input.Type, Title: input.Title, Description: input.Description, Date: input.Date, Link: input.Link})

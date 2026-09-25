@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -39,33 +40,12 @@ type DeleteTechnologyCommand struct {
 	UserID                 useridentity.ID
 }
 
-type CreateTechnologyRepositoryCommand struct {
-	Technology domain.ResumeTechnologyEntry
-	ResumeID   valueobjects.ID
-	UserID     useridentity.ID
-}
-
-type UpdateTechnologyRepositoryCommand struct {
-	Technology domain.ResumeTechnologyEntry
-	ResumeID   valueobjects.ID
-	UserID     useridentity.ID
-}
-
-type CreateTechnologyRepository interface {
-	CreateTechnology(context.Context, CreateTechnologyRepositoryCommand) error
-}
-
-type GetTechnologyRepository interface {
-	GetTechnology(context.Context, GetTechnologyCommand) (domain.ResumeTechnologyEntry, error)
-}
-
-type UpdateTechnologyRepository interface {
-	UpdateTechnology(context.Context, UpdateTechnologyRepositoryCommand) error
-}
-
-type DeleteTechnologyRepository interface {
-	DeleteTechnology(context.Context, DeleteTechnologyCommand) error
-}
+type CreateTechnologyRepository = ports.CreateTechnologyRepository
+type CreateTechnologyRepositoryCommand = ports.CreateTechnologyRepositoryCommand
+type GetTechnologyRepository = ports.GetTechnologyRepository
+type UpdateTechnologyRepository = ports.UpdateTechnologyRepository
+type UpdateTechnologyRepositoryCommand = ports.UpdateTechnologyRepositoryCommand
+type DeleteTechnologyRepository = ports.DeleteTechnologyRepository
 
 type CreateTechnologyHandler struct {
 	r CreateTechnologyRepository
@@ -89,7 +69,7 @@ func (h *CreateTechnologyHandler) Handle(ctx context.Context, c CreateTechnology
 		return valueobjects.ID{}, err
 	}
 	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateTechnology(tx, CreateTechnologyRepositoryCommand{Technology: a, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.r.CreateTechnology(tx, ports.CreateTechnologyRepositoryCommand{Technology: a, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -112,14 +92,14 @@ func (h *UpdateTechnologyHandler) Handle(ctx context.Context, c UpdateTechnology
 		return fmt.Errorf("update technology dependencies are nil")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.r.GetTechnology(tx, GetTechnologyCommand{ResumeID: c.ResumeID, TechnologyID: c.TechnologyID, UserID: c.UserID})
+		current, err := h.r.GetTechnology(tx, ports.GetTechnologyRepositoryCommand{ResumeID: c.ResumeID, TechnologyID: c.TechnologyID, UserID: c.UserID})
 		if err != nil {
 			return err
 		}
 		if err := current.Replace(domain.ResumeTechnologyEntryParams{ID: current.ID(), Name: c.Input.Name, Grade: c.Input.Grade, Position: c.Input.Position}); err != nil {
 			return err
 		}
-		return h.u.UpdateTechnology(tx, UpdateTechnologyRepositoryCommand{Technology: current, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateTechnology(tx, ports.UpdateTechnologyRepositoryCommand{Technology: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
@@ -136,5 +116,7 @@ func (h *DeleteTechnologyHandler) Handle(ctx context.Context, c DeleteTechnology
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete technology dependencies are nil")
 	}
-	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteTechnology(tx, c) })
+	return h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.DeleteTechnology(tx, ports.DeleteTechnologyRepositoryCommand{ResumeID: c.ResumeID, TechnologyID: c.TechnologyID, UserID: c.UserID})
+	})
 }

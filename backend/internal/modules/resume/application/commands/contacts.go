@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -24,24 +25,11 @@ type UpdateResumeContactsCommand struct {
 	Contacts domain.ContactsParams
 }
 
-type CreateResumeContactsRepositoryCommand struct {
-	UserID   useridentity.ID
-	Contacts *domain.Contacts
-}
-type UpdateResumeContactsRepositoryCommand struct {
-	UserID   useridentity.ID
-	Contacts *domain.Contacts
-}
-
-type CreateResumeContactsRepository interface {
-	CreateContacts(context.Context, CreateResumeContactsRepositoryCommand) error
-}
-type GetResumeContactsRepository interface {
-	GetContacts(context.Context, GetResumeContactsCommand) (*domain.Contacts, error)
-}
-type UpdateResumeContactsRepository interface {
-	UpdateContacts(context.Context, UpdateResumeContactsRepositoryCommand) error
-}
+type CreateResumeContactsRepository = ports.CreateResumeContactsRepository
+type CreateResumeContactsRepositoryCommand = ports.CreateResumeContactsRepositoryCommand
+type GetResumeContactsRepository = ports.GetResumeContactsRepository
+type UpdateResumeContactsRepository = ports.UpdateResumeContactsRepository
+type UpdateResumeContactsRepositoryCommand = ports.UpdateResumeContactsRepositoryCommand
 
 type CreateResumeContactsHandler struct {
 	repository CreateResumeContactsRepository
@@ -67,7 +55,7 @@ func (h *CreateResumeContactsHandler) Handle(ctx context.Context, c CreateResume
 			return e
 		}
 		created = a
-		return h.repository.CreateContacts(tx, CreateResumeContactsRepositoryCommand{UserID: c.UserID, Contacts: a})
+		return h.repository.CreateContacts(tx, ports.CreateResumeContactsRepositoryCommand{UserID: c.UserID, Contacts: a})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -92,13 +80,13 @@ func (h *UpdateResumeContactsHandler) Handle(ctx context.Context, c UpdateResume
 		return fmt.Errorf("invalid update resume contacts command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, e := h.repository.GetContacts(tx, GetResumeContactsCommand{ResumeID: c.ResumeID, UserID: c.UserID})
+		current, e := h.repository.GetContacts(tx, ports.GetResumeContactsRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
 		if e != nil {
 			return e
 		}
 		if e := current.Replace(c.Contacts); e != nil {
 			return e
 		}
-		return h.updater.UpdateContacts(tx, UpdateResumeContactsRepositoryCommand{UserID: c.UserID, Contacts: current})
+		return h.updater.UpdateContacts(tx, ports.UpdateResumeContactsRepositoryCommand{UserID: c.UserID, Contacts: current})
 	})
 }

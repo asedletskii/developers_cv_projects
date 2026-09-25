@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -36,28 +37,13 @@ type DeleteEducationCommand struct {
 	ResumeID, EducationID valueobjects.ID
 	UserID                useridentity.ID
 }
-type CreateEducationRepositoryCommand struct {
-	Education *domain.Education
-	ResumeID  valueobjects.ID
-	UserID    useridentity.ID
-}
-type UpdateEducationRepositoryCommand struct {
-	Education *domain.Education
-	ResumeID  valueobjects.ID
-	UserID    useridentity.ID
-}
-type CreateEducationRepository interface {
-	CreateEducation(context.Context, CreateEducationRepositoryCommand) error
-}
-type GetEducationRepository interface {
-	GetEducation(context.Context, GetEducationCommand) (*domain.Education, error)
-}
-type UpdateEducationRepository interface {
-	UpdateEducation(context.Context, UpdateEducationRepositoryCommand) error
-}
-type DeleteEducationRepository interface {
-	DeleteEducation(context.Context, DeleteEducationCommand) error
-}
+type CreateEducationRepository = ports.CreateEducationRepository
+type CreateEducationRepositoryCommand = ports.CreateEducationRepositoryCommand
+type GetEducationRepository = ports.GetEducationRepository
+type UpdateEducationRepository = ports.UpdateEducationRepository
+type UpdateEducationRepositoryCommand = ports.UpdateEducationRepositoryCommand
+type DeleteEducationRepository = ports.DeleteEducationRepository
+
 type CreateEducationHandler struct {
 	r CreateEducationRepository
 	u UnitOfWork
@@ -79,7 +65,7 @@ func (h *CreateEducationHandler) Handle(ctx context.Context, c CreateEducationCo
 		return valueobjects.ID{}, err
 	}
 	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateEducation(tx, CreateEducationRepositoryCommand{Education: a, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.r.CreateEducation(tx, ports.CreateEducationRepositoryCommand{Education: a, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -101,7 +87,7 @@ func (h *UpdateEducationHandler) Handle(ctx context.Context, c UpdateEducationCo
 		return fmt.Errorf("update education dependencies are nil")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.r.GetEducation(tx, GetEducationCommand{ResumeID: c.ResumeID, EducationID: c.EducationID, UserID: c.UserID})
+		current, err := h.r.GetEducation(tx, ports.GetEducationRepositoryCommand{ResumeID: c.ResumeID, EducationID: c.EducationID, UserID: c.UserID})
 		if err != nil {
 			return err
 		}
@@ -109,7 +95,7 @@ func (h *UpdateEducationHandler) Handle(ctx context.Context, c UpdateEducationCo
 		if err := current.Replace(domain.EducationParams{ID: c.Input.ID, ResumeID: c.Input.ResumeID, Location: c.Input.Location, University: c.Input.University, Grade: c.Input.Grade, ProgramName: c.Input.ProgramName, ProfileName: c.Input.ProfileName, Faculty: c.Input.Faculty, Course: c.Input.Course, EndDate: c.Input.EndDate}); err != nil {
 			return err
 		}
-		return h.u.UpdateEducation(tx, UpdateEducationRepositoryCommand{Education: current, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateEducation(tx, ports.UpdateEducationRepositoryCommand{Education: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
@@ -125,7 +111,9 @@ func (h *DeleteEducationHandler) Handle(ctx context.Context, c DeleteEducationCo
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete education dependencies are nil")
 	}
-	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteEducation(tx, c) })
+	return h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.DeleteEducation(tx, ports.DeleteEducationRepositoryCommand{ResumeID: c.ResumeID, EducationID: c.EducationID, UserID: c.UserID})
+	})
 }
 func educationFromInput(input EducationInput) (*domain.Education, error) {
 	return domain.NewEducation(domain.EducationParams{ID: input.ID, ResumeID: input.ResumeID, Location: input.Location, University: input.University, Grade: input.Grade, ProgramName: input.ProgramName, ProfileName: input.ProfileName, Faculty: input.Faculty, Course: input.Course, EndDate: input.EndDate})

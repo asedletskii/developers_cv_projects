@@ -6,19 +6,19 @@ import (
 
 	"gorm.io/gorm"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CreateActivityRepository = (*ActivityRepository)(nil)
-var _ commands.GetActivityRepository = (*ActivityRepository)(nil)
-var _ commands.UpdateActivityRepository = (*ActivityRepository)(nil)
-var _ commands.DeleteActivityRepository = (*ActivityRepository)(nil)
+var _ ports.CreateActivityRepository = (*ActivityRepository)(nil)
+var _ ports.GetActivityRepository = (*ActivityRepository)(nil)
+var _ ports.UpdateActivityRepository = (*ActivityRepository)(nil)
+var _ ports.DeleteActivityRepository = (*ActivityRepository)(nil)
 
-func (r *ActivityRepository) CreateActivity(ctx context.Context, c commands.CreateActivityRepositoryCommand) error {
+func (r *ActivityRepository) CreateActivity(ctx context.Context, c ports.CreateActivityRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func (r *ActivityRepository) CreateActivity(ctx context.Context, c commands.Crea
 	}
 	return nil
 }
-func (r *ActivityRepository) GetActivity(ctx context.Context, q commands.GetActivityCommand) (*domain.Activity, error) {
+func (r *ActivityRepository) GetActivity(ctx context.Context, q ports.GetActivityRepositoryCommand) (*domain.Activity, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r *ActivityRepository) GetActivity(ctx context.Context, q commands.GetActi
 	}
 	return mapActivity(model)
 }
-func (r *ActivityRepository) UpdateActivity(ctx context.Context, c commands.UpdateActivityRepositoryCommand) error {
+func (r *ActivityRepository) UpdateActivity(ctx context.Context, c ports.UpdateActivityRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (r *ActivityRepository) UpdateActivity(ctx context.Context, c commands.Upda
 	}
 	return nil
 }
-func (r *ActivityRepository) DeleteActivity(ctx context.Context, c commands.DeleteActivityCommand) error {
+func (r *ActivityRepository) DeleteActivity(ctx context.Context, c ports.DeleteActivityRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

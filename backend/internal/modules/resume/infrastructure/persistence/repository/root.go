@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -16,12 +16,12 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ commands.CreateResumeRootRepository = (*ResumeRootRepository)(nil)
-var _ commands.GetResumeRootRepository = (*ResumeRootRepository)(nil)
-var _ commands.UpdateResumeRootRepository = (*ResumeRootRepository)(nil)
-var _ commands.DeleteResumeRootRepository = (*ResumeRootRepository)(nil)
+var _ ports.CreateResumeRootRepository = (*ResumeRootRepository)(nil)
+var _ ports.GetResumeRootRepository = (*ResumeRootRepository)(nil)
+var _ ports.UpdateResumeRootRepository = (*ResumeRootRepository)(nil)
+var _ ports.DeleteResumeRootRepository = (*ResumeRootRepository)(nil)
 
-func (r *ResumeRootRepository) CreateRoot(ctx context.Context, c commands.CreateResumeRootRepositoryCommand) error {
+func (r *ResumeRootRepository) CreateRoot(ctx context.Context, c ports.CreateResumeRootRepositoryCommand) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("create resume root: %w", err)
@@ -46,7 +46,7 @@ func (r *ResumeRootRepository) CreateRoot(ctx context.Context, c commands.Create
 	}
 	return nil
 }
-func (r *ResumeRootRepository) GetRoot(ctx context.Context, q commands.GetResumeRootCommand) (*domain.ResumeRoot, error) {
+func (r *ResumeRootRepository) GetRoot(ctx context.Context, q ports.GetResumeRootRepositoryCommand) (*domain.ResumeRoot, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get resume root: repository dependencies are nil")
 	}
@@ -71,7 +71,7 @@ func (r *ResumeRootRepository) GetRoot(ctx context.Context, q commands.GetResume
 	}
 	return mapRoot(m, p, ss)
 }
-func (r *ResumeRootRepository) UpdateRoot(ctx context.Context, c commands.UpdateResumeRootRepositoryCommand) error {
+func (r *ResumeRootRepository) UpdateRoot(ctx context.Context, c ports.UpdateResumeRootRepositoryCommand) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("update resume root: %w", err)
@@ -106,7 +106,7 @@ func (r *ResumeRootRepository) UpdateRoot(ctx context.Context, c commands.Update
 	}
 	return nil
 }
-func (r *ResumeRootRepository) DeleteRoot(ctx context.Context, q commands.DeleteResumeRootCommand) error {
+func (r *ResumeRootRepository) DeleteRoot(ctx context.Context, q ports.DeleteResumeRootRepositoryCommand) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("delete resume root: %w", err)

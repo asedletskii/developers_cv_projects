@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -32,21 +33,12 @@ type DeleteResumeRootCommand struct {
 	UserID   useridentity.ID
 }
 
-type CreateResumeRootRepositoryCommand struct{ Resume *domain.ResumeRoot }
-type UpdateResumeRootRepositoryCommand struct{ Resume *domain.ResumeRoot }
-
-type CreateResumeRootRepository interface {
-	CreateRoot(context.Context, CreateResumeRootRepositoryCommand) error
-}
-type GetResumeRootRepository interface {
-	GetRoot(context.Context, GetResumeRootCommand) (*domain.ResumeRoot, error)
-}
-type UpdateResumeRootRepository interface {
-	UpdateRoot(context.Context, UpdateResumeRootRepositoryCommand) error
-}
-type DeleteResumeRootRepository interface {
-	DeleteRoot(context.Context, DeleteResumeRootCommand) error
-}
+type CreateResumeRootRepository = ports.CreateResumeRootRepository
+type CreateResumeRootRepositoryCommand = ports.CreateResumeRootRepositoryCommand
+type GetResumeRootRepository = ports.GetResumeRootRepository
+type UpdateResumeRootRepository = ports.UpdateResumeRootRepository
+type UpdateResumeRootRepositoryCommand = ports.UpdateResumeRootRepositoryCommand
+type DeleteResumeRootRepository = ports.DeleteResumeRootRepository
 
 type CreateResumeRootHandler struct {
 	repository CreateResumeRootRepository
@@ -68,7 +60,7 @@ func (h *CreateResumeRootHandler) Handle(ctx context.Context, c CreateResumeRoot
 		if err != nil {
 			return err
 		}
-		return h.repository.CreateRoot(tx, CreateResumeRootRepositoryCommand{Resume: resume})
+		return h.repository.CreateRoot(tx, ports.CreateResumeRootRepositoryCommand{Resume: resume})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -93,14 +85,14 @@ func (h *UpdateResumeRootHandler) Handle(ctx context.Context, c UpdateResumeRoot
 		return fmt.Errorf("invalid update resume root command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.repository.GetRoot(tx, GetResumeRootCommand{ResumeID: c.ResumeID, UserID: c.UserID})
+		current, err := h.repository.GetRoot(tx, ports.GetResumeRootRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
 		if err != nil {
 			return err
 		}
 		if err := current.Replace(domain.ResumeRootParams{ID: current.ID(), UserID: current.UserID(), Title: c.Title, Presentation: c.Presentation}); err != nil {
 			return err
 		}
-		return h.updater.UpdateRoot(tx, UpdateResumeRootRepositoryCommand{Resume: current})
+		return h.updater.UpdateRoot(tx, ports.UpdateResumeRootRepositoryCommand{Resume: current})
 	})
 }
 
@@ -119,5 +111,7 @@ func (h *DeleteResumeRootHandler) Handle(ctx context.Context, c DeleteResumeRoot
 	if c.ResumeID.IsZero() || c.UserID.IsZero() {
 		return fmt.Errorf("invalid delete resume root command")
 	}
-	return h.uow.Do(ctx, func(tx context.Context) error { return h.repository.DeleteRoot(tx, c) })
+	return h.uow.Do(ctx, func(tx context.Context) error {
+		return h.repository.DeleteRoot(tx, ports.DeleteResumeRootRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
+	})
 }

@@ -7,19 +7,19 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CreateEducationRepository = (*EducationRepository)(nil)
-var _ commands.GetEducationRepository = (*EducationRepository)(nil)
-var _ commands.UpdateEducationRepository = (*EducationRepository)(nil)
-var _ commands.DeleteEducationRepository = (*EducationRepository)(nil)
+var _ ports.CreateEducationRepository = (*EducationRepository)(nil)
+var _ ports.GetEducationRepository = (*EducationRepository)(nil)
+var _ ports.UpdateEducationRepository = (*EducationRepository)(nil)
+var _ ports.DeleteEducationRepository = (*EducationRepository)(nil)
 
-func (r *EducationRepository) CreateEducation(ctx context.Context, c commands.CreateEducationRepositoryCommand) error {
+func (r *EducationRepository) CreateEducation(ctx context.Context, c ports.CreateEducationRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (r *EducationRepository) CreateEducation(ctx context.Context, c commands.Cr
 	return nil
 }
 
-func (r *EducationRepository) GetEducation(ctx context.Context, q commands.GetEducationCommand) (*domain.Education, error) {
+func (r *EducationRepository) GetEducation(ctx context.Context, q ports.GetEducationRepositoryCommand) (*domain.Education, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (r *EducationRepository) GetEducation(ctx context.Context, q commands.GetEd
 	return mapEducation(model)
 }
 
-func (r *EducationRepository) UpdateEducation(ctx context.Context, c commands.UpdateEducationRepositoryCommand) error {
+func (r *EducationRepository) UpdateEducation(ctx context.Context, c ports.UpdateEducationRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (r *EducationRepository) UpdateEducation(ctx context.Context, c commands.Up
 	return nil
 }
 
-func (r *EducationRepository) DeleteEducation(ctx context.Context, c commands.DeleteEducationCommand) error {
+func (r *EducationRepository) DeleteEducation(ctx context.Context, c ports.DeleteEducationRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err

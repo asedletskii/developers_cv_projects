@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
@@ -16,17 +16,20 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ commands.CreateProjectRepository = (*ProjectRepository)(nil)
-var _ commands.GetProjectRepository = (*ProjectRepository)(nil)
-var _ commands.UpdateProjectRepository = (*ProjectRepository)(nil)
-var _ commands.DeleteProjectRepository = (*ProjectRepository)(nil)
+var _ ports.CreateProjectRepository = (*ProjectRepository)(nil)
+var _ ports.GetProjectRepository = (*ProjectRepository)(nil)
+var _ ports.UpdateProjectRepository = (*ProjectRepository)(nil)
+var _ ports.DeleteProjectRepository = (*ProjectRepository)(nil)
 
-func (r *ProjectRepository) CreateProject(ctx context.Context, c commands.CreateProjectCommand) error {
+func (r *ProjectRepository) CreateProject(ctx context.Context, c ports.CreateProjectRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	item, err := projectModel(c.Input)
+	if c.Project == nil {
+		return fmt.Errorf("project is nil")
+	}
+	item, err := projectDomainModel(c.Project)
 	if err != nil {
 		return err
 	}
@@ -40,10 +43,10 @@ func (r *ProjectRepository) CreateProject(ctx context.Context, c commands.Create
 		}
 		return err
 	}
-	return writeProjectChildren(ctx, tx, &item, c.Input)
+	return writeProjectChildrenFromDomain(ctx, tx, &item, c.Project)
 }
 
-func (r *ProjectRepository) GetProject(ctx context.Context, q commands.GetProjectCommand) (*domain.Project, error) {
+func (r *ProjectRepository) GetProject(ctx context.Context, q ports.GetProjectRepositoryCommand) (*domain.Project, error) {
 	tx, err := r.owned(ctx, q.ResumeID, q.UserID)
 	if err != nil {
 		return nil, err
@@ -58,7 +61,7 @@ func (r *ProjectRepository) GetProject(ctx context.Context, q commands.GetProjec
 	return r.mapProject(ctx, tx, model)
 }
 
-func (r *ProjectRepository) UpdateProject(ctx context.Context, c commands.UpdateProjectCommand) error {
+func (r *ProjectRepository) UpdateProject(ctx context.Context, c ports.UpdateProjectRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -95,7 +98,7 @@ func (r *ProjectRepository) UpdateProject(ctx context.Context, c commands.Update
 	return writeProjectChildrenFromDomain(ctx, tx, &model, c.Project)
 }
 
-func (r *ProjectRepository) DeleteProject(ctx context.Context, c commands.DeleteProjectCommand) error {
+func (r *ProjectRepository) DeleteProject(ctx context.Context, c ports.DeleteProjectRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -108,17 +111,6 @@ func (r *ProjectRepository) DeleteProject(ctx context.Context, c commands.Delete
 		return domain.ErrEntityNotFound
 	}
 	return nil
-}
-
-func projectModel(input commands.ProjectInput) (gormmodel.ResumeProject, error) {
-	item, err := domain.NewProject(domain.ProjectParams{
-		ID: input.ID, ResumeID: input.ResumeID, Name: input.Name, Description: input.Description, Role: input.Role,
-		Screenshots: input.Screenshots, Link: input.Link, GitLink: input.GitLink, Stack: input.Stack, Contributors: input.Contributors,
-	})
-	if err != nil {
-		return gormmodel.ResumeProject{}, err
-	}
-	return gormmodel.ResumeProject{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Name: item.Name(), Description: item.Description(), Role: item.Role(), Link: externalURLString(item.Link()), GitLink: externalURLString(item.GitLink())}, nil
 }
 
 func projectDomainModel(item *domain.Project) (gormmodel.ResumeProject, error) {
@@ -137,34 +129,6 @@ func writeProjectChildrenFromDomain(ctx context.Context, tx *gorm.DB, model *gor
 		}
 	}
 	for position, contributor := range project.Contributors() {
-		item := gormmodel.ResumeProjectContributor{ID: uuid.New(), ProjectID: model.ID, Position: position, Name: contributor.Name(), Surname: contributor.Surname(), Role: contributor.Role(), Phone: contributor.Contacts().Phone()}
-		if value := contributor.Contacts().Telegram(); value != nil {
-			text := value.String()
-			item.Telegram = &text
-		}
-		if value := contributor.Contacts().Email(); value != nil {
-			text := value.String()
-			item.Email = &text
-		}
-		if err := tx.WithContext(ctx).Create(&item).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func writeProjectChildren(ctx context.Context, tx *gorm.DB, model *gormmodel.ResumeProject, input commands.ProjectInput) error {
-	for position, screenshot := range input.Screenshots {
-		if err := tx.WithContext(ctx).Create(&gormmodel.ResumeProjectScreenshot{ProjectID: model.ID, Position: position, Path: screenshot.String()}).Error; err != nil {
-			return err
-		}
-	}
-	for position, technology := range input.Stack {
-		if err := tx.WithContext(ctx).Create(&gormmodel.ResumeProjectTechnology{ProjectID: model.ID, Position: position, Name: technology.Name(), Grade: projectGradePtr(technology.Grade())}).Error; err != nil {
-			return err
-		}
-	}
-	for position, contributor := range input.Contributors {
 		item := gormmodel.ResumeProjectContributor{ID: uuid.New(), ProjectID: model.ID, Position: position, Name: contributor.Name(), Surname: contributor.Surname(), Role: contributor.Role(), Phone: contributor.Contacts().Phone()}
 		if value := contributor.Contacts().Telegram(); value != nil {
 			text := value.String()

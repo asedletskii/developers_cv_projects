@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -24,23 +25,11 @@ type UpdateResumeProfileCommand struct {
 	Profile  domain.ProfileParams
 }
 
-type CreateResumeProfileRepository interface {
-	CreateProfile(context.Context, CreateResumeProfileRepositoryCommand) error
-}
-type GetResumeProfileRepository interface {
-	GetProfile(context.Context, GetResumeProfileCommand) (*domain.Profile, error)
-}
-type UpdateResumeProfileRepository interface {
-	UpdateProfile(context.Context, UpdateResumeProfileRepositoryCommand) error
-}
-type CreateResumeProfileRepositoryCommand struct {
-	Profile *domain.Profile
-	UserID  useridentity.ID
-}
-type UpdateResumeProfileRepositoryCommand struct {
-	Profile *domain.Profile
-	UserID  useridentity.ID
-}
+type CreateResumeProfileRepository = ports.CreateResumeProfileRepository
+type CreateResumeProfileRepositoryCommand = ports.CreateResumeProfileRepositoryCommand
+type GetResumeProfileRepository = ports.GetResumeProfileRepository
+type UpdateResumeProfileRepository = ports.UpdateResumeProfileRepository
+type UpdateResumeProfileRepositoryCommand = ports.UpdateResumeProfileRepositoryCommand
 
 type CreateResumeProfileHandler struct {
 	repository CreateResumeProfileRepository
@@ -66,7 +55,7 @@ func (h *CreateResumeProfileHandler) Handle(ctx context.Context, c CreateResumeP
 			return e
 		}
 		created = p
-		return h.repository.CreateProfile(tx, CreateResumeProfileRepositoryCommand{Profile: p, UserID: c.UserID})
+		return h.repository.CreateProfile(tx, ports.CreateResumeProfileRepositoryCommand{Profile: p, UserID: c.UserID})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
@@ -91,13 +80,13 @@ func (h *UpdateResumeProfileHandler) Handle(ctx context.Context, c UpdateResumeP
 		return fmt.Errorf("invalid update resume profile command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, e := h.repository.GetProfile(tx, GetResumeProfileCommand{ResumeID: c.ResumeID, UserID: c.UserID})
+		current, e := h.repository.GetProfile(tx, ports.GetResumeProfileRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
 		if e != nil {
 			return e
 		}
 		if e := current.Replace(c.Profile); e != nil {
 			return e
 		}
-		return h.updater.UpdateProfile(tx, UpdateResumeProfileRepositoryCommand{Profile: current, UserID: c.UserID})
+		return h.updater.UpdateProfile(tx, ports.UpdateResumeProfileRepositoryCommand{Profile: current, UserID: c.UserID})
 	})
 }
