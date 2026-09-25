@@ -39,6 +39,16 @@ func NewActivity(params ActivityParams) (*Activity, error) {
 	}, nil
 }
 
+func (a *Activity) Replace(params ActivityParams) error {
+	params.ID, params.ResumeID = a.id, a.resumeID
+	updated, err := NewActivity(params)
+	if err != nil {
+		return err
+	}
+	*a = *updated
+	return nil
+}
+
 func (a *Activity) ID() valueobjects.ID             { return a.id }
 func (a *Activity) ResumeID() valueobjects.ID       { return a.resumeID }
 func (a *Activity) Type() enums.ActivityType        { return a.typeValue }

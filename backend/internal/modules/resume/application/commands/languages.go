@@ -116,11 +116,10 @@ func (h *UpdateLanguageHandler) Handle(ctx context.Context, c UpdateLanguageComm
 		if err != nil {
 			return err
 		}
-		updated, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: current.ID(), Language: c.Input.Language, Grade: c.Input.Grade, Position: c.Input.Position})
-		if err != nil {
+		if err := current.Replace(domain.ResumeLanguageEntryParams{ID: current.ID(), Language: c.Input.Language, Grade: c.Input.Grade, Position: c.Input.Position}); err != nil {
 			return err
 		}
-		return h.u.UpdateLanguage(tx, UpdateLanguageRepositoryCommand{Language: updated, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateLanguage(tx, UpdateLanguageRepositoryCommand{Language: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 

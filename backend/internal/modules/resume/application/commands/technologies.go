@@ -116,11 +116,10 @@ func (h *UpdateTechnologyHandler) Handle(ctx context.Context, c UpdateTechnology
 		if err != nil {
 			return err
 		}
-		updated, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: current.ID(), Name: c.Input.Name, Grade: c.Input.Grade, Position: c.Input.Position})
-		if err != nil {
+		if err := current.Replace(domain.ResumeTechnologyEntryParams{ID: current.ID(), Name: c.Input.Name, Grade: c.Input.Grade, Position: c.Input.Position}); err != nil {
 			return err
 		}
-		return h.u.UpdateTechnology(tx, UpdateTechnologyRepositoryCommand{Technology: updated, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateTechnology(tx, UpdateTechnologyRepositoryCommand{Technology: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 

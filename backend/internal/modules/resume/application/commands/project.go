@@ -35,6 +35,7 @@ type UpdateProjectCommand struct {
 	ResumeID, ProjectID valueobjects.ID
 	UserID              useridentity.ID
 	Input               ProjectInput
+	Project             *domain.Project
 }
 type DeleteProjectCommand struct {
 	ResumeID, ProjectID valueobjects.ID
@@ -88,16 +89,15 @@ func NewUpdateProjectHandler(get GetProjectRepository, repository UpdateProjectR
 }
 
 func (h *UpdateProjectHandler) Handle(ctx context.Context, command UpdateProjectCommand) error {
-	command.Input.ID, command.Input.ResumeID = command.ProjectID, command.ResumeID
-	if _, err := projectFromInput(command.Input); err != nil {
-		return err
-	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
 		current, err := h.get.GetProject(tx, GetProjectCommand{ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})
 		if err != nil {
 			return err
 		}
-		command.Input.ID = current.ID()
+		if err := current.Replace(domain.ProjectParams{ID: current.ID(), ResumeID: command.ResumeID, Name: command.Input.Name, Description: command.Input.Description, Role: command.Input.Role, Screenshots: command.Input.Screenshots, Link: command.Input.Link, GitLink: command.Input.GitLink, Stack: command.Input.Stack, Contributors: command.Input.Contributors}); err != nil {
+			return err
+		}
+		command.Project = current
 		return h.repository.UpdateProject(tx, command)
 	})
 }

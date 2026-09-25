@@ -54,6 +54,16 @@ func (r *ResumeRoot) Presentation() ResumePresentation {
 	return cloneResumePresentation(r.presentation)
 }
 
+func (r *ResumeRoot) Replace(params ResumeRootParams) error {
+	params.ID, params.UserID = r.id, r.userID
+	updated, err := NewResumeRoot(params)
+	if err != nil {
+		return err
+	}
+	*r = *updated
+	return nil
+}
+
 func (r *ResumeRoot) Rename(title string) error {
 	title = strings.TrimSpace(title)
 	if err := ValidateResumeTitle(title); err != nil {

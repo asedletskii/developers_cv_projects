@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -62,7 +63,10 @@ func (r *ProjectRepository) UpdateProject(ctx context.Context, c commands.Update
 	if err != nil {
 		return err
 	}
-	model, err := projectModel(c.Input)
+	if c.Project == nil {
+		return fmt.Errorf("project is nil")
+	}
+	model, err := projectDomainModel(c.Project)
 	if err != nil {
 		return err
 	}
@@ -88,7 +92,7 @@ func (r *ProjectRepository) UpdateProject(ctx context.Context, c commands.Update
 		return err
 	}
 	model.ID = existing.ID
-	return writeProjectChildren(ctx, tx, &model, c.Input)
+	return writeProjectChildrenFromDomain(ctx, tx, &model, c.Project)
 }
 
 func (r *ProjectRepository) DeleteProject(ctx context.Context, c commands.DeleteProjectCommand) error {
@@ -115,6 +119,38 @@ func projectModel(input commands.ProjectInput) (gormmodel.ResumeProject, error) 
 		return gormmodel.ResumeProject{}, err
 	}
 	return gormmodel.ResumeProject{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Name: item.Name(), Description: item.Description(), Role: item.Role(), Link: externalURLString(item.Link()), GitLink: externalURLString(item.GitLink())}, nil
+}
+
+func projectDomainModel(item *domain.Project) (gormmodel.ResumeProject, error) {
+	return gormmodel.ResumeProject{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Name: item.Name(), Description: item.Description(), Role: item.Role(), Link: externalURLString(item.Link()), GitLink: externalURLString(item.GitLink())}, nil
+}
+
+func writeProjectChildrenFromDomain(ctx context.Context, tx *gorm.DB, model *gormmodel.ResumeProject, project *domain.Project) error {
+	for position, screenshot := range project.Screenshots() {
+		if err := tx.WithContext(ctx).Create(&gormmodel.ResumeProjectScreenshot{ProjectID: model.ID, Position: position, Path: screenshot.String()}).Error; err != nil {
+			return err
+		}
+	}
+	for position, technology := range project.Stack() {
+		if err := tx.WithContext(ctx).Create(&gormmodel.ResumeProjectTechnology{ProjectID: model.ID, Position: position, Name: technology.Name(), Grade: projectGradePtr(technology.Grade())}).Error; err != nil {
+			return err
+		}
+	}
+	for position, contributor := range project.Contributors() {
+		item := gormmodel.ResumeProjectContributor{ID: uuid.New(), ProjectID: model.ID, Position: position, Name: contributor.Name(), Surname: contributor.Surname(), Role: contributor.Role(), Phone: contributor.Contacts().Phone()}
+		if value := contributor.Contacts().Telegram(); value != nil {
+			text := value.String()
+			item.Telegram = &text
+		}
+		if value := contributor.Contacts().Email(); value != nil {
+			text := value.String()
+			item.Email = &text
+		}
+		if err := tx.WithContext(ctx).Create(&item).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func writeProjectChildren(ctx context.Context, tx *gorm.DB, model *gormmodel.ResumeProject, input commands.ProjectInput) error {

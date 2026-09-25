@@ -58,6 +58,16 @@ func NewResumeTechnologies(p ResumeTechnologiesParams) (*ResumeTechnologies, err
 	}
 	return &ResumeTechnologies{id: p.ID, resumeID: p.ResumeID, entries: out}, nil
 }
+func (t *ResumeTechnologyEntry) Replace(params ResumeTechnologyEntryParams) error {
+	params.ID = t.id
+	updated, err := NewResumeTechnologyEntry(params)
+	if err != nil {
+		return err
+	}
+	*t = updated
+	return nil
+}
+
 func (t ResumeTechnologyEntry) ID() valueobjects.ID { return t.id }
 func (t ResumeTechnologyEntry) Name() string        { return t.name }
 func (t ResumeTechnologyEntry) Grade() *enums.TechnologyGrade {

@@ -90,11 +90,10 @@ func (h *UpdateSkillsHandler) Handle(ctx context.Context, c UpdateSkillsCommand)
 		if e != nil {
 			return e
 		}
-		a, e := domain.NewSkills(domain.SkillsParams{ID: cur.ID(), ResumeID: c.ResumeID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft)})
-		if e != nil {
+		if e := cur.Replace(domain.SkillsParams{ID: cur.ID(), ResumeID: c.ResumeID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft)}); e != nil {
 			return e
 		}
-		return h.u.UpdateSkills(tx, UpdateSkillsRepositoryCommand{Skills: a, UserID: c.UserID})
+		return h.u.UpdateSkills(tx, UpdateSkillsRepositoryCommand{Skills: cur, UserID: c.UserID})
 	})
 }
 func toHard(v []string) []enums.HardSkill {

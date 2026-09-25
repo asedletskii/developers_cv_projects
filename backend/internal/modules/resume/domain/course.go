@@ -42,6 +42,16 @@ func NewCourse(params CourseParams) (*Course, error) {
 	}, nil
 }
 
+func (c *Course) Replace(params CourseParams) error {
+	params.ID, params.ResumeID = c.id, c.resumeID
+	updated, err := NewCourse(params)
+	if err != nil {
+		return err
+	}
+	*c = *updated
+	return nil
+}
+
 func (c *Course) ID() valueobjects.ID             { return c.id }
 func (c *Course) ResumeID() valueobjects.ID       { return c.resumeID }
 func (c *Course) Name() string                    { return c.name }

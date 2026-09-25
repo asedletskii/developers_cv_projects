@@ -111,11 +111,10 @@ func (h *UpdateExperienceHandler) Handle(ctx context.Context, c UpdateExperience
 			return err
 		}
 		c.Input.ID, c.Input.ResumeID = current.ID(), c.ResumeID
-		updated, err := experienceFromInput(c.Input)
-		if err != nil {
+		if err := current.Replace(domain.ExperienceParams{ID: c.Input.ID, ResumeID: c.Input.ResumeID, Company: c.Input.Company, Position: c.Input.Position, Location: c.Input.Location, StartDate: c.Input.StartDate, EndDate: c.Input.EndDate, Description: c.Input.Description, Achievements: c.Input.Achievements, Technologies: experienceTechnologyParams(c.Input.Technologies)}); err != nil {
 			return err
 		}
-		return h.u.UpdateExperience(tx, UpdateExperienceRepositoryCommand{Experience: updated, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateExperience(tx, UpdateExperienceRepositoryCommand{Experience: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
@@ -133,6 +132,14 @@ func (h *DeleteExperienceHandler) Handle(ctx context.Context, c DeleteExperience
 	}
 	return h.u.Do(ctx, func(tx context.Context) error { return h.r.DeleteExperience(tx, c) })
 }
+func experienceTechnologyParams(input []ExperienceTechnologyInput) []domain.ExperienceTechnologyParams {
+	out := make([]domain.ExperienceTechnologyParams, len(input))
+	for i, item := range input {
+		out[i] = domain.ExperienceTechnologyParams{Name: item.Name, Grade: item.Grade}
+	}
+	return out
+}
+
 func experienceFromInput(input ExperienceInput) (*domain.Experience, error) {
 	ts := make([]domain.ExperienceTechnologyParams, len(input.Technologies))
 	for i, t := range input.Technologies {

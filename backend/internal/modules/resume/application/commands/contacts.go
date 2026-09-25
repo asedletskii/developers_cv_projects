@@ -96,12 +96,9 @@ func (h *UpdateResumeContactsHandler) Handle(ctx context.Context, c UpdateResume
 		if e != nil {
 			return e
 		}
-		c.Contacts.ID = current.ID()
-		c.Contacts.ResumeID = c.ResumeID
-		a, e := domain.NewContacts(c.Contacts)
-		if e != nil {
+		if e := current.Replace(c.Contacts); e != nil {
 			return e
 		}
-		return h.updater.UpdateContacts(tx, UpdateResumeContactsRepositoryCommand{UserID: c.UserID, Contacts: a})
+		return h.updater.UpdateContacts(tx, UpdateResumeContactsRepositoryCommand{UserID: c.UserID, Contacts: current})
 	})
 }

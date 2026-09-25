@@ -105,11 +105,10 @@ func (h *UpdateActivityHandler) Handle(ctx context.Context, c UpdateActivityComm
 			return err
 		}
 		c.Input.ID, c.Input.ResumeID = current.ID(), c.ResumeID
-		updated, err := activityFromInput(c.Input)
-		if err != nil {
+		if err := current.Replace(domain.ActivityParams{ID: c.Input.ID, ResumeID: c.Input.ResumeID, Type: c.Input.Type, Title: c.Input.Title, Description: c.Input.Description, Date: c.Input.Date, Link: c.Input.Link}); err != nil {
 			return err
 		}
-		return h.u.UpdateActivity(tx, UpdateActivityRepositoryCommand{Activity: updated, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateActivity(tx, UpdateActivityRepositoryCommand{Activity: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 

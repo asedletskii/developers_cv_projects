@@ -97,11 +97,10 @@ func (h *UpdateResumeRootHandler) Handle(ctx context.Context, c UpdateResumeRoot
 		if err != nil {
 			return err
 		}
-		updated, err := domain.NewResumeRoot(domain.ResumeRootParams{ID: current.ID(), UserID: current.UserID(), Title: c.Title, Presentation: c.Presentation})
-		if err != nil {
+		if err := current.Replace(domain.ResumeRootParams{ID: current.ID(), UserID: current.UserID(), Title: c.Title, Presentation: c.Presentation}); err != nil {
 			return err
 		}
-		return h.updater.UpdateRoot(tx, UpdateResumeRootRepositoryCommand{Resume: updated})
+		return h.updater.UpdateRoot(tx, UpdateResumeRootRepositoryCommand{Resume: current})
 	})
 }
 

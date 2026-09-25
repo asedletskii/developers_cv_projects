@@ -34,6 +34,16 @@ func NewExperienceTechnology(params ExperienceTechnologyParams) (ExperienceTechn
 	return ExperienceTechnology{name: name, grade: grade}, nil
 }
 
+func (e *Experience) Replace(params ExperienceParams) error {
+	params.ID, params.ResumeID = e.id, e.resumeID
+	updated, err := NewExperience(params)
+	if err != nil {
+		return err
+	}
+	*e = *updated
+	return nil
+}
+
 func (t ExperienceTechnology) Name() string { return t.name }
 
 func (t ExperienceTechnology) Grade() *enums.TechnologyGrade {

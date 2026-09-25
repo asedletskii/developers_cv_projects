@@ -61,6 +61,16 @@ func NewResumeLanguages(p ResumeLanguagesParams) (*ResumeLanguages, error) {
 	}
 	return &ResumeLanguages{id: p.ID, resumeID: p.ResumeID, entries: out}, nil
 }
+func (l *ResumeLanguageEntry) Replace(params ResumeLanguageEntryParams) error {
+	params.ID = l.id
+	updated, err := NewResumeLanguageEntry(params)
+	if err != nil {
+		return err
+	}
+	*l = updated
+	return nil
+}
+
 func (l ResumeLanguageEntry) ID() valueobjects.ID          { return l.id }
 func (l ResumeLanguageEntry) Language() enums.LanguageType { return l.language }
 func (l ResumeLanguageEntry) Grade() *enums.LanguageGrade {

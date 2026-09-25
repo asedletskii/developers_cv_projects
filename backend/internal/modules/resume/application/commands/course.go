@@ -103,11 +103,10 @@ func (h *UpdateCourseHandler) Handle(ctx context.Context, c UpdateCourseCommand)
 			return err
 		}
 		c.Input.ID, c.Input.ResumeID = current.ID(), c.ResumeID
-		updated, err := courseFromInput(c.Input)
-		if err != nil {
+		if err := current.Replace(domain.CourseParams{ID: c.Input.ID, ResumeID: c.Input.ResumeID, Name: c.Input.Name, Organization: c.Input.Organization, EndDate: c.Input.EndDate, Hours: c.Input.Hours, CertificateLink: c.Input.CertificateLink}); err != nil {
 			return err
 		}
-		return h.u.UpdateCourse(tx, UpdateCourseRepositoryCommand{Course: updated, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateCourse(tx, UpdateCourseRepositoryCommand{Course: current, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 

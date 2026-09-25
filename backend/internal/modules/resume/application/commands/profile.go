@@ -95,12 +95,9 @@ func (h *UpdateResumeProfileHandler) Handle(ctx context.Context, c UpdateResumeP
 		if e != nil {
 			return e
 		}
-		c.Profile.ID = current.ID()
-		c.Profile.ResumeID = c.ResumeID
-		p, e := domain.NewProfile(c.Profile)
-		if e != nil {
+		if e := current.Replace(c.Profile); e != nil {
 			return e
 		}
-		return h.updater.UpdateProfile(tx, UpdateResumeProfileRepositoryCommand{Profile: p, UserID: c.UserID})
+		return h.updater.UpdateProfile(tx, UpdateResumeProfileRepositoryCommand{Profile: current, UserID: c.UserID})
 	})
 }

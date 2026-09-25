@@ -53,6 +53,16 @@ func NewProject(params ProjectParams) (*Project, error) {
 	}, nil
 }
 
+func (p *Project) Replace(params ProjectParams) error {
+	params.ID, params.ResumeID = p.id, p.resumeID
+	updated, err := NewProject(params)
+	if err != nil {
+		return err
+	}
+	*p = *updated
+	return nil
+}
+
 func (p *Project) ID() valueobjects.ID                   { return p.id }
 func (p *Project) ResumeID() valueobjects.ID             { return p.resumeID }
 func (p *Project) Name() string                          { return p.name }

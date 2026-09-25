@@ -41,6 +41,16 @@ func NewContacts(params ContactsParams) (*Contacts, error) {
 	return &Contacts{id: params.ID, resumeID: params.ResumeID, contacts: params.Contacts, hiddenContacts: append([]enums.ContactKey(nil), params.HiddenContacts...), text: cloneContactsText(params.Text)}, nil
 }
 
+func (c *Contacts) Replace(params ContactsParams) error {
+	params.ID, params.ResumeID = c.id, c.resumeID
+	updated, err := NewContacts(params)
+	if err != nil {
+		return err
+	}
+	*c = *updated
+	return nil
+}
+
 func (c *Contacts) ID() valueobjects.ID         { return c.id }
 func (c *Contacts) ResumeID() valueobjects.ID   { return c.resumeID }
 func (c *Contacts) Contacts() entities.Contacts { return c.contacts }

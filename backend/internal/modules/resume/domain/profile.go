@@ -67,6 +67,16 @@ func NewProfile(p ProfileParams) (*Profile, error) {
 	}
 	return &Profile{id: p.ID, resumeID: p.ResumeID, name: name, surname: surname, patronymic: patronymic, position: position, photoPath: p.PhotoPath, dateOfBirth: p.DateOfBirth, location: location, relocation: p.Relocation, workFormats: formats}, nil
 }
+func (p *Profile) Replace(params ProfileParams) error {
+	params.ID, params.ResumeID = p.id, p.resumeID
+	updated, err := NewProfile(params)
+	if err != nil {
+		return err
+	}
+	*p = *updated
+	return nil
+}
+
 func (p *Profile) ID() valueobjects.ID       { return p.id }
 func (p *Profile) ResumeID() valueobjects.ID { return p.resumeID }
 func (p *Profile) Name() string              { return p.name }

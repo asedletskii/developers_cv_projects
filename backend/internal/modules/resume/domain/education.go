@@ -53,6 +53,16 @@ func NewEducation(params EducationParams) (*Education, error) {
 	}, nil
 }
 
+func (e *Education) Replace(params EducationParams) error {
+	params.ID, params.ResumeID = e.id, e.resumeID
+	updated, err := NewEducation(params)
+	if err != nil {
+		return err
+	}
+	*e = *updated
+	return nil
+}
+
 func (e *Education) ID() valueobjects.ID         { return e.id }
 func (e *Education) ResumeID() valueobjects.ID   { return e.resumeID }
 func (e *Education) Location() string            { return e.location }

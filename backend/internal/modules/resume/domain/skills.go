@@ -45,6 +45,16 @@ func NewSkills(p SkillsParams) (*Skills, error) {
 	}
 	return &Skills{id: p.ID, resumeID: p.ResumeID, hard: h, soft: sft}, nil
 }
+func (s *Skills) Replace(params SkillsParams) error {
+	params.ID, params.ResumeID = s.id, s.resumeID
+	updated, err := NewSkills(params)
+	if err != nil {
+		return err
+	}
+	*s = *updated
+	return nil
+}
+
 func (s *Skills) ID() valueobjects.ID           { return s.id }
 func (s *Skills) ResumeID() valueobjects.ID     { return s.resumeID }
 func (s *Skills) HardSkills() []enums.HardSkill { return append([]enums.HardSkill(nil), s.hard...) }
