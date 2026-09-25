@@ -39,14 +39,6 @@ type LocalizedTextRequest struct {
 	RU string `json:"ru"`
 	EN string `json:"en"`
 }
-type ContactsTextResponse struct {
-	Title    *LocalizedTextResponse `json:"title,omitempty"`
-	Subtitle *LocalizedTextResponse `json:"subtitle,omitempty"`
-}
-type LocalizedTextResponse struct {
-	RU string `json:"ru"`
-	EN string `json:"en"`
-}
 
 func (r ContactsRequest) input() commands.ContactsInput {
 	var text *commands.ContactsTextInput
