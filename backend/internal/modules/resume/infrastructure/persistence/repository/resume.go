@@ -16,11 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ ports.CreateResumeRepository = (*ResumeRepository)(nil)
-var _ ports.GetResumeRepository = (*ResumeRepository)(nil)
-var _ ports.UpdateResumeRepository = (*ResumeRepository)(nil)
-var _ ports.DeleteResumeRepository = (*ResumeRepository)(nil)
-
 func (r *ResumeRepository) CreateResume(ctx context.Context, c ports.CreateResumeRepositoryCommand) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {

@@ -14,10 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ ports.CreateOverviewRepository = (*OverviewRepository)(nil)
-var _ ports.GetOverviewRepository = (*OverviewRepository)(nil)
-var _ ports.UpdateOverviewRepository = (*OverviewRepository)(nil)
-
 type OverviewRepository struct{ *baseRepository }
 
 func NewOverviewRepository(db *gorm.DB) *OverviewRepository {

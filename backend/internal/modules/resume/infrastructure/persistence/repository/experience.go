@@ -15,11 +15,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ ports.CreateExperienceRepository = (*ExperiencesRepository)(nil)
-var _ ports.GetExperienceRepository = (*ExperiencesRepository)(nil)
-var _ ports.UpdateExperienceRepository = (*ExperiencesRepository)(nil)
-var _ ports.DeleteExperienceRepository = (*ExperiencesRepository)(nil)
-
 func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c ports.CreateExperienceRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {

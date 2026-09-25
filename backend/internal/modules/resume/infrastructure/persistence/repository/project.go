@@ -15,11 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ ports.CreateProjectRepository = (*ProjectRepository)(nil)
-var _ ports.GetProjectRepository = (*ProjectRepository)(nil)
-var _ ports.UpdateProjectRepository = (*ProjectRepository)(nil)
-var _ ports.DeleteProjectRepository = (*ProjectRepository)(nil)
-
 func (r *ProjectRepository) CreateProject(ctx context.Context, c ports.CreateProjectRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {

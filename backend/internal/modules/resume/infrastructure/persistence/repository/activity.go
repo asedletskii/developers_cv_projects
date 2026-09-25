@@ -13,11 +13,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ ports.CreateActivityRepository = (*ActivityRepository)(nil)
-var _ ports.GetActivityRepository = (*ActivityRepository)(nil)
-var _ ports.UpdateActivityRepository = (*ActivityRepository)(nil)
-var _ ports.DeleteActivityRepository = (*ActivityRepository)(nil)
-
 func (r *ActivityRepository) CreateActivity(ctx context.Context, c ports.CreateActivityRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {

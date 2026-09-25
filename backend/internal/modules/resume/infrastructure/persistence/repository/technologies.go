@@ -14,11 +14,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ ports.CreateTechnologyRepository = (*TechnologiesRepository)(nil)
-var _ ports.GetTechnologyRepository = (*TechnologiesRepository)(nil)
-var _ ports.UpdateTechnologyRepository = (*TechnologiesRepository)(nil)
-var _ ports.DeleteTechnologyRepository = (*TechnologiesRepository)(nil)
-
 func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, c ports.CreateTechnologyRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {

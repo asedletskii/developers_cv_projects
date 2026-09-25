@@ -12,11 +12,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ ports.CreateCourseRepository = (*CourseRepository)(nil)
-var _ ports.GetCourseRepository = (*CourseRepository)(nil)
-var _ ports.UpdateCourseRepository = (*CourseRepository)(nil)
-var _ ports.DeleteCourseRepository = (*CourseRepository)(nil)
-
 func (r *CourseRepository) CreateCourse(ctx context.Context, c ports.CreateCourseRepositoryCommand) error {
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {

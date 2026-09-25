@@ -15,10 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ ports.CreateResumeContactsRepository = (*ContactsRepository)(nil)
-var _ ports.GetResumeContactsRepository = (*ContactsRepository)(nil)
-var _ ports.UpdateResumeContactsRepository = (*ContactsRepository)(nil)
-
 func (r *ContactsRepository) CreateContacts(ctx context.Context, c ports.CreateResumeContactsRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {

@@ -13,10 +13,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-var _ ports.CreateSkillsRepository = (*SkillsRepository)(nil)
-var _ ports.GetSkillsRepository = (*SkillsRepository)(nil)
-var _ ports.UpdateSkillsRepository = (*SkillsRepository)(nil)
-
 func (r *SkillsRepository) CreateSkills(ctx context.Context, c ports.CreateSkillsRepositoryCommand) error {
 	a, uid := c.Skills, c.UserID
 	tx, e := r.owned(ctx, a.ResumeID(), uid)
