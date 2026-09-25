@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
@@ -112,6 +113,9 @@ func NewDeleteProjectHandler(repository DeleteProjectRepository, uow UnitOfWork)
 }
 
 func (h *DeleteProjectHandler) Handle(ctx context.Context, command DeleteProjectCommand) error {
+	if h == nil || h.repository == nil || h.uow == nil {
+		return fmt.Errorf("delete project handler dependencies are nil")
+	}
 	return h.uow.Do(ctx, func(tx context.Context) error { return h.repository.DeleteProject(tx, command) })
 }
 
