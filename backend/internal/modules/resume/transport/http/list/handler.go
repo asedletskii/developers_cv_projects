@@ -11,10 +11,10 @@ import (
 )
 
 type Handler struct {
-	query *queries.ListResumesHandler
+	query *queries.ListResumesQueryHandler
 }
 
-func NewHandler(query *queries.ListResumesHandler) *Handler {
+func NewHandler(query *queries.ListResumesQueryHandler) *Handler {
 	return &Handler{query: query}
 }
 

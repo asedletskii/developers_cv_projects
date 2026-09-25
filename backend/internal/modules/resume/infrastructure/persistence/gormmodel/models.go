@@ -6,57 +6,38 @@ import (
 	"github.com/google/uuid"
 )
 
-type Resume struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
-	UserID      uuid.UUID `gorm:"type:uuid;not null;index"`
-	Name        string    `gorm:"not null"`
-	Surname     string    `gorm:"not null"`
-	Patronymic  *string
-	Position    string `gorm:"not null"`
-	Title       string `gorm:"not null"`
-	ResumeLink  *string
-	PhotoPath   string    `gorm:"not null"`
-	DateOfBirth time.Time `gorm:"type:date;not null"`
-	Location    string    `gorm:"not null"`
-	Relocation  bool      `gorm:"not null"`
-	UpdatedAt   time.Time `gorm:"not null"`
+type ResumeRoot struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	Title     string    `gorm:"not null"`
+	CreatedAt time.Time `gorm:"not null"`
+	UpdatedAt time.Time `gorm:"not null"`
 }
 
-type Greeting struct {
-	ResumeID          uuid.UUID `gorm:"type:uuid;primaryKey"`
-	FirstRU           string    `gorm:"not null"`
-	FirstEN           string    `gorm:"not null"`
-	SecondRU          string    `gorm:"not null"`
-	SecondEN          string    `gorm:"not null"`
-	SecondHighlightRU string    `gorm:"not null"`
-	SecondHighlightEN string    `gorm:"not null"`
-	ThirdRU           string    `gorm:"not null"`
-	ThirdEN           string    `gorm:"not null"`
+func (ResumeRoot) TableName() string { return "resume_roots" }
+
+type ResumePresentation struct {
+	ResumeID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	GreetingFirstRU     string    `gorm:"not null"`
+	GreetingFirstEN     string    `gorm:"not null"`
+	GreetingSecondRU    string    `gorm:"not null"`
+	GreetingSecondEN    string    `gorm:"not null"`
+	GreetingHighlightRU string    `gorm:"not null"`
+	GreetingHighlightEN string    `gorm:"not null"`
+	GreetingThirdRU     string    `gorm:"not null"`
+	GreetingThirdEN     string    `gorm:"not null"`
+	AvailabilityStatus  *string
+	AvailabilityFrom    *time.Time `gorm:"type:date"`
+	AvailabilityNoteRU  *string
+	AvailabilityNoteEN  *string
+	ResumeLink          *string
+	ThemePrimary        *string
+	ThemeSecondary      *string
 }
 
-type Availability struct {
-	ResumeID uuid.UUID  `gorm:"type:uuid;primaryKey"`
-	Status   string     `gorm:"not null"`
-	From     *time.Time `gorm:"type:date"`
-	NoteRU   *string
-	NoteEN   *string
-}
+func (ResumePresentation) TableName() string { return "resume_presentations" }
 
-type Theme struct {
-	ResumeID  uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Primary   *string
-	Secondary *string
-}
-
-type ContactsText struct {
-	ResumeID   uuid.UUID `gorm:"type:uuid;primaryKey"`
-	TitleRU    *string
-	TitleEN    *string
-	SubtitleRU *string
-	SubtitleEN *string
-}
-
-type Section struct {
+type ResumePresentationSection struct {
 	ResumeID  uuid.UUID `gorm:"type:uuid;primaryKey"`
 	SectionID string    `gorm:"type:text;primaryKey"`
 	Position  int       `gorm:"not null"`
@@ -64,97 +45,127 @@ type Section struct {
 	Collapsed bool      `gorm:"not null"`
 }
 
-type Contact struct {
-	ResumeID uuid.UUID `gorm:"type:uuid;primaryKey"`
+func (ResumePresentationSection) TableName() string { return "resume_presentation_sections" }
+
+type ResumeProfile struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID    uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	Name        string    `gorm:"not null"`
+	Surname     string    `gorm:"not null"`
+	Patronymic  *string
+	Position    string    `gorm:"not null"`
+	PhotoPath   string    `gorm:"not null"`
+	DateOfBirth time.Time `gorm:"type:date;not null"`
+	Location    string    `gorm:"not null"`
+	Relocation  bool      `gorm:"not null"`
+}
+
+func (ResumeProfile) TableName() string { return "resume_profiles" }
+
+type ResumeProfileWorkFormat struct {
+	ProfileID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Value     string    `gorm:"type:text;primaryKey"`
+	Position  int       `gorm:"not null"`
+}
+
+func (ResumeProfileWorkFormat) TableName() string { return "resume_profile_work_formats" }
+
+type ResumeContacts struct {
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
 	Phone    *string
 	Telegram *string
 	Email    *string
 }
 
-func (Greeting) TableName() string {
-	return "resume_greetings"
+func (ResumeContacts) TableName() string { return "resume_contacts" }
+
+type ResumeContactHidden struct {
+	ContactsID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Value      string    `gorm:"type:text;primaryKey"`
+	Position   int       `gorm:"not null"`
 }
 
-func (Availability) TableName() string {
-	return "resume_availability"
+func (ResumeContactHidden) TableName() string { return "resume_contact_hidden" }
+
+type ResumeContactsText struct {
+	ContactsID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	TitleRU    *string
+	TitleEN    *string
+	SubtitleRU *string
+	SubtitleEN *string
 }
 
-func (Theme) TableName() string {
-	return "resume_themes"
-}
+func (ResumeContactsText) TableName() string { return "resume_contacts_text" }
 
-func (ContactsText) TableName() string {
-	return "resume_contacts_text"
+type ResumeSkills struct {
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
 }
-
-func (Section) TableName() string {
-	return "resume_sections"
-}
-
-func (Contact) TableName() string {
-	return "resume_contacts"
-}
-
-type ResumeWorkFormat struct {
-	ResumeID uuid.UUID `gorm:"type:uuid;primaryKey"`
+type ResumeSkillHard struct {
+	SkillsID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Value    string    `gorm:"type:text;primaryKey"`
 	Position int       `gorm:"not null"`
 }
-type ResumeHiddenContact struct {
-	ResumeID uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Value    string    `gorm:"type:text;primaryKey"`
-	Position int       `gorm:"not null"`
-}
-type ResumeHardSkill struct {
-	ResumeID uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Value    string    `gorm:"type:text;primaryKey"`
-	Position int       `gorm:"not null"`
-}
-type ResumeSoftSkill struct {
-	ResumeID uuid.UUID `gorm:"type:uuid;primaryKey"`
+type ResumeSkillSoft struct {
+	SkillsID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Value    string    `gorm:"type:text;primaryKey"`
 	Position int       `gorm:"not null"`
 }
 type ResumeLanguage struct {
-	ResumeID uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Language string    `gorm:"type:text;primaryKey"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID uuid.UUID `gorm:"type:uuid;not null;index"`
+	Language string    `gorm:"type:text;not null"`
 	Position int       `gorm:"not null"`
 	Grade    *string
 }
 type ResumeTechnology struct {
-	ResumeID uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Name     string    `gorm:"type:text;primaryKey"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ResumeID uuid.UUID `gorm:"type:uuid;not null;index"`
+	Name     string    `gorm:"type:text;not null"`
 	Position int       `gorm:"not null"`
 	Grade    *string
 }
 
-type Experience struct {
+func (ResumeSkills) TableName() string     { return "resume_skills" }
+func (ResumeSkillHard) TableName() string  { return "resume_skill_hard" }
+func (ResumeSkillSoft) TableName() string  { return "resume_skill_soft" }
+func (ResumeLanguage) TableName() string   { return "resume_languages" }
+func (ResumeTechnology) TableName() string { return "resume_technologies" }
+
+type ResumeExperience struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ResumeID    uuid.UUID `gorm:"type:uuid;not null;index"`
-	Position    int       `gorm:"not null"`
+	SortOrder   int       `gorm:"not null"`
 	Company     string    `gorm:"not null"`
-	JobPosition string    `gorm:"not null"`
+	Position    string    `gorm:"not null"`
 	Location    *string
 	StartDate   string  `gorm:"type:date;not null"`
 	EndDate     *string `gorm:"type:date"`
 	Description *string
 }
-type ExperienceAchievement struct {
+
+type ResumeExperienceAchievement struct {
 	ExperienceID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position     int       `gorm:"primaryKey"`
 	Value        string    `gorm:"not null"`
 }
-type ExperienceTechnology struct {
+
+type ResumeExperienceTechnology struct {
 	ExperienceID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position     int       `gorm:"primaryKey"`
 	Name         string    `gorm:"not null"`
 	Grade        *string
 }
 
-type Education struct {
+func (ResumeExperience) TableName() string            { return "resume_experiences" }
+func (ResumeExperienceAchievement) TableName() string { return "resume_experience_achievements" }
+func (ResumeExperienceTechnology) TableName() string  { return "resume_experience_technologies" }
+
+type ResumeEducation struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ResumeID    uuid.UUID `gorm:"type:uuid;not null;index"`
-	Position    int       `gorm:"not null"`
+	SortOrder   int       `gorm:"not null"`
 	Location    string    `gorm:"not null"`
 	University  string    `gorm:"not null"`
 	Grade       int       `gorm:"not null"`
@@ -165,10 +176,12 @@ type Education struct {
 	EndDate     *string `gorm:"type:date"`
 }
 
-type Course struct {
+func (ResumeEducation) TableName() string { return "resume_educations" }
+
+type ResumeCourse struct {
 	ID              uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ResumeID        uuid.UUID `gorm:"type:uuid;not null;index"`
-	Position        int       `gorm:"not null"`
+	SortOrder       int       `gorm:"not null"`
 	Name            string    `gorm:"not null"`
 	Organization    string    `gorm:"not null"`
 	EndDate         string    `gorm:"type:date;not null"`
@@ -176,10 +189,12 @@ type Course struct {
 	CertificateLink *string
 }
 
-type Activity struct {
+func (ResumeCourse) TableName() string { return "resume_courses" }
+
+type ResumeActivity struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ResumeID    uuid.UUID `gorm:"type:uuid;not null;index"`
-	Position    int       `gorm:"not null"`
+	SortOrder   int       `gorm:"not null"`
 	Type        string    `gorm:"not null"`
 	Title       string    `gorm:"not null"`
 	Description *string
@@ -187,28 +202,33 @@ type Activity struct {
 	Link        *string
 }
 
-type Project struct {
+func (ResumeActivity) TableName() string { return "resume_activities" }
+
+type ResumeProject struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ResumeID    uuid.UUID `gorm:"type:uuid;not null;index"`
-	Position    int       `gorm:"not null"`
+	SortOrder   int       `gorm:"not null"`
 	Name        string    `gorm:"not null"`
 	Description *string
 	Role        *string
 	Link        *string
 	GitLink     *string
 }
-type ProjectScreenshot struct {
+
+type ResumeProjectScreenshot struct {
 	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position  int       `gorm:"primaryKey"`
 	Path      string    `gorm:"not null"`
 }
-type ProjectTechnology struct {
+
+type ResumeProjectTechnology struct {
 	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position  int       `gorm:"primaryKey"`
 	Name      string    `gorm:"not null"`
 	Grade     *string
 }
-type ProjectContributor struct {
+
+type ResumeProjectContributor struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ProjectID uuid.UUID `gorm:"type:uuid;not null;index"`
 	Position  int       `gorm:"not null"`
@@ -219,3 +239,8 @@ type ProjectContributor struct {
 	Telegram  *string
 	Email     *string
 }
+
+func (ResumeProject) TableName() string            { return "resume_projects" }
+func (ResumeProjectScreenshot) TableName() string  { return "resume_project_screenshots" }
+func (ResumeProjectTechnology) TableName() string  { return "resume_project_technologies" }
+func (ResumeProjectContributor) TableName() string { return "resume_project_contributors" }

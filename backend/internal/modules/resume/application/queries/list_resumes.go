@@ -15,15 +15,15 @@ type ListResumesReader interface {
 	ListResumes(ctx context.Context, query ListResumesQuery) ([]ResumeListItem, error)
 }
 
-type ListResumesHandler struct {
+type ListResumesQueryHandler struct {
 	reader ListResumesReader
 }
 
-func NewListResumesHandler(reader ListResumesReader) *ListResumesHandler {
-	return &ListResumesHandler{reader: reader}
+func NewListResumesQueryHandler(reader ListResumesReader) *ListResumesQueryHandler {
+	return &ListResumesQueryHandler{reader: reader}
 }
 
-func (h *ListResumesHandler) Handle(ctx context.Context, query ListResumesQuery) ([]ResumeListItem, error) {
+func (h *ListResumesQueryHandler) Handle(ctx context.Context, query ListResumesQuery) ([]ResumeListItem, error) {
 	if h == nil || h.reader == nil {
 		return nil, fmt.Errorf("list resumes handler dependencies are nil")
 	}
@@ -31,4 +31,9 @@ func (h *ListResumesHandler) Handle(ctx context.Context, query ListResumesQuery)
 		return nil, fmt.Errorf("invalid user id")
 	}
 	return h.reader.ListResumes(ctx, query)
+}
+
+type ResumeListItem struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
 }

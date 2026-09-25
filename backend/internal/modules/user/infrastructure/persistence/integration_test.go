@@ -76,7 +76,7 @@ func applyUsersMigration(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", "000008_users.up.sql"))
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", "000001_users.up.sql"))
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, string(content))
 	require.NoError(t, err)

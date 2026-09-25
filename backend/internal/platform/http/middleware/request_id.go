@@ -7,8 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const RequestIDHeader = "X-Request-ID"
-const requestIDKey = "request_id"
+const (
+	RequestIDHeader = "X-Request-ID"
+	RequestIDKey    = "request_id"
+)
 
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -16,14 +18,14 @@ func RequestID() gin.HandlerFunc {
 		if requestID == "" || len(requestID) > 128 {
 			requestID = uuid.NewString()
 		}
-		c.Set(requestIDKey, requestID)
+		c.Set(RequestIDKey, requestID)
 		c.Header(RequestIDHeader, requestID)
 		c.Next()
 	}
 }
 
 func GetRequestID(c *gin.Context) string {
-	value, exists := c.Get(requestIDKey)
+	value, exists := c.Get(RequestIDKey)
 	if !exists {
 		return ""
 	}

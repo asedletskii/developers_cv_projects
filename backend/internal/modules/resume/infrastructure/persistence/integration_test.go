@@ -11,13 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
@@ -30,234 +29,23 @@ import (
 	"developers-cv/backend/internal/platform/postgres"
 )
 
-func TestPostgresPersistenceRoundTrip(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration test")
-	}
-
-	ctx := context.Background()
-
-	container, err := testpostgres.Run(
-		ctx,
-		"postgres:17-alpine",
-		testpostgres.WithDatabase("developers_cv"),
-		testpostgres.WithUsername("developers_cv"),
-		testpostgres.WithPassword("test-password"),
-		testpostgres.BasicWaitStrategies(),
-	)
+func newTestRoot(t *testing.T, userID useridentity.ID) *domain.ResumeRoot {
+	t.Helper()
+	first, err := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: "Привет", EN: "Hello"})
 	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		require.NoError(t, testcontainers.TerminateContainer(container))
+	second, err := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: "Я", EN: "I am"})
+	require.NoError(t, err)
+	highlight, err := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: "Тест", EN: "Test"})
+	require.NoError(t, err)
+	third, err := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: "Разработчик", EN: "Developer"})
+	require.NoError(t, err)
+	greeting := valueobjects.NewGreeting(valueobjects.GreetingParams{First: first, Second: second, SecondHighlight: highlight, Third: third})
+	presentation := domain.ResumePresentation{Greeting: greeting, Sections: []valueobjects.SectionSettings{}}
+	root, err := domain.NewResumeRoot(domain.ResumeRootParams{
+		ID: valueobjects.NewID(), UserID: userID, Title: "Test Resume", Presentation: presentation,
 	})
-
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
-
-	applyMigrations(t, ctx, dsn)
-
-	conn, err := pgx.Connect(ctx, dsn)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		require.NoError(t, conn.Close(ctx))
-	})
-
-	require.NoError(t, conn.Ping(ctx))
-
-	gormDB, err := database.NewGORM(dsn)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		require.NoError(t, database.Close(gormDB))
-	})
-
-	pool, err := postgres.NewPool(
-		ctx,
-		postgres.Config{
-			DSN:             dsn,
-			MaxConns:        4,
-			MinConns:        1,
-			MaxConnLifetime: time.Hour,
-			MaxConnIdleTime: time.Minute,
-		},
-	)
-	require.NoError(t, err)
-
-	t.Cleanup(pool.Close)
-
-	repo := repository.NewResumeRepository(gormDB)
-
-	userID := useridentity.NewID()
-	insertResumeTestUser(t, ctx, dsn, userID)
-
-	uow := database.NewUnitOfWork(gormDB)
-
-	resume := newTestResume(t, userID)
-
-	require.NoError(
-		t,
-		uow.Do(
-			ctx,
-			func(txCtx context.Context) error {
-				return repo.Create(txCtx, commands.CreateResumeRepositoryCommand{Resume: resume})
-			},
-		),
-	)
-
-	loaded, err := repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: userID, ResumeID: resume.ID()})
-	require.NoError(t, err)
-
-	require.Equal(t, resume.ID().String(), loaded.ID().String())
-	require.Equal(t, resume.Name(), loaded.Name())
-	require.Equal(t, resume.Title(), loaded.Title())
-	require.Equal(t, userID.UUID(), loaded.UserID().UUID())
-	require.Len(t, loaded.Experience(), 1)
-
-	otherUserID := useridentity.NewID()
-	insertResumeTestUser(t, ctx, dsn, otherUserID)
-
-	otherResume := newTestResume(t, otherUserID)
-
-	require.NoError(
-		t,
-		uow.Do(
-			ctx,
-			func(txCtx context.Context) error {
-				return repo.Create(txCtx, commands.CreateResumeRepositoryCommand{Resume: otherResume})
-			},
-		),
-	)
-
-	_, err = repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: otherUserID, ResumeID: resume.ID()})
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
-
-	listItems, err := readers.NewListResumesReader(pool).ListResumes(
-		ctx,
-		queries.ListResumesQuery{
-			UserID: userID,
-		},
-	)
-	require.NoError(t, err)
-
-	require.Len(t, listItems, 1)
-	require.Equal(t, resume.ID().String(), listItems[0].ID)
-	require.Equal(t, resume.Title(), listItems[0].Title)
-
-	otherListItems, err := readers.NewListResumesReader(pool).ListResumes(
-		ctx,
-		queries.ListResumesQuery{
-			UserID: otherUserID,
-		},
-	)
-	require.NoError(t, err)
-
-	require.Len(t, otherListItems, 1)
-	require.Equal(t, otherResume.ID().String(), otherListItems[0].ID)
-
-	readModel, err := readers.NewGetResumeReader(pool).GetResume(
-		ctx,
-		queries.GetResumeQuery{
-			UserID: &userID,
-			ID:     resume.ID().UUID(),
-			Lang:   queries.LanguageEN,
-		},
-	)
-	require.NoError(t, err)
-
-	require.Equal(t, resume.ID().String(), readModel.ID)
-	require.Equal(t, "Hello", readModel.Greeting.First)
-	require.Equal(t, "Developer", readModel.Position)
-	require.Equal(t, "Developer", readModel.Title)
-	require.Equal(t, []string{"remote", "office"}, readModel.WorkFormat)
-	require.Len(t, readModel.Experience, 1)
-	require.Equal(t, "2024-01", readModel.Experience[0].StartDate)
-
-	_, err = readers.NewGetResumeReader(pool).GetResume(
-		ctx,
-		queries.GetResumeQuery{
-			UserID: &otherUserID,
-			ID:     resume.ID().UUID(),
-			Lang:   queries.LanguageEN,
-		},
-	)
-	require.ErrorIs(t, err, queries.ErrResumeNotFound)
-
-	publicReadModel, err := readers.NewGetResumeReader(pool).GetResume(
-		ctx,
-		queries.GetResumeQuery{
-			ID:   resume.ID().UUID(),
-			Lang: queries.LanguageEN,
-		},
-	)
-	require.NoError(t, err)
-
-	require.Equal(t, resume.ID().String(), publicReadModel.ID)
-	require.Equal(t, "Hello", publicReadModel.Greeting.First)
-
-	patchHandler := commands.NewPatchResumeHandler(repo, uow)
-
-	_, err = patchHandler.Handle(
-		ctx,
-		commands.PatchResumeCommand{
-			ResumeID: resume.ID(),
-			UserID:   userID,
-			Title:    "Go Backend Engineer",
-		},
-	)
-	require.NoError(t, err)
-
-	loadedAfterPatch, err := repo.Get(ctx, commands.GetResumeRepositoryQuery{UserID: userID, ResumeID: resume.ID()})
-	require.NoError(t, err)
-
-	require.Equal(t, "Go Backend Engineer", loadedAfterPatch.Title())
-	require.Equal(t, resume.Position(), loadedAfterPatch.Position())
-
-	require.Len(t, loadedAfterPatch.Projects(), 1)
-	require.Equal(
-		t,
-		resume.Projects()[0].ID(),
-		loadedAfterPatch.Projects()[0].ID(),
-	)
-	require.Equal(
-		t,
-		resume.Projects()[0].Name(),
-		loadedAfterPatch.Projects()[0].Name(),
-	)
-
-	require.Len(t, loadedAfterPatch.Projects()[0].Screenshots(), 1)
-	require.Equal(
-		t,
-		resume.Projects()[0].Screenshots()[0].String(),
-		loadedAfterPatch.Projects()[0].Screenshots()[0].String(),
-	)
-
-	require.Len(t, loadedAfterPatch.Projects()[0].Stack(), 1)
-	require.Equal(
-		t,
-		resume.Projects()[0].Stack()[0].Name(),
-		loadedAfterPatch.Projects()[0].Stack()[0].Name(),
-	)
-
-	require.Len(t, loadedAfterPatch.Projects()[0].Contributors(), 1)
-	require.Equal(
-		t,
-		resume.Projects()[0].Contributors()[0].Name(),
-		loadedAfterPatch.Projects()[0].Contributors()[0].Name(),
-	)
-
-	patched, err := readers.NewGetResumeReader(pool).GetResume(
-		ctx,
-		queries.GetResumeQuery{
-			ID:   resume.ID().UUID(),
-			Lang: queries.LanguageEN,
-		},
-	)
-	require.NoError(t, err)
-
-	require.Equal(t, "Go Backend Engineer", patched.Title)
-	require.Equal(t, "Developer", patched.Position)
-	require.Equal(t, []string{"remote", "office"}, patched.WorkFormat)
+	return root
 }
 
 func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
@@ -339,153 +127,185 @@ func insertResumeTestUser(t *testing.T, ctx context.Context, dsn string, userID 
 	require.NoError(t, err)
 }
 
-func newTestResume(t *testing.T, userID useridentity.ID) *domain.Resume {
-	t.Helper()
-
-	id, err := valueobjects.IDFromUUID(uuid.New())
+func TestPostgresContactsVerticalSlice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
 	require.NoError(t, err)
-
-	dob, err := valueobjects.ParseDate("1998-04-12")
+	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
+	applyMigrations(t, ctx, dsn)
 
-	photo, err := valueobjects.NewAssetPath("/assets/photo.svg")
+	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	first, err := valueobjects.NewLocalizedText(
-		valueobjects.LocalizedTextParams{
-			RU: "Привет",
-			EN: "Hello",
-		},
-	)
+	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
 	require.NoError(t, err)
+	t.Cleanup(pool.Close)
 
-	second, err := valueobjects.NewLocalizedText(
-		valueobjects.LocalizedTextParams{
-			RU: "Я",
-			EN: "I am",
-		},
-	)
+	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	highlight, err := valueobjects.NewLocalizedText(
-		valueobjects.LocalizedTextParams{
-			RU: "Тест",
-			EN: "Test",
-		},
-	)
+	owner := useridentity.NewID()
+	foreign := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, owner)
+	insertResumeTestUser(t, ctx, dsn, foreign)
+	rootRepo := repository.NewResumeRootRepository(gormDB)
+	uow := database.NewUnitOfWork(gormDB)
+	contactsRepo := repository.NewContactsRepository(gormDB)
+	root := newTestRoot(t, owner)
 	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return rootRepo.CreateRoot(tx, ports.CreateResumeRootRepositoryCommand{Resume: root})
+	}))
 
-	third, err := valueobjects.NewLocalizedText(
-		valueobjects.LocalizedTextParams{
-			RU: "Разработчик",
-			EN: "Developer",
-		},
-	)
+	var createdAt, updatedAt time.Time
+	require.NoError(t, conn.QueryRow(ctx, "SELECT created_at, updated_at FROM resume_roots WHERE id = $1", root.ID().UUID()).Scan(&createdAt, &updatedAt))
+	require.False(t, createdAt.IsZero())
+	require.False(t, updatedAt.IsZero())
+	require.WithinDuration(t, createdAt, updatedAt, time.Second)
+
+	email, err := valueobjects.NewEmail("contacts@example.com")
 	require.NoError(t, err)
-
-	greeting := valueobjects.NewGreeting(
-		valueobjects.GreetingParams{
-			First:           first,
-			Second:          second,
-			SecondHighlight: highlight,
-			Third:           third,
-		},
-	)
-
-	phone := "+79999999999"
-
-	contacts, err := entities.NewContacts(
-		entities.ContactsParams{
-			Phone: phone,
-		},
-	)
+	contactsEntity, err := entities.NewContacts(entities.ContactsParams{Phone: "+79999999999", Email: &email})
 	require.NoError(t, err)
-
-	start, err := valueobjects.ParseYearMonth("2024-01")
+	contacts, err := domain.NewContacts(domain.ContactsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Contacts: contactsEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyPhone}})
 	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return contactsRepo.CreateContacts(tx, ports.CreateResumeContactsRepositoryCommand{Contacts: contacts, UserID: owner})
+	}))
 
-	experienceID, err := valueobjects.IDFromUUID(uuid.New())
+	loaded, err := contactsRepo.GetContacts(ctx, ports.GetResumeContactsRepositoryCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
+	require.Equal(t, "+79999999999", *loaded.Contacts().Phone())
+	require.Equal(t, "contacts@example.com", loaded.Contacts().Email().String())
+	require.Equal(t, []enums.ContactKey{enums.ContactKeyPhone}, loaded.HiddenContacts())
 
-	experience, err := entities.NewExperience(
-		entities.ExperienceParams{
-			ID:           experienceID,
-			Company:      "Example",
-			Position:     "Developer",
-			StartDate:    start,
-			Achievements: []string{"Shipped feature"},
-		},
-	)
+	_, err = contactsRepo.GetContacts(ctx, ports.GetResumeContactsRepositoryCommand{ResumeID: root.ID(), UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	beforeRoot, err := rootRepo.GetRoot(ctx, ports.GetResumeRootRepositoryCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
-
-	projectID, err := valueobjects.IDFromUUID(uuid.New())
+	updatedEmail, err := valueobjects.NewEmail("updated@example.com")
 	require.NoError(t, err)
-
-	screenshot, err := valueobjects.NewAssetPath("/assets/project.png")
+	updatedEntity, err := entities.NewContacts(entities.ContactsParams{Email: &updatedEmail})
 	require.NoError(t, err)
-
-	projectLink, err := valueobjects.NewExternalURL(
-		"https://example.com/project",
-	)
+	updatedContacts, err := domain.NewContacts(domain.ContactsParams{ID: contacts.ID(), ResumeID: root.ID(), Contacts: updatedEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}})
 	require.NoError(t, err)
-
-	projectTechnology, err := entities.NewTechnology(
-		entities.TechnologyParams{
-			Name: "Go",
-		},
-	)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return contactsRepo.UpdateContacts(tx, ports.UpdateResumeContactsRepositoryCommand{Contacts: updatedContacts, UserID: owner})
+	}))
+	afterRoot, err := rootRepo.GetRoot(ctx, ports.GetResumeRootRepositoryCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
-
-	contributor, err := entities.NewContributor(
-		entities.ContributorParams{
-			Name:     "John",
-			Surname:  "Doe",
-			Role:     "Developer",
-			Contacts: entities.EmptyContacts(),
-		},
-	)
+	loadedUpdated, err := contactsRepo.GetContacts(ctx, ports.GetResumeContactsRepositoryCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
-
-	project, err := entities.NewProject(
-		entities.ProjectParams{
-			ID:           projectID,
-			Name:         "CV Platform",
-			Description:  stringPtr("Platform project"),
-			Role:         stringPtr("Backend"),
-			Screenshots:  []valueobjects.AssetPath{screenshot},
-			Link:         &projectLink,
-			Stack:        []entities.Technology{projectTechnology},
-			Contributors: []entities.Contributor{contributor},
-		},
-	)
-	require.NoError(t, err)
-
-	resume, err := domain.NewResume(
-		domain.ResumeParams{
-			ID:       id,
-			UserID:   userID,
-			Name:     "Test",
-			Surname:  "User",
-			Position: "Developer",
-			WorkFormats: []enums.WorkFormat{
-				enums.WorkFormatRemote,
-				enums.WorkFormatOffice,
-			},
-			Greeting:    greeting,
-			PhotoPath:   photo,
-			DateOfBirth: dob,
-			Location:    "Remote",
-			Contacts:    contacts,
-			Experience:  []entities.Experience{experience},
-			Projects:    []entities.Project{project},
-			Sections:    []valueobjects.SectionSettings{},
-		},
-	)
-	require.NoError(t, err)
-
-	return resume
+	require.Equal(t, "updated@example.com", loadedUpdated.Contacts().Email().String())
+	require.Equal(t, []enums.ContactKey{enums.ContactKeyEmail}, loadedUpdated.HiddenContacts())
+	require.Equal(t, beforeRoot.Presentation().Greeting.First().RU(), afterRoot.Presentation().Greeting.First().RU())
+	require.Equal(t, beforeRoot.Presentation().Sections, afterRoot.Presentation().Sections)
 }
 
-func stringPtr(value string) *string {
+func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
+
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyMigrations(t, ctx, dsn)
+
+	conn, err := pgx.Connect(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	owner := useridentity.NewID()
+	foreign := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, owner)
+	insertResumeTestUser(t, ctx, dsn, foreign)
+
+	rootRepo := repository.NewResumeRootRepository(gormDB)
+	languagesReader := readers.NewLanguagesReader(pool)
+	uow := database.NewUnitOfWork(gormDB)
+	skillsRepo := repository.NewSkillsRepository(gormDB)
+	languagesRepo := repository.NewLanguagesRepository(gormDB)
+	technologiesRepo := repository.NewTechnologiesRepository(gormDB)
+	root := newTestRoot(t, owner)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return rootRepo.CreateRoot(tx, ports.CreateResumeRootRepositoryCommand{Resume: root})
+	}))
+
+	hard := []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}
+	soft := []enums.SoftSkill{enums.SoftSkillCommunication, enums.SoftSkillTeamwork}
+	skills, err := domain.NewSkills(domain.SkillsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Hard: hard, Soft: soft})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return skillsRepo.CreateSkills(tx, ports.CreateSkillsRepositoryCommand{Skills: skills, UserID: owner})
+	}))
+	loadedSkills, err := skillsRepo.GetSkills(ctx, ports.GetSkillsRepositoryCommand{ResumeID: root.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, hard, loadedSkills.HardSkills())
+	require.Equal(t, soft, loadedSkills.SoftSkills())
+	var hardCount, softCount int
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&hardCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&softCount))
+	require.Equal(t, 2, hardCount)
+	require.Equal(t, 2, softCount)
+	_, err = skillsRepo.GetSkills(ctx, ports.GetSkillsRepositoryCommand{ResumeID: root.ID(), UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	languageID := valueobjects.NewID()
+	language, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: languageID, Language: enums.LanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return languagesRepo.CreateLanguage(tx, ports.CreateLanguageRepositoryCommand{Language: language, ResumeID: root.ID(), UserID: owner})
+	}))
+	languages, err := languagesReader.ListLanguages(ctx, queries.ListLanguagesQuery{ResumeID: root.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Len(t, languages, 1)
+	require.Equal(t, languageID.String(), languages[0].ID)
+	var languageCount int
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_languages").Scan(&languageCount))
+	require.Equal(t, 1, languageCount)
+	_, err = languagesRepo.GetLanguage(ctx, ports.GetLanguageRepositoryCommand{ResumeID: root.ID(), LanguageID: languageID, UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+
+	technologyID := valueobjects.NewID()
+	technology, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: technologyID, Name: "Go", Grade: technologyGradePtr(enums.TechnologyGradeSenior), Position: 0})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return technologiesRepo.CreateTechnology(tx, ports.CreateTechnologyRepositoryCommand{Technology: technology, ResumeID: root.ID(), UserID: owner})
+	}))
+	loadedTechnology, err := technologiesRepo.GetTechnology(ctx, ports.GetTechnologyRepositoryCommand{ResumeID: root.ID(), TechnologyID: technologyID, UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, "Go", loadedTechnology.Name())
+	var technologyCount int
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_technologies").Scan(&technologyCount))
+	require.Equal(t, 1, technologyCount)
+	_, err = technologiesRepo.GetTechnology(ctx, ports.GetTechnologyRepositoryCommand{ResumeID: root.ID(), TechnologyID: technologyID, UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+func languageGradePtr(value enums.LanguageGrade) *enums.LanguageGrade {
+	return &value
+}
+
+func technologyGradePtr(value enums.TechnologyGrade) *enums.TechnologyGrade {
 	return &value
 }

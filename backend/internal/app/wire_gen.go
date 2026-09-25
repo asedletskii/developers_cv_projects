@@ -9,8 +9,18 @@ import (
 
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
+	activitieshttp "developers-cv/backend/internal/modules/resume/transport/http/activities"
+	courseshttp "developers-cv/backend/internal/modules/resume/transport/http/courses"
+	educationshttp "developers-cv/backend/internal/modules/resume/transport/http/educations"
+	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
+	languageshttp "developers-cv/backend/internal/modules/resume/transport/http/languages"
+	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
+	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
+	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
+	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
@@ -68,22 +78,97 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
-	getResumeReaderValue := newGetResumeReader(poolValue)
+	publicResumeReaderValue := newPublicResumeReader(poolValue)
 	listResumesReaderValue := newListResumesReader(poolValue)
-	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
+	resumeRootReaderValue := resumereaders.NewResumeRootReader(poolValue)
+	profileReaderValue := resumereaders.NewProfileReader(poolValue)
+	contactsReaderValue := resumereaders.NewContactsReader(poolValue)
+	skillsReaderValue := resumereaders.NewSkillsReader(poolValue)
+	languagesReaderValue := resumereaders.NewLanguagesReader(poolValue)
+	technologiesReaderValue := resumereaders.NewTechnologiesReader(poolValue)
+	experiencesReaderValue := resumereaders.NewExperiencesReader(poolValue)
+	educationReaderValue := resumereaders.NewEducationReader(poolValue)
+	courseReaderValue := resumereaders.NewCourseReader(poolValue)
+	activityReaderValue := resumereaders.NewActivityReader(poolValue)
+	projectsReaderValue := resumereaders.NewProjectsReader(poolValue)
+	resumeRootRepositoryValue := resumerepository.NewResumeRootRepository(gormDBValue)
+	profileRepositoryValue := resumerepository.NewProfileRepository(gormDBValue)
+	contactsRepositoryValue := resumerepository.NewContactsRepository(gormDBValue)
+	skillsRepositoryValue := resumerepository.NewSkillsRepository(gormDBValue)
+	languagesRepositoryValue := resumerepository.NewLanguagesRepository(gormDBValue)
+	technologiesRepositoryValue := resumerepository.NewTechnologiesRepository(gormDBValue)
+	experiencesRepositoryValue := resumerepository.NewExperiencesRepository(gormDBValue)
+	educationRepositoryValue := resumerepository.NewEducationRepository(gormDBValue)
+	courseRepositoryValue := resumerepository.NewCourseRepository(gormDBValue)
+	activityRepositoryValue := resumerepository.NewActivityRepository(gormDBValue)
+	projectRepositoryValue := resumerepository.NewProjectRepository(gormDBValue)
 	userReaderValue := userreaders.NewUserReader(gormDBValue)
 	getProfileReaderValue := newGetProfileReader(poolValue)
 	mockAuthenticatorValue := userauth.NewMockAuthenticator(userReaderValue)
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
-	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
-	updateResumeHandlerValue := resumecommands.NewUpdateResumeHandler(resumeRepositoryValue, resumeRepositoryValue, unitOfWorkValue)
-	patchResumeHandlerValue := resumecommands.NewPatchResumeHandler(resumeRepositoryValue, unitOfWorkValue)
-	getResumeHandlerValue := queries.NewGetResumeHandler(getResumeReaderValue)
-	listResumesHandlerValue := queries.NewListResumesHandler(listResumesReaderValue)
+	createResumeRootHandlerValue := resumecommands.NewCreateResumeRootHandler(resumeRootRepositoryValue, unitOfWorkValue)
+	getResumeRootQueryHandlerValue := queries.NewGetResumeRootQueryHandler(resumeRootReaderValue)
+	getResumeProfileQueryHandlerValue := queries.NewGetResumeProfileQueryHandler(profileReaderValue)
+	getResumeContactsQueryHandlerValue := queries.NewGetResumeContactsQueryHandler(contactsReaderValue)
+	getSkillsQueryHandlerValue := queries.NewGetSkillsQueryHandler(skillsReaderValue)
+	listLanguagesQueryHandlerValue := queries.NewListLanguagesQueryHandler(languagesReaderValue)
+	getLanguageQueryHandlerValue := queries.NewGetLanguageQueryHandler(languagesReaderValue)
+	listTechnologiesQueryHandlerValue := queries.NewListTechnologiesQueryHandler(technologiesReaderValue)
+	getTechnologyQueryHandlerValue := queries.NewGetTechnologyQueryHandler(technologiesReaderValue)
+	updateResumeRootHandlerValue := resumecommands.NewUpdateResumeRootHandler(resumeRootRepositoryValue, resumeRootRepositoryValue, unitOfWorkValue)
+	deleteResumeRootHandlerValue := resumecommands.NewDeleteResumeRootHandler(resumeRootRepositoryValue, unitOfWorkValue)
+	createResumeProfileHandlerValue := resumecommands.NewCreateResumeProfileHandler(profileRepositoryValue, unitOfWorkValue)
+	updateResumeProfileHandlerValue := resumecommands.NewUpdateResumeProfileHandler(profileRepositoryValue, profileRepositoryValue, unitOfWorkValue)
+	createResumeContactsHandlerValue := resumecommands.NewCreateResumeContactsHandler(contactsRepositoryValue, unitOfWorkValue)
+	updateResumeContactsHandlerValue := resumecommands.NewUpdateResumeContactsHandler(contactsRepositoryValue, contactsRepositoryValue, unitOfWorkValue)
+	createSkillsHandlerValue := resumecommands.NewCreateSkillsHandler(skillsRepositoryValue, unitOfWorkValue)
+	updateSkillsHandlerValue := resumecommands.NewUpdateSkillsHandler(skillsRepositoryValue, skillsRepositoryValue, unitOfWorkValue)
+	createLanguageHandlerValue := resumecommands.NewCreateLanguageHandler(languagesRepositoryValue, unitOfWorkValue)
+	updateLanguageHandlerValue := resumecommands.NewUpdateLanguageHandler(languagesRepositoryValue, languagesRepositoryValue, unitOfWorkValue)
+	deleteLanguageHandlerValue := resumecommands.NewDeleteLanguageHandler(languagesRepositoryValue, unitOfWorkValue)
+	createTechnologyHandlerValue := resumecommands.NewCreateTechnologyHandler(technologiesRepositoryValue, unitOfWorkValue)
+	updateTechnologyHandlerValue := resumecommands.NewUpdateTechnologyHandler(technologiesRepositoryValue, technologiesRepositoryValue, unitOfWorkValue)
+	deleteTechnologyHandlerValue := resumecommands.NewDeleteTechnologyHandler(technologiesRepositoryValue, unitOfWorkValue)
+	createExperienceHandlerValue := resumecommands.NewCreateExperienceHandler(experiencesRepositoryValue, unitOfWorkValue)
+	listExperiencesQueryHandlerValue := queries.NewListExperiencesQueryHandler(experiencesReaderValue)
+	getExperienceQueryHandlerValue := queries.NewGetExperienceQueryHandler(experiencesReaderValue)
+	updateExperienceHandlerValue := resumecommands.NewUpdateExperienceHandler(experiencesRepositoryValue, experiencesRepositoryValue, unitOfWorkValue)
+	deleteExperienceHandlerValue := resumecommands.NewDeleteExperienceHandler(experiencesRepositoryValue, unitOfWorkValue)
+	createEducationHandlerValue := resumecommands.NewCreateEducationHandler(educationRepositoryValue, unitOfWorkValue)
+	listEducationsQueryHandlerValue := queries.NewListEducationsQueryHandler(educationReaderValue)
+	getEducationQueryHandlerValue := queries.NewGetEducationQueryHandler(educationReaderValue)
+	updateEducationHandlerValue := resumecommands.NewUpdateEducationHandler(educationRepositoryValue, educationRepositoryValue, unitOfWorkValue)
+	deleteEducationHandlerValue := resumecommands.NewDeleteEducationHandler(educationRepositoryValue, unitOfWorkValue)
+	createCourseHandlerValue := resumecommands.NewCreateCourseHandler(courseRepositoryValue, unitOfWorkValue)
+	listCoursesQueryHandlerValue := queries.NewListCoursesQueryHandler(courseReaderValue)
+	getCourseQueryHandlerValue := queries.NewGetCourseQueryHandler(courseReaderValue)
+	updateCourseHandlerValue := resumecommands.NewUpdateCourseHandler(courseRepositoryValue, courseRepositoryValue, unitOfWorkValue)
+	deleteCourseHandlerValue := resumecommands.NewDeleteCourseHandler(courseRepositoryValue, unitOfWorkValue)
+	createActivityHandlerValue := resumecommands.NewCreateActivityHandler(activityRepositoryValue, unitOfWorkValue)
+	listActivitiesQueryHandlerValue := queries.NewListActivitiesQueryHandler(activityReaderValue)
+	getActivityQueryHandlerValue := queries.NewGetActivityQueryHandler(activityReaderValue)
+	updateActivityHandlerValue := resumecommands.NewUpdateActivityHandler(activityRepositoryValue, activityRepositoryValue, unitOfWorkValue)
+	deleteActivityHandlerValue := resumecommands.NewDeleteActivityHandler(activityRepositoryValue, unitOfWorkValue)
+	createProjectHandlerValue := resumecommands.NewCreateProjectHandler(projectRepositoryValue, unitOfWorkValue)
+	listProjectsQueryHandlerValue := queries.NewListProjectsQueryHandler(projectsReaderValue)
+	getProjectQueryHandlerValue := queries.NewGetProjectQueryHandler(projectsReaderValue)
+	updateProjectHandlerValue := resumecommands.NewUpdateProjectHandler(projectRepositoryValue, projectRepositoryValue, unitOfWorkValue)
+	deleteProjectHandlerValue := resumecommands.NewDeleteProjectHandler(projectRepositoryValue, unitOfWorkValue)
+	skillsHandlerValue := skillshttp.NewHandler(createSkillsHandlerValue, getSkillsQueryHandlerValue, updateSkillsHandlerValue)
+	languagesHandlerValue := languageshttp.NewHandler(createLanguageHandlerValue, listLanguagesQueryHandlerValue, getLanguageQueryHandlerValue, updateLanguageHandlerValue, deleteLanguageHandlerValue)
+	technologiesHandlerValue := technologieshttp.NewHandler(createTechnologyHandlerValue, listTechnologiesQueryHandlerValue, getTechnologyQueryHandlerValue, updateTechnologyHandlerValue, deleteTechnologyHandlerValue)
+	experiencesHandlerValue := experienceshttp.NewHandler(createExperienceHandlerValue, listExperiencesQueryHandlerValue, getExperienceQueryHandlerValue, updateExperienceHandlerValue, deleteExperienceHandlerValue)
+	educationsHandlerValue := educationshttp.NewHandler(createEducationHandlerValue, listEducationsQueryHandlerValue, getEducationQueryHandlerValue, updateEducationHandlerValue, deleteEducationHandlerValue)
+	coursesHandlerValue := courseshttp.NewHandler(createCourseHandlerValue, listCoursesQueryHandlerValue, getCourseQueryHandlerValue, updateCourseHandlerValue, deleteCourseHandlerValue)
+	activitiesHandlerValue := activitieshttp.NewHandler(createActivityHandlerValue, listActivitiesQueryHandlerValue, getActivityQueryHandlerValue, updateActivityHandlerValue, deleteActivityHandlerValue)
+	projectsHandlerValue := projectshttp.NewHandler(createProjectHandlerValue, listProjectsQueryHandlerValue, getProjectQueryHandlerValue, updateProjectHandlerValue, deleteProjectHandlerValue)
+	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(publicResumeReaderValue)
+	publicHandlerValue := publichandler.NewHandler(publicResumeQueryHandlerValue)
+	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
-	resumeHandlerValue := http.NewHandler(getResumeHandlerValue, listResumesHandlerValue, createResumeHandlerValue, updateResumeHandlerValue, patchResumeHandlerValue)
+	resumeHandlerValue := http.NewHandler(listResumesHandlerValue, createResumeRootHandlerValue, getResumeRootQueryHandlerValue, updateResumeRootHandlerValue, deleteResumeRootHandlerValue, createResumeProfileHandlerValue, getResumeProfileQueryHandlerValue, updateResumeProfileHandlerValue, createResumeContactsHandlerValue, getResumeContactsQueryHandlerValue, updateResumeContactsHandlerValue, skillsHandlerValue, languagesHandlerValue, technologiesHandlerValue, experiencesHandlerValue, educationsHandlerValue, coursesHandlerValue, activitiesHandlerValue, projectsHandlerValue, publicHandlerValue)
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,

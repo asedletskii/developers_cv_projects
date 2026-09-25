@@ -68,7 +68,11 @@ func ParseLanguage(c *gin.Context) (string, bool) {
 
 func WriteCommandError(c *gin.Context, err error) {
 	if errors.Is(err, domain.ErrEntityNotFound) {
-		WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
+		WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))
+		return
+	}
+	if errors.Is(err, domain.ErrDuplicateEntity) {
+		WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume resource already exists"))
 		return
 	}
 	if IsValidationError(err) {

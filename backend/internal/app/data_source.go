@@ -34,8 +34,8 @@ func newPostgresPool(
 	)
 }
 
-func newGetResumeReader(pool *pgxpool.Pool) resumequeries.GetResumeReader {
-	return resumereaders.NewGetResumeReader(pool)
+func newPublicResumeReader(pool *pgxpool.Pool) resumequeries.PublicResumeReader {
+	return resumereaders.NewPublicResumeReader(pool)
 }
 
 func newListResumesReader(pool *pgxpool.Pool) resumequeries.ListResumesReader {

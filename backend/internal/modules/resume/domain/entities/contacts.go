@@ -41,3 +41,27 @@ func EmptyContacts() Contacts { return Contacts{} }
 func (c Contacts) Phone() *string                   { return cloneString(c.phone) }
 func (c Contacts) Telegram() *valueobjects.Telegram { return cloneTelegram(c.telegram) }
 func (c Contacts) Email() *valueobjects.Email       { return cloneEmail(c.email) }
+
+func cloneString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func cloneTelegram(value *valueobjects.Telegram) *valueobjects.Telegram {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func cloneEmail(value *valueobjects.Email) *valueobjects.Email {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
