@@ -17,7 +17,7 @@ func (r *EducationReader) ListEducations(ctx context.Context, q queries.ListEduc
 	if r == nil || r.pool == nil {
 		return nil, fmt.Errorf("list educations: reader dependencies are nil")
 	}
-	rows, err := r.pool.Query(ctx, `SELECT e.id::text,e.resume_id::text,e.location,e.university,e.grade,e.program_name,e.profile_name,e.faculty,e.course,to_char(e.end_date,'YYYY') FROM resume_educations e JOIN resume_roots rr ON rr.id=e.resume_id WHERE e.resume_id=$1 AND rr.user_id=$2 ORDER BY e.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
+	rows, err := r.pool.Query(ctx, `SELECT e.id::text,e.resume_id::text,e.location,e.university,e.grade,e.program_name,e.profile_name,e.faculty,e.course,to_char(e.end_date,'YYYY') FROM resume_educations e JOIN resumes rr ON rr.id=e.resume_id WHERE e.resume_id=$1 AND rr.user_id=$2 ORDER BY e.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
 	if err != nil {
 		return nil, fmt.Errorf("list educations: %w", err)
 	}
@@ -40,7 +40,7 @@ func (r *EducationReader) GetEducation(ctx context.Context, q queries.GetEducati
 		return queries.EducationView{}, fmt.Errorf("get education: reader dependencies are nil")
 	}
 	var v queries.EducationView
-	err := r.pool.QueryRow(ctx, `SELECT e.id::text,e.resume_id::text,e.location,e.university,e.grade,e.program_name,e.profile_name,e.faculty,e.course,to_char(e.end_date,'YYYY') FROM resume_educations e JOIN resume_roots rr ON rr.id=e.resume_id WHERE e.id=$1 AND e.resume_id=$2 AND rr.user_id=$3`, q.EducationID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Location, &v.University, &v.Grade, &v.ProgramName, &v.ProfileName, &v.Faculty, &v.Course, &v.EndDate)
+	err := r.pool.QueryRow(ctx, `SELECT e.id::text,e.resume_id::text,e.location,e.university,e.grade,e.program_name,e.profile_name,e.faculty,e.course,to_char(e.end_date,'YYYY') FROM resume_educations e JOIN resumes rr ON rr.id=e.resume_id WHERE e.id=$1 AND e.resume_id=$2 AND rr.user_id=$3`, q.EducationID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Location, &v.University, &v.Grade, &v.ProgramName, &v.ProfileName, &v.Faculty, &v.Course, &v.EndDate)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, queries.ErrResumeNotFound
 	}

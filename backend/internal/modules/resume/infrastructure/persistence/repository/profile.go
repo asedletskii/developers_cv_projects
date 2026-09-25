@@ -28,7 +28,7 @@ func (r *ProfileRepository) CreateProfile(ctx context.Context, c ports.CreateRes
 		return e
 	}
 	var rootCount int64
-	if e = tx.WithContext(ctx).Model(&gormmodel.ResumeRoot{}).Where("id = ? AND user_id = ?", m.ResumeID, c.UserID.UUID()).Count(&rootCount).Error; e != nil {
+	if e = tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", m.ResumeID, c.UserID.UUID()).Count(&rootCount).Error; e != nil {
 		return fmt.Errorf("create profile ownership: %w", e)
 	}
 	if rootCount == 0 {
@@ -60,7 +60,7 @@ func (r *ProfileRepository) GetProfile(ctx context.Context, q ports.GetResumePro
 	}
 	tx := database.DBFromContext(ctx, r.db)
 	var m gormmodel.ResumeProfile
-	if e := tx.WithContext(ctx).Where("resume_id = ? AND resume_id IN (SELECT id FROM resume_roots WHERE id = ? AND user_id = ?)", q.ResumeID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).First(&m).Error; e != nil {
+	if e := tx.WithContext(ctx).Where("resume_id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", q.ResumeID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).First(&m).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}
@@ -85,7 +85,7 @@ func (r *ProfileRepository) UpdateProfile(ctx context.Context, c ports.UpdateRes
 	if e != nil {
 		return e
 	}
-	result := tx.WithContext(ctx).Model(&gormmodel.ResumeProfile{}).Where("id = ? AND resume_id IN (SELECT id FROM resume_roots WHERE id = ? AND user_id = ?)", m.ID, m.ResumeID, c.UserID.UUID()).Updates(map[string]any{"name": m.Name, "surname": m.Surname, "patronymic": m.Patronymic, "position": m.Position, "photo_path": m.PhotoPath, "date_of_birth": m.DateOfBirth, "location": m.Location, "relocation": m.Relocation})
+	result := tx.WithContext(ctx).Model(&gormmodel.ResumeProfile{}).Where("id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", m.ID, m.ResumeID, c.UserID.UUID()).Updates(map[string]any{"name": m.Name, "surname": m.Surname, "patronymic": m.Patronymic, "position": m.Position, "photo_path": m.PhotoPath, "date_of_birth": m.DateOfBirth, "location": m.Location, "relocation": m.Relocation})
 	if result.Error != nil {
 		return fmt.Errorf("update profile: %w", result.Error)
 	}

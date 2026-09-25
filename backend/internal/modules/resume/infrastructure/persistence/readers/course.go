@@ -17,7 +17,7 @@ func (r *CourseReader) ListCourses(ctx context.Context, q queries.ListCoursesQue
 	if r == nil || r.pool == nil {
 		return nil, fmt.Errorf("list courses: reader dependencies are nil")
 	}
-	rows, err := r.pool.Query(ctx, `SELECT c.id::text,c.resume_id::text,c.name,c.organization,to_char(c.end_date,'YYYY-MM'),c.hours,c.certificate_link FROM resume_courses c JOIN resume_roots rr ON rr.id=c.resume_id WHERE c.resume_id=$1 AND rr.user_id=$2 ORDER BY c.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
+	rows, err := r.pool.Query(ctx, `SELECT c.id::text,c.resume_id::text,c.name,c.organization,to_char(c.end_date,'YYYY-MM'),c.hours,c.certificate_link FROM resume_courses c JOIN resumes rr ON rr.id=c.resume_id WHERE c.resume_id=$1 AND rr.user_id=$2 ORDER BY c.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
 	if err != nil {
 		return nil, fmt.Errorf("list courses: %w", err)
 	}
@@ -40,7 +40,7 @@ func (r *CourseReader) GetCourse(ctx context.Context, q queries.GetCourseQuery) 
 		return queries.CourseView{}, fmt.Errorf("get course: reader dependencies are nil")
 	}
 	var v queries.CourseView
-	err := r.pool.QueryRow(ctx, `SELECT c.id::text,c.resume_id::text,c.name,c.organization,to_char(c.end_date,'YYYY-MM'),c.hours,c.certificate_link FROM resume_courses c JOIN resume_roots rr ON rr.id=c.resume_id WHERE c.id=$1 AND c.resume_id=$2 AND rr.user_id=$3`, q.CourseID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Name, &v.Organization, &v.EndDate, &v.Hours, &v.CertificateLink)
+	err := r.pool.QueryRow(ctx, `SELECT c.id::text,c.resume_id::text,c.name,c.organization,to_char(c.end_date,'YYYY-MM'),c.hours,c.certificate_link FROM resume_courses c JOIN resumes rr ON rr.id=c.resume_id WHERE c.id=$1 AND c.resume_id=$2 AND rr.user_id=$3`, q.CourseID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Name, &v.Organization, &v.EndDate, &v.Hours, &v.CertificateLink)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, queries.ErrResumeNotFound
 	}

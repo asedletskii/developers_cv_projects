@@ -24,7 +24,9 @@ func (r *SkillsRepository) CreateSkills(ctx context.Context, c ports.CreateSkill
 		return e
 	}
 	var n int64
-	tx.Model(&gormmodel.ResumeSkills{}).Where("resume_id=?", a.ResumeID().UUID()).Count(&n)
+	if e = tx.Model(&gormmodel.ResumeSkills{}).Where("resume_id=?", a.ResumeID().UUID()).Count(&n).Error; e != nil {
+		return e
+	}
 	if n > 0 {
 		return domain.ErrDuplicateEntity
 	}
@@ -58,8 +60,12 @@ func (r *SkillsRepository) GetSkills(ctx context.Context, q ports.GetSkillsRepos
 	}
 	var h []gormmodel.ResumeSkillHard
 	var s []gormmodel.ResumeSkillSoft
-	tx.Where("skills_id=?", m.ID).Order("position").Find(&h)
-	tx.Where("skills_id=?", m.ID).Order("position").Find(&s)
+	if e = tx.Where("skills_id=?", m.ID).Order("position").Find(&h).Error; e != nil {
+		return nil, e
+	}
+	if e = tx.Where("skills_id=?", m.ID).Order("position").Find(&s).Error; e != nil {
+		return nil, e
+	}
 	hp := make([]enums.HardSkill, len(h))
 	sp := make([]enums.SoftSkill, len(s))
 	for i, v := range h {

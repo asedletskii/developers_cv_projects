@@ -19,7 +19,7 @@ func (r *baseRepository) owned(ctx context.Context, resumeID valueobjects.ID, ui
 	}
 	tx := database.DBFromContext(ctx, r.db)
 	var n int64
-	if e := tx.WithContext(ctx).Model(&gormmodel.ResumeRoot{}).Where("id=? AND user_id=?", resumeID.UUID(), uid.UUID()).Count(&n).Error; e != nil {
+	if e := tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id=? AND user_id=?", resumeID.UUID(), uid.UUID()).Count(&n).Error; e != nil {
 		return nil, e
 	}
 	if n == 0 {

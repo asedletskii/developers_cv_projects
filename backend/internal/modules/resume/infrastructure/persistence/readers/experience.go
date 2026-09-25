@@ -31,7 +31,7 @@ SELECT
  COALESCE((SELECT jsonb_agg(a.value ORDER BY a.position) FROM resume_experience_achievements a WHERE a.experience_id=e.id), '[]'::jsonb),
  COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t.name, 'grade', t.grade) ORDER BY t.position) FROM resume_experience_technologies t WHERE t.experience_id=e.id), '[]'::jsonb)
 FROM resume_experiences e
-JOIN resume_roots rr ON rr.id=e.resume_id
+JOIN resumes rr ON rr.id=e.resume_id
 `
 
 func (r *ExperiencesReader) ListExperiences(ctx context.Context, q queries.ListExperiencesQuery) ([]queries.ExperienceView, error) {

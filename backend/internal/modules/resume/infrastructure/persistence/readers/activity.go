@@ -17,7 +17,7 @@ func (r *ActivityReader) ListActivities(ctx context.Context, q queries.ListActiv
 	if r == nil || r.pool == nil {
 		return nil, fmt.Errorf("list activities: reader dependencies are nil")
 	}
-	rows, err := r.pool.Query(ctx, `SELECT a.id::text,a.resume_id::text,a.type,a.title,a.description,to_char(a.date,'YYYY-MM'),a.link FROM resume_activities a JOIN resume_roots rr ON rr.id=a.resume_id WHERE a.resume_id=$1 AND rr.user_id=$2 ORDER BY a.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
+	rows, err := r.pool.Query(ctx, `SELECT a.id::text,a.resume_id::text,a.type,a.title,a.description,to_char(a.date,'YYYY-MM'),a.link FROM resume_activities a JOIN resumes rr ON rr.id=a.resume_id WHERE a.resume_id=$1 AND rr.user_id=$2 ORDER BY a.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
 	if err != nil {
 		return nil, fmt.Errorf("list activities: %w", err)
 	}
@@ -40,7 +40,7 @@ func (r *ActivityReader) GetActivity(ctx context.Context, q queries.GetActivityQ
 		return queries.ActivityView{}, fmt.Errorf("get activity: reader dependencies are nil")
 	}
 	var v queries.ActivityView
-	err := r.pool.QueryRow(ctx, `SELECT a.id::text,a.resume_id::text,a.type,a.title,a.description,to_char(a.date,'YYYY-MM'),a.link FROM resume_activities a JOIN resume_roots rr ON rr.id=a.resume_id WHERE a.id=$1 AND a.resume_id=$2 AND rr.user_id=$3`, q.ActivityID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Type, &v.Title, &v.Description, &v.Date, &v.Link)
+	err := r.pool.QueryRow(ctx, `SELECT a.id::text,a.resume_id::text,a.type,a.title,a.description,to_char(a.date,'YYYY-MM'),a.link FROM resume_activities a JOIN resumes rr ON rr.id=a.resume_id WHERE a.id=$1 AND a.resume_id=$2 AND rr.user_id=$3`, q.ActivityID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Type, &v.Title, &v.Description, &v.Date, &v.Link)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, queries.ErrResumeNotFound
 	}

@@ -19,7 +19,7 @@ func (r *LanguagesReader) ListLanguages(ctx context.Context, q queries.ListLangu
 	if r == nil || r.pool == nil {
 		return nil, fmt.Errorf("list languages: reader dependencies are nil")
 	}
-	rows, err := r.pool.Query(ctx, `SELECT l.id::text,l.resume_id::text,l.language,l.grade,l.position FROM resume_languages l JOIN resume_roots rr ON rr.id=l.resume_id WHERE l.resume_id=$1 AND rr.user_id=$2 ORDER BY l.position`, q.ResumeID.UUID(), q.UserID.UUID())
+	rows, err := r.pool.Query(ctx, `SELECT l.id::text,l.resume_id::text,l.language,l.grade,l.position FROM resume_languages l JOIN resumes rr ON rr.id=l.resume_id WHERE l.resume_id=$1 AND rr.user_id=$2 ORDER BY l.position`, q.ResumeID.UUID(), q.UserID.UUID())
 	if err != nil {
 		return nil, fmt.Errorf("list languages: %w", err)
 	}
@@ -43,7 +43,7 @@ func (r *LanguagesReader) GetLanguage(ctx context.Context, q queries.GetLanguage
 		return queries.LanguageView{}, fmt.Errorf("get language: reader dependencies are nil")
 	}
 	var v queries.LanguageView
-	err := r.pool.QueryRow(ctx, `SELECT l.id::text,l.resume_id::text,l.language,l.grade,l.position FROM resume_languages l JOIN resume_roots rr ON rr.id=l.resume_id WHERE l.id=$1 AND l.resume_id=$2 AND rr.user_id=$3`, q.LanguageID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Language, &v.Grade, &v.Position)
+	err := r.pool.QueryRow(ctx, `SELECT l.id::text,l.resume_id::text,l.language,l.grade,l.position FROM resume_languages l JOIN resumes rr ON rr.id=l.resume_id WHERE l.id=$1 AND l.resume_id=$2 AND rr.user_id=$3`, q.LanguageID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Language, &v.Grade, &v.Position)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, queries.ErrResumeNotFound
 	}
