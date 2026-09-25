@@ -73,24 +73,24 @@ func (r *ProjectRepository) UpdateProject(ctx context.Context, c ports.UpdatePro
 		return err
 	}
 	var existing gormmodel.ResumeProject
-	if err := tx.WithContext(ctx).Where("id = ? AND resume_id = ?", c.ProjectID.UUID(), c.ResumeID.UUID()).First(&existing).Error; err != nil {
+	if err := tx.WithContext(ctx).Where("id = ? AND resume_id = ?", c.Project.ID().UUID(), c.ResumeID.UUID()).First(&existing).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return domain.ErrEntityNotFound
 		}
 		return err
 	}
-	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeProject{}).Where("id = ? AND resume_id = ?", c.ProjectID.UUID(), c.ResumeID.UUID()).Updates(map[string]any{
+	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeProject{}).Where("id = ? AND resume_id = ?", c.Project.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{
 		"name": model.Name, "description": model.Description, "role": model.Role, "link": model.Link, "git_link": model.GitLink,
 	}).Error; err != nil {
 		return err
 	}
-	if err := tx.WithContext(ctx).Where("project_id = ?", c.ProjectID.UUID()).Delete(&gormmodel.ResumeProjectScreenshot{}).Error; err != nil {
+	if err := tx.WithContext(ctx).Where("project_id = ?", c.Project.ID().UUID()).Delete(&gormmodel.ResumeProjectScreenshot{}).Error; err != nil {
 		return err
 	}
-	if err := tx.WithContext(ctx).Where("project_id = ?", c.ProjectID.UUID()).Delete(&gormmodel.ResumeProjectTechnology{}).Error; err != nil {
+	if err := tx.WithContext(ctx).Where("project_id = ?", c.Project.ID().UUID()).Delete(&gormmodel.ResumeProjectTechnology{}).Error; err != nil {
 		return err
 	}
-	if err := tx.WithContext(ctx).Where("project_id = ?", c.ProjectID.UUID()).Delete(&gormmodel.ResumeProjectContributor{}).Error; err != nil {
+	if err := tx.WithContext(ctx).Where("project_id = ?", c.Project.ID().UUID()).Delete(&gormmodel.ResumeProjectContributor{}).Error; err != nil {
 		return err
 	}
 	model.ID = existing.ID

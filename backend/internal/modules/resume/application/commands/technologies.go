@@ -24,11 +24,6 @@ type CreateTechnologyCommand struct {
 	Input        TechnologyInput
 }
 
-type GetTechnologyCommand struct {
-	ResumeID, TechnologyID valueobjects.ID
-	UserID                 useridentity.ID
-}
-
 type UpdateTechnologyCommand struct {
 	ResumeID, TechnologyID valueobjects.ID
 	UserID                 useridentity.ID
@@ -40,19 +35,12 @@ type DeleteTechnologyCommand struct {
 	UserID                 useridentity.ID
 }
 
-type CreateTechnologyRepository = ports.CreateTechnologyRepository
-type CreateTechnologyRepositoryCommand = ports.CreateTechnologyRepositoryCommand
-type GetTechnologyRepository = ports.GetTechnologyRepository
-type UpdateTechnologyRepository = ports.UpdateTechnologyRepository
-type UpdateTechnologyRepositoryCommand = ports.UpdateTechnologyRepositoryCommand
-type DeleteTechnologyRepository = ports.DeleteTechnologyRepository
-
 type CreateTechnologyHandler struct {
-	r CreateTechnologyRepository
+	r ports.CreateTechnologyRepository
 	u UnitOfWork
 }
 
-func NewCreateTechnologyHandler(r CreateTechnologyRepository, u UnitOfWork) *CreateTechnologyHandler {
+func NewCreateTechnologyHandler(r ports.CreateTechnologyRepository, u UnitOfWork) *CreateTechnologyHandler {
 	return &CreateTechnologyHandler{r: r, u: u}
 }
 
@@ -78,37 +66,33 @@ func (h *CreateTechnologyHandler) Handle(ctx context.Context, c CreateTechnology
 }
 
 type UpdateTechnologyHandler struct {
-	r   GetTechnologyRepository
-	u   UpdateTechnologyRepository
+	u   ports.UpdateTechnologyRepository
 	uow UnitOfWork
 }
 
-func NewUpdateTechnologyHandler(r GetTechnologyRepository, u UpdateTechnologyRepository, uow UnitOfWork) *UpdateTechnologyHandler {
-	return &UpdateTechnologyHandler{r: r, u: u, uow: uow}
+func NewUpdateTechnologyHandler(u ports.UpdateTechnologyRepository, uow UnitOfWork) *UpdateTechnologyHandler {
+	return &UpdateTechnologyHandler{u: u, uow: uow}
 }
 
 func (h *UpdateTechnologyHandler) Handle(ctx context.Context, c UpdateTechnologyCommand) error {
-	if h == nil || h.r == nil || h.u == nil || h.uow == nil {
+	if h == nil || h.u == nil || h.uow == nil {
 		return fmt.Errorf("update technology dependencies are nil")
 	}
+	entity, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: c.TechnologyID, Name: c.Input.Name, Grade: c.Input.Grade, Position: c.Input.Position})
+	if err != nil {
+		return err
+	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.r.GetTechnology(tx, ports.GetTechnologyRepositoryCommand{ResumeID: c.ResumeID, TechnologyID: c.TechnologyID, UserID: c.UserID})
-		if err != nil {
-			return err
-		}
-		if err := current.Replace(domain.ResumeTechnologyEntryParams{ID: current.ID(), Name: c.Input.Name, Grade: c.Input.Grade, Position: c.Input.Position}); err != nil {
-			return err
-		}
-		return h.u.UpdateTechnology(tx, ports.UpdateTechnologyRepositoryCommand{Technology: current, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateTechnology(tx, ports.UpdateTechnologyRepositoryCommand{Technology: entity, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
 type DeleteTechnologyHandler struct {
-	r DeleteTechnologyRepository
+	r ports.DeleteTechnologyRepository
 	u UnitOfWork
 }
 
-func NewDeleteTechnologyHandler(r DeleteTechnologyRepository, u UnitOfWork) *DeleteTechnologyHandler {
+func NewDeleteTechnologyHandler(r ports.DeleteTechnologyRepository, u UnitOfWork) *DeleteTechnologyHandler {
 	return &DeleteTechnologyHandler{r: r, u: u}
 }
 

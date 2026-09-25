@@ -73,14 +73,14 @@ func (compositeReaderStub) GetProject(context.Context, queries.GetProjectQuery) 
 }
 
 func TestResumeReaderRejectsNilDependencies(t *testing.T) {
-	reader := NewResumeReader(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	reader := NewResumeReader(ResumeReaderDependencies{})
 	_, err := reader.GetResume(context.Background(), queries.GetResumeQuery{ResumeID: valueobjects.NewID(), UserID: useridentity.NewID()})
 	require.Error(t, err)
 }
 
 func TestResumeReaderReturnsConsistentEmptyCollections(t *testing.T) {
 	stub := compositeReaderStub{}
-	reader := NewResumeReader(stub, stub, stub, stub, stub, stub, stub, stub, stub, stub, stub, stub)
+	reader := NewResumeReader(ResumeReaderDependencies{Metadata: stub, Overview: stub, Profile: stub, Contacts: stub, Skills: stub, Languages: stub, Technologies: stub, Experiences: stub, Educations: stub, Courses: stub, Activities: stub, Projects: stub})
 
 	view, err := reader.GetResume(context.Background(), queries.GetResumeQuery{ResumeID: valueobjects.NewID(), UserID: useridentity.NewID()})
 	require.NoError(t, err)

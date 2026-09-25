@@ -16,27 +16,18 @@ type CreateSkillsCommand struct {
 	UserID       useridentity.ID
 	Hard, Soft   []string
 }
-type GetSkillsCommand struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
 type UpdateSkillsCommand struct {
 	ResumeID   valueobjects.ID
 	UserID     useridentity.ID
 	Hard, Soft []string
 }
-type CreateSkillsRepository = ports.CreateSkillsRepository
-type CreateSkillsRepositoryCommand = ports.CreateSkillsRepositoryCommand
-type GetSkillsRepository = ports.GetSkillsRepository
-type UpdateSkillsRepository = ports.UpdateSkillsRepository
-type UpdateSkillsRepositoryCommand = ports.UpdateSkillsRepositoryCommand
 
 type CreateSkillsHandler struct {
-	r CreateSkillsRepository
+	r ports.CreateSkillsRepository
 	u UnitOfWork
 }
 
-func NewCreateSkillsHandler(r CreateSkillsRepository, u UnitOfWork) *CreateSkillsHandler {
+func NewCreateSkillsHandler(r ports.CreateSkillsRepository, u UnitOfWork) *CreateSkillsHandler {
 	return &CreateSkillsHandler{r, u}
 }
 func (h *CreateSkillsHandler) Handle(ctx context.Context, c CreateSkillsCommand) (valueobjects.ID, error) {
@@ -62,27 +53,29 @@ func (h *CreateSkillsHandler) Handle(ctx context.Context, c CreateSkillsCommand)
 }
 
 type UpdateSkillsHandler struct {
-	r   GetSkillsRepository
-	u   UpdateSkillsRepository
+	u   ports.UpdateSkillsRepository
 	uow UnitOfWork
 }
 
-func NewUpdateSkillsHandler(r GetSkillsRepository, u UpdateSkillsRepository, uow UnitOfWork) *UpdateSkillsHandler {
-	return &UpdateSkillsHandler{r: r, u: u, uow: uow}
+func NewUpdateSkillsHandler(u ports.UpdateSkillsRepository, uow UnitOfWork) *UpdateSkillsHandler {
+	return &UpdateSkillsHandler{u: u, uow: uow}
 }
 func (h *UpdateSkillsHandler) Handle(ctx context.Context, c UpdateSkillsCommand) error {
-	if h == nil || h.r == nil || h.u == nil || h.uow == nil {
+	if h == nil || h.u == nil || h.uow == nil {
 		return fmt.Errorf("update skills dependencies are nil")
 	}
+	if c.ResumeID.IsZero() || c.UserID.IsZero() {
+		return fmt.Errorf("invalid update skills command")
+	}
+	if _, err := domain.NewSkills(domain.SkillsParams{
+		ID: valueobjects.NewID(), ResumeID: c.ResumeID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft),
+	}); err != nil {
+		return err
+	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		cur, e := h.r.GetSkills(tx, ports.GetSkillsRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
-		if e != nil {
-			return e
-		}
-		if e := cur.Replace(domain.SkillsParams{ID: cur.ID(), ResumeID: c.ResumeID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft)}); e != nil {
-			return e
-		}
-		return h.u.UpdateSkills(tx, ports.UpdateSkillsRepositoryCommand{Skills: cur, UserID: c.UserID})
+		return h.u.UpdateSkills(tx, ports.UpdateSkillsRepositoryCommand{
+			ResumeID: c.ResumeID, UserID: c.UserID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft),
+		})
 	})
 }
 func toHard(v []string) []enums.HardSkill {

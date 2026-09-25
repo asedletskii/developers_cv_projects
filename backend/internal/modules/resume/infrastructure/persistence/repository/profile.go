@@ -34,13 +34,6 @@ func (r *ProfileRepository) CreateProfile(ctx context.Context, c ports.CreateRes
 	if rootCount == 0 {
 		return domain.ErrEntityNotFound
 	}
-	var existing int64
-	if e = tx.WithContext(ctx).Model(&gormmodel.ResumeProfile{}).Where("resume_id = ?", m.ResumeID).Count(&existing).Error; e != nil {
-		return fmt.Errorf("check profile uniqueness: %w", e)
-	}
-	if existing > 0 {
-		return domain.ErrDuplicateEntity
-	}
 	if e = tx.WithContext(ctx).Create(&m).Error; e != nil {
 		if errors.Is(e, gorm.ErrDuplicatedKey) {
 			return domain.ErrDuplicateEntity
@@ -77,14 +70,19 @@ func (r *ProfileRepository) UpdateProfile(ctx context.Context, c ports.UpdateRes
 	if e != nil {
 		return fmt.Errorf("update profile: %w", e)
 	}
-	_, e = r.GetProfile(ctx, ports.GetResumeProfileRepositoryCommand{ResumeID: c.Profile.ResumeID(), UserID: c.UserID})
-	if e != nil {
-		return e
+	var current gormmodel.ResumeProfile
+	if e = tx.WithContext(ctx).Where("resume_id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", c.Profile.ResumeID().UUID(), c.Profile.ResumeID().UUID(), c.UserID.UUID()).First(&current).Error; e != nil {
+		if errors.Is(e, gorm.ErrRecordNotFound) {
+			return domain.ErrEntityNotFound
+		}
+		return fmt.Errorf("update profile lookup: %w", e)
 	}
 	m, fs, e := profileModels(c.Profile)
 	if e != nil {
 		return e
 	}
+	m.ID = current.ID
+	m.ResumeID = current.ResumeID
 	result := tx.WithContext(ctx).Model(&gormmodel.ResumeProfile{}).Where("id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", m.ID, m.ResumeID, c.UserID.UUID()).Updates(map[string]any{"name": m.Name, "surname": m.Surname, "patronymic": m.Patronymic, "position": m.Position, "photo_path": m.PhotoPath, "date_of_birth": m.DateOfBirth, "location": m.Location, "relocation": m.Relocation})
 	if result.Error != nil {
 		return fmt.Errorf("update profile: %w", result.Error)

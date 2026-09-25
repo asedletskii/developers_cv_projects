@@ -65,10 +65,10 @@ func (r *ResumeRepository) UpdateResume(ctx context.Context, c ports.UpdateResum
 	if err != nil {
 		return fmt.Errorf("update resume: %w", err)
 	}
-	if c.Resume == nil {
-		return fmt.Errorf("resume is nil")
+	if c.ResumeID.IsZero() || c.UserID.IsZero() {
+		return fmt.Errorf("invalid resume identity")
 	}
-	res := tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", c.Resume.ID().UUID(), c.Resume.UserID().UUID()).Updates(map[string]any{"title": c.Resume.Title(), "updated_at": time.Now().UTC()})
+	res := tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", c.ResumeID.UUID(), c.UserID.UUID()).Updates(map[string]any{"title": c.Title, "updated_at": time.Now().UTC()})
 	if res.Error != nil {
 		return fmt.Errorf("update resume: %w", res.Error)
 	}

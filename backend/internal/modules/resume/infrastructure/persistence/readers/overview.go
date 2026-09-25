@@ -37,7 +37,7 @@ func (r *OverviewReader) GetOverview(ctx context.Context, q queries.GetOverviewQ
 	if tp != nil || ts != nil {
 		v.Presentation.Theme = &queries.OverviewThemeSettings{Primary: valueOrEmpty(tp), Secondary: valueOrEmpty(ts)}
 	}
-	rows, err := r.pool.Query(ctx, `SELECT section_id,enabled,collapsed FROM resume_overview_sections WHERE resume_id=$1 ORDER BY position`, q.ResumeID.UUID())
+	rows, err := r.pool.Query(ctx, `SELECT s.section_id,s.enabled,s.collapsed FROM resume_overview_sections s JOIN resumes r ON r.id=s.resume_id WHERE s.resume_id=$1 AND r.user_id=$2 ORDER BY s.position`, q.ResumeID.UUID(), q.UserID.UUID())
 	if err != nil {
 		return queries.ResumeOverviewView{}, fmt.Errorf("get overview sections: %w", err)
 	}

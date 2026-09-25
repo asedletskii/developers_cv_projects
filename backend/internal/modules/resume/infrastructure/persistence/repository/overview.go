@@ -8,6 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -36,12 +37,15 @@ func (r *OverviewRepository) CreateOverview(ctx context.Context, c ports.CreateO
 	}
 	var count int64
 	if e = tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", c.ResumeID.UUID(), c.UserID.UUID()).Count(&count).Error; e != nil {
-		return fmt.Errorf("create overview: %w", e)
+		return fmt.Errorf("create overview ownership: %w", e)
 	}
 	if count == 0 {
 		return domain.ErrEntityNotFound
 	}
 	if e = tx.WithContext(ctx).Create(&p).Error; e != nil {
+		if errors.Is(e, gorm.ErrDuplicatedKey) {
+			return domain.ErrDuplicateEntity
+		}
 		return fmt.Errorf("create overview: %w", e)
 	}
 	if len(s) > 0 {

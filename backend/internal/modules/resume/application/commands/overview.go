@@ -89,32 +89,23 @@ func (i OverviewInput) toDomain() (domain.OverviewPresentation, error) {
 	return domain.OverviewPresentation{Theme: theme, Greeting: g, Availability: av, ResumeLink: link, Sections: sections}, nil
 }
 
-type CreateOverviewCommand struct {
-	ResumeID     valueobjects.ID
-	UserID       useridentity.ID
-	Presentation OverviewInput
-}
 type UpdateOverviewCommand struct {
 	ResumeID     valueobjects.ID
 	UserID       useridentity.ID
 	Presentation OverviewInput
 }
 
-func NewOverviewCommandPresentation(i OverviewInput) (domain.OverviewPresentation, error) {
-	return i.toDomain()
+type UpdateOverviewHandler struct {
+	updater ports.UpdateOverviewRepository
+	uow     UnitOfWork
 }
 
-type CreateOverviewHandler struct {
-	repository ports.CreateOverviewRepository
-	uow        UnitOfWork
+func NewUpdateOverviewHandler(u ports.UpdateOverviewRepository, tx UnitOfWork) *UpdateOverviewHandler {
+	return &UpdateOverviewHandler{updater: u, uow: tx}
 }
-
-func NewCreateOverviewHandler(r ports.CreateOverviewRepository, u UnitOfWork) *CreateOverviewHandler {
-	return &CreateOverviewHandler{repository: r, uow: u}
-}
-func (h *CreateOverviewHandler) Handle(ctx context.Context, c CreateOverviewCommand) error {
-	if h == nil || h.repository == nil || h.uow == nil {
-		return fmt.Errorf("create overview handler dependencies are nil")
+func (h *UpdateOverviewHandler) Handle(ctx context.Context, c UpdateOverviewCommand) error {
+	if h == nil || h.updater == nil || h.uow == nil {
+		return fmt.Errorf("update overview handler dependencies are nil")
 	}
 	p, e := c.Presentation.toDomain()
 	if e != nil {
@@ -125,35 +116,6 @@ func (h *CreateOverviewHandler) Handle(ctx context.Context, c CreateOverviewComm
 		return e
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.CreateOverview(tx, ports.CreateOverviewRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, Overview: o})
-	})
-}
-
-type UpdateOverviewHandler struct {
-	repository ports.GetOverviewRepository
-	updater    ports.UpdateOverviewRepository
-	uow        UnitOfWork
-}
-
-func NewUpdateOverviewHandler(r ports.GetOverviewRepository, u ports.UpdateOverviewRepository, tx UnitOfWork) *UpdateOverviewHandler {
-	return &UpdateOverviewHandler{repository: r, updater: u, uow: tx}
-}
-func (h *UpdateOverviewHandler) Handle(ctx context.Context, c UpdateOverviewCommand) error {
-	if h == nil || h.repository == nil || h.updater == nil || h.uow == nil {
-		return fmt.Errorf("update overview handler dependencies are nil")
-	}
-	p, e := c.Presentation.toDomain()
-	if e != nil {
-		return e
-	}
-	return h.uow.Do(ctx, func(tx context.Context) error {
-		o, e := h.repository.GetOverview(tx, ports.GetOverviewRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
-		if e != nil {
-			return e
-		}
-		if e = o.ReplacePresentation(p); e != nil {
-			return e
-		}
 		return h.updater.UpdateOverview(tx, ports.UpdateOverviewRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, Overview: o})
 	})
 }

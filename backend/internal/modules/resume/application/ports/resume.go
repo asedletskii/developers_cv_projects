@@ -15,7 +15,11 @@ type GetResumeRepositoryCommand struct {
 	UserID   useridentity.ID
 }
 
-type UpdateResumeRepositoryCommand struct{ Resume *domain.Resume }
+type UpdateResumeRepositoryCommand struct {
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Title    string
+}
 
 type DeleteResumeRepositoryCommand struct {
 	ResumeID valueobjects.ID

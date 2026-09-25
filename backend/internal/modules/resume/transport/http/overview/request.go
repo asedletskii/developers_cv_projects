@@ -57,14 +57,3 @@ func (r OverviewRequest) ToCommand(uid uuid.UUID, id valueobjects.ID) (commands.
 	}
 	return commands.UpdateOverviewCommand{ResumeID: id, UserID: u, Presentation: p}, nil
 }
-func CreateCommand(uid uuid.UUID, id valueobjects.ID, r OverviewRequest) (commands.CreateOverviewCommand, error) {
-	u, e := useridentity.IDFromUUID(uid)
-	if e != nil {
-		return commands.CreateOverviewCommand{}, e
-	}
-	c, e := r.ToCommand(uid, id)
-	if e != nil {
-		return commands.CreateOverviewCommand{}, e
-	}
-	return commands.CreateOverviewCommand{ResumeID: id, UserID: u, Presentation: c.Presentation}, nil
-}

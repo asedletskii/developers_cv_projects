@@ -3,13 +3,10 @@ package experiences
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
-	apperrors "developers-cv/backend/internal/platform/http/errors"
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -59,7 +56,7 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 	id, err := h.create.Handle(c.Request.Context(), commands.CreateExperienceCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: input})
 	if err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
@@ -71,7 +68,7 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	items, err := h.list.Handle(c.Request.Context(), queries.ListExperiencesQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, items)
@@ -83,7 +80,7 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 	item, err := h.get.Handle(c.Request.Context(), queries.GetExperienceQuery{ResumeID: rid, ExperienceID: id, UserID: uid})
 	if err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, item)
@@ -104,7 +101,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	if err := h.update.Handle(c.Request.Context(), commands.UpdateExperienceCommand{ResumeID: rid, ExperienceID: id, UserID: uid, Input: input}); err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -115,7 +112,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.delete.Handle(c.Request.Context(), commands.DeleteExperienceCommand{ResumeID: rid, ExperienceID: id, UserID: uid}); err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -163,11 +160,4 @@ func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID,
 		return uid, rid, valueobjects.ID{}, false
 	}
 	return uid, rid, id, true
-}
-func write(c *gin.Context, err error) {
-	if errors.Is(err, queries.ErrResumeNotFound) || errors.Is(err, domain.ErrEntityNotFound) {
-		common.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))
-		return
-	}
-	common.WriteCommandError(c, err)
 }
