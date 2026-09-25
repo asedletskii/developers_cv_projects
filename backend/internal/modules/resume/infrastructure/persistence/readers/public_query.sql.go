@@ -7,6 +7,7 @@ const publicResumeQuerySQL = `SELECT
     p.patronymic,
     p.position,
     r.title,
+    r.language,
     r.updated_at,
     rp.resume_link,
     p.photo_path,
@@ -15,15 +16,15 @@ const publicResumeQuerySQL = `SELECT
     p.relocation,
     COALESCE((SELECT jsonb_agg(w.value ORDER BY w.position) FROM resume_profile_work_formats w WHERE w.profile_id = p.id), '[]'::jsonb),
     jsonb_build_object(
-        'first', rp.greeting_first_ru,
-        'second', rp.greeting_second_ru,
-        'secondHighlight', rp.greeting_highlight_ru,
-        'third', rp.greeting_third_ru
+        'first', rp.greeting_first,
+        'second', rp.greeting_second,
+        'secondHighlight', rp.greeting_highlight,
+        'third', rp.greeting_third
     ),
     CASE WHEN rp.availability_status IS NULL THEN NULL ELSE jsonb_build_object(
         'status', rp.availability_status,
         'from', CASE WHEN rp.availability_from IS NULL THEN NULL ELSE to_char(rp.availability_from, 'YYYY-MM-DD') END,
-        'note', rp.availability_note_ru
+        'note', rp.availability_note
     ) END,
     CASE WHEN rp.theme_primary IS NULL AND rp.theme_secondary IS NULL THEN NULL ELSE jsonb_build_object(
         'primary', COALESCE(rp.theme_primary, ''),
@@ -32,8 +33,8 @@ const publicResumeQuerySQL = `SELECT
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id', s.section_id, 'enabled', s.enabled, 'collapsed', s.collapsed) ORDER BY s.position) FROM resume_presentation_sections s WHERE s.resume_id = r.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(h.value ORDER BY h.position) FROM resume_contact_hidden h WHERE h.contacts_id = c.id), '[]'::jsonb),
     CASE WHEN ct.contacts_id IS NULL THEN NULL ELSE jsonb_build_object(
-        'title', ct.title_ru,
-        'subtitle', ct.subtitle_ru
+        'title', ct.title,
+        'subtitle', ct.subtitle
     ) END,
     jsonb_build_object('phone', c.phone, 'telegram', c.telegram, 'email', c.email),
     COALESCE((SELECT jsonb_agg(jsonb_build_object('language', l.language, 'grade', l.grade) ORDER BY l.position) FROM resume_languages l WHERE l.resume_id = r.id), '[]'::jsonb),

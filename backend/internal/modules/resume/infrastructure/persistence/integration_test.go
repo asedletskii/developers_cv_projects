@@ -31,18 +31,10 @@ import (
 
 func newTestRoot(t *testing.T, userID useridentity.ID) *domain.ResumeRoot {
 	t.Helper()
-	first, err := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: "Привет", EN: "Hello"})
-	require.NoError(t, err)
-	second, err := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: "Я", EN: "I am"})
-	require.NoError(t, err)
-	highlight, err := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: "Тест", EN: "Test"})
-	require.NoError(t, err)
-	third, err := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: "Разработчик", EN: "Developer"})
-	require.NoError(t, err)
-	greeting := valueobjects.NewGreeting(valueobjects.GreetingParams{First: first, Second: second, SecondHighlight: highlight, Third: third})
+	greeting := valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Привет", Second: "Я", SecondHighlight: "Тест", Third: "Разработчик"})
 	presentation := domain.ResumePresentation{Greeting: greeting, Sections: []valueobjects.SectionSettings{}}
 	root, err := domain.NewResumeRoot(domain.ResumeRootParams{
-		ID: valueobjects.NewID(), UserID: userID, Title: "Test Resume", Presentation: presentation,
+		ID: valueobjects.NewID(), UserID: userID, Title: "Test Resume", Language: enums.ResumeLanguageRU, Presentation: presentation,
 	})
 	require.NoError(t, err)
 	return root
@@ -206,7 +198,7 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "updated@example.com", loadedUpdated.Contacts().Email().String())
 	require.Equal(t, []enums.ContactKey{enums.ContactKeyEmail}, loadedUpdated.HiddenContacts())
-	require.Equal(t, beforeRoot.Presentation().Greeting.First().RU(), afterRoot.Presentation().Greeting.First().RU())
+	require.Equal(t, beforeRoot.Presentation().Greeting.First(), afterRoot.Presentation().Greeting.First())
 	require.Equal(t, beforeRoot.Presentation().Sections, afterRoot.Presentation().Sections)
 }
 
@@ -271,7 +263,7 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
 	languageID := valueobjects.NewID()
-	language, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: languageID, Language: enums.LanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0})
+	language, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: languageID, Language: enums.SpokenLanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return languagesRepo.CreateLanguage(tx, ports.CreateLanguageRepositoryCommand{Language: language, ResumeID: root.ID(), UserID: owner})

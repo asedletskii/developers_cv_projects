@@ -9,7 +9,7 @@ import (
 
 type ResumeLanguageEntry struct {
 	id       valueobjects.ID
-	language enums.LanguageType
+	language enums.SpokenLanguage
 	grade    *enums.LanguageGrade
 	position int
 }
@@ -19,7 +19,7 @@ type ResumeLanguagesParams struct {
 }
 type ResumeLanguageEntryParams struct {
 	ID       valueobjects.ID
-	Language enums.LanguageType
+	Language enums.SpokenLanguage
 	Grade    *enums.LanguageGrade
 	Position int
 }
@@ -71,8 +71,8 @@ func (l *ResumeLanguageEntry) Replace(params ResumeLanguageEntryParams) error {
 	return nil
 }
 
-func (l ResumeLanguageEntry) ID() valueobjects.ID          { return l.id }
-func (l ResumeLanguageEntry) Language() enums.LanguageType { return l.language }
+func (l ResumeLanguageEntry) ID() valueobjects.ID            { return l.id }
+func (l ResumeLanguageEntry) Language() enums.SpokenLanguage { return l.language }
 func (l ResumeLanguageEntry) Grade() *enums.LanguageGrade {
 	if l.grade == nil {
 		return nil

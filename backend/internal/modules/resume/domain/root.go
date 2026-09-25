@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
@@ -12,6 +13,7 @@ type ResumeRoot struct {
 	id           valueobjects.ID
 	userID       useridentity.ID
 	title        string
+	language     enums.ResumeLanguage
 	presentation ResumePresentation
 }
 
@@ -27,6 +29,7 @@ type ResumeRootParams struct {
 	ID           valueobjects.ID
 	UserID       useridentity.ID
 	Title        string
+	Language     enums.ResumeLanguage
 	Presentation ResumePresentation
 }
 
@@ -35,6 +38,9 @@ func NewResumeRoot(params ResumeRootParams) (*ResumeRoot, error) {
 	if params.ID.IsZero() || params.UserID.IsZero() || title == "" {
 		return nil, fmt.Errorf("%w: invalid resume root identity or title", ErrInvalidResume)
 	}
+	if !params.Language.IsValid() {
+		return nil, fmt.Errorf("%w: invalid resume language", ErrInvalidResume)
+	}
 	if err := ValidateResumeTitle(title); err != nil {
 		return nil, err
 	}
@@ -42,20 +48,22 @@ func NewResumeRoot(params ResumeRootParams) (*ResumeRoot, error) {
 		return nil, err
 	}
 	return &ResumeRoot{
-		id: params.ID, userID: params.UserID, title: title,
+		id: params.ID, userID: params.UserID, title: title, language: params.Language,
 		presentation: cloneResumePresentation(params.Presentation),
 	}, nil
 }
 
-func (r *ResumeRoot) ID() valueobjects.ID     { return r.id }
-func (r *ResumeRoot) UserID() useridentity.ID { return r.userID }
-func (r *ResumeRoot) Title() string           { return r.title }
+func (r *ResumeRoot) ID() valueobjects.ID            { return r.id }
+func (r *ResumeRoot) UserID() useridentity.ID        { return r.userID }
+func (r *ResumeRoot) Title() string                  { return r.title }
+func (r *ResumeRoot) Language() enums.ResumeLanguage { return r.language }
 func (r *ResumeRoot) Presentation() ResumePresentation {
 	return cloneResumePresentation(r.presentation)
 }
 
 func (r *ResumeRoot) Replace(params ResumeRootParams) error {
 	params.ID, params.UserID = r.id, r.userID
+	params.Language = r.language
 	updated, err := NewResumeRoot(params)
 	if err != nil {
 		return err

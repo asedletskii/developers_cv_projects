@@ -4,11 +4,17 @@ import (
 	"github.com/google/uuid"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
 type ResumeRootRequest struct {
+	Title        string              `json:"title"`
+	Language     string              `json:"language"`
+	Presentation PresentationRequest `json:"presentation"`
+}
+type ResumeRootUpdateRequest struct {
 	Title        string              `json:"title"`
 	Presentation PresentationRequest `json:"presentation"`
 }
@@ -23,20 +29,16 @@ type ThemeRequest struct {
 	Primary   *string `json:"primary,omitempty"`
 	Secondary *string `json:"secondary,omitempty"`
 }
-type LocalizedRequest struct {
-	RU string `json:"ru"`
-	EN string `json:"en"`
-}
 type GreetingRequest struct {
-	First           LocalizedRequest `json:"first"`
-	Second          LocalizedRequest `json:"second"`
-	SecondHighlight LocalizedRequest `json:"secondHighlight"`
-	Third           LocalizedRequest `json:"third"`
+	First           string `json:"first"`
+	Second          string `json:"second"`
+	SecondHighlight string `json:"secondHighlight"`
+	Third           string `json:"third"`
 }
 type AvailabilityRequest struct {
-	Status string            `json:"status"`
-	From   *string           `json:"from,omitempty"`
-	Note   *LocalizedRequest `json:"note,omitempty"`
+	Status string  `json:"status"`
+	From   *string `json:"from,omitempty"`
+	Note   *string `json:"note,omitempty"`
 }
 type SectionRequest struct {
 	ID        string `json:"id"`
@@ -44,24 +46,20 @@ type SectionRequest struct {
 	Collapsed bool   `json:"collapsed"`
 }
 
-func (r ResumeRootRequest) presentation() commands.PresentationInput {
+func presentationInput(p PresentationRequest) commands.PresentationInput {
 	var theme *commands.ThemeInput
-	if r.Presentation.Theme != nil {
-		theme = &commands.ThemeInput{Primary: r.Presentation.Theme.Primary, Secondary: r.Presentation.Theme.Secondary}
+	if p.Theme != nil {
+		theme = &commands.ThemeInput{Primary: p.Theme.Primary, Secondary: p.Theme.Secondary}
 	}
 	var av *commands.AvailabilityInput
-	if r.Presentation.Availability != nil {
-		var note *commands.LocalizedInput
-		if r.Presentation.Availability.Note != nil {
-			note = &commands.LocalizedInput{RU: r.Presentation.Availability.Note.RU, EN: r.Presentation.Availability.Note.EN}
-		}
-		av = &commands.AvailabilityInput{Status: r.Presentation.Availability.Status, From: r.Presentation.Availability.From, Note: note}
+	if p.Availability != nil {
+		av = &commands.AvailabilityInput{Status: p.Availability.Status, From: p.Availability.From, Note: p.Availability.Note}
 	}
-	sections := make([]commands.SectionInput, len(r.Presentation.Sections))
-	for i, v := range r.Presentation.Sections {
+	sections := make([]commands.SectionInput, len(p.Sections))
+	for i, v := range p.Sections {
 		sections[i] = commands.SectionInput{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed}
 	}
-	return commands.PresentationInput{Theme: theme, Greeting: commands.GreetingInput{First: commands.LocalizedInput{RU: r.Presentation.Greeting.First.RU, EN: r.Presentation.Greeting.First.EN}, Second: commands.LocalizedInput{RU: r.Presentation.Greeting.Second.RU, EN: r.Presentation.Greeting.Second.EN}, SecondHighlight: commands.LocalizedInput{RU: r.Presentation.Greeting.SecondHighlight.RU, EN: r.Presentation.Greeting.SecondHighlight.EN}, Third: commands.LocalizedInput{RU: r.Presentation.Greeting.Third.RU, EN: r.Presentation.Greeting.Third.EN}}, Availability: av, ResumeLink: r.Presentation.ResumeLink, Sections: sections}
+	return commands.PresentationInput{Theme: theme, Greeting: commands.GreetingInput{First: p.Greeting.First, Second: p.Greeting.Second, SecondHighlight: p.Greeting.SecondHighlight, Third: p.Greeting.Third}, Availability: av, ResumeLink: p.ResumeLink, Sections: sections}
 }
 
 func (r ResumeRootRequest) ToCreateCommand(userID uuid.UUID) (commands.CreateResumeRootCommand, error) {
@@ -69,12 +67,12 @@ func (r ResumeRootRequest) ToCreateCommand(userID uuid.UUID) (commands.CreateRes
 	if err != nil {
 		return commands.CreateResumeRootCommand{}, err
 	}
-	return commands.CreateResumeRootCommand{UserID: uid, Title: r.Title, Presentation: r.presentation()}, nil
+	return commands.CreateResumeRootCommand{UserID: uid, Title: r.Title, Language: enums.ResumeLanguage(r.Language), Presentation: presentationInput(r.Presentation)}, nil
 }
-func (r ResumeRootRequest) ToUpdateCommand(userID uuid.UUID, resumeID valueobjects.ID) (commands.UpdateResumeRootCommand, error) {
+func (r ResumeRootUpdateRequest) ToUpdateCommand(userID uuid.UUID, resumeID valueobjects.ID) (commands.UpdateResumeRootCommand, error) {
 	uid, err := useridentity.IDFromUUID(userID)
 	if err != nil {
 		return commands.UpdateResumeRootCommand{}, err
 	}
-	return commands.UpdateResumeRootCommand{UserID: uid, ResumeID: resumeID, Title: r.Title, Presentation: r.presentation()}, nil
+	return commands.UpdateResumeRootCommand{UserID: uid, ResumeID: resumeID, Title: r.Title, Presentation: presentationInput(r.Presentation)}, nil
 }

@@ -2,26 +2,23 @@ CREATE TABLE resume_roots (
     id uuid PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title text NOT NULL,
+    language text NOT NULL,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
-    CONSTRAINT resume_roots_title_check CHECK (length(btrim(title)) > 0)
+    CONSTRAINT resume_roots_title_check CHECK (length(btrim(title)) > 0),
+    CONSTRAINT resume_roots_user_language_unique UNIQUE (user_id, language)
 );
 CREATE INDEX idx_resume_roots_user_id ON resume_roots(user_id);
 
 CREATE TABLE resume_presentations (
     resume_id uuid PRIMARY KEY REFERENCES resume_roots(id) ON DELETE CASCADE,
-    greeting_first_ru text NOT NULL,
-    greeting_first_en text NOT NULL,
-    greeting_second_ru text NOT NULL,
-    greeting_second_en text NOT NULL,
-    greeting_highlight_ru text NOT NULL,
-    greeting_highlight_en text NOT NULL,
-    greeting_third_ru text NOT NULL,
-    greeting_third_en text NOT NULL,
+    greeting_first text NOT NULL,
+    greeting_second text NOT NULL,
+    greeting_highlight text NOT NULL,
+    greeting_third text NOT NULL,
     availability_status text,
     availability_from date,
-    availability_note_ru text,
-    availability_note_en text,
+    availability_note text,
     resume_link text,
     theme_primary text,
     theme_secondary text,
@@ -94,11 +91,9 @@ CREATE TABLE resume_contact_hidden (
 
 CREATE TABLE resume_contacts_text (
     contacts_id uuid PRIMARY KEY REFERENCES resume_contacts(id) ON DELETE CASCADE,
-    title_ru text,
-    title_en text,
-    subtitle_ru text,
-    subtitle_en text,
-    CONSTRAINT resume_contacts_text_presence_check CHECK (title_ru IS NOT NULL OR title_en IS NOT NULL OR subtitle_ru IS NOT NULL OR subtitle_en IS NOT NULL)
+    title text,
+    subtitle text,
+    CONSTRAINT resume_contacts_text_presence_check CHECK (title IS NOT NULL OR subtitle IS NOT NULL)
 );
 
 CREATE TABLE resume_skills (

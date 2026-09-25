@@ -42,7 +42,7 @@ func (r *PublicResumeReader) GetPublicResume(
 
 	row := r.pool.QueryRow(ctx, publicResumeQuerySQL, query.ID)
 	err := row.Scan(
-		&view.ID, &view.Name, &view.Surname, &patronymic, &view.Position, &view.Title, &updatedAt, &resumeLink,
+		&view.ID, &view.Name, &view.Surname, &patronymic, &view.Position, &view.Title, &view.Language, &updatedAt, &resumeLink,
 		&view.PhotoPath, &view.DateOfBirth, &view.Location, &view.Relocation, &workFormatJSON, &greetingJSON,
 		&availabilityJSON, &themeJSON, &sectionsJSON, &hiddenJSON, &contactsTextJSON, &contactsJSON,
 		&languagesJSON, &experienceJSON, &educationJSON, &coursesJSON, &activitiesJSON, &hardSkillsJSON,

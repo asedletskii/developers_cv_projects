@@ -13,7 +13,7 @@ import (
 
 type LanguageInput struct {
 	ID       valueobjects.ID
-	Language enums.LanguageType
+	Language enums.SpokenLanguage
 	Grade    *enums.LanguageGrade
 	Position int
 }

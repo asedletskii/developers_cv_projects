@@ -28,7 +28,7 @@ func (r *ListResumesReader) ListResumes(
 
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT id::text, title FROM resume_roots WHERE user_id = $1 ORDER BY updated_at DESC, id`,
+		`SELECT id::text, title, language FROM resume_roots WHERE user_id = $1 ORDER BY updated_at DESC, id`,
 		query.UserID.UUID(),
 	)
 	if err != nil {
@@ -39,7 +39,7 @@ func (r *ListResumesReader) ListResumes(
 	items := make([]queries.ResumeListItem, 0)
 	for rows.Next() {
 		var item queries.ResumeListItem
-		if err := rows.Scan(&item.ID, &item.Title); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Language); err != nil {
 			return nil, fmt.Errorf("scan resume list: %w", err)
 		}
 		items = append(items, item)

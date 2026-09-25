@@ -10,6 +10,7 @@ type ResumeRoot struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
 	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
 	Title     string    `gorm:"not null"`
+	Language  string    `gorm:"type:text;not null"`
 	CreatedAt time.Time `gorm:"not null"`
 	UpdatedAt time.Time `gorm:"not null"`
 }
@@ -17,22 +18,17 @@ type ResumeRoot struct {
 func (ResumeRoot) TableName() string { return "resume_roots" }
 
 type ResumePresentation struct {
-	ResumeID            uuid.UUID `gorm:"type:uuid;primaryKey"`
-	GreetingFirstRU     string    `gorm:"not null"`
-	GreetingFirstEN     string    `gorm:"not null"`
-	GreetingSecondRU    string    `gorm:"not null"`
-	GreetingSecondEN    string    `gorm:"not null"`
-	GreetingHighlightRU string    `gorm:"not null"`
-	GreetingHighlightEN string    `gorm:"not null"`
-	GreetingThirdRU     string    `gorm:"not null"`
-	GreetingThirdEN     string    `gorm:"not null"`
-	AvailabilityStatus  *string
-	AvailabilityFrom    *time.Time `gorm:"type:date"`
-	AvailabilityNoteRU  *string
-	AvailabilityNoteEN  *string
-	ResumeLink          *string
-	ThemePrimary        *string
-	ThemeSecondary      *string
+	ResumeID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	GreetingFirst      string    `gorm:"not null"`
+	GreetingSecond     string    `gorm:"not null"`
+	GreetingHighlight  string    `gorm:"not null"`
+	GreetingThird      string    `gorm:"not null"`
+	AvailabilityStatus *string
+	AvailabilityFrom   *time.Time `gorm:"type:date"`
+	AvailabilityNote   *string
+	ResumeLink         *string
+	ThemePrimary       *string
+	ThemeSecondary     *string
 }
 
 func (ResumePresentation) TableName() string { return "resume_presentations" }
@@ -90,10 +86,8 @@ func (ResumeContactHidden) TableName() string { return "resume_contact_hidden" }
 
 type ResumeContactsText struct {
 	ContactsID uuid.UUID `gorm:"type:uuid;primaryKey"`
-	TitleRU    *string
-	TitleEN    *string
-	SubtitleRU *string
-	SubtitleEN *string
+	Title      *string
+	Subtitle   *string
 }
 
 func (ResumeContactsText) TableName() string { return "resume_contacts_text" }

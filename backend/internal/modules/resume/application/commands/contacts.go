@@ -19,8 +19,7 @@ type ContactsInput struct {
 	HiddenContacts []string
 	ContactsText   *ContactsTextInput
 }
-type ContactsTextInput struct{ Title, Subtitle *LocalizedTextInput }
-type LocalizedTextInput struct{ RU, EN string }
+type ContactsTextInput struct{ Title, Subtitle *string }
 
 func (i ContactsInput) params(id, resumeID valueobjects.ID) (domain.ContactsParams, error) {
 	var tg *valueobjects.Telegram
@@ -49,22 +48,7 @@ func (i ContactsInput) params(id, resumeID valueobjects.ID) (domain.ContactsPara
 	}
 	var text *valueobjects.ContactsText
 	if i.ContactsText != nil {
-		var title, subtitle *valueobjects.LocalizedText
-		if i.ContactsText.Title != nil {
-			v, e := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: i.ContactsText.Title.RU, EN: i.ContactsText.Title.EN})
-			if e != nil {
-				return domain.ContactsParams{}, e
-			}
-			title = &v
-		}
-		if i.ContactsText.Subtitle != nil {
-			v, e := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: i.ContactsText.Subtitle.RU, EN: i.ContactsText.Subtitle.EN})
-			if e != nil {
-				return domain.ContactsParams{}, e
-			}
-			subtitle = &v
-		}
-		v, e := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: title, Subtitle: subtitle})
+		v, e := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: i.ContactsText.Title, Subtitle: i.ContactsText.Subtitle})
 		if e != nil {
 			return domain.ContactsParams{}, e
 		}

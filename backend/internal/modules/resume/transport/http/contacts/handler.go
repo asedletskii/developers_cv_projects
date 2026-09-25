@@ -32,12 +32,8 @@ type ContactsRequest struct {
 	ContactsText   *ContactsTextRequest `json:"contactsText,omitempty"`
 }
 type ContactsTextRequest struct {
-	Title    *LocalizedTextRequest `json:"title,omitempty"`
-	Subtitle *LocalizedTextRequest `json:"subtitle,omitempty"`
-}
-type LocalizedTextRequest struct {
-	RU string `json:"ru"`
-	EN string `json:"en"`
+	Title    *string `json:"title,omitempty"`
+	Subtitle *string `json:"subtitle,omitempty"`
 }
 
 func (r ContactsRequest) input() commands.ContactsInput {
@@ -45,10 +41,10 @@ func (r ContactsRequest) input() commands.ContactsInput {
 	if r.ContactsText != nil {
 		text = &commands.ContactsTextInput{}
 		if r.ContactsText.Title != nil {
-			text.Title = &commands.LocalizedTextInput{RU: r.ContactsText.Title.RU, EN: r.ContactsText.Title.EN}
+			text.Title = r.ContactsText.Title
 		}
 		if r.ContactsText.Subtitle != nil {
-			text.Subtitle = &commands.LocalizedTextInput{RU: r.ContactsText.Subtitle.RU, EN: r.ContactsText.Subtitle.EN}
+			text.Subtitle = r.ContactsText.Subtitle
 		}
 	}
 	return commands.ContactsInput{Phone: r.Phone, Telegram: r.Telegram, Email: r.Email, HiddenContacts: r.HiddenContacts, ContactsText: text}
