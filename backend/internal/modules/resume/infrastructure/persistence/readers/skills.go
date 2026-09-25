@@ -18,7 +18,7 @@ func (r *SkillsReader) GetSkills(ctx context.Context, q queries.GetSkillsQuery) 
 		return queries.SkillsView{}, fmt.Errorf("get skills: reader dependencies are nil")
 	}
 	var v queries.SkillsView
-	if err := r.pool.QueryRow(ctx, `SELECT s.id::text,s.resume_id::text FROM resume_skills s JOIN resume_roots r ON r.id=s.resume_id WHERE s.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT s.id::text,s.resume_id::text FROM resume_skills s JOIN resumes r ON r.id=s.resume_id WHERE s.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return v, queries.ErrResumeNotFound
 		}

@@ -22,7 +22,7 @@ func (r *ContactsReader) GetResumeContacts(ctx context.Context, q queries.GetRes
 	var phone, tg, email *string
 	var cid uuid.UUID
 	var language string
-	if err := r.pool.QueryRow(ctx, `SELECT c.id::text,c.resume_id::text,c.phone,c.telegram,c.email,r.language FROM resume_contacts c JOIN resume_roots r ON r.id=c.resume_id WHERE c.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&cid, &v.ResumeID, &phone, &tg, &email, &language); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT c.id::text,c.resume_id::text,c.phone,c.telegram,c.email,r.language FROM resume_contacts c JOIN resumes r ON r.id=c.resume_id WHERE c.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&cid, &v.ResumeID, &phone, &tg, &email, &language); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return v, queries.ErrResumeNotFound
 		}

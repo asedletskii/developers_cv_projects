@@ -1,17 +1,17 @@
-CREATE TABLE resume_roots (
+CREATE TABLE resumes (
     id uuid PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title text NOT NULL,
     language text NOT NULL,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
-    CONSTRAINT resume_roots_title_check CHECK (length(btrim(title)) > 0),
-    CONSTRAINT resume_roots_user_language_unique UNIQUE (user_id, language)
+    CONSTRAINT resumes_title_check CHECK (length(btrim(title)) > 0),
+    CONSTRAINT resumes_user_language_unique UNIQUE (user_id, language)
 );
-CREATE INDEX idx_resume_roots_user_id ON resume_roots(user_id);
+CREATE INDEX idx_resumes_user_id ON resumes(user_id);
 
-CREATE TABLE resume_presentations (
-    resume_id uuid PRIMARY KEY REFERENCES resume_roots(id) ON DELETE CASCADE,
+CREATE TABLE resume_overviews (
+    resume_id uuid PRIMARY KEY REFERENCES resumes(id) ON DELETE CASCADE,
     greeting_first text NOT NULL,
     greeting_second text NOT NULL,
     greeting_highlight text NOT NULL,
@@ -22,29 +22,29 @@ CREATE TABLE resume_presentations (
     resume_link text,
     theme_primary text,
     theme_secondary text,
-    CONSTRAINT resume_presentations_availability_status_check CHECK (availability_status IS NULL OR availability_status IN ('open', 'considering', 'busy')),
-    CONSTRAINT resume_presentations_resume_link_check CHECK (resume_link IS NULL OR resume_link ~ '^/[^/].*$'),
-    CONSTRAINT resume_presentations_theme_check CHECK (
+    CONSTRAINT resume_overviews_availability_status_check CHECK (availability_status IS NULL OR availability_status IN ('open', 'considering', 'busy')),
+    CONSTRAINT resume_overviews_resume_link_check CHECK (resume_link IS NULL OR resume_link ~ '^/[^/].*$'),
+    CONSTRAINT resume_overviews_theme_check CHECK (
         (theme_primary IS NULL OR theme_primary ~ '^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$')
         AND (theme_secondary IS NULL OR theme_secondary ~ '^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$')
     )
 );
 
-CREATE TABLE resume_presentation_sections (
-    resume_id uuid NOT NULL REFERENCES resume_roots(id) ON DELETE CASCADE,
+CREATE TABLE resume_overview_sections (
+    resume_id uuid NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     section_id text NOT NULL,
     position integer NOT NULL,
     enabled boolean NOT NULL,
     collapsed boolean NOT NULL,
     PRIMARY KEY (resume_id, section_id),
     UNIQUE (resume_id, position),
-    CONSTRAINT resume_presentation_sections_position_check CHECK (position >= 0),
-    CONSTRAINT resume_presentation_sections_id_check CHECK (section_id IN ('about', 'techStack', 'experience', 'skills', 'education', 'courses', 'projects', 'activities', 'contacts'))
+    CONSTRAINT resume_overview_sections_position_check CHECK (position >= 0),
+    CONSTRAINT resume_overview_sections_id_check CHECK (section_id IN ('about', 'techStack', 'experience', 'skills', 'education', 'courses', 'projects', 'activities', 'contacts'))
 );
 
 CREATE TABLE resume_profiles (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL UNIQUE REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL UNIQUE REFERENCES resumes(id) ON DELETE CASCADE,
     name text NOT NULL,
     surname text NOT NULL,
     patronymic text,
@@ -72,7 +72,7 @@ CREATE TABLE resume_profile_work_formats (
 
 CREATE TABLE resume_contacts (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL UNIQUE REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL UNIQUE REFERENCES resumes(id) ON DELETE CASCADE,
     phone text,
     telegram text,
     email text,
@@ -98,7 +98,7 @@ CREATE TABLE resume_contacts_text (
 
 CREATE TABLE resume_skills (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL UNIQUE REFERENCES resume_roots(id) ON DELETE CASCADE
+    resume_id uuid NOT NULL UNIQUE REFERENCES resumes(id) ON DELETE CASCADE
 );
 
 CREATE TABLE resume_skill_hard (
@@ -123,7 +123,7 @@ CREATE TABLE resume_skill_soft (
 
 CREATE TABLE resume_languages (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     language text NOT NULL,
     position integer NOT NULL,
     grade text,
@@ -136,7 +136,7 @@ CREATE TABLE resume_languages (
 
 CREATE TABLE resume_technologies (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     name text NOT NULL,
     position integer NOT NULL,
     grade text,
@@ -148,7 +148,7 @@ CREATE TABLE resume_technologies (
 
 CREATE TABLE resume_experiences (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     sort_order integer NOT NULL,
     company text NOT NULL,
     position text NOT NULL,
@@ -186,7 +186,7 @@ CREATE TABLE resume_experience_technologies (
 
 CREATE TABLE resume_educations (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     sort_order integer NOT NULL,
     location text NOT NULL,
     university text NOT NULL,
@@ -209,7 +209,7 @@ CREATE INDEX idx_resume_educations_resume_id ON resume_educations(resume_id);
 
 CREATE TABLE resume_courses (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     sort_order integer NOT NULL,
     name text NOT NULL,
     organization text NOT NULL,
@@ -227,7 +227,7 @@ CREATE INDEX idx_resume_courses_resume_id ON resume_courses(resume_id);
 
 CREATE TABLE resume_activities (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     sort_order integer NOT NULL,
     type text NOT NULL,
     title text NOT NULL,
@@ -244,7 +244,7 @@ CREATE INDEX idx_resume_activities_resume_id ON resume_activities(resume_id);
 
 CREATE TABLE resume_projects (
     id uuid PRIMARY KEY,
-    resume_id uuid NOT NULL REFERENCES resume_roots(id) ON DELETE CASCADE,
+    resume_id uuid NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     sort_order integer NOT NULL,
     name text NOT NULL,
     description text,

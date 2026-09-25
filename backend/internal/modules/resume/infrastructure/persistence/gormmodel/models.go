@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type ResumeRoot struct {
+type Resume struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
 	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
 	Title     string    `gorm:"not null"`
@@ -15,9 +15,9 @@ type ResumeRoot struct {
 	UpdatedAt time.Time `gorm:"not null"`
 }
 
-func (ResumeRoot) TableName() string { return "resume_roots" }
+func (Resume) TableName() string { return "resumes" }
 
-type ResumePresentation struct {
+type ResumeOverview struct {
 	ResumeID           uuid.UUID `gorm:"type:uuid;primaryKey"`
 	GreetingFirst      string    `gorm:"not null"`
 	GreetingSecond     string    `gorm:"not null"`
@@ -31,9 +31,9 @@ type ResumePresentation struct {
 	ThemeSecondary     *string
 }
 
-func (ResumePresentation) TableName() string { return "resume_presentations" }
+func (ResumeOverview) TableName() string { return "resume_overviews" }
 
-type ResumePresentationSection struct {
+type ResumeOverviewSection struct {
 	ResumeID  uuid.UUID `gorm:"type:uuid;primaryKey"`
 	SectionID string    `gorm:"type:text;primaryKey"`
 	Position  int       `gorm:"not null"`
@@ -41,7 +41,7 @@ type ResumePresentationSection struct {
 	Collapsed bool      `gorm:"not null"`
 }
 
-func (ResumePresentationSection) TableName() string { return "resume_presentation_sections" }
+func (ResumeOverviewSection) TableName() string { return "resume_overview_sections" }
 
 type ResumeProfile struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`

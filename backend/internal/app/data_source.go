@@ -42,6 +42,31 @@ func newListResumesReader(pool *pgxpool.Pool) resumequeries.ListResumesReader {
 	return resumereaders.NewListResumesReader(pool)
 }
 
+func newResumeMetadataReader(pool *pgxpool.Pool) resumequeries.ResumeMetadataReader {
+	return resumereaders.NewResumeMetadataReader(pool)
+}
+
+func newResumeOverviewReader(pool *pgxpool.Pool) resumequeries.OverviewReader {
+	return resumereaders.NewOverviewReader(pool)
+}
+
+func newResumeReader(
+	metadata resumequeries.ResumeMetadataReader,
+	overview resumequeries.OverviewReader,
+	profile resumequeries.ResumeProfileReader,
+	contacts resumequeries.ResumeContactsReader,
+	skills resumequeries.SkillsReader,
+	languages resumequeries.LanguagesReader,
+	technologies resumequeries.TechnologiesReader,
+	experiences resumequeries.ExperiencesReader,
+	educations resumequeries.EducationsReader,
+	courses resumequeries.CoursesReader,
+	activities resumequeries.ActivitiesReader,
+	projects resumequeries.ProjectsReader,
+) resumequeries.ResumeReader {
+	return resumereaders.NewResumeReader(metadata, overview, profile, contacts, skills, languages, technologies, experiences, educations, courses, activities, projects)
+}
+
 func newGetProfileReader(pool *pgxpool.Pool) userqueries.GetProfileReader {
 	return userreaders.NewGetProfileReader(pool)
 }

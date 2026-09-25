@@ -29,7 +29,7 @@ SELECT
  COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t.name, 'grade', t.grade) ORDER BY t.position) FROM resume_project_technologies t WHERE t.project_id=p.id), '[]'::jsonb),
  COALESCE((SELECT jsonb_agg(jsonb_build_object('name', c.name, 'surname', c.surname, 'role', c.role, 'contacts', jsonb_build_object('phone', c.phone, 'telegram', c.telegram, 'email', c.email)) ORDER BY c.position) FROM resume_project_contributors c WHERE c.project_id=p.id), '[]'::jsonb)
 FROM resume_projects p
-JOIN resume_roots rr ON rr.id=p.resume_id
+JOIN resumes rr ON rr.id=p.resume_id
 `
 
 func (r *ProjectsReader) ListProjects(ctx context.Context, q queries.ListProjectsQuery) ([]queries.ProjectView, error) {

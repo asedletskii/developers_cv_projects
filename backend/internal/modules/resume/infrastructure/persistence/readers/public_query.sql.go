@@ -30,7 +30,7 @@ const publicResumeQuerySQL = `SELECT
         'primary', COALESCE(rp.theme_primary, ''),
         'secondary', COALESCE(rp.theme_secondary, '')
     ) END,
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('id', s.section_id, 'enabled', s.enabled, 'collapsed', s.collapsed) ORDER BY s.position) FROM resume_presentation_sections s WHERE s.resume_id = r.id), '[]'::jsonb),
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('id', s.section_id, 'enabled', s.enabled, 'collapsed', s.collapsed) ORDER BY s.position) FROM resume_overview_sections s WHERE s.resume_id = r.id), '[]'::jsonb),
     COALESCE((SELECT jsonb_agg(h.value ORDER BY h.position) FROM resume_contact_hidden h WHERE h.contacts_id = c.id), '[]'::jsonb),
     CASE WHEN ct.contacts_id IS NULL THEN NULL ELSE jsonb_build_object(
         'title', ct.title,
@@ -70,9 +70,9 @@ const publicResumeQuerySQL = `SELECT
         'stack', COALESCE((SELECT jsonb_agg(jsonb_build_object('name', pt.name) ORDER BY pt.position) FROM resume_project_technologies pt WHERE pt.project_id = pr.id), '[]'::jsonb),
         'link', pr.link
     ) ORDER BY pr.sort_order) FROM resume_projects pr WHERE pr.resume_id = r.id), '[]'::jsonb)
-FROM resume_roots r
+FROM resumes r
 JOIN resume_profiles p ON p.resume_id = r.id
-JOIN resume_presentations rp ON rp.resume_id = r.id
+JOIN resume_overviews rp ON rp.resume_id = r.id
 LEFT JOIN resume_contacts c ON c.resume_id = r.id
 LEFT JOIN resume_contacts_text ct ON ct.contacts_id = c.id
 LEFT JOIN resume_skills sk ON sk.resume_id = r.id

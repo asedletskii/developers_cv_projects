@@ -48,36 +48,36 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 
 	owner := useridentity.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
-	rootRepo := repository.NewResumeRootRepository(gormDB)
+	resumeRepo := repository.NewResumeRepository(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
-	root := newTestRoot(t, owner)
+	resume := newTestResume(t, owner)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return rootRepo.CreateRoot(tx, ports.CreateResumeRootRepositoryCommand{Resume: root})
+		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: root})
 	}))
 
 	photo, err := valueobjects.NewAssetPath("/assets/profile.svg")
 	require.NoError(t, err)
 	date, err := valueobjects.NewDate(time.Date(1998, time.April, 12, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
-	profile, err := domain.NewProfile(domain.ProfileParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Name: "John", Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: date, Location: "Paris", WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote}})
+	profile, err := domain.NewProfile(domain.ProfileParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Name: "John", Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: date, Location: "Paris", WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote}})
 	require.NoError(t, err)
 
 	email, err := valueobjects.NewEmail("rollback@example.com")
 	require.NoError(t, err)
 	contactEntity, err := entities.NewContacts(entities.ContactsParams{Email: &email})
 	require.NoError(t, err)
-	contacts, err := domain.NewContacts(domain.ContactsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Contacts: contactEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}})
+	contacts, err := domain.NewContacts(domain.ContactsParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Contacts: contactEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}})
 	require.NoError(t, err)
 
-	skills, err := domain.NewSkills(domain.SkillsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Hard: []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}, Soft: []enums.SoftSkill{enums.SoftSkillCommunication}})
+	skills, err := domain.NewSkills(domain.SkillsParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Hard: []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}, Soft: []enums.SoftSkill{enums.SoftSkillCommunication}})
 	require.NoError(t, err)
 
 	start, err := valueobjects.NewYearMonth(time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
-	experience, err := domain.NewExperience(domain.ExperienceParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Company: "Example", Position: "Developer", StartDate: start, Achievements: []string{"Built things"}, Technologies: []domain.ExperienceTechnologyParams{{Name: "Go"}}})
+	experience, err := domain.NewExperience(domain.ExperienceParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Company: "Example", Position: "Developer", StartDate: start, Achievements: []string{"Built things"}, Technologies: []domain.ExperienceTechnologyParams{{Name: "Go"}}})
 	require.NoError(t, err)
 
-	project, err := domain.NewProject(domain.ProjectParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Name: "Rollback project", Screenshots: []valueobjects.AssetPath{photo}})
+	project, err := domain.NewProject(domain.ProjectParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Name: "Rollback project", Screenshots: []valueobjects.AssetPath{photo}})
 	require.NoError(t, err)
 
 	profileRepo := repository.NewProfileRepository(gormDB)
@@ -97,10 +97,10 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		if err := skillsRepo.CreateSkills(tx, ports.CreateSkillsRepositoryCommand{Skills: skills, UserID: owner}); err != nil {
 			return err
 		}
-		if err := experienceRepo.CreateExperience(tx, ports.CreateExperienceRepositoryCommand{Experience: experience, ResumeID: root.ID(), UserID: owner}); err != nil {
+		if err := experienceRepo.CreateExperience(tx, ports.CreateExperienceRepositoryCommand{Experience: experience, ResumeID: resume.ID(), UserID: owner}); err != nil {
 			return err
 		}
-		if err := projectRepo.CreateProject(tx, ports.CreateProjectRepositoryCommand{Project: project, ResumeID: root.ID(), UserID: owner}); err != nil {
+		if err := projectRepo.CreateProject(tx, ports.CreateProjectRepositoryCommand{Project: project, ResumeID: resume.ID(), UserID: owner}); err != nil {
 			return err
 		}
 		return rollbackErr

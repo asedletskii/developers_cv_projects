@@ -42,7 +42,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
@@ -75,7 +75,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
@@ -109,7 +109,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
@@ -117,7 +117,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("GET", "/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001", nil)
+	req := httptest.NewRequest("GET", "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/overview", nil)
 	w := httptest.NewRecorder()
 	router.Handler().ServeHTTP(w, req)
 
@@ -145,7 +145,7 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 		HTTP: config.HTTPConfig{},
 	}
 	log := zaptest.NewLogger(t)
-	handler := resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, publichttp.NewHandler(resumequeries.NewPublicResumeQueryHandler(routerPublicResumeReader{})))
+	handler := resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, publichttp.NewHandler(resumequeries.NewPublicResumeQueryHandler(routerPublicResumeReader{})))
 	router, err := NewRouter(
 		cfg,
 		log,
@@ -194,7 +194,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{})),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return userID, nil
@@ -226,7 +226,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
@@ -234,10 +234,12 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 
 	expected := map[string]struct{}{
 		"GET /api/v1/lk/resumes":                                        {},
-		"POST /api/v1/lk/resumes":                                       {},
-		"GET /api/v1/lk/resumes/:resumeId":                              {},
-		"PUT /api/v1/lk/resumes/:resumeId":                              {},
-		"DELETE /api/v1/lk/resumes/:resumeId":                           {},
+		"POST /api/v1/lk/resume":                                        {},
+		"GET /api/v1/lk/resume/:resumeId":                               {},
+		"PUT /api/v1/lk/resume/:resumeId":                               {},
+		"GET /api/v1/lk/resume/:resumeId/overview":                      {},
+		"PUT /api/v1/lk/resume/:resumeId/overview":                      {},
+		"DELETE /api/v1/lk/resume/:resumeId":                            {},
 		"POST /api/v1/lk/resume/:resumeId/profile":                      {},
 		"GET /api/v1/lk/resume/:resumeId/profile":                       {},
 		"PUT /api/v1/lk/resume/:resumeId/profile":                       {},
@@ -311,7 +313,7 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		log,
 		health.NewService(),
 		nil,
-		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		userhttp.NewHandler(nil),
 		fakeAuthenticate,
 	)
@@ -321,10 +323,13 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		method string
 		path   string
 	}{
-		{method: http.MethodGet, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001"},
+		// The singular resource path is canonical now, so only methods that
+		// are intentionally not registered on the resource itself belong here.
 		{method: http.MethodPost, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001"},
-		{method: http.MethodPut, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001"},
-		{method: http.MethodDelete, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001"},
+		{method: http.MethodGet, path: "/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001"},
+		{method: http.MethodPost, path: "/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001"},
+		{method: http.MethodPut, path: "/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001"},
+		{method: http.MethodDelete, path: "/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001"},
 		{method: http.MethodGet, path: "/cv/10000000-0000-0000-0000-000000000001"},
 	} {
 		req := httptest.NewRequest(methodPath.method, methodPath.path, nil)
@@ -344,7 +349,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	paths := []string{
 		"/api/v1/lk/resumes",
-		"/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/overview",
 		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/profile",
 		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/contacts",
 		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/skills",
@@ -364,7 +369,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 				log,
 				health.NewService(),
 				nil,
-				resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+				resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 				userhttp.NewHandler(nil),
 				func(context.Context, *http.Request) (uuid.UUID, error) {
 					return uuid.Nil, middleware.ErrUnauthenticated
@@ -389,7 +394,7 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 	}
 	log := zaptest.NewLogger(t)
 	paths := []string{
-		"/api/v1/lk/resumes/not-a-uuid",
+		"/api/v1/lk/resume/not-a-uuid/overview",
 		"/api/v1/lk/resume/not-a-uuid/profile",
 		"/api/v1/lk/resume/not-a-uuid/contacts",
 		"/api/v1/lk/resume/not-a-uuid/skills",
@@ -409,7 +414,7 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 				log,
 				health.NewService(),
 				nil,
-				resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+				resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 				userhttp.NewHandler(nil),
 				fakeAuthenticate,
 			)

@@ -8,7 +8,7 @@ type baseRepository struct {
 
 func newBaseRepository(db *gorm.DB) *baseRepository { return &baseRepository{db: db} }
 
-type ResumeRootRepository struct{ *baseRepository }
+type ResumeRepository struct{ *baseRepository }
 type ProfileRepository struct{ *baseRepository }
 type ContactsRepository struct{ *baseRepository }
 type SkillsRepository struct{ *baseRepository }
@@ -20,8 +20,8 @@ type CourseRepository struct{ *baseRepository }
 type ActivityRepository struct{ *baseRepository }
 type ProjectRepository struct{ *baseRepository }
 
-func NewResumeRootRepository(db *gorm.DB) *ResumeRootRepository {
-	return &ResumeRootRepository{newBaseRepository(db)}
+func NewResumeRepository(db *gorm.DB) *ResumeRepository {
+	return &ResumeRepository{newBaseRepository(db)}
 }
 func NewProfileRepository(db *gorm.DB) *ProfileRepository {
 	return &ProfileRepository{newBaseRepository(db)}

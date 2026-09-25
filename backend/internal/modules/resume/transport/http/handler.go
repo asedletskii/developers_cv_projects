@@ -12,17 +12,18 @@ import (
 	experiencesHandler "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	languagesHandler "developers-cv/backend/internal/modules/resume/transport/http/languages"
 	listhandler "developers-cv/backend/internal/modules/resume/transport/http/list"
+	overviewhandler "developers-cv/backend/internal/modules/resume/transport/http/overview"
 	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
 	projectsHandler "developers-cv/backend/internal/modules/resume/transport/http/projects"
 	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
-	resumeroot "developers-cv/backend/internal/modules/resume/transport/http/root"
 	skillsHandler "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologiesHandler "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 )
 
 type Handler struct {
 	list         *listhandler.Handler
-	root         *resumeroot.Handler
+	resume       *resumeHandler
+	overview     *overviewhandler.Handler
 	profile      *profilehandler.Handler
 	contacts     *contactshandler.Handler
 	skills       *skillsHandler.Handler
@@ -38,10 +39,12 @@ type Handler struct {
 
 func NewHandler(
 	listResumes *queries.ListResumesQueryHandler,
-	createRoot *commands.CreateResumeRootHandler,
-	getRoot *queries.GetResumeRootQueryHandler,
-	updateRoot *commands.UpdateResumeRootHandler,
-	deleteRoot *commands.DeleteResumeRootHandler,
+	createResume *commands.CreateResumeHandler,
+	getResume *queries.GetResumeQueryHandler,
+	updateResume *commands.UpdateResumeHandler,
+	deleteResume *commands.DeleteResumeHandler,
+	getOverview *queries.GetOverviewQueryHandler,
+	updateOverview *commands.UpdateOverviewHandler,
 	createProfile *commands.CreateResumeProfileHandler,
 	getProfile *queries.GetResumeProfileQueryHandler,
 	updateProfile *commands.UpdateResumeProfileHandler,
@@ -60,7 +63,8 @@ func NewHandler(
 ) *Handler {
 	return &Handler{
 		list:         listhandler.NewHandler(listResumes),
-		root:         resumeroot.NewHandler(createRoot, getRoot, updateRoot, deleteRoot),
+		resume:       newResumeHandler(createResume, getResume, updateResume, deleteResume),
+		overview:     overviewhandler.NewHandler(getOverview, updateOverview),
 		profile:      profilehandler.NewHandler(createProfile, getProfile, updateProfile),
 		contacts:     contactshandler.NewHandler(createContacts, getContacts, updateContacts),
 		skills:       skills,
@@ -77,10 +81,12 @@ func NewHandler(
 
 func (h *Handler) ListResumes(c *gin.Context)          { h.list.Handle(c) }
 func (h *Handler) GetPublicResume(c *gin.Context)      { h.public.Handle(c) }
-func (h *Handler) CreateResumeRoot(c *gin.Context)     { h.root.Create(c) }
-func (h *Handler) GetResumeRoot(c *gin.Context)        { h.root.Get(c) }
-func (h *Handler) UpdateResumeRoot(c *gin.Context)     { h.root.Update(c) }
-func (h *Handler) DeleteResumeRoot(c *gin.Context)     { h.root.Delete(c) }
+func (h *Handler) CreateResume(c *gin.Context)         { h.resume.Create(c) }
+func (h *Handler) GetResume(c *gin.Context)            { h.resume.Get(c) }
+func (h *Handler) UpdateResume(c *gin.Context)         { h.resume.Update(c) }
+func (h *Handler) GetResumeOverview(c *gin.Context)    { h.overview.Get(c) }
+func (h *Handler) UpdateResumeOverview(c *gin.Context) { h.overview.Update(c) }
+func (h *Handler) DeleteResume(c *gin.Context)         { h.resume.Delete(c) }
 func (h *Handler) CreateResumeProfile(c *gin.Context)  { h.profile.Create(c) }
 func (h *Handler) GetResumeProfile(c *gin.Context)     { h.profile.Get(c) }
 func (h *Handler) UpdateResumeProfile(c *gin.Context)  { h.profile.Update(c) }

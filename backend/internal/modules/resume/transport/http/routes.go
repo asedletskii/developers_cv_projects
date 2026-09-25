@@ -4,10 +4,12 @@ import "github.com/gin-gonic/gin"
 
 func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup) {
 	lk.GET("/resumes", handler.ListResumes)
-	lk.POST("/resumes", handler.CreateResumeRoot)
-	lk.GET("/resumes/:resumeId", handler.GetResumeRoot)
-	lk.PUT("/resumes/:resumeId", handler.UpdateResumeRoot)
-	lk.DELETE("/resumes/:resumeId", handler.DeleteResumeRoot)
+	lk.POST("/resume", handler.CreateResume)
+	lk.GET("/resume/:resumeId", handler.GetResume)
+	lk.PUT("/resume/:resumeId", handler.UpdateResume)
+	lk.GET("/resume/:resumeId/overview", handler.GetResumeOverview)
+	lk.PUT("/resume/:resumeId/overview", handler.UpdateResumeOverview)
+	lk.DELETE("/resume/:resumeId", handler.DeleteResume)
 	lk.POST("/resume/:resumeId/profile", handler.CreateResumeProfile)
 	lk.GET("/resume/:resumeId/profile", handler.GetResumeProfile)
 	lk.PUT("/resume/:resumeId/profile", handler.UpdateResumeProfile)

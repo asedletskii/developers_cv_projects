@@ -29,7 +29,7 @@ func (r *ContactsRepository) CreateContacts(ctx context.Context, c ports.CreateR
 		return e
 	}
 	var n int64
-	if e = tx.WithContext(ctx).Model(&gormmodel.ResumeRoot{}).Where("id = ? AND user_id = ?", m.ResumeID, c.UserID.UUID()).Count(&n).Error; e != nil {
+	if e = tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", m.ResumeID, c.UserID.UUID()).Count(&n).Error; e != nil {
 		return fmt.Errorf("create contacts ownership: %w", e)
 	}
 	if n == 0 {
@@ -62,7 +62,7 @@ func (r *ContactsRepository) GetContacts(ctx context.Context, q ports.GetResumeC
 	}
 	tx := database.DBFromContext(ctx, r.db)
 	var m gormmodel.ResumeContacts
-	var root gormmodel.ResumeRoot
+	var root gormmodel.Resume
 	if e := tx.WithContext(ctx).Where("id = ? AND user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).First(&root).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
@@ -98,7 +98,7 @@ func (r *ContactsRepository) UpdateContacts(ctx context.Context, c ports.UpdateR
 	if e != nil {
 		return e
 	}
-	result := tx.WithContext(ctx).Model(&gormmodel.ResumeContacts{}).Where("id = ? AND resume_id IN (SELECT id FROM resume_roots WHERE id = ? AND user_id = ?)", m.ID, m.ResumeID, c.UserID.UUID()).Updates(map[string]any{"phone": m.Phone, "telegram": m.Telegram, "email": m.Email})
+	result := tx.WithContext(ctx).Model(&gormmodel.ResumeContacts{}).Where("id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", m.ID, m.ResumeID, c.UserID.UUID()).Updates(map[string]any{"phone": m.Phone, "telegram": m.Telegram, "email": m.Email})
 	if result.Error != nil {
 		return fmt.Errorf("update contacts: %w", result.Error)
 	}

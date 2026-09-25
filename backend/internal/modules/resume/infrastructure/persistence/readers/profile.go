@@ -21,7 +21,7 @@ func (r *ProfileReader) GetResumeProfile(ctx context.Context, q queries.GetResum
 	var v queries.ResumeProfileView
 	var dob time.Time
 	var patronymic *string
-	if err := r.pool.QueryRow(ctx, `SELECT p.id::text,p.resume_id::text,p.name,p.surname,p.patronymic,p.position,p.photo_path,p.date_of_birth,p.location,p.relocation FROM resume_profiles p JOIN resume_roots r ON r.id=p.resume_id WHERE p.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Name, &v.Surname, &patronymic, &v.Position, &v.PhotoPath, &dob, &v.Location, &v.Relocation); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT p.id::text,p.resume_id::text,p.name,p.surname,p.patronymic,p.position,p.photo_path,p.date_of_birth,p.location,p.relocation FROM resume_profiles p JOIN resumes r ON r.id=p.resume_id WHERE p.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Name, &v.Surname, &patronymic, &v.Position, &v.PhotoPath, &dob, &v.Location, &v.Relocation); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return queries.ResumeProfileView{}, queries.ErrResumeNotFound
 		}
