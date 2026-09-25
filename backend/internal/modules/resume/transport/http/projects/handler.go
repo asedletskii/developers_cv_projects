@@ -27,66 +27,6 @@ func NewHandler(create *commands.CreateProjectHandler, list *queries.ListProject
 	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
 }
 
-type TechnologyRequest struct {
-	Name  string  `json:"name"`
-	Grade *string `json:"grade,omitempty"`
-}
-
-type ContributorRequest struct {
-	Name     string          `json:"name"`
-	Surname  string          `json:"surname"`
-	Role     string          `json:"role"`
-	Contacts ContactsRequest `json:"contacts"`
-}
-
-type ContactsRequest struct {
-	Phone    string  `json:"phone"`
-	Telegram *string `json:"telegram,omitempty"`
-	Email    *string `json:"email,omitempty"`
-}
-
-type ProjectRequest struct {
-	Name         string               `json:"name"`
-	Description  *string              `json:"description,omitempty"`
-	Role         *string              `json:"role,omitempty"`
-	Screenshots  []string             `json:"screenshots"`
-	Link         *string              `json:"link,omitempty"`
-	GitLink      *string              `json:"gitLink,omitempty"`
-	Stack        []TechnologyRequest  `json:"stack"`
-	Contributors []ContributorRequest `json:"contributors"`
-}
-
-type TechnologyResponse struct {
-	Name  string  `json:"name"`
-	Grade *string `json:"grade,omitempty"`
-}
-
-type ContributorResponse struct {
-	Name     string           `json:"name"`
-	Surname  string           `json:"surname"`
-	Role     string           `json:"role"`
-	Contacts ContactsResponse `json:"contacts"`
-}
-
-type ContactsResponse struct {
-	Phone    *string `json:"phone,omitempty"`
-	Telegram *string `json:"telegram,omitempty"`
-	Email    *string `json:"email,omitempty"`
-}
-
-type ProjectResponse struct {
-	ID           string                `json:"id"`
-	ResumeID     string                `json:"resumeId"`
-	Name         string                `json:"name"`
-	Description  *string               `json:"description,omitempty"`
-	Role         *string               `json:"role,omitempty"`
-	Screenshots  []string              `json:"screenshots"`
-	Link         *string               `json:"link,omitempty"`
-	GitLink      *string               `json:"gitLink,omitempty"`
-	Stack        []TechnologyResponse  `json:"stack"`
-	Contributors []ContributorResponse `json:"contributors"`
-}
-
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)
 	if !ok {
@@ -174,36 +114,6 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-
-func projectInput(body ProjectRequest) commands.ProjectInput {
-	stack := make([]commands.ProjectTechnologyInput, len(body.Stack))
-	for i, v := range body.Stack {
-		stack[i] = commands.ProjectTechnologyInput{Name: v.Name, Grade: v.Grade}
-	}
-	contributors := make([]commands.ProjectContributorInput, len(body.Contributors))
-	for i, v := range body.Contributors {
-		contributors[i] = commands.ProjectContributorInput{Name: v.Name, Surname: v.Surname, Role: v.Role, Contacts: commands.ProjectContactsInput{Phone: v.Contacts.Phone, Telegram: v.Contacts.Telegram, Email: v.Contacts.Email}}
-	}
-	return commands.ProjectInput{Name: body.Name, Description: body.Description, Role: body.Role, Screenshots: body.Screenshots, Link: body.Link, GitLink: body.GitLink, Stack: stack, Contributors: contributors}
-}
-
-func projectQueryView(item queries.ProjectView) ProjectResponse {
-	stack := make([]TechnologyResponse, len(item.Stack))
-	for i, technology := range item.Stack {
-		stack[i] = TechnologyResponse{Name: technology.Name, Grade: technology.Grade}
-	}
-	contributors := make([]ContributorResponse, len(item.Contributors))
-	for i, contributor := range item.Contributors {
-		contributors[i] = ContributorResponse{
-			Name: contributor.Name, Surname: contributor.Surname, Role: contributor.Role,
-			Contacts: ContactsResponse{Phone: contributor.Contacts.Phone, Telegram: contributor.Contacts.Telegram, Email: contributor.Contacts.Email},
-		}
-	}
-	return ProjectResponse{
-		ID: item.ID, ResumeID: item.ResumeID, Name: item.Name, Description: item.Description, Role: item.Role,
-		Screenshots: item.Screenshots, Link: item.Link, GitLink: item.GitLink, Stack: stack, Contributors: contributors,
-	}
 }
 
 func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
