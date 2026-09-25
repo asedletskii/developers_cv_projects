@@ -23,20 +23,7 @@ func NewHandler(c *commands.CreateResumeProfileHandler, g *queries.GetResumeProf
 	return &Handler{create: c, get: g, update: u}
 }
 
-type Request struct {
-	Name        string   `json:"name"`
-	Surname     string   `json:"surname"`
-	Patronymic  *string  `json:"patronymic,omitempty"`
-	Position    string   `json:"position"`
-	PhotoPath   string   `json:"photoPath"`
-	DateOfBirth string   `json:"dateOfBirth"`
-	Location    string   `json:"location"`
-	Relocation  bool     `json:"relocation"`
-	WorkFormat  []string `json:"workFormat"`
-}
-type Response struct {
-	ID          string   `json:"id"`
-	ResumeID    string   `json:"resumeId"`
+type ProfileRequest struct {
 	Name        string   `json:"name"`
 	Surname     string   `json:"surname"`
 	Patronymic  *string  `json:"patronymic,omitempty"`
@@ -48,7 +35,7 @@ type Response struct {
 	WorkFormat  []string `json:"workFormat"`
 }
 
-func (r Request) input() commands.ProfileInput {
+func (r ProfileRequest) input() commands.ProfileInput {
 	return commands.ProfileInput{Name: r.Name, Surname: r.Surname, Patronymic: r.Patronymic, Position: r.Position, PhotoPath: r.PhotoPath, DateOfBirth: r.DateOfBirth, Location: r.Location, Relocation: r.Relocation, WorkFormats: r.WorkFormat}
 }
 
@@ -65,7 +52,7 @@ func (h *Handler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body Request
+	var body ProfileRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -117,7 +104,7 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body Request
+	var body ProfileRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return

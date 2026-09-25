@@ -26,12 +26,6 @@ type SkillsRequest struct {
 	HardSkills []string `json:"hardSkills"`
 	SoftSkills []string `json:"softSkills"`
 }
-type SkillsResponse struct {
-	ID         string   `json:"id"`
-	ResumeID   string   `json:"resumeId"`
-	HardSkills []string `json:"hardSkills"`
-	SoftSkills []string `json:"softSkills"`
-}
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)

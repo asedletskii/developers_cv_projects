@@ -30,7 +30,7 @@ func (h *Handler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body Request
+	var body ResumeRootRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -85,7 +85,7 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body Request
+	var body ResumeRootRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return

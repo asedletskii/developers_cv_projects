@@ -41,8 +41,6 @@ type ExperienceRequest struct {
 	Achievements []string            `json:"achievements"`
 	Technologies []TechnologyRequest `json:"technologies"`
 }
-type ExperienceResponse = queries.ExperienceView
-type TechnologyResponse = queries.ExperienceTechnologyView
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)

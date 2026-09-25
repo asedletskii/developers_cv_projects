@@ -30,13 +30,6 @@ type LanguageRequest struct {
 	Grade    *string `json:"grade,omitempty"`
 	Position int     `json:"position"`
 }
-type LanguageResponse struct {
-	ID       string  `json:"id"`
-	ResumeID string  `json:"resumeId"`
-	Language string  `json:"language"`
-	Grade    *string `json:"grade,omitempty"`
-	Position int     `json:"position"`
-}
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)

@@ -37,7 +37,6 @@ type EducationRequest struct {
 	Course      *int    `json:"course,omitempty"`
 	EndDate     *string `json:"endDate,omitempty"`
 }
-type EducationResponse = queries.EducationView
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)

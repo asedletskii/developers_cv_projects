@@ -24,7 +24,7 @@ func NewHandler(c *commands.CreateResumeContactsHandler, g *queries.GetResumeCon
 	return &Handler{create: c, get: g, update: u}
 }
 
-type Request struct {
+type ContactsRequest struct {
 	Phone          *string              `json:"phone,omitempty"`
 	Telegram       *string              `json:"telegram,omitempty"`
 	Email          *string              `json:"email,omitempty"`
@@ -39,15 +39,6 @@ type LocalizedTextRequest struct {
 	RU string `json:"ru"`
 	EN string `json:"en"`
 }
-type Response struct {
-	ID             string                `json:"id"`
-	ResumeID       string                `json:"resumeId"`
-	Phone          *string               `json:"phone,omitempty"`
-	Telegram       *string               `json:"telegram,omitempty"`
-	Email          *string               `json:"email,omitempty"`
-	HiddenContacts []string              `json:"hiddenContacts"`
-	ContactsText   *ContactsTextResponse `json:"contactsText,omitempty"`
-}
 type ContactsTextResponse struct {
 	Title    *LocalizedTextResponse `json:"title,omitempty"`
 	Subtitle *LocalizedTextResponse `json:"subtitle,omitempty"`
@@ -57,7 +48,7 @@ type LocalizedTextResponse struct {
 	EN string `json:"en"`
 }
 
-func (r Request) input() commands.ContactsInput {
+func (r ContactsRequest) input() commands.ContactsInput {
 	var text *commands.ContactsTextInput
 	if r.ContactsText != nil {
 		text = &commands.ContactsTextInput{}
@@ -85,7 +76,7 @@ func (h *Handler) handleCreate(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var b Request
+	var b ContactsRequest
 	if common.BindJSON(c, &b) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -136,7 +127,7 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var b Request
+	var b ContactsRequest
 	if common.BindJSON(c, &b) != nil {
 		common.WriteInvalidBody(c)
 		return

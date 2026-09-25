@@ -33,7 +33,6 @@ type CourseRequest struct {
 	Hours           *int    `json:"hours,omitempty"`
 	CertificateLink *string `json:"certificateLink,omitempty"`
 }
-type CourseResponse = queries.CourseView
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)

@@ -35,7 +35,6 @@ type ActivityRequest struct {
 	Date        *string `json:"date,omitempty"`
 	Link        *string `json:"link,omitempty"`
 }
-type ActivityResponse = queries.ActivityView
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)

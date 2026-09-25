@@ -30,13 +30,6 @@ type TechnologyRequest struct {
 	Grade    *string `json:"grade,omitempty"`
 	Position int     `json:"position"`
 }
-type TechnologyResponse struct {
-	ID       string  `json:"id"`
-	ResumeID string  `json:"resumeId"`
-	Name     string  `json:"name"`
-	Grade    *string `json:"grade,omitempty"`
-	Position int     `json:"position"`
-}
 
 func (h *Handler) Create(c *gin.Context) {
 	uid, rid, ok := ids(c)

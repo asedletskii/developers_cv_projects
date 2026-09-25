@@ -8,7 +8,7 @@ import (
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-type Request struct {
+type ResumeRootRequest struct {
 	Title        string              `json:"title"`
 	Presentation PresentationRequest `json:"presentation"`
 }
@@ -44,7 +44,7 @@ type SectionRequest struct {
 	Collapsed bool   `json:"collapsed"`
 }
 
-func (r Request) presentation() commands.PresentationInput {
+func (r ResumeRootRequest) presentation() commands.PresentationInput {
 	var theme *commands.ThemeInput
 	if r.Presentation.Theme != nil {
 		theme = &commands.ThemeInput{Primary: r.Presentation.Theme.Primary, Secondary: r.Presentation.Theme.Secondary}
@@ -64,14 +64,14 @@ func (r Request) presentation() commands.PresentationInput {
 	return commands.PresentationInput{Theme: theme, Greeting: commands.GreetingInput{First: commands.LocalizedInput{RU: r.Presentation.Greeting.First.RU, EN: r.Presentation.Greeting.First.EN}, Second: commands.LocalizedInput{RU: r.Presentation.Greeting.Second.RU, EN: r.Presentation.Greeting.Second.EN}, SecondHighlight: commands.LocalizedInput{RU: r.Presentation.Greeting.SecondHighlight.RU, EN: r.Presentation.Greeting.SecondHighlight.EN}, Third: commands.LocalizedInput{RU: r.Presentation.Greeting.Third.RU, EN: r.Presentation.Greeting.Third.EN}}, Availability: av, ResumeLink: r.Presentation.ResumeLink, Sections: sections}
 }
 
-func (r Request) ToCreateCommand(userID uuid.UUID) (commands.CreateResumeRootCommand, error) {
+func (r ResumeRootRequest) ToCreateCommand(userID uuid.UUID) (commands.CreateResumeRootCommand, error) {
 	uid, err := useridentity.IDFromUUID(userID)
 	if err != nil {
 		return commands.CreateResumeRootCommand{}, err
 	}
 	return commands.CreateResumeRootCommand{UserID: uid, Title: r.Title, Presentation: r.presentation()}, nil
 }
-func (r Request) ToUpdateCommand(userID uuid.UUID, resumeID valueobjects.ID) (commands.UpdateResumeRootCommand, error) {
+func (r ResumeRootRequest) ToUpdateCommand(userID uuid.UUID, resumeID valueobjects.ID) (commands.UpdateResumeRootCommand, error) {
 	uid, err := useridentity.IDFromUUID(userID)
 	if err != nil {
 		return commands.UpdateResumeRootCommand{}, err
