@@ -39,10 +39,6 @@ type ResumeContactsView struct {
 	ContactsText   *ResumeContactsTextView `json:"contactsText,omitempty"`
 }
 type ResumeContactsTextView struct {
-	Title    *ResumeLocalizedTextView `json:"title,omitempty"`
-	Subtitle *ResumeLocalizedTextView `json:"subtitle,omitempty"`
-}
-type ResumeLocalizedTextView struct {
-	RU string `json:"ru"`
-	EN string `json:"en"`
+	Title    *string `json:"title,omitempty"`
+	Subtitle *string `json:"subtitle,omitempty"`
 }

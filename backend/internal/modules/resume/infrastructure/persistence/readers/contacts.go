@@ -21,7 +21,8 @@ func (r *ContactsReader) GetResumeContacts(ctx context.Context, q queries.GetRes
 	var v queries.ResumeContactsView
 	var phone, tg, email *string
 	var cid uuid.UUID
-	if err := r.pool.QueryRow(ctx, `SELECT c.id::text,c.resume_id::text,c.phone,c.telegram,c.email FROM resume_contacts c JOIN resume_roots r ON r.id=c.resume_id WHERE c.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&cid, &v.ResumeID, &phone, &tg, &email); err != nil {
+	var language string
+	if err := r.pool.QueryRow(ctx, `SELECT c.id::text,c.resume_id::text,c.phone,c.telegram,c.email,r.language FROM resume_contacts c JOIN resume_roots r ON r.id=c.resume_id WHERE c.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&cid, &v.ResumeID, &phone, &tg, &email, &language); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return v, queries.ErrResumeNotFound
 		}
@@ -47,18 +48,12 @@ func (r *ContactsReader) GetResumeContacts(ctx context.Context, q queries.GetRes
 	if err := rows.Err(); err != nil {
 		return v, fmt.Errorf("iterate hidden contacts: %w", err)
 	}
-	var tr, te, sr, se *string
-	err = r.pool.QueryRow(ctx, `SELECT title_ru,title_en,subtitle_ru,subtitle_en FROM resume_contacts_text WHERE contacts_id=$1`, cid).Scan(&tr, &te, &sr, &se)
+	var title, subtitle *string
+	err = r.pool.QueryRow(ctx, `SELECT title,subtitle FROM resume_contacts_text WHERE contacts_id=$1`, cid).Scan(&title, &subtitle)
 	if err == nil {
-		v.ContactsText = &queries.ResumeContactsTextView{Title: localizedPtr(tr, te), Subtitle: localizedPtr(sr, se)}
+		v.ContactsText = &queries.ResumeContactsTextView{Title: title, Subtitle: subtitle}
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return v, fmt.Errorf("get contacts text: %w", err)
 	}
 	return v, nil
-}
-func localizedPtr(ru, en *string) *queries.ResumeLocalizedTextView {
-	if ru == nil && en == nil {
-		return nil
-	}
-	return &queries.ResumeLocalizedTextView{RU: valueOrEmpty(ru), EN: valueOrEmpty(en)}
 }

@@ -102,7 +102,7 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 func langInput(b LanguageRequest) commands.LanguageInput {
-	in := commands.LanguageInput{ID: valueobjects.NewID(), Language: enums.LanguageType(b.Language), Position: b.Position}
+	in := commands.LanguageInput{ID: valueobjects.NewID(), Language: enums.SpokenLanguage(b.Language), Position: b.Position}
 	if b.Grade != nil {
 		x := enums.LanguageGrade(*b.Grade)
 		in.Grade = &x

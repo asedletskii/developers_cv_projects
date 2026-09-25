@@ -24,33 +24,28 @@ func (r *ResumeRootReader) GetResumeRoot(ctx context.Context, q queries.GetResum
 
 func (r *ResumeRootReader) getResumeRootTyped(ctx context.Context, q queries.GetResumeRootQuery) (queries.ResumeRootView, error) {
 	var v queries.ResumeRootView
-	var availabilityFrom, noteRU, noteEN, resumeLink, themePrimary, themeSecondary, availabilityStatus *string
-	var rootID, title, firstRU, firstEN, secondRU, secondEN, highlightRU, highlightEN, thirdRU, thirdEN string
+	var availabilityFrom, note, resumeLink, themePrimary, themeSecondary, availabilityStatus *string
+	var rootID, title, language, first, second, highlight, third string
 	if err := r.pool.QueryRow(ctx, `
-		SELECT r.id::text, r.title, r.created_at, r.updated_at,
-		       p.greeting_first_ru, p.greeting_first_en, p.greeting_second_ru, p.greeting_second_en,
-		       p.greeting_highlight_ru, p.greeting_highlight_en, p.greeting_third_ru, p.greeting_third_en,
-		       p.availability_status, p.availability_from::text, p.availability_note_ru, p.availability_note_en,
+		SELECT r.id::text, r.title, r.language, r.created_at, r.updated_at,
+		       p.greeting_first, p.greeting_second, p.greeting_highlight, p.greeting_third,
+		       p.availability_status, p.availability_from::text, p.availability_note,
 		       p.resume_link, p.theme_primary, p.theme_secondary
 		FROM resume_roots r JOIN resume_presentations p ON p.resume_id = r.id
 		WHERE r.id = $1 AND r.user_id = $2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(
-		&rootID, &title, &v.CreatedAt, &v.UpdatedAt, &firstRU, &firstEN, &secondRU, &secondEN,
-		&highlightRU, &highlightEN, &thirdRU, &thirdEN, &availabilityStatus, &availabilityFrom,
-		&noteRU, &noteEN, &resumeLink, &themePrimary, &themeSecondary); err != nil {
+		&rootID, &title, &language, &v.CreatedAt, &v.UpdatedAt, &first, &second, &highlight, &third,
+		&availabilityStatus, &availabilityFrom, &note, &resumeLink, &themePrimary, &themeSecondary); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return queries.ResumeRootView{}, queries.ErrResumeNotFound
 		}
 		return queries.ResumeRootView{}, fmt.Errorf("get resume root: %w", err)
 	}
-	v.ID, v.Title = rootID, title
-	v.Presentation.Greeting = queries.ResumeRootGreeting{
-		First: queries.ResumeRootLocalizedText{RU: firstRU, EN: firstEN}, Second: queries.ResumeRootLocalizedText{RU: secondRU, EN: secondEN},
-		SecondHighlight: queries.ResumeRootLocalizedText{RU: highlightRU, EN: highlightEN}, Third: queries.ResumeRootLocalizedText{RU: thirdRU, EN: thirdEN},
-	}
+	v.ID, v.Title, v.Language = rootID, title, language
+	v.Presentation.Greeting = queries.ResumeRootGreeting{First: first, Second: second, SecondHighlight: highlight, Third: third}
 	if availabilityStatus != nil {
 		v.Presentation.Availability = &queries.ResumeRootAvailability{Status: *availabilityStatus, From: availabilityFrom}
-		if noteRU != nil || noteEN != nil {
-			v.Presentation.Availability.Note = &queries.ResumeRootLocalizedText{RU: valueOrEmpty(noteRU), EN: valueOrEmpty(noteEN)}
+		if note != nil {
+			v.Presentation.Availability.Note = note
 		}
 	}
 	if resumeLink != nil {

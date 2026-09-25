@@ -19,21 +19,42 @@ func (v WorkFormat) IsValid() bool {
 	}
 }
 
-type LanguageType string
+type ResumeLanguage string
 
 const (
-	LanguageRU LanguageType = "ru"
-	LanguageEN LanguageType = "en"
-	LanguageFR LanguageType = "fr"
-	LanguageDE LanguageType = "de"
-	LanguageKZ LanguageType = "kz"
-	LanguageZH LanguageType = "zh"
-	LanguageES LanguageType = "es"
+	ResumeLanguageRU ResumeLanguage = "ru"
+	ResumeLanguageEN ResumeLanguage = "en"
+	ResumeLanguageFR ResumeLanguage = "fr"
+	ResumeLanguageDE ResumeLanguage = "de"
+	ResumeLanguageKZ ResumeLanguage = "kz"
+	ResumeLanguageZH ResumeLanguage = "zh"
+	ResumeLanguageES ResumeLanguage = "es"
 )
 
-func (v LanguageType) IsValid() bool {
+func (v ResumeLanguage) IsValid() bool {
 	switch v {
-	case LanguageRU, LanguageEN, LanguageFR, LanguageDE, LanguageKZ, LanguageZH, LanguageES:
+	case ResumeLanguageRU, ResumeLanguageEN, ResumeLanguageFR, ResumeLanguageDE, ResumeLanguageKZ, ResumeLanguageZH, ResumeLanguageES:
+		return true
+	default:
+		return false
+	}
+}
+
+type SpokenLanguage string
+
+const (
+	SpokenLanguageRU SpokenLanguage = "ru"
+	SpokenLanguageEN SpokenLanguage = "en"
+	SpokenLanguageFR SpokenLanguage = "fr"
+	SpokenLanguageDE SpokenLanguage = "de"
+	SpokenLanguageKZ SpokenLanguage = "kz"
+	SpokenLanguageZH SpokenLanguage = "zh"
+	SpokenLanguageES SpokenLanguage = "es"
+)
+
+func (v SpokenLanguage) IsValid() bool {
+	switch v {
+	case SpokenLanguageRU, SpokenLanguageEN, SpokenLanguageFR, SpokenLanguageDE, SpokenLanguageKZ, SpokenLanguageZH, SpokenLanguageES:
 		return true
 	default:
 		return false

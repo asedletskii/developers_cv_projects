@@ -39,6 +39,7 @@ func (h *GetResumeRootQueryHandler) Handle(ctx context.Context, query GetResumeR
 type ResumeRootView struct {
 	ID           string                 `json:"id"`
 	Title        string                 `json:"title"`
+	Language     string                 `json:"language"`
 	CreatedAt    time.Time              `json:"createdAt"`
 	UpdatedAt    time.Time              `json:"updatedAt"`
 	Presentation ResumePresentationView `json:"presentation"`
@@ -52,20 +53,16 @@ type ResumePresentationView struct {
 	Sections     []ResumeRootSectionSettings `json:"sections"`
 }
 
-type ResumeRootLocalizedText struct {
-	RU string `json:"ru"`
-	EN string `json:"en"`
-}
 type ResumeRootGreeting struct {
-	First           ResumeRootLocalizedText `json:"first"`
-	Second          ResumeRootLocalizedText `json:"second"`
-	SecondHighlight ResumeRootLocalizedText `json:"secondHighlight"`
-	Third           ResumeRootLocalizedText `json:"third"`
+	First           string `json:"first"`
+	Second          string `json:"second"`
+	SecondHighlight string `json:"secondHighlight"`
+	Third           string `json:"third"`
 }
 type ResumeRootAvailability struct {
-	Status string                   `json:"status"`
-	From   *string                  `json:"from,omitempty"`
-	Note   *ResumeRootLocalizedText `json:"note,omitempty"`
+	Status string  `json:"status"`
+	From   *string `json:"from,omitempty"`
+	Note   *string `json:"note,omitempty"`
 }
 type ResumeRootThemeSettings struct {
 	Primary   string `json:"primary,omitempty"`

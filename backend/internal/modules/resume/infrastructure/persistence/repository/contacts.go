@@ -62,7 +62,14 @@ func (r *ContactsRepository) GetContacts(ctx context.Context, q ports.GetResumeC
 	}
 	tx := database.DBFromContext(ctx, r.db)
 	var m gormmodel.ResumeContacts
-	if e := tx.WithContext(ctx).Where("resume_id = ? AND resume_id IN (SELECT id FROM resume_roots WHERE id = ? AND user_id = ?)", q.ResumeID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).First(&m).Error; e != nil {
+	var root gormmodel.ResumeRoot
+	if e := tx.WithContext(ctx).Where("id = ? AND user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).First(&root).Error; e != nil {
+		if errors.Is(e, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrEntityNotFound
+		}
+		return nil, fmt.Errorf("get contacts root: %w", e)
+	}
+	if e := tx.WithContext(ctx).Where("resume_id = ?", q.ResumeID.UUID()).First(&m).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}
@@ -80,7 +87,7 @@ func (r *ContactsRepository) GetContacts(ctx context.Context, q ports.GetResumeC
 	} else if !errors.Is(te, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("get contacts text: %w", te)
 	}
-	return mapContacts(m, hidden, tp)
+	return mapContacts(m, hidden, tp, root.Language)
 }
 func (r *ContactsRepository) UpdateContacts(ctx context.Context, c ports.UpdateResumeContactsRepositoryCommand) error {
 	tx, e := database.DBFromTransactionContext(ctx)
@@ -142,19 +149,17 @@ func contactsModels(c *domain.Contacts) (gormmodel.ResumeContacts, []gormmodel.R
 	if x := c.Text(); x != nil {
 		t = &gormmodel.ResumeContactsText{ContactsID: m.ID}
 		if v := x.Title(); v != nil {
-			ru, en := v.RU(), v.EN()
-			t.TitleRU = &ru
-			t.TitleEN = &en
+			value := *v
+			t.Title = &value
 		}
 		if v := x.Subtitle(); v != nil {
-			ru, en := v.RU(), v.EN()
-			t.SubtitleRU = &ru
-			t.SubtitleEN = &en
+			value := *v
+			t.Subtitle = &value
 		}
 	}
 	return m, h, t, nil
 }
-func mapContacts(m gormmodel.ResumeContacts, h []gormmodel.ResumeContactHidden, t *gormmodel.ResumeContactsText) (*domain.Contacts, error) {
+func mapContacts(m gormmodel.ResumeContacts, h []gormmodel.ResumeContactHidden, t *gormmodel.ResumeContactsText, _ string) (*domain.Contacts, error) {
 	var tg *valueobjects.Telegram
 	if m.Telegram != nil {
 		x, e := valueobjects.NewTelegram(*m.Telegram)
@@ -181,41 +186,13 @@ func mapContacts(m gormmodel.ResumeContacts, h []gormmodel.ResumeContactHidden, 
 	}
 	var text *valueobjects.ContactsText
 	if t != nil {
-		var title, subtitle *valueobjects.LocalizedText
-		if t.TitleRU != nil || t.TitleEN != nil {
-			ru, en := "", ""
-			if t.TitleRU != nil {
-				ru = *t.TitleRU
-			}
-			if t.TitleEN != nil {
-				en = *t.TitleEN
-			}
-			x, e := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: ru, EN: en})
-			if e != nil {
-				return nil, e
-			}
-			title = &x
-		}
-		if t.SubtitleRU != nil || t.SubtitleEN != nil {
-			ru, en := "", ""
-			if t.SubtitleRU != nil {
-				ru = *t.SubtitleRU
-			}
-			if t.SubtitleEN != nil {
-				en = *t.SubtitleEN
-			}
-			x, e := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: ru, EN: en})
-			if e != nil {
-				return nil, e
-			}
-			subtitle = &x
-		}
-		x, e := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: title, Subtitle: subtitle})
+		x, e := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: t.Title, Subtitle: t.Subtitle})
 		if e != nil {
 			return nil, e
 		}
 		text = &x
 	}
+
 	id, e := valueobjects.IDFromUUID(m.ID)
 	if e != nil {
 		return nil, e

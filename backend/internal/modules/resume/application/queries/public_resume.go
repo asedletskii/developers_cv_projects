@@ -15,6 +15,7 @@ type PublicResumeView struct {
 	Patronymic     *string           `json:"patronymic,omitempty"`
 	Position       string            `json:"position"`
 	Title          string            `json:"title"`
+	Language       string            `json:"language"`
 	Availability   *Availability     `json:"availability,omitempty"`
 	UpdatedAt      *time.Time        `json:"updatedAt,omitempty"`
 	ResumeLink     *string           `json:"resumeLink,omitempty"`

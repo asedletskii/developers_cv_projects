@@ -13,7 +13,7 @@ import (
 func TestPublicResumeViewJSONGolden(t *testing.T) {
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	view := PublicResumeView{
-		ID: "resume-1", Name: "Ada", Surname: "Lovelace", Position: "Engineer", Title: "CV",
+		ID: "resume-1", Name: "Ada", Surname: "Lovelace", Position: "Engineer", Title: "CV", Language: "en",
 		Availability:   &Availability{Status: "open"},
 		UpdatedAt:      &now,
 		ResumeLink:     stringPtr("/cv/resume.pdf"),

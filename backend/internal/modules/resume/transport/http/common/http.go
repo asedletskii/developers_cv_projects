@@ -57,15 +57,6 @@ func ParseResumeID(c *gin.Context) (valueobjects.ID, bool) {
 	return id, true
 }
 
-func ParseLanguage(c *gin.Context) (string, bool) {
-	language := c.DefaultQuery("lang", "ru")
-	if language != "ru" && language != "en" {
-		WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid language"))
-		return "", false
-	}
-	return language, true
-}
-
 func WriteCommandError(c *gin.Context, err error) {
 	if errors.Is(err, domain.ErrEntityNotFound) {
 		WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))

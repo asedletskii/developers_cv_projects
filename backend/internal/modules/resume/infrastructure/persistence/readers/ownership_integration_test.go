@@ -151,7 +151,7 @@ func insertReaderTestData(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 	now := time.Now().UTC()
 	_, err = pool.Exec(ctx, `INSERT INTO resume_roots (id,user_id,title,created_at,updated_at) VALUES ($1,$2,'Ownership test',$3,$3)`, resumeID.UUID(), owner.UUID(), now)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_presentations (resume_id,greeting_first_ru,greeting_first_en,greeting_second_ru,greeting_second_en,greeting_highlight_ru,greeting_highlight_en,greeting_third_ru,greeting_third_en) VALUES ($1,'a','a','b','b','c','c','d','d')`, resumeID.UUID())
+	_, err = pool.Exec(ctx, `INSERT INTO resume_presentations (resume_id,greeting_first,greeting_second,greeting_highlight,greeting_third) VALUES ($1,'a','b','c','d')`, resumeID.UUID())
 	require.NoError(t, err)
 
 	_, err = pool.Exec(ctx, `INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','/photo', '1998-01-01','Paris',false)`, uuid.New(), resumeID.UUID())

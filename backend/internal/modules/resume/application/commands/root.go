@@ -11,12 +11,11 @@ import (
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-type LocalizedInput struct{ RU, EN string }
-type GreetingInput struct{ First, Second, SecondHighlight, Third LocalizedInput }
+type GreetingInput struct{ First, Second, SecondHighlight, Third string }
 type AvailabilityInput struct {
 	Status string
 	From   *string
-	Note   *LocalizedInput
+	Note   *string
 }
 type ThemeInput struct{ Primary, Secondary *string }
 type SectionInput struct {
@@ -32,26 +31,10 @@ type PresentationInput struct {
 }
 
 func (i PresentationInput) toDomain() (domain.ResumePresentation, error) {
-	loc := func(x LocalizedInput) (valueobjects.LocalizedText, error) {
-		return valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: x.RU, EN: x.EN})
-	}
-	f, e := loc(i.Greeting.First)
-	if e != nil {
-		return domain.ResumePresentation{}, e
-	}
-	sec, e := loc(i.Greeting.Second)
-	if e != nil {
-		return domain.ResumePresentation{}, e
-	}
-	hi, e := loc(i.Greeting.SecondHighlight)
-	if e != nil {
-		return domain.ResumePresentation{}, e
-	}
-	th, e := loc(i.Greeting.Third)
-	if e != nil {
-		return domain.ResumePresentation{}, e
-	}
-	greeting := valueobjects.NewGreeting(valueobjects.GreetingParams{First: f, Second: sec, SecondHighlight: hi, Third: th})
+	greeting := valueobjects.NewGreeting(valueobjects.GreetingParams{
+		First: i.Greeting.First, Second: i.Greeting.Second,
+		SecondHighlight: i.Greeting.SecondHighlight, Third: i.Greeting.Third,
+	})
 	var theme *valueobjects.ThemeSettings
 	if i.Theme != nil {
 		var a, b *valueobjects.Color
@@ -85,15 +68,7 @@ func (i PresentationInput) toDomain() (domain.ResumePresentation, error) {
 			}
 			from = &v
 		}
-		var note *valueobjects.LocalizedText
-		if i.Availability.Note != nil {
-			v, e := loc(*i.Availability.Note)
-			if e != nil {
-				return domain.ResumePresentation{}, e
-			}
-			note = &v
-		}
-		v, e := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: enums.AvailabilityStatus(i.Availability.Status), From: from, Note: note})
+		v, e := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: enums.AvailabilityStatus(i.Availability.Status), From: from, Note: i.Availability.Note})
 		if e != nil {
 			return domain.ResumePresentation{}, e
 		}
@@ -122,6 +97,7 @@ type CreateResumeRootCommand struct {
 	ID           valueobjects.ID
 	UserID       useridentity.ID
 	Title        string
+	Language     enums.ResumeLanguage
 	Presentation PresentationInput
 }
 type UpdateResumeRootCommand struct {
@@ -167,7 +143,7 @@ func (h *CreateResumeRootHandler) Handle(ctx context.Context, c CreateResumeRoot
 		return valueobjects.ID{}, err
 	}
 	err = h.uow.Do(ctx, func(tx context.Context) error {
-		resume, err := domain.NewResumeRoot(domain.ResumeRootParams{ID: c.ID, UserID: c.UserID, Title: c.Title, Presentation: presentation})
+		resume, err := domain.NewResumeRoot(domain.ResumeRootParams{ID: c.ID, UserID: c.UserID, Title: c.Title, Language: c.Language, Presentation: presentation})
 		if err != nil {
 			return err
 		}
@@ -204,7 +180,7 @@ func (h *UpdateResumeRootHandler) Handle(ctx context.Context, c UpdateResumeRoot
 		if err != nil {
 			return err
 		}
-		if err := current.Replace(domain.ResumeRootParams{ID: current.ID(), UserID: current.UserID(), Title: c.Title, Presentation: presentation}); err != nil {
+		if err := current.Replace(domain.ResumeRootParams{ID: current.ID(), UserID: current.UserID(), Title: c.Title, Language: current.Language(), Presentation: presentation}); err != nil {
 			return err
 		}
 		return h.updater.UpdateRoot(tx, ports.UpdateResumeRootRepositoryCommand{Resume: current})

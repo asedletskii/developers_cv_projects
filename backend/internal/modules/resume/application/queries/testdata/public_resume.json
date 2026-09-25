@@ -4,6 +4,7 @@
   "surname": "Lovelace",
   "position": "Engineer",
   "title": "CV",
+  "language": "en",
   "availability": {
     "status": "open"
   },

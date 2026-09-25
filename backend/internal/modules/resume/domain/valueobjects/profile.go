@@ -9,72 +9,68 @@ import (
 type AvailabilityParams struct {
 	Status enums.AvailabilityStatus
 	From   *Date
-	Note   *LocalizedText
+	Note   *string
 }
 
 type Availability struct {
 	status enums.AvailabilityStatus
 	from   *Date
-	note   *LocalizedText
+	note   *string
 }
 
 func NewAvailability(params AvailabilityParams) (Availability, error) {
 	if !params.Status.IsValid() {
 		return Availability{}, fmt.Errorf("%w: invalid availability status", ErrInvalidValue)
 	}
-	return Availability{
-		status: params.Status,
-		from:   cloneDate(params.From),
-		note:   cloneLocalizedText(params.Note),
-	}, nil
+	return Availability{status: params.Status, from: cloneDate(params.From), note: cloneString(params.Note)}, nil
 }
 
 func (a Availability) Status() enums.AvailabilityStatus { return a.status }
 func (a Availability) From() *Date                      { return cloneDate(a.from) }
-func (a Availability) Note() *LocalizedText             { return cloneLocalizedText(a.note) }
+func (a Availability) Note() *string                    { return cloneString(a.note) }
 
 type GreetingParams struct {
-	First           LocalizedText
-	Second          LocalizedText
-	SecondHighlight LocalizedText
-	Third           LocalizedText
+	First           string
+	Second          string
+	SecondHighlight string
+	Third           string
 }
 
 type Greeting struct {
-	first           LocalizedText
-	second          LocalizedText
-	secondHighlight LocalizedText
-	third           LocalizedText
+	first           string
+	second          string
+	secondHighlight string
+	third           string
 }
 
 func NewGreeting(params GreetingParams) Greeting {
 	return Greeting{first: params.First, second: params.Second, secondHighlight: params.SecondHighlight, third: params.Third}
 }
 
-func (g Greeting) First() LocalizedText           { return g.first }
-func (g Greeting) Second() LocalizedText          { return g.second }
-func (g Greeting) SecondHighlight() LocalizedText { return g.secondHighlight }
-func (g Greeting) Third() LocalizedText           { return g.third }
+func (g Greeting) First() string           { return g.first }
+func (g Greeting) Second() string          { return g.second }
+func (g Greeting) SecondHighlight() string { return g.secondHighlight }
+func (g Greeting) Third() string           { return g.third }
 
 type ContactsTextParams struct {
-	Title    *LocalizedText
-	Subtitle *LocalizedText
+	Title    *string
+	Subtitle *string
 }
 
 type ContactsText struct {
-	title    *LocalizedText
-	subtitle *LocalizedText
+	title    *string
+	subtitle *string
 }
 
 func NewContactsText(params ContactsTextParams) (ContactsText, error) {
 	if params.Title == nil && params.Subtitle == nil {
 		return ContactsText{}, fmt.Errorf("%w: contacts text is empty", ErrInvalidValue)
 	}
-	return ContactsText{title: cloneLocalizedText(params.Title), subtitle: cloneLocalizedText(params.Subtitle)}, nil
+	return ContactsText{title: cloneString(params.Title), subtitle: cloneString(params.Subtitle)}, nil
 }
 
-func (c ContactsText) Title() *LocalizedText    { return cloneLocalizedText(c.title) }
-func (c ContactsText) Subtitle() *LocalizedText { return cloneLocalizedText(c.subtitle) }
+func (c ContactsText) Title() *string    { return cloneString(c.title) }
+func (c ContactsText) Subtitle() *string { return cloneString(c.subtitle) }
 
 type SectionSettingsParams struct {
 	ID        enums.SectionID
@@ -107,7 +103,7 @@ func cloneDate(value *Date) *Date {
 	return &copy
 }
 
-func cloneLocalizedText(value *LocalizedText) *LocalizedText {
+func cloneString(value *string) *string {
 	if value == nil {
 		return nil
 	}

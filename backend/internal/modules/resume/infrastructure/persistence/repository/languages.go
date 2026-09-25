@@ -95,7 +95,7 @@ func languageModel(x domain.ResumeLanguageEntry, rid valueobjects.ID) (gormmodel
 		v := string(*g)
 		m.Grade = &v
 	}
-	if !enums.LanguageType(m.Language).IsValid() {
+	if !enums.SpokenLanguage(m.Language).IsValid() {
 		return gormmodel.ResumeLanguage{}, fmt.Errorf("invalid language")
 	}
 	return m, nil
@@ -114,5 +114,5 @@ func mapLanguage(m gormmodel.ResumeLanguage) (domain.ResumeLanguageEntry, error)
 		}
 		g = &x
 	}
-	return domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: id, Language: enums.LanguageType(m.Language), Grade: g, Position: m.Position})
+	return domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: id, Language: enums.SpokenLanguage(m.Language), Grade: g, Position: m.Position})
 }
