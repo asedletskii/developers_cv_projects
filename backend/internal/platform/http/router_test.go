@@ -333,3 +333,92 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, w.Code, methodPath.method+" "+methodPath.path)
 	}
 }
+
+func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{},
+	}
+	log := zaptest.NewLogger(t)
+	paths := []string{
+		"/api/v1/lk/resumes",
+		"/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/profile",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/contacts",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/skills",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/languages",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/technologies",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/experiences",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/educations",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/courses",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/activities",
+		"/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/projects",
+	}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			router, err := NewRouter(
+				cfg,
+				log,
+				health.NewService(),
+				nil,
+				resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+				userhttp.NewHandler(nil),
+				func(context.Context, *http.Request) (uuid.UUID, error) {
+					return uuid.Nil, middleware.ErrUnauthenticated
+				},
+			)
+			require.NoError(t, err)
+
+			w := httptest.NewRecorder()
+			router.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+			require.Equal(t, http.StatusUnauthorized, w.Code)
+			require.Contains(t, w.Body.String(), "UNAUTHORIZED")
+		})
+	}
+}
+
+func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{},
+	}
+	log := zaptest.NewLogger(t)
+	paths := []string{
+		"/api/v1/lk/resumes/not-a-uuid",
+		"/api/v1/lk/resume/not-a-uuid/profile",
+		"/api/v1/lk/resume/not-a-uuid/contacts",
+		"/api/v1/lk/resume/not-a-uuid/skills",
+		"/api/v1/lk/resume/not-a-uuid/languages",
+		"/api/v1/lk/resume/not-a-uuid/technologies",
+		"/api/v1/lk/resume/not-a-uuid/experiences",
+		"/api/v1/lk/resume/not-a-uuid/educations",
+		"/api/v1/lk/resume/not-a-uuid/courses",
+		"/api/v1/lk/resume/not-a-uuid/activities",
+		"/api/v1/lk/resume/not-a-uuid/projects",
+	}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			router, err := NewRouter(
+				cfg,
+				log,
+				health.NewService(),
+				nil,
+				resumehttp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+				userhttp.NewHandler(nil),
+				fakeAuthenticate,
+			)
+			require.NoError(t, err)
+
+			w := httptest.NewRecorder()
+			router.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+			require.Equal(t, http.StatusBadRequest, w.Code)
+			require.Contains(t, w.Body.String(), "BAD_REQUEST")
+		})
+	}
+}

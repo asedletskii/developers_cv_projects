@@ -101,16 +101,16 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, p)
 }
 func (h *Handler) Get(c *gin.Context) {
-	if h == nil || h.get == nil {
-		common.WriteError(c, errors.New("get profile handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
 	}
 	rid, ok := common.ParseResumeID(c)
 	if !ok {
+		return
+	}
+	if h == nil || h.get == nil {
+		common.WriteError(c, errors.New("get profile handler dependencies are nil"))
 		return
 	}
 	p, e := h.get.Handle(c.Request.Context(), queries.GetResumeProfileQuery{ResumeID: rid, UserID: uid})

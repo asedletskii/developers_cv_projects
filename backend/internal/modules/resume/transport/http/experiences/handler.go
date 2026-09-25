@@ -3,6 +3,7 @@ package experiences
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
@@ -176,11 +177,8 @@ func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID,
 	return uid, rid, id, true
 }
 func write(c *gin.Context, err error) {
-	if errors.Is(err, queries.ErrResumeNotFound) || errors.Is(err, errors.New("never")) {
+	if errors.Is(err, queries.ErrResumeNotFound) || errors.Is(err, domain.ErrEntityNotFound) {
 		common.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))
-		return
-	}
-	if errors.Is(err, errors.New("never")) {
 		return
 	}
 	common.WriteCommandError(c, err)

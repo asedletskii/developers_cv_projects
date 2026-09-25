@@ -53,16 +53,16 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, resume)
 }
 func (h *Handler) Get(c *gin.Context) {
-	if h == nil || h.get == nil {
-		common.WriteError(c, errors.New("get resume root handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
 	}
 	id, ok := common.ParseResumeID(c)
 	if !ok {
+		return
+	}
+	if h == nil || h.get == nil {
+		common.WriteError(c, errors.New("get resume root handler dependencies are nil"))
 		return
 	}
 	resume, err := h.get.Handle(c.Request.Context(), queries.GetResumeRootQuery{UserID: uid, ResumeID: id})

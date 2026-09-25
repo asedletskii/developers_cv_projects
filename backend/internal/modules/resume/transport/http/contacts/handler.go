@@ -146,16 +146,16 @@ func (h *Handler) handleCreate(c *gin.Context) {
 	c.JSON(http.StatusCreated, a)
 }
 func (h *Handler) Get(c *gin.Context) {
-	if h == nil || h.get == nil {
-		common.WriteError(c, errors.New("get contacts handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
 	}
 	rid, ok := common.ParseResumeID(c)
 	if !ok {
+		return
+	}
+	if h == nil || h.get == nil {
+		common.WriteError(c, errors.New("get contacts handler dependencies are nil"))
 		return
 	}
 	a, e := h.get.Handle(c.Request.Context(), queries.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
