@@ -23,15 +23,11 @@ func (r *SkillsRepository) CreateSkills(ctx context.Context, c ports.CreateSkill
 	if e != nil {
 		return e
 	}
-	var n int64
-	if e = tx.Model(&gormmodel.ResumeSkills{}).Where("resume_id=?", a.ResumeID().UUID()).Count(&n).Error; e != nil {
-		return e
-	}
-	if n > 0 {
-		return domain.ErrDuplicateEntity
-	}
 	m := gormmodel.ResumeSkills{ID: a.ID().UUID(), ResumeID: a.ResumeID().UUID()}
 	if e = tx.Create(&m).Error; e != nil {
+		if errors.Is(e, gorm.ErrDuplicatedKey) {
+			return domain.ErrDuplicateEntity
+		}
 		return e
 	}
 	for i, v := range a.HardSkills() {
@@ -85,13 +81,12 @@ func (r *SkillsRepository) GetSkills(ctx context.Context, q ports.GetSkillsRepos
 	return domain.NewSkills(domain.SkillsParams{ID: id, ResumeID: rid, Hard: hp, Soft: sp})
 }
 func (r *SkillsRepository) UpdateSkills(ctx context.Context, c ports.UpdateSkillsRepositoryCommand) error {
-	a, uid := c.Skills, c.UserID
-	tx, e := r.owned(ctx, a.ResumeID(), uid)
+	tx, e := r.owned(ctx, c.ResumeID, c.UserID)
 	if e != nil {
 		return e
 	}
 	var m gormmodel.ResumeSkills
-	if e = tx.Where("id=? AND resume_id=?", a.ID().UUID(), a.ResumeID().UUID()).First(&m).Error; e != nil {
+	if e = tx.Where("resume_id=?", c.ResumeID.UUID()).First(&m).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return domain.ErrEntityNotFound
 		}
@@ -103,12 +98,12 @@ func (r *SkillsRepository) UpdateSkills(ctx context.Context, c ports.UpdateSkill
 	if e = tx.Where("skills_id=?", m.ID).Delete(&gormmodel.ResumeSkillSoft{}).Error; e != nil {
 		return e
 	}
-	for i, v := range a.HardSkills() {
+	for i, v := range c.Hard {
 		if e = tx.Create(&gormmodel.ResumeSkillHard{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
 			return e
 		}
 	}
-	for i, v := range a.SoftSkills() {
+	for i, v := range c.Soft {
 		if e = tx.Create(&gormmodel.ResumeSkillSoft{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {
 			return e
 		}

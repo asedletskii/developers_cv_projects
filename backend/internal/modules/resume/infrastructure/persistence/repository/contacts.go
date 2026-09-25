@@ -35,13 +35,10 @@ func (r *ContactsRepository) CreateContacts(ctx context.Context, c ports.CreateR
 	if n == 0 {
 		return domain.ErrEntityNotFound
 	}
-	if e = tx.WithContext(ctx).Model(&gormmodel.ResumeContacts{}).Where("resume_id = ?", m.ResumeID).Count(&n).Error; e != nil {
-		return fmt.Errorf("check contacts uniqueness: %w", e)
-	}
-	if n > 0 {
-		return domain.ErrDuplicateEntity
-	}
 	if e = tx.WithContext(ctx).Create(&m).Error; e != nil {
+		if errors.Is(e, gorm.ErrDuplicatedKey) {
+			return domain.ErrDuplicateEntity
+		}
 		return fmt.Errorf("create contacts: %w", e)
 	}
 	if len(h) > 0 {
@@ -94,9 +91,24 @@ func (r *ContactsRepository) UpdateContacts(ctx context.Context, c ports.UpdateR
 	if e != nil {
 		return fmt.Errorf("update contacts: %w", e)
 	}
+	var current gormmodel.ResumeContacts
+	if e = tx.WithContext(ctx).Where("resume_id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", c.Contacts.ResumeID().UUID(), c.Contacts.ResumeID().UUID(), c.UserID.UUID()).First(&current).Error; e != nil {
+		if errors.Is(e, gorm.ErrRecordNotFound) {
+			return domain.ErrEntityNotFound
+		}
+		return fmt.Errorf("update contacts lookup: %w", e)
+	}
 	m, h, t, e := contactsModels(c.Contacts)
 	if e != nil {
 		return e
+	}
+	m.ID = current.ID
+	m.ResumeID = current.ResumeID
+	if t != nil {
+		t.ContactsID = current.ID
+	}
+	for i := range h {
+		h[i].ContactsID = current.ID
 	}
 	result := tx.WithContext(ctx).Model(&gormmodel.ResumeContacts{}).Where("id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", m.ID, m.ResumeID, c.UserID.UUID()).Updates(map[string]any{"phone": m.Phone, "telegram": m.Telegram, "email": m.Email})
 	if result.Error != nil {

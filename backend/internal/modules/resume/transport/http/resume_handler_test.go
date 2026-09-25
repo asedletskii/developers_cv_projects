@@ -1,4 +1,4 @@
-package list
+package http
 
 import (
 	"context"
@@ -28,12 +28,12 @@ func (r *stubListReader) ListResumes(_ context.Context, query queries.ListResume
 func TestHandlerRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	handler := NewHandler(queries.NewListResumesQueryHandler(&stubListReader{}))
+	handler := newResumeHandler(nil, nil, nil, nil, queries.NewListResumesQueryHandler(&stubListReader{}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, middleware.ErrUnauthenticated
 	}))
-	engine.GET("/api/v1/lk/resumes", handler.Handle)
+	engine.GET("/api/v1/lk/resumes", handler.List)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/resumes", nil)
 	w := httptest.NewRecorder()
@@ -52,13 +52,13 @@ func TestHandlerReturnsCurrentUsersResumes(t *testing.T) {
 			{ID: "resume-a", Title: "Senior Go Developer"},
 		},
 	}
-	handler := NewHandler(queries.NewListResumesQueryHandler(reader))
+	handler := newResumeHandler(nil, nil, nil, nil, queries.NewListResumesQueryHandler(reader))
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	engine.GET("/api/v1/lk/resumes", handler.Handle)
+	engine.GET("/api/v1/lk/resumes", handler.List)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/resumes", nil)
 	w := httptest.NewRecorder()

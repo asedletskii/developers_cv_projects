@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
@@ -19,8 +20,10 @@ type GetSkillsRepositoryCommand struct {
 }
 
 type UpdateSkillsRepositoryCommand struct {
-	Skills *domain.Skills
-	UserID useridentity.ID
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Hard     []enums.HardSkill
+	Soft     []enums.SoftSkill
 }
 
 type CreateSkillsRepository interface {

@@ -45,28 +45,18 @@ type CreateResumeProfileCommand struct {
 	UserID       useridentity.ID
 	Profile      ProfileInput
 }
-type GetResumeProfileCommand struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
 type UpdateResumeProfileCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
 	Profile  ProfileInput
 }
 
-type CreateResumeProfileRepository = ports.CreateResumeProfileRepository
-type CreateResumeProfileRepositoryCommand = ports.CreateResumeProfileRepositoryCommand
-type GetResumeProfileRepository = ports.GetResumeProfileRepository
-type UpdateResumeProfileRepository = ports.UpdateResumeProfileRepository
-type UpdateResumeProfileRepositoryCommand = ports.UpdateResumeProfileRepositoryCommand
-
 type CreateResumeProfileHandler struct {
-	repository CreateResumeProfileRepository
+	repository ports.CreateResumeProfileRepository
 	uow        UnitOfWork
 }
 
-func NewCreateResumeProfileHandler(r CreateResumeProfileRepository, uow UnitOfWork) *CreateResumeProfileHandler {
+func NewCreateResumeProfileHandler(r ports.CreateResumeProfileRepository, uow UnitOfWork) *CreateResumeProfileHandler {
 	return &CreateResumeProfileHandler{repository: r, uow: uow}
 }
 func (h *CreateResumeProfileHandler) Handle(ctx context.Context, c CreateResumeProfileCommand) (valueobjects.ID, error) {
@@ -96,33 +86,29 @@ func (h *CreateResumeProfileHandler) Handle(ctx context.Context, c CreateResumeP
 }
 
 type UpdateResumeProfileHandler struct {
-	repository GetResumeProfileRepository
-	updater    UpdateResumeProfileRepository
-	uow        UnitOfWork
+	updater ports.UpdateResumeProfileRepository
+	uow     UnitOfWork
 }
 
-func NewUpdateResumeProfileHandler(r GetResumeProfileRepository, u UpdateResumeProfileRepository, uow UnitOfWork) *UpdateResumeProfileHandler {
-	return &UpdateResumeProfileHandler{repository: r, updater: u, uow: uow}
+func NewUpdateResumeProfileHandler(u ports.UpdateResumeProfileRepository, uow UnitOfWork) *UpdateResumeProfileHandler {
+	return &UpdateResumeProfileHandler{updater: u, uow: uow}
 }
 func (h *UpdateResumeProfileHandler) Handle(ctx context.Context, c UpdateResumeProfileCommand) error {
-	if h == nil || h.repository == nil || h.updater == nil || h.uow == nil {
+	if h == nil || h.updater == nil || h.uow == nil {
 		return fmt.Errorf("update resume profile handler dependencies are nil")
 	}
 	if c.ResumeID.IsZero() || c.UserID.IsZero() {
 		return fmt.Errorf("invalid update resume profile command")
 	}
+	params, e := c.Profile.params(valueobjects.NewID(), c.ResumeID)
+	if e != nil {
+		return e
+	}
+	current, e := domain.NewProfile(params)
+	if e != nil {
+		return e
+	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, e := h.repository.GetProfile(tx, ports.GetResumeProfileRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
-		if e != nil {
-			return e
-		}
-		params, e := c.Profile.params(current.ID(), current.ResumeID())
-		if e != nil {
-			return e
-		}
-		if e := current.Replace(params); e != nil {
-			return e
-		}
 		return h.updater.UpdateProfile(tx, ports.UpdateResumeProfileRepositoryCommand{Profile: current, UserID: c.UserID})
 	})
 }

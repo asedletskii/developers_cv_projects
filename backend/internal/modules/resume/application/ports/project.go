@@ -20,10 +20,9 @@ type GetProjectRepositoryCommand struct {
 }
 
 type UpdateProjectRepositoryCommand struct {
-	Project   *domain.Project
-	ResumeID  valueobjects.ID
-	ProjectID valueobjects.ID
-	UserID    useridentity.ID
+	Project  *domain.Project
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
 }
 
 type DeleteProjectRepositoryCommand struct {

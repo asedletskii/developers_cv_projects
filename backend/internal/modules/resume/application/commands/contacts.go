@@ -74,18 +74,12 @@ type UpdateResumeContactsCommand struct {
 	Contacts ContactsInput
 }
 
-type CreateResumeContactsRepository = ports.CreateResumeContactsRepository
-type CreateResumeContactsRepositoryCommand = ports.CreateResumeContactsRepositoryCommand
-type GetResumeContactsRepository = ports.GetResumeContactsRepository
-type UpdateResumeContactsRepository = ports.UpdateResumeContactsRepository
-type UpdateResumeContactsRepositoryCommand = ports.UpdateResumeContactsRepositoryCommand
-
 type CreateResumeContactsHandler struct {
-	repository CreateResumeContactsRepository
+	repository ports.CreateResumeContactsRepository
 	uow        UnitOfWork
 }
 
-func NewCreateResumeContactsHandler(r CreateResumeContactsRepository, uow UnitOfWork) *CreateResumeContactsHandler {
+func NewCreateResumeContactsHandler(r ports.CreateResumeContactsRepository, uow UnitOfWork) *CreateResumeContactsHandler {
 	return &CreateResumeContactsHandler{repository: r, uow: uow}
 }
 func (h *CreateResumeContactsHandler) Handle(ctx context.Context, c CreateResumeContactsCommand) (valueobjects.ID, error) {
@@ -115,33 +109,29 @@ func (h *CreateResumeContactsHandler) Handle(ctx context.Context, c CreateResume
 }
 
 type UpdateResumeContactsHandler struct {
-	repository GetResumeContactsRepository
-	updater    UpdateResumeContactsRepository
-	uow        UnitOfWork
+	updater ports.UpdateResumeContactsRepository
+	uow     UnitOfWork
 }
 
-func NewUpdateResumeContactsHandler(r GetResumeContactsRepository, u UpdateResumeContactsRepository, uow UnitOfWork) *UpdateResumeContactsHandler {
-	return &UpdateResumeContactsHandler{repository: r, updater: u, uow: uow}
+func NewUpdateResumeContactsHandler(u ports.UpdateResumeContactsRepository, uow UnitOfWork) *UpdateResumeContactsHandler {
+	return &UpdateResumeContactsHandler{updater: u, uow: uow}
 }
 func (h *UpdateResumeContactsHandler) Handle(ctx context.Context, c UpdateResumeContactsCommand) error {
-	if h == nil || h.repository == nil || h.updater == nil || h.uow == nil {
+	if h == nil || h.updater == nil || h.uow == nil {
 		return fmt.Errorf("update resume contacts handler dependencies are nil")
 	}
 	if c.ResumeID.IsZero() || c.UserID.IsZero() {
 		return fmt.Errorf("invalid update resume contacts command")
 	}
+	params, e := c.Contacts.params(valueobjects.NewID(), c.ResumeID)
+	if e != nil {
+		return e
+	}
+	current, e := domain.NewContacts(params)
+	if e != nil {
+		return e
+	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, e := h.repository.GetContacts(tx, ports.GetResumeContactsRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
-		if e != nil {
-			return e
-		}
-		params, e := c.Contacts.params(current.ID(), current.ResumeID())
-		if e != nil {
-			return e
-		}
-		if e := current.Replace(params); e != nil {
-			return e
-		}
 		return h.updater.UpdateContacts(tx, ports.UpdateResumeContactsRepositoryCommand{UserID: c.UserID, Contacts: current})
 	})
 }

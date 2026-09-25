@@ -11,7 +11,6 @@ import (
 )
 
 type CreateResumeCommand struct {
-	ID       valueobjects.ID
 	UserID   useridentity.ID
 	Title    string
 	Language enums.ResumeLanguage
@@ -39,11 +38,9 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand)
 	if h == nil || h.repository == nil || h.overview == nil || h.uow == nil {
 		return valueobjects.ID{}, fmt.Errorf("create resume handler dependencies are nil")
 	}
-	if c.ID.IsZero() {
-		c.ID = valueobjects.NewID()
-	}
+	resumeID := valueobjects.NewID()
 	err := h.uow.Do(ctx, func(tx context.Context) error {
-		r, e := domain.NewResume(domain.ResumeParams{ID: c.ID, UserID: c.UserID, Title: c.Title, Language: c.Language})
+		r, e := domain.NewResume(domain.ResumeParams{ID: resumeID, UserID: c.UserID, Title: c.Title, Language: c.Language})
 		if e != nil {
 			return e
 		}
@@ -54,40 +51,35 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand)
 		if e != nil {
 			return e
 		}
-		return h.overview.CreateOverview(tx, ports.CreateOverviewRepositoryCommand{ResumeID: c.ID, UserID: c.UserID, Overview: o})
+		return h.overview.CreateOverview(tx, ports.CreateOverviewRepositoryCommand{ResumeID: resumeID, UserID: c.UserID, Overview: o})
 	})
 	if err != nil {
 		return valueobjects.ID{}, err
 	}
-	return c.ID, nil
+	return resumeID, nil
 }
 
 type UpdateResumeHandler struct {
-	repository ports.GetResumeRepository
-	updater    ports.UpdateResumeRepository
-	uow        UnitOfWork
+	updater ports.UpdateResumeRepository
+	uow     UnitOfWork
 }
 
-func NewUpdateResumeHandler(repository ports.GetResumeRepository, updater ports.UpdateResumeRepository, uow UnitOfWork) *UpdateResumeHandler {
-	return &UpdateResumeHandler{repository: repository, updater: updater, uow: uow}
+func NewUpdateResumeHandler(updater ports.UpdateResumeRepository, uow UnitOfWork) *UpdateResumeHandler {
+	return &UpdateResumeHandler{updater: updater, uow: uow}
 }
 
 func (h *UpdateResumeHandler) Handle(ctx context.Context, c UpdateResumeCommand) error {
-	if h == nil || h.repository == nil || h.updater == nil || h.uow == nil {
+	if h == nil || h.updater == nil || h.uow == nil {
 		return fmt.Errorf("update resume handler dependencies are nil")
 	}
 	if c.ResumeID.IsZero() || c.UserID.IsZero() {
 		return fmt.Errorf("invalid update resume command")
 	}
+	if err := domain.ValidateResumeTitle(c.Title); err != nil {
+		return err
+	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		r, err := h.repository.GetResume(tx, ports.GetResumeRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID})
-		if err != nil {
-			return err
-		}
-		if err = r.Rename(c.Title); err != nil {
-			return err
-		}
-		return h.updater.UpdateResume(tx, ports.UpdateResumeRepositoryCommand{Resume: r})
+		return h.updater.UpdateResume(tx, ports.UpdateResumeRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, Title: c.Title})
 	})
 }
 

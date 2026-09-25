@@ -60,7 +60,7 @@ func TestPostgresPrivateReadersEnforceResumeOwnership(t *testing.T) {
 	activities := readers.NewActivityReader(pool)
 	projects := readers.NewProjectsReader(pool)
 	metadata := readers.NewResumeMetadataReader(pool)
-	resumeReader := readers.NewResumeReader(metadata, overview, profile, contacts, skills, languages, technologies, experiences, education, courses, activities, projects)
+	resumeReader := readers.NewResumeReader(readers.ResumeReaderDependencies{Metadata: metadata, Overview: overview, Profile: profile, Contacts: contacts, Skills: skills, Languages: languages, Technologies: technologies, Experiences: experiences, Educations: education, Courses: courses, Activities: activities, Projects: projects})
 
 	_, err = resumeReader.GetResume(ctx, queries.GetResumeQuery{ResumeID: resumeID, UserID: owner})
 	require.NoError(t, err)

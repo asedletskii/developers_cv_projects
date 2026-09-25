@@ -114,10 +114,6 @@ type CreateProjectCommand struct {
 	UserID       useridentity.ID
 	Input        ProjectInput
 }
-type GetProjectCommand struct {
-	ResumeID, ProjectID valueobjects.ID
-	UserID              useridentity.ID
-}
 type UpdateProjectCommand struct {
 	ResumeID, ProjectID valueobjects.ID
 	UserID              useridentity.ID
@@ -128,17 +124,12 @@ type DeleteProjectCommand struct {
 	UserID              useridentity.ID
 }
 
-type CreateProjectRepository = ports.CreateProjectRepository
-type GetProjectRepository = ports.GetProjectRepository
-type UpdateProjectRepository = ports.UpdateProjectRepository
-type DeleteProjectRepository = ports.DeleteProjectRepository
-
 type CreateProjectHandler struct {
-	repository CreateProjectRepository
+	repository ports.CreateProjectRepository
 	uow        UnitOfWork
 }
 
-func NewCreateProjectHandler(repository CreateProjectRepository, uow UnitOfWork) *CreateProjectHandler {
+func NewCreateProjectHandler(repository ports.CreateProjectRepository, uow UnitOfWork) *CreateProjectHandler {
 	return &CreateProjectHandler{repository: repository, uow: uow}
 }
 
@@ -156,38 +147,30 @@ func (h *CreateProjectHandler) Handle(ctx context.Context, command CreateProject
 }
 
 type UpdateProjectHandler struct {
-	get        GetProjectRepository
-	repository UpdateProjectRepository
+	repository ports.UpdateProjectRepository
 	uow        UnitOfWork
 }
 
-func NewUpdateProjectHandler(get GetProjectRepository, repository UpdateProjectRepository, uow UnitOfWork) *UpdateProjectHandler {
-	return &UpdateProjectHandler{get: get, repository: repository, uow: uow}
+func NewUpdateProjectHandler(repository ports.UpdateProjectRepository, uow UnitOfWork) *UpdateProjectHandler {
+	return &UpdateProjectHandler{repository: repository, uow: uow}
 }
 
 func (h *UpdateProjectHandler) Handle(ctx context.Context, command UpdateProjectCommand) error {
+	project, err := projectFromInput(command.Input, command.ProjectID, command.ResumeID)
+	if err != nil {
+		return err
+	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.get.GetProject(tx, ports.GetProjectRepositoryCommand{ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})
-		if err != nil {
-			return err
-		}
-		newProject, err := projectFromInput(command.Input, current.ID(), current.ResumeID())
-		if err != nil {
-			return err
-		}
-		if err := current.Replace(domain.ProjectParams{ID: newProject.ID(), ResumeID: newProject.ResumeID(), Name: newProject.Name(), Description: newProject.Description(), Role: newProject.Role(), Screenshots: newProject.Screenshots(), Link: newProject.Link(), GitLink: newProject.GitLink(), Stack: newProject.Stack(), Contributors: newProject.Contributors()}); err != nil {
-			return err
-		}
-		return h.repository.UpdateProject(tx, ports.UpdateProjectRepositoryCommand{Project: current, ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})
+		return h.repository.UpdateProject(tx, ports.UpdateProjectRepositoryCommand{Project: project, ResumeID: command.ResumeID, UserID: command.UserID})
 	})
 }
 
 type DeleteProjectHandler struct {
-	repository DeleteProjectRepository
+	repository ports.DeleteProjectRepository
 	uow        UnitOfWork
 }
 
-func NewDeleteProjectHandler(repository DeleteProjectRepository, uow UnitOfWork) *DeleteProjectHandler {
+func NewDeleteProjectHandler(repository ports.DeleteProjectRepository, uow UnitOfWork) *DeleteProjectHandler {
 	return &DeleteProjectHandler{repository: repository, uow: uow}
 }
 

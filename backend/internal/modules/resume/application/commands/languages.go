@@ -24,11 +24,6 @@ type CreateLanguageCommand struct {
 	Input        LanguageInput
 }
 
-type GetLanguageCommand struct {
-	ResumeID, LanguageID valueobjects.ID
-	UserID               useridentity.ID
-}
-
 type UpdateLanguageCommand struct {
 	ResumeID, LanguageID valueobjects.ID
 	UserID               useridentity.ID
@@ -40,19 +35,12 @@ type DeleteLanguageCommand struct {
 	UserID               useridentity.ID
 }
 
-type CreateLanguageRepository = ports.CreateLanguageRepository
-type CreateLanguageRepositoryCommand = ports.CreateLanguageRepositoryCommand
-type GetLanguageRepository = ports.GetLanguageRepository
-type UpdateLanguageRepository = ports.UpdateLanguageRepository
-type UpdateLanguageRepositoryCommand = ports.UpdateLanguageRepositoryCommand
-type DeleteLanguageRepository = ports.DeleteLanguageRepository
-
 type CreateLanguageHandler struct {
-	r CreateLanguageRepository
+	r ports.CreateLanguageRepository
 	u UnitOfWork
 }
 
-func NewCreateLanguageHandler(r CreateLanguageRepository, u UnitOfWork) *CreateLanguageHandler {
+func NewCreateLanguageHandler(r ports.CreateLanguageRepository, u UnitOfWork) *CreateLanguageHandler {
 	return &CreateLanguageHandler{r: r, u: u}
 }
 
@@ -78,37 +66,33 @@ func (h *CreateLanguageHandler) Handle(ctx context.Context, c CreateLanguageComm
 }
 
 type UpdateLanguageHandler struct {
-	r   GetLanguageRepository
-	u   UpdateLanguageRepository
+	u   ports.UpdateLanguageRepository
 	uow UnitOfWork
 }
 
-func NewUpdateLanguageHandler(r GetLanguageRepository, u UpdateLanguageRepository, uow UnitOfWork) *UpdateLanguageHandler {
-	return &UpdateLanguageHandler{r: r, u: u, uow: uow}
+func NewUpdateLanguageHandler(u ports.UpdateLanguageRepository, uow UnitOfWork) *UpdateLanguageHandler {
+	return &UpdateLanguageHandler{u: u, uow: uow}
 }
 
 func (h *UpdateLanguageHandler) Handle(ctx context.Context, c UpdateLanguageCommand) error {
-	if h == nil || h.r == nil || h.u == nil || h.uow == nil {
+	if h == nil || h.u == nil || h.uow == nil {
 		return fmt.Errorf("update language dependencies are nil")
 	}
+	entity, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: c.LanguageID, Language: c.Input.Language, Grade: c.Input.Grade, Position: c.Input.Position})
+	if err != nil {
+		return err
+	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		current, err := h.r.GetLanguage(tx, ports.GetLanguageRepositoryCommand{ResumeID: c.ResumeID, LanguageID: c.LanguageID, UserID: c.UserID})
-		if err != nil {
-			return err
-		}
-		if err := current.Replace(domain.ResumeLanguageEntryParams{ID: current.ID(), Language: c.Input.Language, Grade: c.Input.Grade, Position: c.Input.Position}); err != nil {
-			return err
-		}
-		return h.u.UpdateLanguage(tx, ports.UpdateLanguageRepositoryCommand{Language: current, ResumeID: c.ResumeID, UserID: c.UserID})
+		return h.u.UpdateLanguage(tx, ports.UpdateLanguageRepositoryCommand{Language: entity, ResumeID: c.ResumeID, UserID: c.UserID})
 	})
 }
 
 type DeleteLanguageHandler struct {
-	r DeleteLanguageRepository
+	r ports.DeleteLanguageRepository
 	u UnitOfWork
 }
 
-func NewDeleteLanguageHandler(r DeleteLanguageRepository, u UnitOfWork) *DeleteLanguageHandler {
+func NewDeleteLanguageHandler(r ports.DeleteLanguageRepository, u UnitOfWork) *DeleteLanguageHandler {
 	return &DeleteLanguageHandler{r: r, u: u}
 }
 

@@ -16,10 +16,28 @@ type resumeHandler struct {
 	get    *queries.GetResumeQueryHandler
 	update *commands.UpdateResumeHandler
 	delete *commands.DeleteResumeHandler
+	list   *queries.ListResumesQueryHandler
 }
 
-func newResumeHandler(c *commands.CreateResumeHandler, g *queries.GetResumeQueryHandler, u *commands.UpdateResumeHandler, d *commands.DeleteResumeHandler) *resumeHandler {
-	return &resumeHandler{create: c, get: g, update: u, delete: d}
+func newResumeHandler(c *commands.CreateResumeHandler, g *queries.GetResumeQueryHandler, u *commands.UpdateResumeHandler, d *commands.DeleteResumeHandler, l *queries.ListResumesQueryHandler) *resumeHandler {
+	return &resumeHandler{create: c, get: g, update: u, delete: d, list: l}
+}
+
+func (h *resumeHandler) List(c *gin.Context) {
+	if h == nil || h.list == nil {
+		common.WriteError(c, errors.New("list resumes handler dependencies are nil"))
+		return
+	}
+	userID, ok := common.RequireUserID(c)
+	if !ok {
+		return
+	}
+	items, err := h.list.Handle(c.Request.Context(), queries.ListResumesQuery{UserID: userID})
+	if err != nil {
+		common.WriteError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, items)
 }
 
 type createResumeRequest struct {

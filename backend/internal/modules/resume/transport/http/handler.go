@@ -11,7 +11,6 @@ import (
 	educationHandler "developers-cv/backend/internal/modules/resume/transport/http/educations"
 	experiencesHandler "developers-cv/backend/internal/modules/resume/transport/http/experiences"
 	languagesHandler "developers-cv/backend/internal/modules/resume/transport/http/languages"
-	listhandler "developers-cv/backend/internal/modules/resume/transport/http/list"
 	overviewhandler "developers-cv/backend/internal/modules/resume/transport/http/overview"
 	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
 	projectsHandler "developers-cv/backend/internal/modules/resume/transport/http/projects"
@@ -21,7 +20,6 @@ import (
 )
 
 type Handler struct {
-	list         *listhandler.Handler
 	resume       *resumeHandler
 	overview     *overviewhandler.Handler
 	profile      *profilehandler.Handler
@@ -37,49 +35,50 @@ type Handler struct {
 	public       *publichandler.Handler
 }
 
-func NewHandler(
-	listResumes *queries.ListResumesQueryHandler,
-	createResume *commands.CreateResumeHandler,
-	getResume *queries.GetResumeQueryHandler,
-	updateResume *commands.UpdateResumeHandler,
-	deleteResume *commands.DeleteResumeHandler,
-	getOverview *queries.GetOverviewQueryHandler,
-	updateOverview *commands.UpdateOverviewHandler,
-	createProfile *commands.CreateResumeProfileHandler,
-	getProfile *queries.GetResumeProfileQueryHandler,
-	updateProfile *commands.UpdateResumeProfileHandler,
-	createContacts *commands.CreateResumeContactsHandler,
-	getContacts *queries.GetResumeContactsQueryHandler,
-	updateContacts *commands.UpdateResumeContactsHandler,
-	skills *skillsHandler.Handler,
-	languages *languagesHandler.Handler,
-	technologies *technologiesHandler.Handler,
-	experiences *experiencesHandler.Handler,
-	education *educationHandler.Handler,
-	courses *coursesHandler.Handler,
-	activities *activitiesHandler.Handler,
-	projects *projectsHandler.Handler,
-	public *publichandler.Handler,
-) *Handler {
+type HandlerDependencies struct {
+	ListResumes    *queries.ListResumesQueryHandler
+	CreateResume   *commands.CreateResumeHandler
+	GetResume      *queries.GetResumeQueryHandler
+	UpdateResume   *commands.UpdateResumeHandler
+	DeleteResume   *commands.DeleteResumeHandler
+	GetOverview    *queries.GetOverviewQueryHandler
+	UpdateOverview *commands.UpdateOverviewHandler
+	CreateProfile  *commands.CreateResumeProfileHandler
+	GetProfile     *queries.GetResumeProfileQueryHandler
+	UpdateProfile  *commands.UpdateResumeProfileHandler
+	CreateContacts *commands.CreateResumeContactsHandler
+	GetContacts    *queries.GetResumeContactsQueryHandler
+	UpdateContacts *commands.UpdateResumeContactsHandler
+	Skills         *skillsHandler.Handler
+	Languages      *languagesHandler.Handler
+	Technologies   *technologiesHandler.Handler
+	Experiences    *experiencesHandler.Handler
+	Education      *educationHandler.Handler
+	Courses        *coursesHandler.Handler
+	Activities     *activitiesHandler.Handler
+	Projects       *projectsHandler.Handler
+	Public         *publichandler.Handler
+}
+
+func NewHandler(deps HandlerDependencies) *Handler {
 	return &Handler{
-		list:         listhandler.NewHandler(listResumes),
-		resume:       newResumeHandler(createResume, getResume, updateResume, deleteResume),
-		overview:     overviewhandler.NewHandler(getOverview, updateOverview),
-		profile:      profilehandler.NewHandler(createProfile, getProfile, updateProfile),
-		contacts:     contactshandler.NewHandler(createContacts, getContacts, updateContacts),
-		skills:       skills,
-		languages:    languages,
-		technologies: technologies,
-		experiences:  experiences,
-		education:    education,
-		courses:      courses,
-		activities:   activities,
-		projects:     projects,
-		public:       public,
+		resume:       newResumeHandler(deps.CreateResume, deps.GetResume, deps.UpdateResume, deps.DeleteResume, deps.ListResumes),
+		overview:     overviewhandler.NewHandler(deps.GetOverview, deps.UpdateOverview),
+		profile:      profilehandler.NewHandler(deps.CreateProfile, deps.GetProfile, deps.UpdateProfile),
+		contacts:     contactshandler.NewHandler(deps.CreateContacts, deps.GetContacts, deps.UpdateContacts),
+		skills:       deps.Skills,
+		languages:    deps.Languages,
+		technologies: deps.Technologies,
+		experiences:  deps.Experiences,
+		education:    deps.Education,
+		courses:      deps.Courses,
+		activities:   deps.Activities,
+		projects:     deps.Projects,
+		public:       deps.Public,
 	}
 }
 
-func (h *Handler) ListResumes(c *gin.Context)          { h.list.Handle(c) }
+func (h *Handler) ListResumes(c *gin.Context)          { h.resume.List(c) }
 func (h *Handler) GetPublicResume(c *gin.Context)      { h.public.Handle(c) }
 func (h *Handler) CreateResume(c *gin.Context)         { h.resume.Create(c) }
 func (h *Handler) GetResume(c *gin.Context)            { h.resume.Get(c) }

@@ -1,18 +1,15 @@
 package projects
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
-	apperrors "developers-cv/backend/internal/platform/http/errors"
 )
 
 type Handler struct {
@@ -40,7 +37,7 @@ func (h *Handler) Create(c *gin.Context) {
 	input := projectInput(body)
 	id, err := h.create.Handle(c.Request.Context(), commands.CreateProjectCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: input})
 	if err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
@@ -53,7 +50,7 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	items, err := h.list.Handle(c.Request.Context(), queries.ListProjectsQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	out := make([]ProjectResponse, len(items))
@@ -70,7 +67,7 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 	item, err := h.get.Handle(c.Request.Context(), queries.GetProjectQuery{ResumeID: rid, ProjectID: id, UserID: uid})
 	if err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, projectQueryView(item))
@@ -88,7 +85,7 @@ func (h *Handler) Update(c *gin.Context) {
 	}
 	input := projectInput(body)
 	if err := h.update.Handle(c.Request.Context(), commands.UpdateProjectCommand{ResumeID: rid, ProjectID: id, UserID: uid, Input: input}); err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -100,7 +97,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.delete.Handle(c.Request.Context(), commands.DeleteProjectCommand{ResumeID: rid, ProjectID: id, UserID: uid}); err != nil {
-		write(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -126,16 +123,4 @@ func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID,
 		return uid, rid, valueobjects.ID{}, false
 	}
 	return uid, rid, id, true
-}
-
-func write(c *gin.Context, err error) {
-	if errors.Is(err, domain.ErrEntityNotFound) {
-		common.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))
-		return
-	}
-	if errors.Is(err, domain.ErrDuplicateEntity) {
-		common.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume resource already exists"))
-		return
-	}
-	common.WriteCommandError(c, err)
 }
