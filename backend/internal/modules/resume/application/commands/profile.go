@@ -6,14 +6,44 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
+type ProfileInput struct {
+	ResumeID    valueobjects.ID
+	Name        string
+	Surname     string
+	Patronymic  *string
+	Position    string
+	PhotoPath   string
+	DateOfBirth string
+	Location    string
+	Relocation  bool
+	WorkFormats []string
+}
+
+func (i ProfileInput) params(id, resumeID valueobjects.ID) (domain.ProfileParams, error) {
+	dob, err := valueobjects.ParseDate(i.DateOfBirth)
+	if err != nil {
+		return domain.ProfileParams{}, err
+	}
+	photo, err := valueobjects.NewAssetPath(i.PhotoPath)
+	if err != nil {
+		return domain.ProfileParams{}, err
+	}
+	formats := make([]enums.WorkFormat, len(i.WorkFormats))
+	for n, v := range i.WorkFormats {
+		formats[n] = enums.WorkFormat(v)
+	}
+	return domain.ProfileParams{ID: id, ResumeID: resumeID, Name: i.Name, Surname: i.Surname, Patronymic: i.Patronymic, Position: i.Position, PhotoPath: photo, DateOfBirth: dob, Location: i.Location, Relocation: i.Relocation, WorkFormats: formats}, nil
+}
+
 type CreateResumeProfileCommand struct {
 	ID, ResumeID valueobjects.ID
 	UserID       useridentity.ID
-	Profile      domain.ProfileParams
+	Profile      ProfileInput
 }
 type GetResumeProfileCommand struct {
 	ResumeID valueobjects.ID
@@ -22,7 +52,7 @@ type GetResumeProfileCommand struct {
 type UpdateResumeProfileCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
-	Profile  domain.ProfileParams
+	Profile  ProfileInput
 }
 
 type CreateResumeProfileRepository = ports.CreateResumeProfileRepository
@@ -46,11 +76,13 @@ func (h *CreateResumeProfileHandler) Handle(ctx context.Context, c CreateResumeP
 	if c.ID.IsZero() {
 		c.ID = valueobjects.NewID()
 	}
-	c.Profile.ID = c.ID
-	c.Profile.ResumeID = c.ResumeID
 	var created *domain.Profile
-	err := h.uow.Do(ctx, func(tx context.Context) error {
-		p, e := domain.NewProfile(c.Profile)
+	params, err := c.Profile.params(c.ID, c.ResumeID)
+	if err != nil {
+		return valueobjects.ID{}, err
+	}
+	err = h.uow.Do(ctx, func(tx context.Context) error {
+		p, e := domain.NewProfile(params)
 		if e != nil {
 			return e
 		}
@@ -84,7 +116,11 @@ func (h *UpdateResumeProfileHandler) Handle(ctx context.Context, c UpdateResumeP
 		if e != nil {
 			return e
 		}
-		if e := current.Replace(c.Profile); e != nil {
+		params, e := c.Profile.params(current.ID(), current.ResumeID())
+		if e != nil {
+			return e
+		}
+		if e := current.Replace(params); e != nil {
 			return e
 		}
 		return h.updater.UpdateProfile(tx, ports.UpdateResumeProfileRepositoryCommand{Profile: current, UserID: c.UserID})

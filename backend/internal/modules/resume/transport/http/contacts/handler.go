@@ -9,8 +9,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/entities"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
@@ -59,56 +57,20 @@ type LocalizedTextResponse struct {
 	EN string `json:"en"`
 }
 
-func (r Request) params(rid valueobjects.ID) (domain.ContactsParams, error) {
-	var tg *valueobjects.Telegram
-	if r.Telegram != nil {
-		x, e := valueobjects.NewTelegram(*r.Telegram)
-		if e != nil {
-			return domain.ContactsParams{}, e
-		}
-		tg = &x
-	}
-	var em *valueobjects.Email
-	if r.Email != nil {
-		x, e := valueobjects.NewEmail(*r.Email)
-		if e != nil {
-			return domain.ContactsParams{}, e
-		}
-		em = &x
-	}
-	cs, e := entities.NewContacts(entities.ContactsParams{Phone: stringValue(r.Phone), Telegram: tg, Email: em})
-	if e != nil {
-		return domain.ContactsParams{}, e
-	}
-	hidden := make([]enums.ContactKey, len(r.HiddenContacts))
-	for i, v := range r.HiddenContacts {
-		hidden[i] = enums.ContactKey(v)
-	}
-	var text *valueobjects.ContactsText
+func (r Request) input() commands.ContactsInput {
+	var text *commands.ContactsTextInput
 	if r.ContactsText != nil {
-		var title, subtitle *valueobjects.LocalizedText
+		text = &commands.ContactsTextInput{}
 		if r.ContactsText.Title != nil {
-			x, e := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: r.ContactsText.Title.RU, EN: r.ContactsText.Title.EN})
-			if e != nil {
-				return domain.ContactsParams{}, e
-			}
-			title = &x
+			text.Title = &commands.LocalizedTextInput{RU: r.ContactsText.Title.RU, EN: r.ContactsText.Title.EN}
 		}
 		if r.ContactsText.Subtitle != nil {
-			x, e := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: r.ContactsText.Subtitle.RU, EN: r.ContactsText.Subtitle.EN})
-			if e != nil {
-				return domain.ContactsParams{}, e
-			}
-			subtitle = &x
+			text.Subtitle = &commands.LocalizedTextInput{RU: r.ContactsText.Subtitle.RU, EN: r.ContactsText.Subtitle.EN}
 		}
-		x, e := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: title, Subtitle: subtitle})
-		if e != nil {
-			return domain.ContactsParams{}, e
-		}
-		text = &x
 	}
-	return domain.ContactsParams{ResumeID: rid, Contacts: cs, HiddenContacts: hidden, Text: text}, nil
+	return commands.ContactsInput{Phone: r.Phone, Telegram: r.Telegram, Email: r.Email, HiddenContacts: r.HiddenContacts, ContactsText: text}
 }
+
 func (h *Handler) Create(c *gin.Context) { h.handleCreate(c) }
 func (h *Handler) handleCreate(c *gin.Context) {
 	if h == nil || h.create == nil || h.get == nil {
@@ -128,12 +90,8 @@ func (h *Handler) handleCreate(c *gin.Context) {
 		common.WriteInvalidBody(c)
 		return
 	}
-	p, e := b.params(rid)
-	if e != nil {
-		common.WriteCommandError(c, e)
-		return
-	}
-	_, e = h.create.Handle(c.Request.Context(), commands.CreateResumeContactsCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Contacts: p})
+	p := b.input()
+	_, e := h.create.Handle(c.Request.Context(), commands.CreateResumeContactsCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Contacts: p})
 	if e != nil {
 		writeError(c, e)
 		return
@@ -183,12 +141,8 @@ func (h *Handler) Update(c *gin.Context) {
 		common.WriteInvalidBody(c)
 		return
 	}
-	p, e := b.params(rid)
-	if e != nil {
-		common.WriteCommandError(c, e)
-		return
-	}
-	if e = h.update.Handle(c.Request.Context(), commands.UpdateResumeContactsCommand{ResumeID: rid, UserID: uid, Contacts: p}); e != nil {
+	p := b.input()
+	if e := h.update.Handle(c.Request.Context(), commands.UpdateResumeContactsCommand{ResumeID: rid, UserID: uid, Contacts: p}); e != nil {
 		writeError(c, e)
 		return
 	}
@@ -205,10 +159,4 @@ func writeError(c *gin.Context, e error) {
 		return
 	}
 	common.WriteCommandError(c, e)
-}
-func stringValue(v *string) string {
-	if v == nil {
-		return ""
-	}
-	return *v
 }

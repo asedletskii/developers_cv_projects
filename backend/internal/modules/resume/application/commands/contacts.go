@@ -6,23 +6,88 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/entities"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
+type ContactsInput struct {
+	Phone          *string
+	Telegram       *string
+	Email          *string
+	HiddenContacts []string
+	ContactsText   *ContactsTextInput
+}
+type ContactsTextInput struct{ Title, Subtitle *LocalizedTextInput }
+type LocalizedTextInput struct{ RU, EN string }
+
+func (i ContactsInput) params(id, resumeID valueobjects.ID) (domain.ContactsParams, error) {
+	var tg *valueobjects.Telegram
+	if i.Telegram != nil {
+		v, e := valueobjects.NewTelegram(*i.Telegram)
+		if e != nil {
+			return domain.ContactsParams{}, e
+		}
+		tg = &v
+	}
+	var em *valueobjects.Email
+	if i.Email != nil {
+		v, e := valueobjects.NewEmail(*i.Email)
+		if e != nil {
+			return domain.ContactsParams{}, e
+		}
+		em = &v
+	}
+	cs, e := entities.NewContacts(entities.ContactsParams{Phone: stringValue(i.Phone), Telegram: tg, Email: em})
+	if e != nil {
+		return domain.ContactsParams{}, e
+	}
+	hidden := make([]enums.ContactKey, len(i.HiddenContacts))
+	for n, v := range i.HiddenContacts {
+		hidden[n] = enums.ContactKey(v)
+	}
+	var text *valueobjects.ContactsText
+	if i.ContactsText != nil {
+		var title, subtitle *valueobjects.LocalizedText
+		if i.ContactsText.Title != nil {
+			v, e := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: i.ContactsText.Title.RU, EN: i.ContactsText.Title.EN})
+			if e != nil {
+				return domain.ContactsParams{}, e
+			}
+			title = &v
+		}
+		if i.ContactsText.Subtitle != nil {
+			v, e := valueobjects.NewLocalizedText(valueobjects.LocalizedTextParams{RU: i.ContactsText.Subtitle.RU, EN: i.ContactsText.Subtitle.EN})
+			if e != nil {
+				return domain.ContactsParams{}, e
+			}
+			subtitle = &v
+		}
+		v, e := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: title, Subtitle: subtitle})
+		if e != nil {
+			return domain.ContactsParams{}, e
+		}
+		text = &v
+	}
+	return domain.ContactsParams{ID: id, ResumeID: resumeID, Contacts: cs, HiddenContacts: hidden, Text: text}, nil
+}
+func stringValue(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
 type CreateResumeContactsCommand struct {
 	ID, ResumeID valueobjects.ID
 	UserID       useridentity.ID
-	Contacts     domain.ContactsParams
-}
-type GetResumeContactsCommand struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
+	Contacts     ContactsInput
 }
 type UpdateResumeContactsCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
-	Contacts domain.ContactsParams
+	Contacts ContactsInput
 }
 
 type CreateResumeContactsRepository = ports.CreateResumeContactsRepository
@@ -46,11 +111,13 @@ func (h *CreateResumeContactsHandler) Handle(ctx context.Context, c CreateResume
 	if c.ID.IsZero() {
 		c.ID = valueobjects.NewID()
 	}
-	c.Contacts.ID = c.ID
-	c.Contacts.ResumeID = c.ResumeID
 	var created *domain.Contacts
+	params, e := c.Contacts.params(c.ID, c.ResumeID)
+	if e != nil {
+		return valueobjects.ID{}, e
+	}
 	err := h.uow.Do(ctx, func(tx context.Context) error {
-		a, e := domain.NewContacts(c.Contacts)
+		a, e := domain.NewContacts(params)
 		if e != nil {
 			return e
 		}
@@ -84,7 +151,11 @@ func (h *UpdateResumeContactsHandler) Handle(ctx context.Context, c UpdateResume
 		if e != nil {
 			return e
 		}
-		if e := current.Replace(c.Contacts); e != nil {
+		params, e := c.Contacts.params(current.ID(), current.ResumeID())
+		if e != nil {
+			return e
+		}
+		if e := current.Replace(params); e != nil {
 			return e
 		}
 		return h.updater.UpdateContacts(tx, ports.UpdateResumeContactsRepositoryCommand{UserID: c.UserID, Contacts: current})

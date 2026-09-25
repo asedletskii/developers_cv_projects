@@ -4,7 +4,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
@@ -49,21 +48,10 @@ type Response struct {
 	WorkFormat  []string `json:"workFormat"`
 }
 
-func (r Request) params(resumeID valueobjects.ID) (domain.ProfileParams, error) {
-	dob, e := valueobjects.ParseDate(r.DateOfBirth)
-	if e != nil {
-		return domain.ProfileParams{}, e
-	}
-	photo, e := valueobjects.NewAssetPath(r.PhotoPath)
-	if e != nil {
-		return domain.ProfileParams{}, e
-	}
-	fs := make([]enums.WorkFormat, len(r.WorkFormat))
-	for i, v := range r.WorkFormat {
-		fs[i] = enums.WorkFormat(v)
-	}
-	return domain.ProfileParams{ResumeID: resumeID, Name: r.Name, Surname: r.Surname, Patronymic: r.Patronymic, Position: r.Position, PhotoPath: photo, DateOfBirth: dob, Location: r.Location, Relocation: r.Relocation, WorkFormats: fs}, nil
+func (r Request) input() commands.ProfileInput {
+	return commands.ProfileInput{Name: r.Name, Surname: r.Surname, Patronymic: r.Patronymic, Position: r.Position, PhotoPath: r.PhotoPath, DateOfBirth: r.DateOfBirth, Location: r.Location, Relocation: r.Relocation, WorkFormats: r.WorkFormat}
 }
+
 func (h *Handler) Create(c *gin.Context) {
 	if h == nil || h.create == nil || h.get == nil {
 		common.WriteError(c, errors.New("create profile handler dependencies are nil"))
@@ -82,11 +70,7 @@ func (h *Handler) Create(c *gin.Context) {
 		common.WriteInvalidBody(c)
 		return
 	}
-	params, e := body.params(rid)
-	if e != nil {
-		common.WriteCommandError(c, e)
-		return
-	}
+	params := body.input()
 	id, e := h.create.Handle(c.Request.Context(), commands.CreateResumeProfileCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Profile: params})
 	if e != nil {
 		writeProfileError(c, e)
@@ -138,12 +122,8 @@ func (h *Handler) Update(c *gin.Context) {
 		common.WriteInvalidBody(c)
 		return
 	}
-	params, e := body.params(rid)
-	if e != nil {
-		common.WriteCommandError(c, e)
-		return
-	}
-	if e = h.update.Handle(c.Request.Context(), commands.UpdateResumeProfileCommand{ResumeID: rid, UserID: uid, Profile: params}); e != nil {
+	params := body.input()
+	if e := h.update.Handle(c.Request.Context(), commands.UpdateResumeProfileCommand{ResumeID: rid, UserID: uid, Profile: params}); e != nil {
 		writeProfileError(c, e)
 		return
 	}

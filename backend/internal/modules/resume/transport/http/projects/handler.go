@@ -9,8 +9,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/entities"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
@@ -99,11 +97,7 @@ func (h *Handler) Create(c *gin.Context) {
 		common.WriteInvalidBody(c)
 		return
 	}
-	input, err := projectInput(body)
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
+	input := projectInput(body)
 	id, err := h.create.Handle(c.Request.Context(), commands.CreateProjectCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: input})
 	if err != nil {
 		write(c, err)
@@ -157,11 +151,7 @@ func (h *Handler) Update(c *gin.Context) {
 		common.WriteInvalidBody(c)
 		return
 	}
-	input, err := projectInput(body)
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
+	input := projectInput(body)
 	if err := h.update.Handle(c.Request.Context(), commands.UpdateProjectCommand{ResumeID: rid, ProjectID: id, UserID: uid, Input: input}); err != nil {
 		write(c, err)
 		return
@@ -186,83 +176,16 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func projectInput(body ProjectRequest) (commands.ProjectInput, error) {
-	stack := make([]entities.Technology, 0, len(body.Stack))
-	for _, item := range body.Stack {
-		var grade *enums.TechnologyGrade
-		if item.Grade != nil {
-			value := enums.TechnologyGrade(*item.Grade)
-			grade = &value
-		}
-		technology, err := entities.NewTechnology(entities.TechnologyParams{Name: item.Name, Grade: grade})
-		if err != nil {
-			return commands.ProjectInput{}, err
-		}
-		stack = append(stack, technology)
+func projectInput(body ProjectRequest) commands.ProjectInput {
+	stack := make([]commands.ProjectTechnologyInput, len(body.Stack))
+	for i, v := range body.Stack {
+		stack[i] = commands.ProjectTechnologyInput{Name: v.Name, Grade: v.Grade}
 	}
-
-	screenshots := make([]valueobjects.AssetPath, 0, len(body.Screenshots))
-	for _, path := range body.Screenshots {
-		value, err := valueobjects.NewAssetPath(path)
-		if err != nil {
-			return commands.ProjectInput{}, err
-		}
-		screenshots = append(screenshots, value)
+	contributors := make([]commands.ProjectContributorInput, len(body.Contributors))
+	for i, v := range body.Contributors {
+		contributors[i] = commands.ProjectContributorInput{Name: v.Name, Surname: v.Surname, Role: v.Role, Contacts: commands.ProjectContactsInput{Phone: v.Contacts.Phone, Telegram: v.Contacts.Telegram, Email: v.Contacts.Email}}
 	}
-
-	var link, gitLink *valueobjects.ExternalURL
-	if body.Link != nil {
-		value, err := valueobjects.NewExternalURL(*body.Link)
-		if err != nil {
-			return commands.ProjectInput{}, err
-		}
-		link = &value
-	}
-	if body.GitLink != nil {
-		value, err := valueobjects.NewExternalURL(*body.GitLink)
-		if err != nil {
-			return commands.ProjectInput{}, err
-		}
-		gitLink = &value
-	}
-
-	contributors := make([]entities.Contributor, 0, len(body.Contributors))
-	for _, item := range body.Contributors {
-		contacts, err := contributorContacts(item.Contacts)
-		if err != nil {
-			return commands.ProjectInput{}, err
-		}
-		contributor, err := entities.NewContributor(entities.ContributorParams{Name: item.Name, Surname: item.Surname, Role: item.Role, Contacts: contacts})
-		if err != nil {
-			return commands.ProjectInput{}, err
-		}
-		contributors = append(contributors, contributor)
-	}
-
-	return commands.ProjectInput{Name: body.Name, Description: body.Description, Role: body.Role, Screenshots: screenshots, Link: link, GitLink: gitLink, Stack: stack, Contributors: contributors}, nil
-}
-
-func contributorContacts(input ContactsRequest) (entities.Contacts, error) {
-	var telegram *valueobjects.Telegram
-	if input.Telegram != nil {
-		value, err := valueobjects.NewTelegram(*input.Telegram)
-		if err != nil {
-			return entities.Contacts{}, err
-		}
-		telegram = &value
-	}
-	var email *valueobjects.Email
-	if input.Email != nil {
-		value, err := valueobjects.NewEmail(*input.Email)
-		if err != nil {
-			return entities.Contacts{}, err
-		}
-		email = &value
-	}
-	if input.Phone == "" && telegram == nil && email == nil {
-		return entities.EmptyContacts(), nil
-	}
-	return entities.NewContacts(entities.ContactsParams{Phone: input.Phone, Telegram: telegram, Email: email})
+	return commands.ProjectInput{Name: body.Name, Description: body.Description, Role: body.Role, Screenshots: body.Screenshots, Link: body.Link, GitLink: body.GitLink, Stack: stack, Contributors: contributors}
 }
 
 func projectQueryView(item queries.ProjectView) ProjectResponse {
