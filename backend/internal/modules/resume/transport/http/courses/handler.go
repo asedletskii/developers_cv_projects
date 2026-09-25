@@ -54,12 +54,7 @@ func (h *Handler) Create(c *gin.Context) {
 		write(c, err)
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), queries.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
-	if err != nil {
-		write(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, item)
+	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 func (h *Handler) List(c *gin.Context) {
 	uid, rid, ok := ids(c)
@@ -104,12 +99,7 @@ func (h *Handler) Update(c *gin.Context) {
 		write(c, err)
 		return
 	}
-	item, err := h.get.Handle(c.Request.Context(), queries.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
-	if err != nil {
-		write(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, item)
+	c.Status(http.StatusNoContent)
 }
 func (h *Handler) Delete(c *gin.Context) {
 	uid, rid, id, ok := itemIDs(c)
