@@ -4,7 +4,6 @@ package persistence_test
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/commands"
 	"os"
 	"path/filepath"
 	"sort"
@@ -139,23 +138,26 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 	applyMigrations(t, ctx, dsn)
-	gormDB, err := database.NewGORM(dsn)
+
+	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
 	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
+
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
 	owner := useridentity.NewID()
 	foreign := useridentity.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	insertResumeTestUser(t, ctx, dsn, foreign)
 	rootRepo := repository.NewResumeRootRepository(gormDB)
-	contactsRepo := repository.NewContactsRepository(gormDB)
-	skillsRepo := repository.NewSkillsRepository(gormDB)
-	languagesRepo := repository.NewLanguagesRepository(gormDB)
-	technologiesRepo := repository.NewTechnologiesRepository(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
+	contactsRepo := repository.NewContactsRepository(gormDB)
 	root := newTestRoot(t, owner)
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
@@ -189,9 +191,6 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 
 	beforeRoot, err := rootRepo.GetRoot(ctx, ports.GetResumeRootRepositoryCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
-	var beforeUpdatedAt time.Time
-	require.NoError(t, conn.QueryRow(ctx, "SELECT updated_at FROM resume_roots WHERE id = $1", root.ID().UUID()).Scan(&beforeUpdatedAt))
-	time.Sleep(time.Millisecond)
 	updatedEmail, err := valueobjects.NewEmail("updated@example.com")
 	require.NoError(t, err)
 	updatedEntity, err := entities.NewContacts(entities.ContactsParams{Email: &updatedEmail})
@@ -203,9 +202,10 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	}))
 	afterRoot, err := rootRepo.GetRoot(ctx, ports.GetResumeRootRepositoryCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
-	var afterUpdatedAt time.Time
-	require.NoError(t, conn.QueryRow(ctx, "SELECT updated_at FROM resume_roots WHERE id = $1", root.ID().UUID()).Scan(&afterUpdatedAt))
-	require.True(t, afterUpdatedAt.After(beforeUpdatedAt))
+	loadedUpdated, err := contactsRepo.GetContacts(ctx, ports.GetResumeContactsRepositoryCommand{ResumeID: root.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, "updated@example.com", loadedUpdated.Contacts().Email().String())
+	require.Equal(t, []enums.ContactKey{enums.ContactKeyEmail}, loadedUpdated.HiddenContacts())
 	require.Equal(t, beforeRoot.Presentation().Greeting.First().RU(), afterRoot.Presentation().Greeting.First().RU())
 	require.Equal(t, beforeRoot.Presentation().Sections, afterRoot.Presentation().Sections)
 }
@@ -228,19 +228,12 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	var hardCount, softCount, languageCount, technologyCount int
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&hardCount))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&softCount))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_languages").Scan(&languageCount))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_technologies").Scan(&technologyCount))
-	require.Greater(t, hardCount, 0)
-	require.Greater(t, softCount, 0)
-	require.Greater(t, languageCount, 0)
-	require.Greater(t, technologyCount, 0)
-
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
 
 	owner := useridentity.NewID()
 	foreign := useridentity.NewID()
@@ -248,13 +241,11 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	insertResumeTestUser(t, ctx, dsn, foreign)
 
 	rootRepo := repository.NewResumeRootRepository(gormDB)
-	contactsRepo := repository.NewContactsRepository(gormDB)
+	languagesReader := readers.NewLanguagesReader(pool)
+	uow := database.NewUnitOfWork(gormDB)
 	skillsRepo := repository.NewSkillsRepository(gormDB)
 	languagesRepo := repository.NewLanguagesRepository(gormDB)
 	technologiesRepo := repository.NewTechnologiesRepository(gormDB)
-	languagesReader := readers.NewLanguagesReader(pool)
-	technologiesReader := readers.NewTechnologiesReader(pool)
-	uow := database.NewUnitOfWork(gormDB)
 	root := newTestRoot(t, owner)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return rootRepo.CreateRoot(tx, ports.CreateResumeRootRepositoryCommand{Resume: root})
@@ -265,12 +256,17 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	skills, err := domain.NewSkills(domain.SkillsParams{ID: valueobjects.NewID(), ResumeID: root.ID(), Hard: hard, Soft: soft})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return skillsRepo.CreateSkills(tx, skills, owner)
+		return skillsRepo.CreateSkills(tx, ports.CreateSkillsRepositoryCommand{Skills: skills, UserID: owner})
 	}))
 	loadedSkills, err := skillsRepo.GetSkills(ctx, ports.GetSkillsRepositoryCommand{ResumeID: root.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, hard, loadedSkills.HardSkills())
 	require.Equal(t, soft, loadedSkills.SoftSkills())
+	var hardCount, softCount int
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&hardCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&softCount))
+	require.Equal(t, 2, hardCount)
+	require.Equal(t, 2, softCount)
 	_, err = skillsRepo.GetSkills(ctx, ports.GetSkillsRepositoryCommand{ResumeID: root.ID(), UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
@@ -284,6 +280,9 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, languages, 1)
 	require.Equal(t, languageID.String(), languages[0].ID)
+	var languageCount int
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_languages").Scan(&languageCount))
+	require.Equal(t, 1, languageCount)
 	_, err = languagesRepo.GetLanguage(ctx, ports.GetLanguageRepositoryCommand{ResumeID: root.ID(), LanguageID: languageID, UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
@@ -296,6 +295,9 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	loadedTechnology, err := technologiesRepo.GetTechnology(ctx, ports.GetTechnologyRepositoryCommand{ResumeID: root.ID(), TechnologyID: technologyID, UserID: owner})
 	require.NoError(t, err)
 	require.Equal(t, "Go", loadedTechnology.Name())
+	var technologyCount int
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_technologies").Scan(&technologyCount))
+	require.Equal(t, 1, technologyCount)
 	_, err = technologiesRepo.GetTechnology(ctx, ports.GetTechnologyRepositoryCommand{ResumeID: root.ID(), TechnologyID: technologyID, UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 }

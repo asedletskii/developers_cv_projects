@@ -4,7 +4,6 @@ package persistence_test
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/commands"
 	"errors"
 	"testing"
 	"time"
@@ -20,6 +19,7 @@ import (
 	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/platform/database"
 	"developers-cv/backend/internal/platform/postgres"
+
 	"github.com/jackc/pgx/v5"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"

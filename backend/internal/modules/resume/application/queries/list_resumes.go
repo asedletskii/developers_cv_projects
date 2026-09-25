@@ -32,3 +32,8 @@ func (h *ListResumesQueryHandler) Handle(ctx context.Context, query ListResumesQ
 	}
 	return h.reader.ListResumes(ctx, query)
 }
+
+type ResumeListItem struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}

@@ -203,7 +203,7 @@ func applyReaderTestMigrations(t *testing.T, ctx context.Context, dsn string) {
 	}
 	sort.Strings(files)
 	for _, name := range files {
-		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", name))
+		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "..", "db", "migrations", name))
 		require.NoError(t, err)
 		_, err = conn.Exec(ctx, string(content))
 		require.NoError(t, err, name)
