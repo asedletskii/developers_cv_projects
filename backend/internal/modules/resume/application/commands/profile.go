@@ -16,7 +16,7 @@ type ProfileInput struct {
 	Surname     string
 	Patronymic  *string
 	Position    string
-	PhotoPath   valueobjects.AssetPath
+	PhotoPath   valueobjects.ExternalURL
 	DateOfBirth valueobjects.Date
 	Location    string
 	Relocation  bool

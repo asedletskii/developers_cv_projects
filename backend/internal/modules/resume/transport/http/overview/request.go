@@ -48,7 +48,7 @@ func (r overviewRequest) ToCommand(uid useridentity.ID, id valueobjects.ID) (com
 		},
 	}
 	if r.Presentation.ResumeLink != nil {
-		link, err := valueobjects.NewAssetPath(*r.Presentation.ResumeLink)
+		link, err := valueobjects.NewExternalURL(*r.Presentation.ResumeLink)
 		if err != nil {
 			return commands.UpdateOverviewCommand{}, err
 		}

@@ -51,7 +51,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
 	}))
 
-	photo, err := valueobjects.NewAssetPath("/assets/profile.svg")
+	photo, err := valueobjects.NewExternalURL("https://example.com/assets/profile.svg")
 	require.NoError(t, err)
 	date, err := valueobjects.NewDate(time.Date(1998, time.April, 12, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	experience, err := domain.NewExperience(domain.ExperienceParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Company: "Example", Position: "Developer", StartDate: start, Achievements: []string{"Built things"}, Technologies: []domain.ExperienceTechnologyParams{{Name: "Go"}}})
 	require.NoError(t, err)
 
-	project, err := domain.NewProject(domain.ProjectParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Name: "Rollback project", Screenshots: []valueobjects.AssetPath{photo}})
+	project, err := domain.NewProject(domain.ProjectParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Name: "Rollback project", Screenshots: []valueobjects.ExternalURL{photo}})
 	require.NoError(t, err)
 
 	profileRepo := repository.NewProfileRepository(gormDB)

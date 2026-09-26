@@ -7,7 +7,10 @@ import (
 )
 
 func TestExternalURLAllowsHTTPAndHTTPS(t *testing.T) {
-	for _, value := range []string{"https://example.com/a", "http://example.com/a"} {
+	for _, value := range []string{
+		"https://example.com/avatar.svg",
+		"http://example.com/avatar.svg",
+	} {
 		url, err := NewExternalURL(value)
 		require.NoError(t, err)
 		require.Equal(t, value, url.String())
@@ -19,11 +22,7 @@ func TestExternalURLRejectsUnsupportedScheme(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestAssetPathRequiresInternalAbsolutePath(t *testing.T) {
-	path, err := NewAssetPath("/mock/avatar.svg")
-	require.NoError(t, err)
-	require.Equal(t, "/mock/avatar.svg", path.String())
-
-	_, err = NewAssetPath("https://example.com/avatar.svg")
+func TestExternalURLRejectsRelativePath(t *testing.T) {
+	_, err := NewExternalURL("/assets/avatar.svg")
 	require.Error(t, err)
 }

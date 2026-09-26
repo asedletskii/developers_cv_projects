@@ -150,9 +150,9 @@ func mapOverview(m gormmodel.ResumeOverview, s []gormmodel.ResumeOverviewSection
 		}
 		av = &v
 	}
-	var link *valueobjects.AssetPath
+	var link *valueobjects.ExternalURL
 	if m.ResumeLink != nil {
-		v, e := valueobjects.NewAssetPath(*m.ResumeLink)
+		v, e := valueobjects.NewExternalURL(*m.ResumeLink)
 		if e != nil {
 			return nil, e
 		}

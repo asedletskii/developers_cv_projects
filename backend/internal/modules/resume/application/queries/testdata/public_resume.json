@@ -9,7 +9,7 @@
     "status": "open"
   },
   "updatedAt": "2026-01-02T03:04:05Z",
-  "resumeLink": "/cv/resume.pdf",
+  "resumeLink": "https://example.com/cv/resume.pdf",
   "theme": {
     "primary": "#fff",
     "secondary": "#000"
@@ -33,7 +33,7 @@
     "secondHighlight": "Ada",
     "third": "Engineer"
   },
-  "photoPath": "/assets/photo.svg",
+  "photoPath": "https://example.com/assets/photo.svg",
   "dateOfBirth": "1998-04-12",
   "location": "Paris",
   "relocation": true,

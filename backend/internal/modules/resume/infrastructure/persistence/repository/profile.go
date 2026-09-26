@@ -113,7 +113,7 @@ func mapProfile(m gormmodel.ResumeProfile, fs []gormmodel.ResumeProfileWorkForma
 	if e != nil {
 		return nil, e
 	}
-	photo, e := valueobjects.NewAssetPath(m.PhotoPath)
+	photo, e := valueobjects.NewExternalURL(m.PhotoPath)
 	if e != nil {
 		return nil, e
 	}
