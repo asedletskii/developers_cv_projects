@@ -2,14 +2,15 @@
 module.exports = {
   testEnvironment: 'jsdom',
   roots: ['<rootDir>/src'],
+  setupFiles: ['<rootDir>/jest.setup.cjs'],
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
 
-  // Типы проверяет `yarn typecheck`, тесты только транспилируются: так быстрее и без дублирования ошибок
+  // типы проверяет `yarn typecheck`, тесты только транспилируются: так быстрее и без дублирования ошибок
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.jest.json', diagnostics: false }],
   },
 
-  // Те же алиасы, что в tsconfig.paths.json
+  // те же алиасы, что в tsconfig.paths.json
   moduleNameMapper: {
     '^@app$': '<rootDir>/src/app',
     '^@app/(.*)$': '<rootDir>/src/app/$1',

@@ -5,7 +5,7 @@ import i18next, { i18n } from 'i18next'
 
 let _instance: i18n | null = null
 
-export function initI18n(): i18n {
+export const initI18n = (): i18n => {
   if (_instance) return _instance
 
   const initialLng = getInitialLanguage(Languages.Ru)

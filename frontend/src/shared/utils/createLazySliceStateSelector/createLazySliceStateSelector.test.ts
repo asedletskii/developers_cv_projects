@@ -5,7 +5,10 @@ import { createLazySliceStateSelector } from './createLazySliceStateSelector'
 const defaultState = getCurriculumVitaeInitialState()
 
 const createSelector = () =>
-  createLazySliceStateSelector('curriculumVitae', defaultState)((sliceState, rootState) => ({
+  createLazySliceStateSelector(
+    'curriculumVitae',
+    defaultState,
+  )((sliceState, rootState) => ({
     sliceState,
     rootState,
   }))
@@ -31,9 +34,10 @@ describe('createLazySliceStateSelector', () => {
   })
 
   it('возвращает то, что вернул селектор', () => {
-    const selector = createLazySliceStateSelector('curriculumVitae', defaultState)(
-      (sliceState) => sliceState.isLoading,
-    )
+    const selector = createLazySliceStateSelector(
+      'curriculumVitae',
+      defaultState,
+    )((sliceState) => sliceState.isLoading)
 
     expect(selector({} as RootState)).toBe(defaultState.isLoading)
   })

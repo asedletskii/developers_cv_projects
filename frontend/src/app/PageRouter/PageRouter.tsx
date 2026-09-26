@@ -8,9 +8,7 @@ export const PageRouter = () => {
 
   return (
     <Routes location={state?.backgroundLocation || location}>
-      <Route path="/">
-        <Route path="cv">{curriculumVitaeRoutes.pages}</Route>
-      </Route>
+      {curriculumVitaeRoutes.pages}
 
       {/* <Route path="*" element={<UndefinedScreen />} /> */}
     </Routes>

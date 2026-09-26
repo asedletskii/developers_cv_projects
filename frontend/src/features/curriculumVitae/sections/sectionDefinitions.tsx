@@ -9,6 +9,7 @@ import { ProjectsSection } from '@features/curriculumVitae/components/ProjectsSe
 import { SkillsSection } from '@features/curriculumVitae/components/SkillsSection'
 import { TechStackSlider } from '@features/curriculumVitae/components/TechStackSlider'
 import { Person, SectionId, SectionSettings } from '@features/curriculumVitae/types'
+import { withPinnedAbout } from '@features/curriculumVitae/utils/withPinnedAbout'
 
 type SectionDefinition = {
   /** Есть ли что показывать: пустые секции не рендерятся, даже если включены */
@@ -107,6 +108,6 @@ export const DEFAULT_SECTIONS: SectionSettings[] = (
 
 /** Секции в порядке из настроек: включённые, известные и с данными */
 export const getVisibleSections = (person: Person): SectionSettings[] =>
-  (person.sections?.length ? person.sections : DEFAULT_SECTIONS).filter(
+  withPinnedAbout(person.sections?.length ? person.sections : DEFAULT_SECTIONS).filter(
     ({ id, enabled }) => enabled && SECTION_DEFINITIONS[id]?.hasContent(person),
   )

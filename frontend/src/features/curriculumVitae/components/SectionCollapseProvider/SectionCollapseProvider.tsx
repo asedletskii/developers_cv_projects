@@ -1,11 +1,6 @@
-import { createContext, PropsWithChildren, useCallback, useMemo, useState } from 'react'
-import { SectionId } from '@features/curriculumVitae/types'
-
-export type SectionCollapseValue = {
-  isCollapsed(id: SectionId): boolean
-  toggle(id: SectionId): void
-  expand(id: SectionId): void
-}
+import { createContext, PropsWithChildren } from 'react'
+import { SectionCollapseValue, SectionId } from '@features/curriculumVitae/types'
+import { useSectionCollapseState } from './hooks'
 
 const noop = () => {}
 
@@ -21,32 +16,9 @@ type Props = PropsWithChildren<{
   initiallyCollapsed: SectionId[]
 }>
 
-/** Состояние аккордеона. Начальное значение берётся из API, дальше управляет пользователь. */
+/** Аккордеон секций: значение состояния отдаётся вниз по дереву через контекст. */
 export const SectionCollapseProvider = ({ initiallyCollapsed, children }: Props) => {
-  const [collapsed, setCollapsed] = useState<Set<SectionId>>(() => new Set(initiallyCollapsed))
-
-  const toggle = useCallback((id: SectionId) => {
-    setCollapsed((current) => {
-      const next = new Set(current)
-      if (!next.delete(id)) next.add(id)
-      return next
-    })
-  }, [])
-
-  const expand = useCallback((id: SectionId) => {
-    setCollapsed((current) => {
-      if (!current.has(id)) return current
-
-      const next = new Set(current)
-      next.delete(id)
-      return next
-    })
-  }, [])
-
-  const value = useMemo(
-    () => ({ isCollapsed: (id: SectionId) => collapsed.has(id), toggle, expand }),
-    [collapsed, toggle, expand],
-  )
+  const value = useSectionCollapseState(initiallyCollapsed)
 
   return <SectionCollapseContext.Provider value={value}>{children}</SectionCollapseContext.Provider>
 }

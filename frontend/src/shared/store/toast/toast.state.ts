@@ -1,6 +1,6 @@
 import { ToastSliceState } from '@shared/types'
 
-export function getToastInitialState(): ToastSliceState {
+export const getToastInitialState = (): ToastSliceState => {
   return {
     toasts: [],
   }

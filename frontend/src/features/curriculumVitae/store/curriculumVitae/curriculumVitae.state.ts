@@ -1,6 +1,6 @@
 import { CurriculumVitaeSliceState } from '@features/curriculumVitae/types'
 
-export function getCurriculumVitaeInitialState(): CurriculumVitaeSliceState {
+export const getCurriculumVitaeInitialState = (): CurriculumVitaeSliceState => {
   return {
     person: {
       id: '',

@@ -27,7 +27,9 @@ export const Host = () => {
       enqueueSnackbar(
         titleKey ? (
           <Stack>
-            <Typography sx={{ fontWeight: 600, color: 'inherit' }}>{translate(titleKey)}</Typography>
+            <Typography sx={{ fontWeight: 600, color: 'inherit' }}>
+              {translate(titleKey)}
+            </Typography>
             <Typography sx={{ color: 'inherit' }}>{translate(messageKey)}</Typography>
           </Stack>
         ) : (

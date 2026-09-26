@@ -29,7 +29,7 @@ const refreshApi = axios.create({
 type RefreshResult = 'ok' | 'logout' | 'error'
 let refreshPromise: Promise<RefreshResult> | null = null
 
-function refreshSession(): Promise<RefreshResult> {
+const refreshSession = (): Promise<RefreshResult> => {
   if (!refreshPromise) {
     refreshPromise = refreshApi
       .post('/auth/refresh')

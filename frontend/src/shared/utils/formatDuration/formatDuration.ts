@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 
 /** «2 года 3 месяца» / «2 years 3 months» между датами (без конца — до сегодня) */
-export function formatDuration(start: string, end?: string) {
+export const formatDuration = (start: string, end?: string) => {
   const totalMonths = Math.max(1, dayjs(end).diff(dayjs(start), 'month') + 1)
   const years = Math.floor(totalMonths / 12)
   const months = totalMonths % 12

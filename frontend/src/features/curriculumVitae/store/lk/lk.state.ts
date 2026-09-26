@@ -1,6 +1,6 @@
 import { LkSliceState } from '@features/curriculumVitae/types'
 
-export function getLkInitialState(): LkSliceState {
+export const getLkInitialState = (): LkSliceState => {
   return {
     profile: null,
     resumes: null,

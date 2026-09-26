@@ -1,15 +1,9 @@
 import { Box } from '@mui/material'
-import { keyframes } from '@mui/material/styles'
+import { WHEEL } from './constants'
 
 type Props = {
   onClick(): void
 }
-
-const wheel = keyframes`
-  0% { transform: translateY(0); opacity: 1; }
-  70% { transform: translateY(14px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 0; }
-`
 
 /** Индикатор «листайте вниз» внизу hero; по клику прокручивает к следующей секции. */
 export const ScrollHint = ({ onClick }: Props) => (
@@ -43,7 +37,7 @@ export const ScrollHint = ({ onClick }: Props) => (
         height: 8,
         borderRadius: 2,
         bgcolor: 'primary.main',
-        animation: `${wheel} 1.8s ease-in-out infinite`,
+        animation: `${WHEEL} 1.8s ease-in-out infinite`,
         '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
       }}
     />

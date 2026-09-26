@@ -34,6 +34,9 @@ export default defineConfig([
   {
     plugins: { prettier },
     rules: {
+      // Стилевое соглашение (STYLEGUIDE.md): функции — только стрелочные выражения
+      'func-style': ['error', 'expression'],
+      'prefer-arrow-callback': 'error',
       'prettier/prettier': 'warn',
     },
   },

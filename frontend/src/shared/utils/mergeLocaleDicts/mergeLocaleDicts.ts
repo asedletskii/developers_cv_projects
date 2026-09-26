@@ -1,8 +1,8 @@
 import { LocaleDictionary, UnionToIntersection } from '@shared/types'
 
-export function mergeLocaleDicts<T extends LocaleDictionary[]>(
+export const mergeLocaleDicts = <T extends LocaleDictionary[]>(
   ...dicts: T
-): UnionToIntersection<T[number]> {
+): UnionToIntersection<T[number]> => {
   return dicts.reduce(
     (merged, dict) => ({
       ru: { ...merged.ru, ...dict.ru },

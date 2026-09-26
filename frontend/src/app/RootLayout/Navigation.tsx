@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Tab, Tabs } from '@mui/material'
+import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
 import { Link as RouterLink, useLocation } from 'react-router'
 
@@ -9,16 +10,14 @@ export const Navigation = () => {
 
   const routes = useMemo(
     () => [
-      { label: translate('Tabs.main'), to: '/main' },
-      { label: translate('Tabs.about'), to: '/about' },
+      { label: translate('Tabs.main'), to: ROUTES.main },
+      { label: translate('Tabs.about'), to: ROUTES.about },
     ],
     [translate],
   )
 
   const value = useMemo(() => {
-    const idx = routes.findIndex((r) =>
-      r.to === '/' ? pathname === '/' : pathname.startsWith(r.to),
-    )
+    const idx = routes.findIndex((r) => pathname.startsWith(r.to))
     return idx === -1 ? false : idx
   }, [pathname, routes])
 

@@ -1,5 +1,5 @@
 import { ExternalLink } from '@features/curriculumVitae/components/ExternalLink'
-import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
+import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { TechnologyList } from '@features/curriculumVitae/components/TechnologyList'
 import { TiltCard } from '@features/curriculumVitae/components/TiltCard'
 import { dimmed, glassCard } from '@features/curriculumVitae/styles'
