@@ -48,7 +48,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	uow := database.NewUnitOfWork(gormDB)
 	resume := newTestResume(t, owner)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: root})
+		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
 	}))
 
 	photo, err := valueobjects.NewAssetPath("/assets/profile.svg")

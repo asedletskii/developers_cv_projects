@@ -11,18 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"gorm.io/gorm"
-
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/platform/database"
 	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/require"
+	testcontainers "github.com/testcontainers/testcontainers-go"
+	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
 func TestPostgresPrivateReadersEnforceResumeOwnership(t *testing.T) {
@@ -46,7 +45,7 @@ func TestPostgresPrivateReadersEnforceResumeOwnership(t *testing.T) {
 	owner := useridentity.NewID()
 	foreign := useridentity.NewID()
 	resumeID := valueobjects.NewID()
-	ids := insertReaderTestData(t, ctx, gormDB, owner, foreign, resumeID)
+	ids := insertReaderTestData(t, ctx, dsn, owner, foreign, resumeID)
 
 	overview := readers.NewOverviewReader(gormDB)
 	profile := readers.NewProfileReader(gormDB)
@@ -142,30 +141,52 @@ type readerFixtureIDs struct {
 	language, technology, experience, education, course, activity, project valueobjects.ID
 }
 
-func insertReaderTestData(t *testing.T, ctx context.Context, db *gorm.DB, owner, foreign useridentity.ID, resumeID valueobjects.ID) readerFixtureIDs {
+func insertReaderTestData(t *testing.T, ctx context.Context, dsn string, owner, foreign useridentity.ID, resumeID valueobjects.ID) readerFixtureIDs {
 	t.Helper()
 	ids := readerFixtureIDs{
 		language: valueobjects.NewID(), technology: valueobjects.NewID(), experience: valueobjects.NewID(),
 		education: valueobjects.NewID(), course: valueobjects.NewID(), activity: valueobjects.NewID(), project: valueobjects.NewID(),
 	}
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO users (id) VALUES ($1), ($2)`, owner.UUID(), foreign.UUID()).Error)
+
+	config, err := pgx.ParseConfig(dsn)
+	require.NoError(t, err)
+	conn, err := pgx.ConnectConfig(ctx, config)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1), ($2)`, owner.UUID(), foreign.UUID())
+	require.NoError(t, err)
 	now := time.Now().UTC()
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resumes (id,user_id,title,created_at,updated_at) VALUES ($1,$2,'Ownership test',$3,$3)`, resumeID.UUID(), owner.UUID(), now).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_overviews (resume_id,greeting_first,greeting_second,greeting_highlight,greeting_third) VALUES ($1,'a','b','c','d')`, resumeID.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','/photo', '1998-01-01','Paris',false)`, uuid.New(), resumeID.UUID()).Error)
+	_, err = conn.Exec(ctx, `INSERT INTO resumes (id,user_id,title,language,created_at,updated_at) VALUES ($1,$2,'Ownership test','ru',$3,$4)`, resumeID.UUID(), owner.UUID(), now, now)
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id,greeting_first,greeting_second,greeting_highlight,greeting_third) VALUES ($1,'a','b','c','d')`, resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','/photo','1998-01-01','Paris',false)`, uuid.New(), resumeID.UUID())
+	require.NoError(t, err)
 	contactsID := uuid.New()
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, contactsID, resumeID.UUID()).Error)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, contactsID, resumeID.UUID())
+	require.NoError(t, err)
 	skillsID := uuid.New()
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_skills (id,resume_id) VALUES ($1,$2)`, skillsID, resumeID.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_skill_hard (skills_id,value,position) VALUES ($1,'Go',0)`, skillsID).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, ids.language.UUID(), resumeID.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_technologies (id,resume_id,name,position,grade) VALUES ($1,$2,'Go',0,'senior')`, ids.technology.UUID(), resumeID.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2020-01-01')`, ids.experience.UUID(), resumeID.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, ids.experience.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_educations (id,resume_id,sort_order,location,university,grade,program_name,faculty) VALUES ($1,$2,0,'Paris','University',5,'Computer Science','Engineering')`, ids.education.UUID(), resumeID.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_courses (id,resume_id,sort_order,name,organization,end_date) VALUES ($1,$2,0,'Go Course','Acme','2024-01-01')`, ids.course.UUID(), resumeID.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_activities (id,resume_id,sort_order,type,title) VALUES ($1,$2,0,'openSource','Contributor')`, ids.activity.UUID(), resumeID.UUID()).Error)
-	require.NoError(t, db.WithContext(ctx).Exec(`INSERT INTO resume_projects (id,resume_id,sort_order,name) VALUES ($1,$2,0,'CV')`, ids.project.UUID(), resumeID.UUID()).Error)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_skills (id,resume_id) VALUES ($1,$2)`, skillsID, resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_skill_hard (skills_id,value,position) VALUES ($1,'architecture',0)`, skillsID)
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, ids.language.UUID(), resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_technologies (id,resume_id,name,position,grade) VALUES ($1,$2,'Go',0,'senior')`, ids.technology.UUID(), resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2020-01-01')`, ids.experience.UUID(), resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, ids.experience.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_educations (id,resume_id,sort_order,location,university,grade,program_name,faculty) VALUES ($1,$2,0,'Paris','University',5,'Computer Science','Engineering')`, ids.education.UUID(), resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_courses (id,resume_id,sort_order,name,organization,end_date) VALUES ($1,$2,0,'Go Course','Acme','2024-01-01')`, ids.course.UUID(), resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_activities (id,resume_id,sort_order,type,title) VALUES ($1,$2,0,'openSource','Contributor')`, ids.activity.UUID(), resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_projects (id,resume_id,sort_order,name) VALUES ($1,$2,0,'CV')`, ids.project.UUID(), resumeID.UUID())
+	require.NoError(t, err)
 
 	return ids
 }

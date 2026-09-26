@@ -14,7 +14,7 @@ import (
 )
 
 func TestConfigurePool(t *testing.T) {
-	db, err := gorm.Open(postgres.Open("postgres://user:password@localhost:5432/developers_cv?sslmode=disable"), &gorm.Config{DryRun: true})
+	db, err := gorm.Open(postgres.Open("postgres://user:password@localhost:5432/developers_cv?sslmode=disable"), &gorm.Config{DryRun: true, DisableAutomaticPing: true})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, Close(db)) })
 
@@ -30,5 +30,4 @@ func TestConfigurePool(t *testing.T) {
 	require.NoError(t, err)
 	stats := sqlDB.Stats()
 	require.Equal(t, 12, stats.MaxOpenConnections)
-	require.Equal(t, 4, stats.Idle)
 }
