@@ -9,8 +9,10 @@ import {
   VisibilityOutlined,
 } from '@mui/icons-material'
 import {
+  Box,
   Button,
   Chip,
+  Divider,
   IconButton,
   ListItemIcon,
   Menu,
@@ -21,6 +23,7 @@ import {
 import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
 import { generatePath, Link as RouterLink } from 'react-router'
+import { PREVIEW_BUTTON_SX } from './constants'
 import { useResumeHeader } from './hooks'
 
 type Props = {
@@ -48,7 +51,9 @@ export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
           <ArrowBackRounded />
         </IconButton>
 
-        <Typography variant="h4">{view.title}</Typography>
+        <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: undefined }, minWidth: 0 }}>
+          {view.title}
+        </Typography>
 
         <Chip label={view.language.toUpperCase()} size="small" />
 
@@ -56,10 +61,13 @@ export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
           <Button
             component={RouterLink}
             to={generatePath(ROUTES.lkResumePreview, { userId, cvId: view.id })}
+            aria-label={translate('preview')}
             startIcon={<VisibilityOutlined />}
-            sx={{ ...glassCard, borderRadius: 999, px: 2, textTransform: 'none' }}
+            sx={PREVIEW_BUTTON_SX}
           >
-            {translate('preview')}
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              {translate('preview')}
+            </Box>
           </Button>
 
           <IconButton
@@ -79,6 +87,8 @@ export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
           </ListItemIcon>
           {translate('renameTitle')}
         </MenuItem>
+
+        <Divider />
 
         <MenuItem onClick={header.remove} sx={{ color: 'error.main' }}>
           <ListItemIcon sx={{ color: 'inherit' }}>

@@ -1,19 +1,18 @@
-import { Person } from '@features/curriculumVitae/types'
-import { blankEducation } from '@features/curriculumVitae/utils'
-import { useFormList } from '@features/curriculumVitae/hooks'
-import { AddRounded } from '@mui/icons-material'
-import { Button, Stack, TextField } from '@mui/material'
-import { useTranslate } from '@shared/hooks'
 import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
 import { DateField } from '@features/curriculumVitae/components/form/DateField'
 import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
+import { useFormList } from '@features/curriculumVitae/hooks'
+import { blankEducation } from '@features/curriculumVitae/utils'
+import { AddRounded } from '@mui/icons-material'
+import { Button, Stack, TextField } from '@mui/material'
+import { useTranslate } from '@shared/hooks'
 import { useEducationOptions } from './hooks'
 
 /** Секция «Образование»: список учебных заведений. */
 export const EducationEditor = () => {
   const translate = useTranslate('Lk.Edit.Education')
   const { levelOptions } = useEducationOptions()
-  const { control, register, fields, addItem, itemProps } = useFormList('education', blankEducation)
+  const { register, fields, addItem, itemProps } = useFormList('education', blankEducation)
 
   return (
     <Stack spacing={1.5}>

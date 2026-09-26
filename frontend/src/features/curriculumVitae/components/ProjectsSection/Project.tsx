@@ -1,7 +1,7 @@
 import { ExternalLink } from '@features/curriculumVitae/components/ExternalLink'
-import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { TechnologyList } from '@features/curriculumVitae/components/TechnologyList'
 import { TiltCard } from '@features/curriculumVitae/components/TiltCard'
+import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { dimmed, glassCard } from '@features/curriculumVitae/styles'
 import { Person } from '@features/curriculumVitae/types'
 import { Box, Stack, Typography } from '@mui/material'

@@ -18,8 +18,12 @@ const LkProfileScreen = () => {
   if (!profile) return null
 
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} alignItems="flex-start">
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={{ xs: 3, md: 4 }}
+        alignItems="flex-start"
+      >
         <Stack sx={{ width: { xs: '100%', md: '25%' }, flexShrink: 0 }}>
           <ProfileCard profile={profile} />
         </Stack>

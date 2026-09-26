@@ -1,9 +1,9 @@
+import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
 import { Person } from '@features/curriculumVitae/types'
 import { Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useFormContext } from 'react-hook-form'
 import { useContactOptions } from './hooks'
-import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
 
 /** Секция «Контакты»: сами контакты, какие скрыты по умолчанию, тексты блока. */
 export const ContactsEditor = () => {

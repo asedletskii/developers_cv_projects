@@ -28,8 +28,6 @@ export const curriculumVitaeDict = {
       },
 
       Controls: {
-        theme: 'Сменить тему',
-        language: 'Язык',
         download: 'Скачать резюме',
       },
 
@@ -189,8 +187,6 @@ export const curriculumVitaeDict = {
       },
 
       Controls: {
-        theme: 'Toggle theme',
-        language: 'Language',
         download: 'Download résumé',
       },
 

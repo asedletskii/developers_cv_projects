@@ -1,7 +1,7 @@
 import { LoadFailure } from '@features/curriculumVitae/components'
-import { MainTab } from '@features/curriculumVitae/components/MainTab'
 import { AnalyticsTab } from '@features/curriculumVitae/components/AnalyticsTab'
 import { LinksTab } from '@features/curriculumVitae/components/LinksTab'
+import { MainTab } from '@features/curriculumVitae/components/MainTab'
 import { ResumeEditor } from '@features/curriculumVitae/components/ResumeEditor'
 import { ResumeHeader } from '@features/curriculumVitae/components/ResumeHeader'
 import { useOwnerResume } from '@features/curriculumVitae/hooks'
@@ -10,7 +10,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { useLanguage, useTranslate } from '@shared/hooks'
 import { useParams } from 'react-router'
-import { TOP_SECTIONS } from './constants'
+import { TAB_SX, TOP_SECTIONS } from './constants'
 import { useResumeSections } from './hooks'
 
 /**
@@ -33,9 +33,14 @@ const LkResumeEditScreen = () => {
       <Stack spacing={3} sx={{ width: '100%', minWidth: 0 }}>
         <ResumeHeader userId={userId} view={view} onReload={reload} onError={setError} />
 
-        <Tabs value={section} onChange={(_, id) => changeSection(id)}>
+        <Tabs
+          value={section}
+          onChange={(_, id) => changeSection(id)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
           {TOP_SECTIONS.map((id) => (
-            <Tab key={id} value={id} label={translateSections(id)} sx={{ textTransform: 'none' }} />
+            <Tab key={id} value={id} label={translateSections(id)} sx={TAB_SX} />
           ))}
         </Tabs>
 

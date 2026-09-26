@@ -12,6 +12,8 @@ export const sharedDict = {
     Footer: {
       info: 'Pet-проект, который агрегирует все web-проекты двух разработчиков',
       developers: 'Разработчики',
+      madeWith: 'Сервис для создания резюме',
+      backToTop: 'Наверх',
 
       Developers: {
         sedletskii: 'Седлецкий Антон',
@@ -22,6 +24,14 @@ export const sharedDict = {
           backend: 'Backend разработчик',
         },
       },
+    },
+
+    ThemeToggle: {
+      label: 'Сменить тему',
+    },
+
+    LanguageSwitch: {
+      label: 'Язык интерфейса',
     },
 
     ContentContainer: {
@@ -48,6 +58,8 @@ export const sharedDict = {
     Footer: {
       info: 'A Pet project that aggregates all the web projects of two developers',
       developers: 'Developers',
+      madeWith: 'From Russia with love',
+      backToTop: 'Back to top',
 
       Developers: {
         sedletskii: 'Sedletskii Anton',
@@ -58,6 +70,14 @@ export const sharedDict = {
           backend: 'Backend developer',
         },
       },
+    },
+
+    ThemeToggle: {
+      label: 'Switch theme',
+    },
+
+    LanguageSwitch: {
+      label: 'Interface language',
     },
 
     ContentContainer: {

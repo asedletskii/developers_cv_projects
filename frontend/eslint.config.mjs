@@ -32,6 +32,7 @@ export default defineConfig([
   ]),
   eslintConfigPrettier,
   {
+    files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
     plugins: { prettier },
     rules: {
       // Стилевое соглашение (STYLEGUIDE.md): функции — только стрелочные выражения
@@ -41,6 +42,7 @@ export default defineConfig([
     },
   },
   {
+    files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
     extends: fixupConfigRules(
       compat.extends(
         'eslint:recommended',
@@ -91,6 +93,7 @@ export default defineConfig([
         'warn',
         {
           caughtErrors: 'none',
+          ignoreRestSiblings: true,
         },
       ],
 

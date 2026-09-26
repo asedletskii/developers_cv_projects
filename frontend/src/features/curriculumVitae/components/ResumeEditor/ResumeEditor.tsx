@@ -2,15 +2,13 @@ import { SectionForm } from '@features/curriculumVitae/components/SectionForm'
 import { ResumeView } from '@features/curriculumVitae/types'
 import { Stack, Tab, Tabs } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
+import { EDITOR_TABS, TAB_SX } from './constants'
 import { useResumeEditor } from './hooks'
-import { EDITOR_TABS } from './constants'
 
 type Props = {
   userId: string
   view: ResumeView
   onSaved: () => Promise<void>
-
-  /** Есть ли несохранённые правки — экран спрашивает подтверждение при уходе с вкладки */
   isDirtyRef: { current: boolean }
 }
 
@@ -29,11 +27,10 @@ export const ResumeEditor = ({ userId, view, onSaved, isDirtyRef }: Props) => {
         scrollButtons="auto"
       >
         {EDITOR_TABS.map(({ id }) => (
-          <Tab key={id} value={id} label={translateTabs(id)} sx={{ textTransform: 'none' }} />
+          <Tab key={id} value={id} label={translateTabs(id)} sx={TAB_SX} />
         ))}
       </Tabs>
 
-      {/* key: при смене вкладки форма создаётся заново, а не тащит значения прошлой */}
       <SectionForm
         key={activeTab.id}
         userId={userId}

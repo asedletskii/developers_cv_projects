@@ -5,9 +5,10 @@ type Props = {
   src: string
   alt: string
   initials: string
+  size?: number
 }
 
-export const Portrait = ({ src, alt, initials }: Props) => (
+export const Portrait = ({ src, alt, initials, size = 144 }: Props) => (
   <Box
     data-preview="profile"
     sx={{
@@ -21,9 +22,9 @@ export const Portrait = ({ src, alt, initials }: Props) => (
       aria-hidden
       sx={{
         position: 'absolute',
-        inset: -14,
+        inset: -Math.round(size / 10),
         borderRadius: '50%',
-        border: '4px dashed',
+        border: `${Math.max(2, Math.round(size / 36))}px dashed`,
         borderColor: 'primary.light',
         animation: `${SPIN} 24s linear infinite`,
         '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
@@ -34,9 +35,9 @@ export const Portrait = ({ src, alt, initials }: Props) => (
       src={src}
       alt={alt}
       sx={{
-        width: 144,
-        height: 144,
-        fontSize: '3rem',
+        width: size,
+        height: size,
+        fontSize: `${size / 48}rem`,
         fontWeight: 700,
         color: 'primary.contrastText',
         bgcolor: 'primary.main',

@@ -1,5 +1,5 @@
 import { DeleteOutlineRounded, EditRounded } from '@mui/icons-material'
-import { ListItemIcon, Menu, MenuItem } from '@mui/material'
+import { Divider, ListItemIcon, Menu, MenuItem } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
 type Props = {
@@ -9,7 +9,6 @@ type Props = {
   onRemove: () => void
 }
 
-/** Меню действий над резюме в списке: переименовать и удалить. */
 export const ResumeActionsMenu = ({ anchor, onClose, onRename, onRemove }: Props) => {
   const translate = useTranslate('Lk.Resumes')
 
@@ -21,6 +20,8 @@ export const ResumeActionsMenu = ({ anchor, onClose, onRename, onRemove }: Props
         </ListItemIcon>
         {translate('editTitle')}
       </MenuItem>
+
+      <Divider />
 
       <MenuItem onClick={onRemove} sx={{ color: 'error.main' }}>
         <ListItemIcon sx={{ color: 'inherit' }}>
