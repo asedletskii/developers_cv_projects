@@ -1,0 +1,53 @@
+# Обзор (оформление резюме)
+
+Всё, что задаёт вид страницы, но не содержимое: цвета, приветствие, доступность для работодателей, ссылка на файл резюме, порядок и видимость секций.
+Фронтенд: `saveSingleton('overview')` → вкладка «Редактирование → Обзор» (`OverviewEditor`, `HeroEditor`, `ThemeEditor`, `SectionsEditor`).
+
+Обзор создаётся вместе с резюме, поэтому у него **только `PUT`** (нет `POST`).
+
+## `GET /lk/resume/:resumeId/overview`
+
+Отдельно фронтенд его не вызывает: то же самое приходит внутри `GET /lk/resume/:resumeId` в поле `overview`. Отличие: здесь объект обёрнут в `presentation` — `{ "presentation": { … } }`.
+
+## `PUT /lk/resume/:resumeId/overview`
+
+Полная замена. **Ответ `204`.** Тело:
+
+```json
+{
+  "presentation": {
+    "theme": { "primary": "#E8785A", "secondary": "#428BF9" },
+    "greeting": { "first": "Привет!", "second": "Меня зовут", "secondHighlight": "Антон", "third": "Frontend-разработчик" },
+    "availability": { "status": "open", "from": "2026-10-01", "note": "Ищу роль Senior" },
+    "resumeLink": "https://example.com/cv.pdf",
+    "sections": [ { "id": "about", "enabled": true, "collapsed": false } ]
+  }
+}
+```
+
+| Поле | Тип | Обяз. | Ограничения | Дефолт при создании резюме |
+|---|---|---|---|---|
+| `presentation` | object | нет | без него все поля берутся по умолчанию (то есть замена стирает оформление) | см. ниже |
+| `presentation.theme` | object | нет | если задан — хотя бы один из цветов; иначе `400` | отсутствует |
+| `theme.primary`, `theme.secondary` | string | нет | `#RGB` или `#RRGGBB` | отсутствуют |
+| `presentation.greeting` | object | нет | отсутствие = четыре пустые строки | все четыре строки `""` |
+| `greeting.first` | string | нет | может быть пустой (строка на странице скрывается) | `""` |
+| `greeting.second` | string | нет | то же | `""` |
+| `greeting.secondHighlight` | string | нет | выделяется цветом рядом со второй строкой | `""` |
+| `greeting.third` | string | нет | то же | `""` |
+| `presentation.availability` | object | нет | если задан — `status` обязателен | отсутствует |
+| `availability.status` | string | да | `open` \| `considering` \| `busy` | — |
+| `availability.from` | string | нет | `YYYY-MM-DD` | отсутствует |
+| `availability.note` | string | нет | свободный текст | отсутствует |
+| `presentation.resumeLink` | string | нет | `http`/`https`-ссылка на файл резюме | отсутствует |
+| `presentation.sections` | array | нет | id уникальны и из справочника; порядок массива = порядок на странице; допустим любой поднабор | `[]` |
+| `sections[].id` | string | да | `about techStack experience skills education courses projects activities contacts` | — |
+| `sections[].enabled` | boolean | да | показывать ли секцию | — |
+| `sections[].collapsed` | boolean | да | свёрнута ли при открытии (учитывается только у сворачиваемых секций фронтенда) | — |
+
+**Поведение фронтенда поверх контракта** (бэкенд этого не проверяет):
+- пустые `sections` → на странице показываются все секции в порядке по умолчанию, а редактор предлагает этот набор;
+- секция `about` всегда первая и всегда включена: редактор так и сохраняет, публичная страница исправляет, даже если пришло иначе;
+- пустые `theme`, `availability`, `resumeLink` не отправляются (поле опускается).
+
+**Ошибки:** `400` — неверный цвет, `status`, дата, ссылка, повтор или неизвестный id секции.

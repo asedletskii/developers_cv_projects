@@ -1,0 +1,32 @@
+# Публичная проекция
+
+Плоское представление резюме для страницы `/cv/:resumeId`. Авторизации нет — резюме открыто любому, кто знает адрес.
+Фронтенд: `getPublicResume` → `CurriculumVitaeScreen` и предпросмотр в кабинете (`LkResumeScreen`).
+
+## `GET /cv/:resumeId`
+
+Тела нет. **Ответ `200`** — собранная из всех секций плоская структура (тип `Person` на фронтенде). Записать через эту ручку ничего нельзя.
+
+| Поле | Тип | Откуда |
+|---|---|---|
+| `id`, `title`, `language` | | резюме |
+| `updatedAt` | datetime | резюме (может отсутствовать) |
+| `name`, `surname`, `patronymic`, `position`, `photoPath`, `dateOfBirth`, `location`, `relocation`, `workFormat` | | [профиль](personal.md) |
+| `contacts` (`phone`, `telegram`, `email`), `hiddenContacts`, `contactsText` | | [контакты](personal.md) |
+| `hardSkills`, `softSkills` | string[] | [навыки](personal.md) |
+| `theme`, `greeting`, `availability`, `resumeLink`, `sections` | | [обзор](overview.md) (без обёртки `presentation`) |
+| `languages` | `{ language, grade? }[]` | [языки](languages-technologies.md), по порядку |
+| `technologies` | `{ name }[]` | [стэк](languages-technologies.md), по порядку |
+| `experience` | | [опыт](experience.md); у записи `stack` (`{name}[]`) вместо `technologies` |
+| `education`, `courses`, `activities` | | [образование](education.md), [активности](activities.md) |
+| `projects` | `{ id, name, description?, stack, link? }[]` | [проекты](projects.md) — только краткая часть |
+
+**Отличия от ответа `GET /lk/resume/:id`:**
+- имена: `experience`/`education` вместо `experiences`/`educations`, у опыта `stack` вместо `technologies`;
+- нет `resumeId` у записей, у технологий и стэков нет `grade`, у проектов нет `role`, `screenshots`, `gitLink`, `contributors`;
+- профиль, контакты и навыки развёрнуты на верхний уровень; если их не создавали, поля пусты (`""`, `[]`, `{}`), а не отсутствуют;
+- массивы приходят как `[]`, но фронтенд дополнительно превращает `null` в `[]` (`normalizePerson`).
+
+**Ошибки:** `400` — `resumeId` не UUID; `404` — резюме нет.
+
+**Скрытые контакты.** Сейчас `contacts` приходят в открытом виде, а `hiddenContacts` лишь подсказывает интерфейсу не показывать их сразу — парсер прочтёт всё из JSON. Планируется отдавать скрытые значения только отдельным запросом с проверкой на бота (см. обсуждение защиты от парсинга).
