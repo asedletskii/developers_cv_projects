@@ -14,6 +14,10 @@ type GetSkillsQuery struct {
 type SkillsReader interface {
 	GetSkills(context.Context, GetSkillsQuery) (SkillsView, error)
 }
+
+type SkillsSource interface {
+	ReadSkills(context.Context, valueobjects.ID) (SkillsView, error)
+}
 type GetSkillsQueryHandler struct{ reader SkillsReader }
 
 func NewGetSkillsQueryHandler(reader SkillsReader) *GetSkillsQueryHandler {

@@ -24,6 +24,10 @@ type TechnologiesReader interface {
 	GetTechnology(context.Context, GetTechnologyQuery) (TechnologyView, error)
 }
 
+type TechnologiesSource interface {
+	ReadTechnologies(context.Context, valueobjects.ID) ([]TechnologyView, error)
+}
+
 type ListTechnologiesQueryHandler struct{ reader TechnologiesReader }
 
 func NewListTechnologiesQueryHandler(reader TechnologiesReader) *ListTechnologiesQueryHandler {

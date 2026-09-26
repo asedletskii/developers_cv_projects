@@ -14,6 +14,10 @@ type GetResumeContactsQuery struct {
 type ResumeContactsReader interface {
 	GetResumeContacts(context.Context, GetResumeContactsQuery) (ResumeContactsView, error)
 }
+
+type ResumeContactsSource interface {
+	ReadResumeContacts(context.Context, valueobjects.ID) (ResumeContactsView, error)
+}
 type GetResumeContactsQueryHandler struct{ reader ResumeContactsReader }
 
 func NewGetResumeContactsQueryHandler(reader ResumeContactsReader) *GetResumeContactsQueryHandler {

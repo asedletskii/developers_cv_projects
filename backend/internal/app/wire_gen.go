@@ -63,7 +63,6 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
-	publicResumeReaderValue := newPublicResumeReader(gormDBValue)
 	listResumesReaderValue := newListResumesReader(gormDBValue)
 	metadataReaderValue := newResumeMetadataReader(gormDBValue)
 	overviewReaderValue := newResumeOverviewReader(gormDBValue)
@@ -169,7 +168,7 @@ func Initialize() (*Application, error) {
 	coursesHandlerValue := courseshttp.NewHandler(createCourseHandlerValue, listCoursesQueryHandlerValue, getCourseQueryHandlerValue, updateCourseHandlerValue, deleteCourseHandlerValue)
 	activitiesHandlerValue := activitieshttp.NewHandler(createActivityHandlerValue, listActivitiesQueryHandlerValue, getActivityQueryHandlerValue, updateActivityHandlerValue, deleteActivityHandlerValue)
 	projectsHandlerValue := projectshttp.NewHandler(createProjectHandlerValue, listProjectsQueryHandlerValue, getProjectQueryHandlerValue, updateProjectHandlerValue, deleteProjectHandlerValue)
-	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(publicResumeReaderValue)
+	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(resumeReaderValue)
 	publicHandlerValue := publichandler.NewHandler(publicResumeQueryHandlerValue)
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)

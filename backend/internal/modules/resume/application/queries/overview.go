@@ -14,6 +14,10 @@ type GetOverviewQuery struct {
 type OverviewReader interface {
 	GetOverview(context.Context, GetOverviewQuery) (ResumeOverviewView, error)
 }
+
+type OverviewSource interface {
+	ReadOverview(context.Context, valueobjects.ID) (ResumeOverviewView, error)
+}
 type GetOverviewQueryHandler struct{ reader OverviewReader }
 
 func NewGetOverviewQueryHandler(r OverviewReader) *GetOverviewQueryHandler {

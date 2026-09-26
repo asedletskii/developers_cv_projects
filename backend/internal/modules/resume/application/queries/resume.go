@@ -14,8 +14,12 @@ type GetResumeQuery struct {
 	UserID   useridentity.ID
 }
 
-type ResumeReader interface {
-	GetResume(context.Context, GetResumeQuery) (ResumeView, error)
+type OwnedResumeReader interface {
+	GetOwned(context.Context, valueobjects.ID, useridentity.ID) (ResumeView, error)
+}
+
+type PublicResumeReader interface {
+	GetPublic(context.Context, valueobjects.ID) (ResumeView, error)
 }
 
 type ResumeView struct {
@@ -37,9 +41,9 @@ type ResumeView struct {
 	Projects     []ProjectView            `json:"projects"`
 }
 
-type GetResumeQueryHandler struct{ reader ResumeReader }
+type GetResumeQueryHandler struct{ reader OwnedResumeReader }
 
-func NewGetResumeQueryHandler(reader ResumeReader) *GetResumeQueryHandler {
+func NewGetResumeQueryHandler(reader OwnedResumeReader) *GetResumeQueryHandler {
 	return &GetResumeQueryHandler{reader: reader}
 }
 
@@ -50,5 +54,5 @@ func (h *GetResumeQueryHandler) Handle(ctx context.Context, q GetResumeQuery) (R
 	if q.ResumeID.IsZero() || q.UserID.IsZero() {
 		return ResumeView{}, fmt.Errorf("invalid get resume query")
 	}
-	return h.reader.GetResume(ctx, q)
+	return h.reader.GetOwned(ctx, q.ResumeID, q.UserID)
 }

@@ -44,3 +44,32 @@ func TestPublicResumeViewJSONGolden(t *testing.T) {
 }
 
 func stringPtr(value string) *string { return &value }
+
+func TestProjectPublicResumeMapsCanonicalResumeView(t *testing.T) {
+	phone := "+33123456789"
+	view := ResumeView{
+		ID: "resume-1", Title: "Backend Developer", Language: "en",
+		Overview: OverviewPresentationView{
+			Greeting: OverviewGreeting{First: "Hello", Second: "I am", SecondHighlight: "Ada", Third: "Engineer"},
+			Sections: []OverviewSectionSettings{{ID: "experience", Enabled: true, Collapsed: false}},
+		},
+		Profile:      &ResumeProfileView{Name: "Ada", Surname: "Lovelace", Position: "Backend Developer", PhotoPath: "https://example.com/avatar.jpg", WorkFormat: []string{"remote"}},
+		Contacts:     &ResumeContactsView{Phone: &phone, HiddenContacts: []string{"email"}},
+		Skills:       &SkillsView{HardSkills: []string{"Go"}, SoftSkills: []string{"Communication"}},
+		Languages:    []LanguageView{{Language: "en", Grade: stringPtr("C1")}},
+		Technologies: []TechnologyView{{Name: "PostgreSQL"}},
+		Projects:     []ProjectView{{ID: "project-1", Name: "CV", Stack: []ProjectTechnologyView{{Name: "Go"}}}},
+	}
+
+	result := projectPublicResume(view)
+	require.Equal(t, "resume-1", result.ID)
+	require.Equal(t, "Ada", result.Name)
+	require.Equal(t, "Backend Developer", result.Position)
+	require.Equal(t, []string{"remote"}, result.WorkFormat)
+	require.Equal(t, &phone, result.Contacts.Phone)
+	require.Equal(t, []string{"email"}, result.HiddenContacts)
+	require.Equal(t, []string{"Go"}, result.HardSkills)
+	require.Len(t, result.Languages, 1)
+	require.Len(t, result.Projects, 1)
+	require.Equal(t, []string{"Go"}, []string{result.Projects[0].Stack[0].Name})
+}

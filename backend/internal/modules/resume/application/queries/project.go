@@ -24,6 +24,10 @@ type ProjectsReader interface {
 	GetProject(context.Context, GetProjectQuery) (ProjectView, error)
 }
 
+type ProjectsSource interface {
+	ReadProjects(context.Context, valueobjects.ID) ([]ProjectView, error)
+}
+
 type ListProjectsQueryHandler struct{ reader ProjectsReader }
 
 func NewListProjectsQueryHandler(reader ProjectsReader) *ListProjectsQueryHandler {

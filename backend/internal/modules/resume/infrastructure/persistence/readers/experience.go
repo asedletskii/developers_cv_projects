@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -36,7 +37,34 @@ func (r *ExperiencesReader) ListExperiences(ctx context.Context, q queries.ListE
 		return nil, fmt.Errorf("list experiences: invalid query")
 	}
 	var rows []experienceRow
-	err = db.Table("resume_experiences AS e").Select("e.id::text AS id, e.resume_id::text AS resume_id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Joins("JOIN resumes AS r ON r.id = e.resume_id").Where("e.resume_id = ? AND r.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("e.sort_order").Scan(&rows).Error
+	readDB := db.Table("resume_experiences AS e").Select("e.id::text AS id, e.resume_id::text AS resume_id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Joins("JOIN resumes AS r ON r.id = e.resume_id").Where("e.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("r.user_id = ?", q.UserID.UUID())
+	err = readDB.Order("e.sort_order").Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list experiences: %w", err)
+	}
+	out := make([]queries.ExperienceView, 0, len(rows))
+	for _, row := range rows {
+		view := queries.ExperienceView{ID: row.ID, ResumeID: row.ResumeID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description}
+		if err := r.loadExperienceChildren(ctx, db, row.ID, &view); err != nil {
+			return nil, err
+		}
+		out = append(out, view)
+	}
+	return out, nil
+}
+
+func (r *ExperiencesReader) ReadExperiences(ctx context.Context, resumeID valueobjects.ID) ([]queries.ExperienceView, error) {
+	db, err := resolveDB(ctx, r.db, "list experiences")
+	if err != nil {
+		return nil, err
+	}
+	if resumeID.IsZero() {
+		return nil, fmt.Errorf("list experiences: invalid query")
+	}
+	var rows []experienceRow
+	readDB := db.Table("resume_experiences AS e").Select("e.id::text AS id, e.resume_id::text AS resume_id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Joins("JOIN resumes AS r ON r.id = e.resume_id").Where("e.resume_id = ?", resumeID.UUID())
+	err = readDB.Order("e.sort_order").Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("list experiences: %w", err)
 	}
@@ -60,7 +88,9 @@ func (r *ExperiencesReader) GetExperience(ctx context.Context, q queries.GetExpe
 		return queries.ExperienceView{}, fmt.Errorf("get experience: invalid query")
 	}
 	var row experienceRow
-	err = db.Table("resume_experiences AS e").Select("e.id::text AS id, e.resume_id::text AS resume_id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Joins("JOIN resumes AS r ON r.id = e.resume_id").Where("e.id = ? AND e.resume_id = ? AND r.user_id = ?", q.ExperienceID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&row).Error
+	readDB := db.Table("resume_experiences AS e").Select("e.id::text AS id, e.resume_id::text AS resume_id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Joins("JOIN resumes AS r ON r.id = e.resume_id").Where("e.id = ? AND e.resume_id = ?", q.ExperienceID.UUID(), q.ResumeID.UUID())
+	readDB = readDB.Where("r.user_id = ?", q.UserID.UUID())
+	err = readDB.Scan(&row).Error
 	if err != nil {
 		return queries.ExperienceView{}, fmt.Errorf("get experience: %w", err)
 	}

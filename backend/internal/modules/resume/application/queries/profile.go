@@ -14,6 +14,10 @@ type GetResumeProfileQuery struct {
 type ResumeProfileReader interface {
 	GetResumeProfile(context.Context, GetResumeProfileQuery) (ResumeProfileView, error)
 }
+
+type ResumeProfileSource interface {
+	ReadResumeProfile(context.Context, valueobjects.ID) (ResumeProfileView, error)
+}
 type GetResumeProfileQueryHandler struct{ reader ResumeProfileReader }
 
 func NewGetResumeProfileQueryHandler(reader ResumeProfileReader) *GetResumeProfileQueryHandler {

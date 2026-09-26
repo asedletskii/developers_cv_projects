@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
@@ -25,7 +26,47 @@ func (r *SkillsReader) GetSkills(ctx context.Context, q queries.GetSkillsQuery) 
 	}
 
 	var model gormmodel.ResumeSkills
-	err = db.Joins("JOIN resumes ON resumes.id = resume_skills.resume_id").Where("resume_skills.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_skills.resume_id").Where("resume_skills.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.SkillsView{}, queries.ErrResumeNotFound
+	}
+	if err != nil {
+		return queries.SkillsView{}, fmt.Errorf("get skills: %w", err)
+	}
+
+	var hard []gormmodel.ResumeSkillHard
+	if err := db.Where("skills_id = ?", model.ID).Order("position").Find(&hard).Error; err != nil {
+		return queries.SkillsView{}, fmt.Errorf("get hard skills: %w", err)
+	}
+	var soft []gormmodel.ResumeSkillSoft
+	if err := db.Where("skills_id = ?", model.ID).Order("position").Find(&soft).Error; err != nil {
+		return queries.SkillsView{}, fmt.Errorf("get soft skills: %w", err)
+	}
+
+	view := queries.SkillsView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), HardSkills: make([]string, 0, len(hard)), SoftSkills: make([]string, 0, len(soft))}
+	for _, item := range hard {
+		view.HardSkills = append(view.HardSkills, item.Value)
+	}
+	for _, item := range soft {
+		view.SoftSkills = append(view.SoftSkills, item.Value)
+	}
+	return view, nil
+}
+
+func (r *SkillsReader) ReadSkills(ctx context.Context, resumeID valueobjects.ID) (queries.SkillsView, error) {
+	db, err := resolveDB(ctx, r.db, "get skills")
+	if err != nil {
+		return queries.SkillsView{}, err
+	}
+	if resumeID.IsZero() {
+		return queries.SkillsView{}, fmt.Errorf("get skills: invalid query")
+	}
+
+	var model gormmodel.ResumeSkills
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_skills.resume_id").Where("resume_skills.resume_id = ?", resumeID.UUID())
+	err = readDB.First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return queries.SkillsView{}, queries.ErrResumeNotFound
 	}

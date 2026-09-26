@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
@@ -24,7 +25,29 @@ func (r *LanguagesReader) ListLanguages(ctx context.Context, q queries.ListLangu
 		return nil, fmt.Errorf("list languages: invalid query")
 	}
 	var models []gormmodel.ResumeLanguage
-	if err := db.Joins("JOIN resumes ON resumes.id = resume_languages.resume_id").Where("resume_languages.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("position").Find(&models).Error; err != nil {
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_languages.resume_id").Where("resume_languages.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	if err := readDB.Order("position").Find(&models).Error; err != nil {
+		return nil, fmt.Errorf("list languages: %w", err)
+	}
+	out := make([]queries.LanguageView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.LanguageView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Language: model.Language, Grade: model.Grade, Position: model.Position})
+	}
+	return out, nil
+}
+
+func (r *LanguagesReader) ReadLanguages(ctx context.Context, resumeID valueobjects.ID) ([]queries.LanguageView, error) {
+	db, err := resolveDB(ctx, r.db, "list languages")
+	if err != nil {
+		return nil, err
+	}
+	if resumeID.IsZero() {
+		return nil, fmt.Errorf("list languages: invalid query")
+	}
+	var models []gormmodel.ResumeLanguage
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_languages.resume_id").Where("resume_languages.resume_id = ?", resumeID.UUID())
+	if err := readDB.Order("position").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list languages: %w", err)
 	}
 	out := make([]queries.LanguageView, 0, len(models))
@@ -43,7 +66,9 @@ func (r *LanguagesReader) GetLanguage(ctx context.Context, q queries.GetLanguage
 		return queries.LanguageView{}, fmt.Errorf("get language: invalid query")
 	}
 	var model gormmodel.ResumeLanguage
-	err = db.Joins("JOIN resumes ON resumes.id = resume_languages.resume_id").Where("resume_languages.id = ? AND resume_languages.resume_id = ? AND resumes.user_id = ?", q.LanguageID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_languages.resume_id").Where("resume_languages.id = ? AND resume_languages.resume_id = ?", q.LanguageID.UUID(), q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return queries.LanguageView{}, queries.ErrResumeNotFound
 	}

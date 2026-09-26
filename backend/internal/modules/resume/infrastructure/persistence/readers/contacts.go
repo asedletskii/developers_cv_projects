@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
@@ -26,7 +27,50 @@ func (r *ContactsReader) GetResumeContacts(ctx context.Context, q queries.GetRes
 	}
 
 	var model gormmodel.ResumeContacts
-	err = db.Joins("JOIN resumes ON resumes.id = resume_contacts.resume_id").Where("resume_contacts.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_contacts.resume_id").Where("resume_contacts.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.ResumeContactsView{}, queries.ErrResumeNotFound
+	}
+	if err != nil {
+		return queries.ResumeContactsView{}, fmt.Errorf("get resume contacts: %w", err)
+	}
+
+	var hidden []gormmodel.ResumeContactHidden
+	if err := db.Where("contacts_id = ?", model.ID).Order("position").Find(&hidden).Error; err != nil {
+		return queries.ResumeContactsView{}, fmt.Errorf("get hidden contacts: %w", err)
+	}
+	hiddenContacts := make([]string, 0, len(hidden))
+	for _, item := range hidden {
+		hiddenContacts = append(hiddenContacts, item.Value)
+	}
+
+	view := queries.ResumeContactsView{
+		ID: model.ID.String(), ResumeID: model.ResumeID.String(), Phone: model.Phone,
+		Telegram: model.Telegram, Email: model.Email, HiddenContacts: hiddenContacts,
+	}
+	var text gormmodel.ResumeContactsText
+	if err := db.Where("contacts_id = ?", model.ID).First(&text).Error; err == nil {
+		view.ContactsText = &queries.ResumeContactsTextView{Title: text.Title, Subtitle: text.Subtitle}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.ResumeContactsView{}, fmt.Errorf("get contacts text: %w", err)
+	}
+	return view, nil
+}
+
+func (r *ContactsReader) ReadResumeContacts(ctx context.Context, resumeID valueobjects.ID) (queries.ResumeContactsView, error) {
+	db, err := resolveDB(ctx, r.db, "get resume contacts")
+	if err != nil {
+		return queries.ResumeContactsView{}, err
+	}
+	if resumeID.IsZero() {
+		return queries.ResumeContactsView{}, fmt.Errorf("get resume contacts: invalid query")
+	}
+
+	var model gormmodel.ResumeContacts
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_contacts.resume_id").Where("resume_contacts.resume_id = ?", resumeID.UUID())
+	err = readDB.First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return queries.ResumeContactsView{}, queries.ErrResumeNotFound
 	}

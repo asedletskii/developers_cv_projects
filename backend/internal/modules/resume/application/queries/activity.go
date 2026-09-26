@@ -28,6 +28,10 @@ type ActivitiesReader interface {
 	ListActivities(context.Context, ListActivitiesQuery) ([]ActivityView, error)
 	GetActivity(context.Context, GetActivityQuery) (ActivityView, error)
 }
+
+type ActivitiesSource interface {
+	ReadActivities(context.Context, valueobjects.ID) ([]ActivityView, error)
+}
 type ListActivitiesQueryHandler struct{ reader ActivitiesReader }
 
 func NewListActivitiesQueryHandler(reader ActivitiesReader) *ListActivitiesQueryHandler {
