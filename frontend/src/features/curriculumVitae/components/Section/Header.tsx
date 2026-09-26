@@ -1,6 +1,7 @@
 import { SectionId } from '@features/curriculumVitae/types'
 import { getContentId, getTitleId } from '@features/curriculumVitae/utils/getSectionElementId'
 import { ButtonBase, Stack, Typography } from '@mui/material'
+import { getContentId, getTitleId } from '@features/curriculumVitae/utils/getSectionElementId'
 import { Chevron } from './Chevron'
 import { Line } from './Line'
 
