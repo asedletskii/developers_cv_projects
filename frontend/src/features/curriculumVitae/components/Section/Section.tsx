@@ -1,7 +1,7 @@
 import { PropsWithChildren } from 'react'
 import { SectionId } from '@features/curriculumVitae/types'
 import { Box, Stack } from '@mui/material'
-import { useSectionCollapse } from '../SectionCollapseProvider'
+import { useSectionCollapse } from '@features/curriculumVitae/hooks'
 import { contentSx } from './constants'
 import { Header } from './Header'
 import { Panel } from './Panel'

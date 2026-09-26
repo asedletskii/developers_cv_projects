@@ -1,17 +1,12 @@
 import { Greeting as GreetingData } from '@features/curriculumVitae/types'
 import { Stack, Typography } from '@mui/material'
-import { keyframes } from '@mui/material/styles'
 import { splitText } from '@shared/animations'
 import { ColoredTypography } from '@shared/components'
+import { SHIMMER } from './constants'
 
 type Props = {
   greeting: GreetingData
 }
-
-const shimmer = keyframes`
-  from { background-position: 0% 50%; }
-  to { background-position: 200% 50%; }
-`
 
 export const Greeting = ({ greeting }: Props) => {
   return (
@@ -39,7 +34,7 @@ export const Greeting = ({ greeting }: Props) => {
             WebkitBackgroundClip: 'text',
             backgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            animation: `${shimmer} 6s linear infinite`,
+            animation: `${SHIMMER} 6s linear infinite`,
             '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
           })}
         />

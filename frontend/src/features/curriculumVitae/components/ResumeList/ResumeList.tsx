@@ -1,22 +1,22 @@
-import { useState } from 'react'
-import { glassCard } from '@features/curriculumVitae/styles'
+import { CreateResumeDialog } from '@features/curriculumVitae/components/CreateResumeDialog'
+import { EditResumeTitleDialog } from '@features/curriculumVitae/components/EditResumeTitleDialog'
 import { LkResumeSummary } from '@features/curriculumVitae/types'
-import { AddRounded, ChevronRightRounded, EditRounded } from '@mui/icons-material'
-import { Button, ButtonBase, IconButton, Stack, Typography } from '@mui/material'
+import { AddRounded } from '@mui/icons-material'
+import { Button, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
-import { Link as RouterLink } from 'react-router'
-import { EditResumeTitleDialog } from './EditResumeTitleDialog'
+import { useResumeList } from './hooks'
+import { ResumeActionsMenu } from './ResumeActionsMenu'
+import { ResumeListItem } from './ResumeListItem'
 
 type Props = {
   userId: string
   resumes: LkResumeSummary[]
 }
 
-/** Правая колонка ЛК: список резюме пользователя. */
+/** Список резюме пользователя (правая часть ЛК): создание, переименование, удаление, переход в редактор. */
 export const ResumeList = ({ userId, resumes }: Props) => {
   const translate = useTranslate('Lk.Resumes')
-
-  const [editingResume, setEditingResume] = useState<LkResumeSummary | null>(null)
+  const list = useResumeList(userId)
 
   return (
     <Stack spacing={2}>
@@ -24,8 +24,7 @@ export const ResumeList = ({ userId, resumes }: Props) => {
         <Typography variant="h5">{translate('title')}</Typography>
 
         <Button
-          component={RouterLink}
-          to={`/cv/lk/${encodeURIComponent(userId)}/new`}
+          onClick={list.openCreating}
           startIcon={<AddRounded />}
           size="small"
           sx={{ textTransform: 'none' }}
@@ -39,43 +38,30 @@ export const ResumeList = ({ userId, resumes }: Props) => {
       ) : (
         <Stack spacing={1.5}>
           {resumes.map((resume) => (
-            <Stack
+            <ResumeListItem
               key={resume.id}
-              direction="row"
-              alignItems="center"
-              sx={{
-                pr: 1,
-                ...glassCard,
-                transition: 'box-shadow .2s, border-color .2s',
-                '&:hover': { boxShadow: 2, borderColor: 'primary.light' },
-              }}
-            >
-              <ButtonBase
-                component={RouterLink}
-                to={`/cv/lk/${encodeURIComponent(userId)}/${encodeURIComponent(resume.id)}`}
-                sx={{ flex: 1, justifyContent: 'space-between', px: 3, py: 2 }}
-              >
-                <Typography>{resume.title}</Typography>
-
-                <ChevronRightRounded sx={{ color: 'gray.light' }} />
-              </ButtonBase>
-
-              <IconButton
-                aria-label={translate('editTitle')}
-                onClick={() => setEditingResume(resume)}
-              >
-                <EditRounded fontSize="small" />
-              </IconButton>
-            </Stack>
+              userId={userId}
+              resume={resume}
+              onOpenMenu={(e) => list.openMenu(e.currentTarget, resume)}
+            />
           ))}
         </Stack>
       )}
 
-      {editingResume && (
+      <ResumeActionsMenu
+        anchor={list.menu?.anchor ?? null}
+        onClose={list.closeMenu}
+        onRename={list.renameFromMenu}
+        onRemove={list.removeFromMenu}
+      />
+
+      {list.isCreating && <CreateResumeDialog userId={userId} onClose={list.closeCreating} />}
+
+      {list.editingResume && (
         <EditResumeTitleDialog
           userId={userId}
-          resume={editingResume}
-          onClose={() => setEditingResume(null)}
+          resume={list.editingResume}
+          onClose={list.closeEditing}
         />
       )}
     </Stack>

@@ -1,4 +1,4 @@
-import { useGreetingAnimation } from '@features/curriculumVitae/hooks'
+import { useGreetingAnimation } from '@features/curriculumVitae/components/HeroSection/hooks/useGreetingAnimation'
 import {
   Availability as AvailabilityData,
   Greeting as GreetingData,

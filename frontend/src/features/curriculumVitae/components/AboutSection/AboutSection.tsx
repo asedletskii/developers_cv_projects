@@ -1,12 +1,11 @@
 import { Section } from '@features/curriculumVitae/components/Section'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Person, SectionId } from '@features/curriculumVitae/types'
-import { Stack } from '@mui/material'
+import { Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { getPersonFIO } from '@shared/utils'
 import { Facts } from './Facts'
 import { Portrait } from './Portrait'
-import { Summary } from './Summary'
 
 type Props = Pick<
   Person,
@@ -42,10 +41,22 @@ export const AboutSection = ({
         alignItems={{ xs: 'center', sm: 'flex-start' }}
         sx={{ p: { xs: 3, sm: 4 }, ...glassCard }}
       >
-        <Portrait src={photoPath} alt={fio} initials={`${name[0]}${surname[0]}`} />
+        <Portrait src={photoPath} alt={fio} initials={`${name[0] ?? ''}${surname[0] ?? ''}`} />
 
         <Stack spacing={2} sx={{ minWidth: 0 }}>
-          <Summary fio={fio} position={position} />
+          <Stack
+            data-preview="profile"
+            spacing={0.5}
+            alignItems={{ xs: 'center', sm: 'flex-start' }}
+          >
+            <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' } }}>
+              {fio}
+            </Typography>
+
+            <Typography variant="h6" sx={{ color: 'primary.main' }}>
+              {position}
+            </Typography>
+          </Stack>
 
           <Facts {...facts} />
         </Stack>

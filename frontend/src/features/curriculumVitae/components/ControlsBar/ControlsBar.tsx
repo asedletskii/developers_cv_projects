@@ -1,6 +1,5 @@
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Stack } from '@mui/material'
-import { LanguageSwitch } from './LanguageSwitch'
 import { ResumeButton } from './ResumeButton'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -27,7 +26,5 @@ export const ControlsBar = ({ resumeLink }: Props) => (
     <ResumeButton resumeLink={resumeLink} />
 
     <ThemeToggle />
-
-    <LanguageSwitch />
   </Stack>
 )

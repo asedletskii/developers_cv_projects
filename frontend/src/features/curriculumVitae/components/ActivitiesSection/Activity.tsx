@@ -1,11 +1,11 @@
 import { ExternalLink } from '@features/curriculumVitae/components/ExternalLink'
 import { IconTile } from '@features/curriculumVitae/components/IconTile'
+import { ACTIVITY_ICONS } from '@features/curriculumVitae/constants'
 import { glassCard } from '@features/curriculumVitae/styles'
-import { Activity as ActivityData } from '@features/curriculumVitae/types'
+import { Activity as ActivityData, ActivityType } from '@features/curriculumVitae/types'
 import { Chip, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { formatMonth } from '@shared/utils'
-import { ACTIVITY_ICONS } from './activityIcons'
 
 type Props = {
   activity: ActivityData
@@ -14,7 +14,7 @@ type Props = {
 export const Activity = ({ activity }: Props) => {
   const translate = useTranslate('CurriculumVitae.Activities')
 
-  const Icon = ACTIVITY_ICONS[activity.type]
+  const Icon = ACTIVITY_ICONS[activity.type] ?? ACTIVITY_ICONS[ActivityType.OpenSource]
 
   return (
     <Stack

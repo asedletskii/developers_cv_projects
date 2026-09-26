@@ -1,5 +1,6 @@
 import { CurriculumVitaeError } from '@features/curriculumVitae/types'
 import { Button, Stack, Typography } from '@mui/material'
+import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
 import { Link as RouterLink } from 'react-router'
 
@@ -50,7 +51,7 @@ export const LoadFailure = ({ error, subject = 'resume' }: Props) => {
 
       <Button
         component={RouterLink}
-        to="/"
+        to={ROUTES.home}
         variant="contained"
         sx={{ borderRadius: 999, px: 3, textTransform: 'none' }}
       >

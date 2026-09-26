@@ -1,5 +1,5 @@
 import { Avatar, Box } from '@mui/material'
-import { keyframes } from '@mui/material/styles'
+import { FLOAT, SPIN } from './constants'
 
 type Props = {
   src: string
@@ -7,22 +7,13 @@ type Props = {
   initials: string
 }
 
-const float = keyframes`
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-`
-
-const spin = keyframes`
-  to { transform: rotate(360deg); }
-`
-
-/** Круглое фото: медленно парит, вокруг вращается пунктирное кольцо. Без фото — инициалы. */
 export const Portrait = ({ src, alt, initials }: Props) => (
   <Box
+    data-preview="profile"
     sx={{
       position: 'relative',
       flexShrink: 0,
-      animation: `${float} 5s ease-in-out infinite`,
+      animation: `${FLOAT} 5s ease-in-out infinite`,
       '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
     }}
   >
@@ -32,9 +23,9 @@ export const Portrait = ({ src, alt, initials }: Props) => (
         position: 'absolute',
         inset: -14,
         borderRadius: '50%',
-        border: '2px dashed',
+        border: '4px dashed',
         borderColor: 'primary.light',
-        animation: `${spin} 24s linear infinite`,
+        animation: `${SPIN} 24s linear infinite`,
         '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
       }}
     />

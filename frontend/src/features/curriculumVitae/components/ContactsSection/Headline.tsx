@@ -5,7 +5,6 @@ type Props = {
   subtitle: string
 }
 
-/** Заголовок и подпись блока; пустая строка скрывает соответствующий элемент. */
 export const Headline = ({ title, subtitle }: Props) => {
   if (!title && !subtitle) return null
 

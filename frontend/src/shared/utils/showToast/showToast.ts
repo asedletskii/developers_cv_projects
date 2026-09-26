@@ -5,7 +5,7 @@ import { ToastOptions } from '@shared/types'
 import { closeToast } from '../closeToast'
 import { generateId } from '../generateId'
 
-export function showToast(toast: Omit<ToastOptions, 'id'>) {
+export const showToast = (toast: Omit<ToastOptions, 'id'>) => {
   const id = generateId()
   const duration = toast.duration ?? DEFAULT_TOAST_DURATION[toast.type]
   store.dispatch(addToast({ id, ...toast, duration }))

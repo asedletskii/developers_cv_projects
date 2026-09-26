@@ -1,16 +1,14 @@
-import { PropsWithChildren, useMemo } from 'react'
+import { PropsWithChildren } from 'react'
 import { ThemeSettings } from '@features/curriculumVitae/types'
-import { createAccentTheme } from '@features/curriculumVitae/utils'
-import { ThemeProvider, useTheme } from '@mui/material/styles'
+import { ThemeProvider } from '@mui/material/styles'
+import { useAccentTheme } from './hooks'
 
 type Props = PropsWithChildren<{
   colors?: ThemeSettings
 }>
 
-/** Красит резюме в цвета из настроек: вложенная тема поверх текущей, светлая/тёмная схема сохраняется. */
 export const AccentTheme = ({ colors, children }: Props) => {
-  const baseTheme = useTheme()
-  const theme = useMemo(() => createAccentTheme(baseTheme, colors), [baseTheme, colors])
+  const theme = useAccentTheme(colors)
 
   if (!theme) return <>{children}</>
 

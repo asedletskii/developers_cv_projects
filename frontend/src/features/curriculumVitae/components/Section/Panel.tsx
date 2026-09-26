@@ -1,8 +1,9 @@
-import { PropsWithChildren, TransitionEvent, useEffect, useRef, useState } from 'react'
+import { PropsWithChildren } from 'react'
 import { SectionId } from '@features/curriculumVitae/types'
 import { Box } from '@mui/material'
-import { prefersReducedMotion, ScrollTrigger } from '@shared/animations'
-import { contentSx, DURATION, EASE, getContentId, getTitleId } from './constants'
+import { contentSx, DURATION, EASE } from './constants'
+import { getContentId, getTitleId } from '@features/curriculumVitae/utils/getSectionElementId'
+import { usePanelAnimation } from './hooks'
 
 type Props = PropsWithChildren<{
   id: SectionId
@@ -14,29 +15,7 @@ type Props = PropsWithChildren<{
  * без измерений в JS.
  */
 export const Panel = ({ id, isCollapsed, children }: Props) => {
-  // Пока идёт анимация, содержимое обрезается по высоте; в покое — нет, чтобы не резать тени карточек
-  const [isAnimating, setIsAnimating] = useState(false)
-  const previousCollapsedRef = useRef(isCollapsed)
-
-  useEffect(() => {
-    if (previousCollapsedRef.current === isCollapsed) return
-    previousCollapsedRef.current = isCollapsed
-
-    if (prefersReducedMotion()) {
-      ScrollTrigger.refresh(true)
-    } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsAnimating(true)
-    }
-  }, [isCollapsed])
-
-  const handleTransitionEnd = (event: TransitionEvent) => {
-    if (event.propertyName !== 'grid-template-rows') return
-
-    setIsAnimating(false)
-    // Высота страницы изменилась — пересчитываем триггеры, но не посреди плавного скролла (safe)
-    ScrollTrigger.refresh(true)
-  }
+  const { isAnimating, handleTransitionEnd } = usePanelAnimation(isCollapsed)
 
   return (
     <Box

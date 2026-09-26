@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
+import { useExpandableJobs } from '@features/curriculumVitae/components/ExperienceSection/hooks/useExpandableJobs'
+import { useTimelineAnimation } from '@features/curriculumVitae/components/ExperienceSection/hooks/useTimelineAnimation'
 import { Section } from '@features/curriculumVitae/components/Section'
-import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
-import { useTimelineAnimation } from '@features/curriculumVitae/hooks'
+import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { Experience, SectionId } from '@features/curriculumVitae/types'
 import { hasTechnology } from '@features/curriculumVitae/utils'
 import { useTranslate } from '@shared/hooks'
@@ -9,7 +10,6 @@ import { VISIBLE_COUNT } from './constants'
 import { Job } from './Job'
 import { MoreButton } from './MoreButton'
 import { Timeline } from './Timeline'
-import { useExpandableJobs } from './useExpandableJobs'
 
 type Props = {
   experience: Experience[]

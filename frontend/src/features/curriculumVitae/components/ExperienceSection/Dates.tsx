@@ -7,7 +7,6 @@ type Props = {
   endDate?: string
 }
 
-/** «март 2023 — по настоящее время · 3 года 7 месяцев» */
 export const Dates = ({ startDate, endDate }: Props) => {
   const translate = useTranslate('CurriculumVitae.Experience')
 

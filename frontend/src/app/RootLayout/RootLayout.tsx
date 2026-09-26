@@ -1,6 +1,7 @@
 import { PropsWithChildren } from 'react'
 import { Box } from '@mui/material'
-import { useLocation } from 'react-router'
+import { matchPath, useLocation } from 'react-router'
+import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
 import { Footer } from './Footer'
 import { Header } from './Header'
@@ -8,7 +9,7 @@ import { Header } from './Header'
 export const RootLayout = ({ children }: PropsWithChildren) => {
   const translate = useTranslate('Footer.Developers')
   const { pathname } = useLocation()
-  const isHeaderHidden = pathname === '/cv' || pathname.startsWith('/cv/')
+  const isHeaderHidden = !!matchPath({ path: ROUTES.cv, end: false }, pathname)
   const developers = [
     {
       name: translate('sedletskii'),

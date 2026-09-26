@@ -5,7 +5,7 @@ import {
 import { createSlice, WithSlice } from '@reduxjs/toolkit'
 import { rootReducer } from '@shared/store'
 import { getCurriculumVitaeInitialState } from './curriculumVitae.state'
-import { getPersonData, updatePersonData } from './curriculumVitae.thunks'
+import { getPersonData } from './curriculumVitae.thunks'
 
 export const curriculumVitaeSlice = createSlice<
   CurriculumVitaeSliceState,
@@ -46,10 +46,6 @@ export const curriculumVitaeSlice = createSlice<
         // Скелетон только когда на экране нет этого же резюме: смена языка не должна мигать
         state.isLoading = state.person.id !== meta.arg.cvId
         state.error = null
-      })
-
-      .addCase(updatePersonData.fulfilled, (state, { payload }) => {
-        state.person = payload
       })
   },
 })

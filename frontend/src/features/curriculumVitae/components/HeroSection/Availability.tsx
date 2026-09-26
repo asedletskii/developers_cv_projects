@@ -3,26 +3,13 @@ import {
   AvailabilityStatus,
 } from '@features/curriculumVitae/types'
 import { Box, Stack, Typography } from '@mui/material'
-import { keyframes } from '@mui/material/styles'
 import { useTranslate } from '@shared/hooks'
+import { PULSE, STATUS_COLORS } from './constants'
 import dayjs from 'dayjs'
 
 type Props = {
   availability?: AvailabilityData
   updatedAt?: string
-}
-
-const pulse = keyframes`
-  0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
-  70% { box-shadow: 0 0 0 8px transparent; opacity: 0.7; }
-  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
-`
-
-/** Цвет индикатора: зелёный — ищу, жёлтый — рассматриваю, серый — не ищу */
-const STATUS_COLORS: Record<AvailabilityStatus, string> = {
-  [AvailabilityStatus.Open]: 'success.main',
-  [AvailabilityStatus.Considering]: 'alert.main',
-  [AvailabilityStatus.Busy]: 'gray.light',
 }
 
 /** Плашка «Открыт к предложениям» с датой выхода, заметкой и временем последнего обновления. */
@@ -68,7 +55,7 @@ export const Availability = ({ availability, updatedAt }: Props) => {
             color: STATUS_COLORS[status],
             bgcolor: 'currentColor',
             animation:
-              status === AvailabilityStatus.Open ? `${pulse} 2s ease-out infinite` : 'none',
+              status === AvailabilityStatus.Open ? `${PULSE} 2s ease-out infinite` : 'none',
             '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
           }}
         />

@@ -1,4 +1,4 @@
-import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
+import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { Technology } from '@features/curriculumVitae/types'
 import { Chip, Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
@@ -7,7 +7,6 @@ type Props = {
   technologies: Technology[]
 }
 
-/** Строка компактных чипов со стеком. Клик по чипу включает фильтр по этой технологии. */
 export const TechnologyList = ({ technologies }: Props) => {
   const translate = useTranslate('CurriculumVitae.Filter')
   const { isSelected, toggle } = useTechnologyFilter()

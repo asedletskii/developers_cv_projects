@@ -1,30 +1,9 @@
-import { useLayoutEffect, useRef } from 'react'
 import { Box } from '@mui/material'
-import { gsap, prefersReducedMotion } from '@shared/animations'
+import { useScrollProgress } from './hooks'
 
 /** Тонкая полоска прогресса прокрутки страницы вверху экрана. */
 export const ScrollProgress = () => {
-  const barRef = useRef<HTMLDivElement | null>(null)
-
-  useLayoutEffect(() => {
-    const bar = barRef.current
-    if (!bar || prefersReducedMotion()) return
-
-    const tween = gsap.fromTo(
-      bar,
-      { scaleX: 0 },
-      {
-        scaleX: 1,
-        ease: 'none',
-        scrollTrigger: { start: 0, end: 'max', scrub: 0.3 },
-      },
-    )
-
-    return () => {
-      tween.scrollTrigger?.kill()
-      tween.kill()
-    }
-  }, [])
+  const barRef = useScrollProgress()
 
   return (
     <Box

@@ -5,12 +5,9 @@ import { ContactButton } from './ContactButton'
 
 type Props = {
   links: ContactLink[]
-
-  /** Какие контакты показываются только по клику */
   hidden: ContactKey[]
 }
 
-/** Кнопки связи: обычные ссылки или скрытые контакты, которые раскрываются по клику. */
 export const Actions = ({ links, hidden }: Props) => (
   <Stack
     direction={{ xs: 'column', sm: 'row' }}

@@ -1,7 +1,7 @@
 import { appLocaleDict } from '@app/locale'
 import { Languages } from '@shared/types'
 
-export function getInitialLanguage(fallback: Languages = Languages.Ru): Languages {
+export const getInitialLanguage = (fallback: Languages = Languages.Ru): Languages => {
   const stored = localStorage.getItem('language') as Languages | null
   if (stored && appLocaleDict[stored]) return stored
 

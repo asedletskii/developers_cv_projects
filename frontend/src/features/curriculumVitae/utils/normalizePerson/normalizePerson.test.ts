@@ -62,7 +62,14 @@ describe('normalizePerson', () => {
     const raw = {
       ...basePerson,
       experience: [
-        { id: 'e1', company: 'A', position: 'Dev', startDate: '2020-01', achievements: null, stack: null },
+        {
+          id: 'e1',
+          company: 'A',
+          position: 'Dev',
+          startDate: '2020-01',
+          achievements: null,
+          stack: null,
+        },
       ],
     } as unknown as Person
 

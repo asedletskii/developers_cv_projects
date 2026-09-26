@@ -3,7 +3,7 @@ import {
   CurriculumVitaeError,
   LkProfile,
   LkResumeSummary,
-  Person,
+  ResumeLanguage,
 } from '@features/curriculumVitae/types'
 import { parseApiError } from '@features/curriculumVitae/utils'
 import { createAsyncThunk } from '@reduxjs/toolkit'
@@ -39,12 +39,13 @@ type UpdateLkResumeTitleArg = {
 }
 
 export const updateLkResumeTitle = createAsyncThunk<
-  LkResumeSummary,
+  Pick<LkResumeSummary, 'id' | 'title'>,
   UpdateLkResumeTitleArg,
   ThunkConfig
 >('updateLkResumeTitle', async ({ userId, resumeId, title }, { rejectWithValue }) => {
   try {
-    return await curriculumVitaeApi.renameResume(userId, resumeId, title)
+    await curriculumVitaeApi.updateTitle(userId, resumeId, title)
+    return { id: resumeId, title }
   } catch (e) {
     return rejectWithValue(parseApiError(e))
   }
@@ -52,14 +53,33 @@ export const updateLkResumeTitle = createAsyncThunk<
 
 type CreateLkResumeArg = {
   userId: string
-  person: Person
+  title: string
+  language: ResumeLanguage
 }
 
-export const createLkResume = createAsyncThunk<Person, CreateLkResumeArg, ThunkConfig>(
+/** Возвращает id созданного резюме — дальше его наполняют секциями в редакторе. */
+export const createLkResume = createAsyncThunk<string, CreateLkResumeArg, ThunkConfig>(
   'createLkResume',
-  async ({ userId, person }, { rejectWithValue }) => {
+  async ({ userId, title, language }, { rejectWithValue }) => {
     try {
-      return await curriculumVitaeApi.createResume(userId, person)
+      return await curriculumVitaeApi.createResume(userId, title, language)
+    } catch (e) {
+      return rejectWithValue(parseApiError(e))
+    }
+  },
+)
+
+type DeleteLkResumeArg = {
+  userId: string
+  resumeId: string
+}
+
+export const deleteLkResume = createAsyncThunk<string, DeleteLkResumeArg, ThunkConfig>(
+  'deleteLkResume',
+  async ({ userId, resumeId }, { rejectWithValue }) => {
+    try {
+      await curriculumVitaeApi.deleteResume(userId, resumeId)
+      return resumeId
     } catch (e) {
       return rejectWithValue(parseApiError(e))
     }
