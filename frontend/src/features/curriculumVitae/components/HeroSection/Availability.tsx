@@ -4,7 +4,6 @@ import {
 } from '@features/curriculumVitae/types'
 import { Box, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
-import { PULSE, STATUS_COLORS } from './constants'
 import dayjs from 'dayjs'
 import { PULSE, STATUS_COLORS } from './constants'
 

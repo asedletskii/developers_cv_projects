@@ -9,7 +9,6 @@ import {
   SingletonSection,
 } from '@features/curriculumVitae/types'
 import { normalizePerson } from '@features/curriculumVitae/utils'
-import { API_ROUTES } from '@features/curriculumVitae/constants'
 import { api } from '@shared/api'
 import { generatePath } from 'react-router'
 
