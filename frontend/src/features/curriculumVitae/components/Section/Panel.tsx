@@ -1,8 +1,8 @@
 import { PropsWithChildren } from 'react'
 import { SectionId } from '@features/curriculumVitae/types'
+import { getContentId, getTitleId } from '@features/curriculumVitae/utils/getSectionElementId'
 import { Box } from '@mui/material'
 import { contentSx, DURATION, EASE } from './constants'
-import { getContentId, getTitleId } from '@features/curriculumVitae/utils/getSectionElementId'
 import { usePanelAnimation } from './hooks'
 
 type Props = PropsWithChildren<{

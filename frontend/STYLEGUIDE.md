@@ -8,7 +8,9 @@
 yarn lint && yarn typecheck && yarn test && yarn build
 ```
 
-`yarn lint:fix` сам исправляет форматирование и порядок импортов.
+`yarn lint:fix` исправляет форматирование и порядок импортов в `src`. `yarn format` делает то же и дополнительно форматирует остальные файлы (Markdown, JSON, конфиги).
+
+Порядок импортов — правило ESLint (`simple-import-sort`), а не Prettier: сам по себе `prettier --write` импорты не сортирует, поэтому `format` завершается вызовом `lint:fix`.
 
 ## 1. Форматирование
 

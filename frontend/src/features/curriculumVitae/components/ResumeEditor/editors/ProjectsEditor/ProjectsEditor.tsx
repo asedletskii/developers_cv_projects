@@ -1,16 +1,15 @@
-import { Person } from '@features/curriculumVitae/types'
-import { blankProject } from '@features/curriculumVitae/utils'
+import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
+import { TechnologyListField } from '@features/curriculumVitae/components/form/TechnologyListField'
 import { useFormList } from '@features/curriculumVitae/hooks'
+import { blankProject } from '@features/curriculumVitae/utils'
 import { AddRounded } from '@mui/icons-material'
 import { Button, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
-import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
-import { TechnologyListField } from '@features/curriculumVitae/components/form/TechnologyListField'
 
 /** Секция «Проекты». */
 export const ProjectsEditor = () => {
   const translate = useTranslate('Lk.Edit.Projects')
-  const { control, register, fields, addItem, itemProps } = useFormList('projects', blankProject)
+  const { register, fields, addItem, itemProps } = useFormList('projects', blankProject)
 
   return (
     <Stack spacing={1.5}>

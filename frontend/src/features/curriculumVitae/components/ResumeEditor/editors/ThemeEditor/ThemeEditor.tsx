@@ -1,10 +1,10 @@
+import { ColorField } from '@features/curriculumVitae/components/form/ColorField'
+import { ThemePreviewDialog } from '@features/curriculumVitae/components/ThemePreviewDialog'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { VisibilityOutlined } from '@mui/icons-material'
 import { Button, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useThemeEditor } from './hooks'
-import { ColorField } from '@features/curriculumVitae/components/form/ColorField'
-import { ThemePreviewDialog } from '@features/curriculumVitae/components/ThemePreviewDialog'
 
 export const ThemeEditor = () => {
   const translate = useTranslate('Lk.Edit.Theme')

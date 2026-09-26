@@ -1,7 +1,7 @@
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Stack } from '@mui/material'
+import { ThemeToggle } from '@shared/components'
 import { ResumeButton } from './ResumeButton'
-import { ThemeToggle } from './ThemeToggle'
 
 type Props = {
   resumeLink?: string

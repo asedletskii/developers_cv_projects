@@ -1,16 +1,15 @@
-import { Person } from '@features/curriculumVitae/types'
-import { blankCourse } from '@features/curriculumVitae/utils'
+import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
+import { DateField } from '@features/curriculumVitae/components/form/DateField'
 import { useFormList } from '@features/curriculumVitae/hooks'
+import { blankCourse } from '@features/curriculumVitae/utils'
 import { AddRounded } from '@mui/icons-material'
 import { Button, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
-import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
-import { DateField } from '@features/curriculumVitae/components/form/DateField'
 
 /** Секция «Курсы»: список курсов и сертификатов. */
 export const CoursesEditor = () => {
   const translate = useTranslate('Lk.Edit.Courses')
-  const { control, register, fields, addItem, itemProps } = useFormList('courses', blankCourse)
+  const { register, fields, addItem, itemProps } = useFormList('courses', blankCourse)
 
   return (
     <Stack spacing={1.5}>

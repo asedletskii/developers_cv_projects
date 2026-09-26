@@ -15,16 +15,10 @@ import { TechStackEditor } from './editors/TechStackEditor'
 export type EditorTab = {
   id: ResumeEditorTab
   Editor: ComponentType
-
-  /** Секция страницы, которую вкладка правит — по ней рисуется предпросмотр (нет — без него) */
   preview?: SectionId
-
-  /** Участок секции, который правится на вкладке: остальное в предпросмотре приглушается */
   highlight?: string
 }
 
-/** Вкладки в порядке показа: каждая — отдельная форма и отдельная ручка бэка. Порядок повторяет
- *  страницу резюме (обзор → «Обо мне» → стэк → опыт → навыки → образование → … → контакты). */
 export const EDITOR_TABS: EditorTab[] = [
   { id: 'overview', Editor: OverviewEditor },
   { id: 'profile', Editor: AboutEditor, preview: SectionId.About, highlight: 'profile' },
@@ -38,3 +32,5 @@ export const EDITOR_TABS: EditorTab[] = [
   { id: 'activities', Editor: ActivitiesEditor, preview: SectionId.Activities },
   { id: 'contacts', Editor: ContactsEditor, preview: SectionId.Contacts },
 ]
+
+export const TAB_SX = { textTransform: 'none', minWidth: 0, px: { xs: 1.5, sm: 2 } } as const

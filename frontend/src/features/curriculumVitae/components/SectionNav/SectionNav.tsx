@@ -1,13 +1,13 @@
 import { useMemo, useRef } from 'react'
-import { useSectionCollapse } from '@features/curriculumVitae/hooks'
 import { useActiveSection } from '@features/curriculumVitae/components/SectionNav/hooks/useActiveSection'
+import { useCenterActive } from '@features/curriculumVitae/components/SectionNav/hooks/useCenterActive'
+import { useReveal } from '@features/curriculumVitae/components/SectionNav/hooks/useReveal'
+import { useSectionCollapse } from '@features/curriculumVitae/hooks'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { SectionId } from '@features/curriculumVitae/types'
 import { afterExpanded, scrollToSection } from '@features/curriculumVitae/utils'
 import { Box } from '@mui/material'
 import { Item } from './Item'
-import { useCenterActive } from '@features/curriculumVitae/components/SectionNav/hooks/useCenterActive'
-import { useReveal } from '@features/curriculumVitae/components/SectionNav/hooks/useReveal'
 
 type Props = {
   items: { id: SectionId; label: string }[]

@@ -1,10 +1,10 @@
+import { DateField } from '@features/curriculumVitae/components/form/DateField'
+import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
 import { Person } from '@features/curriculumVitae/types'
 import { Checkbox, FormControlLabel, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useFormContext } from 'react-hook-form'
 import { useProfileOptions } from './hooks'
-import { DateField } from '@features/curriculumVitae/components/form/DateField'
-import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
 
 /** Вкладка «Профиль»: личные данные и формат работы. */
 export const AboutEditor = () => {

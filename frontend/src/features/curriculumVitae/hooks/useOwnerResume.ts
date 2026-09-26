@@ -8,7 +8,9 @@ import { parseApiError } from '@features/curriculumVitae/utils'
  * загрузку — так после сохранения секции значения в форме обновляются на месте.
  */
 export const useOwnerResume = (userId?: string, resumeId?: string) => {
-  const [view, setView] = useState<ResumeView | null>(null)
+  // Резюме хранится вместе с id, к которому относится: при смене id старое не показываем, и
+  // сбрасывать состояние в эффекте не нужно
+  const [loaded, setLoaded] = useState<{ resumeId: string; view: ResumeView } | null>(null)
   const [error, setError] = useState<CurriculumVitaeError | null>(null)
 
   const reload = useCallback(
@@ -16,7 +18,8 @@ export const useOwnerResume = (userId?: string, resumeId?: string) => {
       if (!userId || !resumeId) return
 
       try {
-        setView(await curriculumVitaeApi.getResume(userId, resumeId, signal))
+        const view = await curriculumVitaeApi.getResume(userId, resumeId, signal)
+        setLoaded({ resumeId, view })
         setError(null)
       } catch (e) {
         if (!signal?.aborted) setError(parseApiError(e))
@@ -26,13 +29,15 @@ export const useOwnerResume = (userId?: string, resumeId?: string) => {
   )
 
   useEffect(() => {
-    setView(null)
-
     const controller = new AbortController()
+    // Загрузка с бэка: setState вызывается после ответа, а не синхронно в теле эффекта
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload(controller.signal)
 
     return () => controller.abort()
   }, [reload])
+
+  const view = loaded && loaded.resumeId === resumeId ? loaded.view : null
 
   return { view, error, setError, reload }
 }

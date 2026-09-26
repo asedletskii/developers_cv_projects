@@ -1,19 +1,18 @@
-import { ActivityType, Person } from '@features/curriculumVitae/types'
-import { blankActivity } from '@features/curriculumVitae/utils'
-import { useFormList } from '@features/curriculumVitae/hooks'
-import { AddRounded } from '@mui/icons-material'
-import { Button, Stack, TextField } from '@mui/material'
-import { useTranslate } from '@shared/hooks'
 import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
 import { DateField } from '@features/curriculumVitae/components/form/DateField'
 import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
+import { useFormList } from '@features/curriculumVitae/hooks'
+import { blankActivity } from '@features/curriculumVitae/utils'
+import { AddRounded } from '@mui/icons-material'
+import { Button, Stack, TextField } from '@mui/material'
+import { useTranslate } from '@shared/hooks'
 import { useActivityOptions } from './hooks'
 
 /** Секция «Дополнительная активность»: open source, выступления, волонтёрство и т.д. */
 export const ActivitiesEditor = () => {
   const translate = useTranslate('Lk.Edit.Activities')
   const { typeOptions } = useActivityOptions()
-  const { control, register, fields, addItem, itemProps } = useFormList('activities', blankActivity)
+  const { register, fields, addItem, itemProps } = useFormList('activities', blankActivity)
 
   return (
     <Stack spacing={1.5}>

@@ -1,12 +1,12 @@
+import { DateField } from '@features/curriculumVitae/components/form/DateField'
+import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
+import { HeroPreview } from '@features/curriculumVitae/components/HeroPreview'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Person } from '@features/curriculumVitae/types'
 import { Stack, TextField, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useFormContext } from 'react-hook-form'
 import { useHeroOptions } from './hooks'
-import { DateField } from '@features/curriculumVitae/components/form/DateField'
-import { HeroPreview } from '@features/curriculumVitae/components/HeroPreview'
-import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
 
 export const HeroEditor = () => {
   const translate = useTranslate('Lk.Edit.Hero')

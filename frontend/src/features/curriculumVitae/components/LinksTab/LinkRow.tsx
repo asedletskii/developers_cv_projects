@@ -1,7 +1,7 @@
+import { MouseEvent } from 'react'
 import { ContentCopyRounded, MoreVertRounded, OpenInNewRounded } from '@mui/icons-material'
 import { Button, IconButton, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
-import { MouseEvent } from 'react'
 
 type Props = {
   name: string

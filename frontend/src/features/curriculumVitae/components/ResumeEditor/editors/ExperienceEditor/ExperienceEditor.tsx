@@ -1,13 +1,12 @@
-import { Person } from '@features/curriculumVitae/types'
-import { blankExperience } from '@features/curriculumVitae/utils'
+import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
+import { DateField } from '@features/curriculumVitae/components/form/DateField'
+import { TechnologyListField } from '@features/curriculumVitae/components/form/TechnologyListField'
 import { useFormList } from '@features/curriculumVitae/hooks'
+import { blankExperience } from '@features/curriculumVitae/utils'
 import { AddRounded } from '@mui/icons-material'
 import { Button, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { Controller } from 'react-hook-form'
-import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
-import { DateField } from '@features/curriculumVitae/components/form/DateField'
-import { TechnologyListField } from '@features/curriculumVitae/components/form/TechnologyListField'
 
 /** Секция «Опыт работы»: список мест работы, каждое — со своим стэком технологий. */
 export const ExperienceEditor = () => {

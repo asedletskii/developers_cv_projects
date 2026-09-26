@@ -1,6 +1,6 @@
 // import { UndefinedScreen } from '@shared/screens/UndefinedScreen'
 import { curriculumVitaeRoutes } from '@features/curriculumVitae/routes'
-import { Route, Routes, useLocation } from 'react-router'
+import { Routes, useLocation } from 'react-router'
 
 export const PageRouter = () => {
   const location = useLocation()

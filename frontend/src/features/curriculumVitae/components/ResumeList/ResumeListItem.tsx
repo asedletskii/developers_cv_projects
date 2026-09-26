@@ -1,10 +1,10 @@
+import { MouseEvent } from 'react'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { LkResumeSummary } from '@features/curriculumVitae/types'
 import { ChevronRightRounded, MoreVertRounded } from '@mui/icons-material'
 import { ButtonBase, Chip, IconButton, Stack, Typography } from '@mui/material'
 import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
-import { MouseEvent } from 'react'
 import { generatePath, Link as RouterLink } from 'react-router'
 
 type Props = {

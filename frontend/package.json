@@ -6,10 +6,10 @@
   "scripts": {
     "start": "vite",
     "build": "vite build",
-    "lint": "eslint 'src/**/*.{ts,tsx,js,jsx}'",
-    "lint:fix": "eslint 'src/**/*.{ts,tsx,js,jsx}' --fix",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
     "typecheck": "tsc -b",
-    "format": "prettier --write .",
+    "format": "prettier --write . && yarn lint:fix",
     "test": "jest",
     "test:watch": "jest --watch"
   },
