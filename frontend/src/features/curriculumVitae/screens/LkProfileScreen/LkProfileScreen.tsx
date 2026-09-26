@@ -1,57 +1,21 @@
-import { useEffect } from 'react'
-import { LoadFailure, ProfileCard, ProfilePlaceholder, ResumeList } from '@features/curriculumVitae/components'
-import {
-  clearLkState,
-  getLkProfile,
-  getLkResumes,
-  selectIsLkProfileLoading,
-  selectIsLkResumesLoading,
-  selectLkProfile,
-  selectLkProfileError,
-  selectLkResumes,
-  selectLkResumesError,
-} from '@features/curriculumVitae/store/lk'
+import { LoadFailure, ProfileCard, ProfilePlaceholder } from '@features/curriculumVitae/components'
+import { useLkProfile } from '@features/curriculumVitae/hooks'
 import { Container, Stack } from '@mui/material'
-import { useAppDispatch, useAppSelector } from '@shared/store'
-import { useParams } from 'react-router'
+import { Outlet, useParams } from 'react-router'
 
-/** Личный кабинет: ФИО и общие данные слева (1/4), список резюме пользователя справа (3/4). */
-export default function LkProfileScreen() {
-  const dispatch = useAppDispatch()
+/**
+ * Каркас личного кабинета: ФИО и общие данные слева (1/4) всегда на месте, а правая часть (3/4)
+ * меняется по адресу — список резюме (`/cv/lk/:userId`) или редактор резюме (`.../:cvId`).
+ */
+const LkProfileScreen = () => {
   const { userId } = useParams()
+  const { profile, isLoading, error } = useLkProfile(userId)
 
-  const isProfileLoading = useAppSelector(selectIsLkProfileLoading)
-  const isResumesLoading = useAppSelector(selectIsLkResumesLoading)
-  const profileError = useAppSelector(selectLkProfileError)
-  const resumesError = useAppSelector(selectLkResumesError)
-  const profile = useAppSelector(selectLkProfile)
-  const resumes = useAppSelector(selectLkResumes)
-
-  useEffect(() => {
-    if (!userId) return
-
-    const profileRequest = dispatch(getLkProfile(userId))
-    const resumesRequest = dispatch(getLkResumes(userId))
-
-    return () => {
-      profileRequest.abort()
-      resumesRequest.abort()
-    }
-  }, [dispatch, userId])
-
-  useEffect(() => {
-    return () => {
-      dispatch(clearLkState())
-    }
-  }, [dispatch])
-
-  if (isProfileLoading || isResumesLoading) return <ProfilePlaceholder />
-
-  const error = profileError ?? resumesError
+  if (isLoading) return <ProfilePlaceholder />
   if (error) return <LoadFailure error={error} subject="profile" />
 
-  // Сюда не попадаем: без ошибки и загрузки profile/resumes уже гарантированно загружены
-  if (!profile || !resumes) return null
+  // Сюда не попадаем: без ошибки и загрузки profile уже гарантированно загружен
+  if (!profile) return null
 
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
@@ -60,10 +24,12 @@ export default function LkProfileScreen() {
           <ProfileCard profile={profile} />
         </Stack>
 
-        <Stack sx={{ width: '100%', flex: 1 }}>
-          <ResumeList userId={profile.userId} resumes={resumes} />
+        <Stack sx={{ width: '100%', flex: 1, minWidth: 0 }}>
+          <Outlet />
         </Stack>
       </Stack>
     </Container>
   )
 }
+
+export default LkProfileScreen
