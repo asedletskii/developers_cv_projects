@@ -36,13 +36,13 @@ type projectRequest struct {
 }
 
 func projectInput(body projectRequest) (commands.ProjectInput, error) {
-	screenshots := make([]valueobjects.AssetPath, len(body.Screenshots))
+	screenshots := make([]valueobjects.ExternalURL, len(body.Screenshots))
 	for i, value := range body.Screenshots {
-		path, err := valueobjects.NewAssetPath(value)
+		url, err := valueobjects.NewExternalURL(value)
 		if err != nil {
 			return commands.ProjectInput{}, err
 		}
-		screenshots[i] = path
+		screenshots[i] = url
 	}
 
 	var link *valueobjects.ExternalURL

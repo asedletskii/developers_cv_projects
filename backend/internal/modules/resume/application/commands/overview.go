@@ -25,7 +25,7 @@ type OverviewInput struct {
 	Theme        *ThemeInput
 	Greeting     GreetingInput
 	Availability *AvailabilityInput
-	ResumeLink   *valueobjects.AssetPath
+	ResumeLink   *valueobjects.ExternalURL
 	Sections     []SectionInput
 }
 
@@ -54,7 +54,7 @@ func (i OverviewInput) toDomain() (domain.OverviewPresentation, error) {
 		}
 		av = &v
 	}
-	link := cloneAssetPath(i.ResumeLink)
+	link := cloneExternalURL(i.ResumeLink)
 	sections := make([]valueobjects.SectionSettings, len(i.Sections))
 	for n, v := range i.Sections {
 		x, e := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed})
@@ -105,7 +105,7 @@ func cloneColor(value *valueobjects.Color) *valueobjects.Color {
 	return &copy
 }
 
-func cloneAssetPath(value *valueobjects.AssetPath) *valueobjects.AssetPath {
+func cloneExternalURL(value *valueobjects.ExternalURL) *valueobjects.ExternalURL {
 	if value == nil {
 		return nil
 	}

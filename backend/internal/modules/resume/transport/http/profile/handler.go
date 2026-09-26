@@ -37,7 +37,7 @@ type profileRequest struct {
 }
 
 func (r profileRequest) input() (commands.ProfileInput, error) {
-	photoPath, err := valueobjects.NewAssetPath(r.PhotoPath)
+	photoURL, err := valueobjects.NewExternalURL(r.PhotoPath)
 	if err != nil {
 		return commands.ProfileInput{}, err
 	}
@@ -54,7 +54,7 @@ func (r profileRequest) input() (commands.ProfileInput, error) {
 		Surname:     r.Surname,
 		Patronymic:  r.Patronymic,
 		Position:    r.Position,
-		PhotoPath:   photoPath,
+		PhotoPath:   photoURL,
 		DateOfBirth: dateOfBirth,
 		Location:    r.Location,
 		Relocation:  r.Relocation,

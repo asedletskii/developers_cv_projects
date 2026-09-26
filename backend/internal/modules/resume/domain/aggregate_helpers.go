@@ -41,9 +41,9 @@ func cloneExternalURL(value *valueobjects.ExternalURL) *valueobjects.ExternalURL
 	return &copy
 }
 
-func cloneAssetPaths(values []valueobjects.AssetPath) []valueobjects.AssetPath {
+func cloneExternalURLs(values []valueobjects.ExternalURL) []valueobjects.ExternalURL {
 	if values == nil {
 		return nil
 	}
-	return append([]valueobjects.AssetPath(nil), values...)
+	return append([]valueobjects.ExternalURL(nil), values...)
 }

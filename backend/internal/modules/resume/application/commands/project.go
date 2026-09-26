@@ -16,7 +16,7 @@ type ProjectInput struct {
 	Name         string
 	Description  *string
 	Role         *string
-	Screenshots  []valueobjects.AssetPath
+	Screenshots  []valueobjects.ExternalURL
 	Link         *valueobjects.ExternalURL
 	GitLink      *valueobjects.ExternalURL
 	Stack        []ProjectTechnologyInput
@@ -37,7 +37,7 @@ type ProjectContactsInput struct {
 }
 
 func projectFromInput(input ProjectInput, id, resumeID valueobjects.ID) (*domain.Project, error) {
-	screenshots := append([]valueobjects.AssetPath(nil), input.Screenshots...)
+	screenshots := append([]valueobjects.ExternalURL(nil), input.Screenshots...)
 	var link, gitLink *valueobjects.ExternalURL
 	if input.Link != nil {
 		copy := *input.Link

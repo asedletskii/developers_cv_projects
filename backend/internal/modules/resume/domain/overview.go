@@ -10,7 +10,7 @@ type OverviewPresentation struct {
 	Theme        *valueobjects.ThemeSettings
 	Greeting     valueobjects.Greeting
 	Availability *valueobjects.Availability
-	ResumeLink   *valueobjects.AssetPath
+	ResumeLink   *valueobjects.ExternalURL
 	Sections     []valueobjects.SectionSettings
 }
 type ResumeOverviewParams struct{ Presentation OverviewPresentation }
@@ -64,7 +64,7 @@ func cloneOverviewPresentation(p OverviewPresentation) OverviewPresentation {
 		v := *p.Availability
 		av = &v
 	}
-	var link *valueobjects.AssetPath
+	var link *valueobjects.ExternalURL
 	if p.ResumeLink != nil {
 		v := *p.ResumeLink
 		link = &v

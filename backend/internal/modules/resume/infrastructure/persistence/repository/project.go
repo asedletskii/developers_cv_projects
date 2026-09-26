@@ -158,9 +158,9 @@ func (r *ProjectRepository) mapProject(ctx context.Context, tx *gorm.DB, model g
 	if err := tx.WithContext(ctx).Where("project_id = ?", model.ID).Order("position").Find(&screenshots).Error; err != nil {
 		return nil, err
 	}
-	screenshotValues := make([]valueobjects.AssetPath, 0, len(screenshots))
+	screenshotValues := make([]valueobjects.ExternalURL, 0, len(screenshots))
 	for _, screenshot := range screenshots {
-		value, err := valueobjects.NewAssetPath(screenshot.Path)
+		value, err := valueobjects.NewExternalURL(screenshot.Path)
 		if err != nil {
 			return nil, err
 		}

@@ -17,7 +17,7 @@ type Profile struct {
 	surname     string
 	patronymic  *string
 	position    string
-	photoPath   valueobjects.AssetPath
+	photoPath   valueobjects.ExternalURL
 	dateOfBirth valueobjects.Date
 	location    string
 	relocation  bool
@@ -31,7 +31,7 @@ type ProfileParams struct {
 	Surname     string
 	Patronymic  *string
 	Position    string
-	PhotoPath   valueobjects.AssetPath
+	PhotoPath   valueobjects.ExternalURL
 	DateOfBirth valueobjects.Date
 	Location    string
 	Relocation  bool
@@ -88,11 +88,11 @@ func (p *Profile) Patronymic() *string {
 	v := *p.patronymic
 	return &v
 }
-func (p *Profile) Position() string                  { return p.position }
-func (p *Profile) PhotoPath() valueobjects.AssetPath { return p.photoPath }
-func (p *Profile) DateOfBirth() valueobjects.Date    { return p.dateOfBirth }
-func (p *Profile) Location() string                  { return p.location }
-func (p *Profile) Relocation() bool                  { return p.relocation }
+func (p *Profile) Position() string                    { return p.position }
+func (p *Profile) PhotoPath() valueobjects.ExternalURL { return p.photoPath }
+func (p *Profile) DateOfBirth() valueobjects.Date      { return p.dateOfBirth }
+func (p *Profile) Location() string                    { return p.location }
+func (p *Profile) Relocation() bool                    { return p.relocation }
 func (p *Profile) WorkFormats() []enums.WorkFormat {
 	return append([]enums.WorkFormat(nil), p.workFormats...)
 }
