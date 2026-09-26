@@ -16,7 +16,7 @@ const (
 	timeout     = 2 * time.Second
 )
 
-func Check(ctx context.Context) (err error) {
+func Check(ctx context.Context) error {
 	port, err := portFromEnv()
 	if err != nil {
 		return err

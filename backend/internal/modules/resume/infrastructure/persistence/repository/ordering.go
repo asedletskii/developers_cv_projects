@@ -57,3 +57,25 @@ func reorderPositions(tx *gorm.DB, table string, resumeID uuid.UUID, orderedIDs 
 	}
 	return nil
 }
+
+func nextPosition(tx *gorm.DB, table string, resumeID uuid.UUID) (int, error) {
+	var maxPosition *int
+	if err := tx.Table(table).Where("resume_id = ?", resumeID).Select("MAX(position)").Scan(&maxPosition).Error; err != nil {
+		return 0, err
+	}
+	if maxPosition == nil {
+		return 0, nil
+	}
+	return *maxPosition + 1, nil
+}
+
+func nextSortOrder(tx *gorm.DB, table string, resumeID uuid.UUID) (int, error) {
+	var maxOrder *int
+	if err := tx.Table(table).Where("resume_id = ?", resumeID).Select("MAX(sort_order)").Scan(&maxOrder).Error; err != nil {
+		return 0, err
+	}
+	if maxOrder == nil {
+		return 0, nil
+	}
+	return *maxOrder + 1, nil
+}

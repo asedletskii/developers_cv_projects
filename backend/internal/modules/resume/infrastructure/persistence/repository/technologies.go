@@ -24,7 +24,7 @@ func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, c ports.C
 	if err != nil {
 		return err
 	}
-	m.Position, err = nextSortOrder(tx, m.TableName(), c.ResumeID.UUID())
+	m.Position, err = nextPosition(tx, m.TableName(), c.ResumeID.UUID())
 	if err != nil {
 		return err
 	}

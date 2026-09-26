@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
@@ -117,15 +116,4 @@ func mapEducation(model gormmodel.ResumeEducation) (*domain.Education, error) {
 		endDate = &value
 	}
 	return domain.NewEducation(domain.EducationParams{ID: id, ResumeID: resumeID, Location: model.Location, University: model.University, Grade: grade, ProgramName: model.ProgramName, ProfileName: model.ProfileName, Faculty: model.Faculty, Course: model.Course, EndDate: endDate})
-}
-
-func nextSortOrder(tx *gorm.DB, table string, resumeID uuid.UUID) (int, error) {
-	var maxOrder *int
-	if err := tx.Table(table).Where("resume_id = ?", resumeID).Select("MAX(sort_order)").Scan(&maxOrder).Error; err != nil {
-		return 0, err
-	}
-	if maxOrder == nil {
-		return 0, nil
-	}
-	return *maxOrder + 1, nil
 }
