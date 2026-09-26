@@ -2,59 +2,52 @@ package readers
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/queries"
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
+
+	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type SkillsReader struct{ pool *pgxpool.Pool }
+type SkillsReader struct{ db *gorm.DB }
 
-func NewSkillsReader(pool *pgxpool.Pool) *SkillsReader { return &SkillsReader{pool: pool} }
+func NewSkillsReader(db *gorm.DB) *SkillsReader { return &SkillsReader{db: db} }
+
 func (r *SkillsReader) GetSkills(ctx context.Context, q queries.GetSkillsQuery) (queries.SkillsView, error) {
-	if r == nil || r.pool == nil {
-		return queries.SkillsView{}, fmt.Errorf("get skills: reader dependencies are nil")
-	}
-	var v queries.SkillsView
-	if err := r.pool.QueryRow(ctx, `SELECT s.id::text,s.resume_id::text FROM resume_skills s JOIN resumes r ON r.id=s.resume_id WHERE s.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return v, queries.ErrResumeNotFound
-		}
-		return v, fmt.Errorf("get skills: %w", err)
-	}
-	rows, err := r.pool.Query(ctx, `SELECT value FROM resume_skill_hard WHERE skills_id=(SELECT id FROM resume_skills WHERE resume_id=$1) ORDER BY position`, q.ResumeID.UUID())
+	db, err := resolveDB(ctx, r.db, "get skills")
 	if err != nil {
-		return v, fmt.Errorf("get hard skills: %w", err)
+		return queries.SkillsView{}, err
 	}
-	defer rows.Close()
-	v.HardSkills = []string{}
-	for rows.Next() {
-		var x string
-		if err := rows.Scan(&x); err != nil {
-			return v, fmt.Errorf("scan hard skill: %w", err)
-		}
-		v.HardSkills = append(v.HardSkills, x)
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return queries.SkillsView{}, fmt.Errorf("get skills: invalid query")
 	}
-	if err := rows.Err(); err != nil {
-		return v, fmt.Errorf("iterate hard skills: %w", err)
+
+	var model gormmodel.ResumeSkills
+	err = db.Joins("JOIN resumes ON resumes.id = resume_skills.resume_id").Where("resume_skills.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.SkillsView{}, queries.ErrResumeNotFound
 	}
-	rows2, err := r.pool.Query(ctx, `SELECT value FROM resume_skill_soft WHERE skills_id=(SELECT id FROM resume_skills WHERE resume_id=$1) ORDER BY position`, q.ResumeID.UUID())
 	if err != nil {
-		return v, fmt.Errorf("get soft skills: %w", err)
+		return queries.SkillsView{}, fmt.Errorf("get skills: %w", err)
 	}
-	defer rows2.Close()
-	v.SoftSkills = []string{}
-	for rows2.Next() {
-		var x string
-		if err := rows2.Scan(&x); err != nil {
-			return v, fmt.Errorf("scan soft skill: %w", err)
-		}
-		v.SoftSkills = append(v.SoftSkills, x)
+
+	var hard []gormmodel.ResumeSkillHard
+	if err := db.Where("skills_id = ?", model.ID).Order("position").Find(&hard).Error; err != nil {
+		return queries.SkillsView{}, fmt.Errorf("get hard skills: %w", err)
 	}
-	if err := rows2.Err(); err != nil {
-		return v, fmt.Errorf("iterate soft skills: %w", err)
+	var soft []gormmodel.ResumeSkillSoft
+	if err := db.Where("skills_id = ?", model.ID).Order("position").Find(&soft).Error; err != nil {
+		return queries.SkillsView{}, fmt.Errorf("get soft skills: %w", err)
 	}
-	return v, nil
+
+	view := queries.SkillsView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), HardSkills: make([]string, 0, len(hard)), SoftSkills: make([]string, 0, len(soft))}
+	for _, item := range hard {
+		view.HardSkills = append(view.HardSkills, item.Value)
+	}
+	for _, item := range soft {
+		view.SoftSkills = append(view.SoftSkills, item.Value)
+	}
+	return view, nil
 }

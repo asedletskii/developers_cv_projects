@@ -9,6 +9,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
@@ -24,19 +25,39 @@ func NewHandler(c *commands.CreateResumeContactsHandler, g *queries.GetResumeCon
 	return &Handler{create: c, get: g, update: u}
 }
 
-type ContactsRequest struct {
+type contactsRequest struct {
 	Phone          *string              `json:"phone,omitempty"`
 	Telegram       *string              `json:"telegram,omitempty"`
 	Email          *string              `json:"email,omitempty"`
 	HiddenContacts []string             `json:"hiddenContacts"`
-	ContactsText   *ContactsTextRequest `json:"contactsText,omitempty"`
+	ContactsText   *contactsTextRequest `json:"contactsText,omitempty"`
 }
-type ContactsTextRequest struct {
+type contactsTextRequest struct {
 	Title    *string `json:"title,omitempty"`
 	Subtitle *string `json:"subtitle,omitempty"`
 }
 
-func (r ContactsRequest) input() commands.ContactsInput {
+func (r contactsRequest) input() (commands.ContactsInput, error) {
+	var telegram *valueobjects.Telegram
+	if r.Telegram != nil {
+		value, err := valueobjects.NewTelegram(*r.Telegram)
+		if err != nil {
+			return commands.ContactsInput{}, err
+		}
+		telegram = &value
+	}
+	var email *valueobjects.Email
+	if r.Email != nil {
+		value, err := valueobjects.NewEmail(*r.Email)
+		if err != nil {
+			return commands.ContactsInput{}, err
+		}
+		email = &value
+	}
+	hidden := make([]enums.ContactKey, len(r.HiddenContacts))
+	for i, value := range r.HiddenContacts {
+		hidden[i] = enums.ContactKey(value)
+	}
 	var text *commands.ContactsTextInput
 	if r.ContactsText != nil {
 		text = &commands.ContactsTextInput{}
@@ -47,15 +68,11 @@ func (r ContactsRequest) input() commands.ContactsInput {
 			text.Subtitle = r.ContactsText.Subtitle
 		}
 	}
-	return commands.ContactsInput{Phone: r.Phone, Telegram: r.Telegram, Email: r.Email, HiddenContacts: r.HiddenContacts, ContactsText: text}
+	return commands.ContactsInput{Phone: r.Phone, Telegram: telegram, Email: email, HiddenContacts: hidden, ContactsText: text}, nil
 }
 
 func (h *Handler) Create(c *gin.Context) { h.handleCreate(c) }
 func (h *Handler) handleCreate(c *gin.Context) {
-	if h == nil || h.create == nil {
-		common.WriteError(c, errors.New("create contacts handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
@@ -64,14 +81,18 @@ func (h *Handler) handleCreate(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var b ContactsRequest
+	var b contactsRequest
 	if common.BindJSON(c, &b) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
-	p := b.input()
+	p, e := b.input()
+	if e != nil {
+		common.WriteCommandError(c, e)
+		return
+	}
 	id := valueobjects.NewID()
-	_, e := h.create.Handle(c.Request.Context(), commands.CreateResumeContactsCommand{ID: id, ResumeID: rid, UserID: uid, Contacts: p})
+	_, e = h.create.Handle(c.Request.Context(), commands.CreateResumeContactsCommand{ID: id, ResumeID: rid, UserID: uid, Contacts: p})
 	if e != nil {
 		writeError(c, e)
 		return
@@ -87,10 +108,6 @@ func (h *Handler) Get(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if h == nil || h.get == nil {
-		common.WriteError(c, errors.New("get contacts handler dependencies are nil"))
-		return
-	}
 	a, e := h.get.Handle(c.Request.Context(), queries.GetResumeContactsQuery{ResumeID: rid, UserID: uid})
 	if e != nil {
 		common.WriteQueryError(c, e)
@@ -99,10 +116,6 @@ func (h *Handler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, a)
 }
 func (h *Handler) Update(c *gin.Context) {
-	if h == nil || h.update == nil {
-		common.WriteError(c, errors.New("update contacts handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
@@ -111,13 +124,17 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var b ContactsRequest
+	var b contactsRequest
 	if common.BindJSON(c, &b) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
-	p := b.input()
-	if e := h.update.Handle(c.Request.Context(), commands.UpdateResumeContactsCommand{ResumeID: rid, UserID: uid, Contacts: p}); e != nil {
+	p, e := b.input()
+	if e != nil {
+		common.WriteCommandError(c, e)
+		return
+	}
+	if e = h.update.Handle(c.Request.Context(), commands.UpdateResumeContactsCommand{ResumeID: rid, UserID: uid, Contacts: p}); e != nil {
 		writeError(c, e)
 		return
 	}
@@ -125,7 +142,7 @@ func (h *Handler) Update(c *gin.Context) {
 }
 func writeError(c *gin.Context, e error) {
 	if errors.Is(e, domain.ErrDuplicateEntity) {
-		common.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume contacts already exists"))
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume contacts already exists"))
 		return
 	}
 	common.WriteCommandError(c, e)

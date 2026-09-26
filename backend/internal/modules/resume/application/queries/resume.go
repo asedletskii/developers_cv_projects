@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GetResumeQuery struct {

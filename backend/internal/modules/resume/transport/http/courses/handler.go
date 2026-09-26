@@ -5,7 +5,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +23,7 @@ func NewHandler(create *commands.CreateCourseHandler, list *queries.ListCoursesQ
 	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
 }
 
-type CourseRequest struct {
+type courseRequest struct {
 	Name            string  `json:"name"`
 	Organization    string  `json:"organization"`
 	EndDate         string  `json:"endDate"`
@@ -36,7 +36,7 @@ func (h *Handler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body CourseRequest
+	var body courseRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -60,7 +60,7 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	items, err := h.list.Handle(c.Request.Context(), queries.ListCoursesQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, items)
@@ -72,7 +72,7 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 	item, err := h.get.Handle(c.Request.Context(), queries.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, item)
@@ -82,7 +82,7 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body CourseRequest
+	var body courseRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -109,7 +109,7 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-func courseInput(body CourseRequest) (commands.CourseInput, error) {
+func courseInput(body courseRequest) (commands.CourseInput, error) {
 	end, err := valueobjects.ParseYearMonth(body.EndDate)
 	if err != nil {
 		return commands.CourseInput{}, err

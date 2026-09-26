@@ -2,101 +2,102 @@ package readers
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type ProjectsReader struct{ pool *pgxpool.Pool }
+type ProjectsReader struct{ db *gorm.DB }
 
-func NewProjectsReader(pool *pgxpool.Pool) *ProjectsReader { return &ProjectsReader{pool: pool} }
+func NewProjectsReader(db *gorm.DB) *ProjectsReader { return &ProjectsReader{db: db} }
 
-const projectSelect = `
-SELECT
- p.id::text,
- p.resume_id::text,
- p.name,
- p.description,
- p.role,
- p.link,
- p.git_link,
- COALESCE((SELECT jsonb_agg(s.path ORDER BY s.position) FROM resume_project_screenshots s WHERE s.project_id=p.id), '[]'::jsonb),
- COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t.name, 'grade', t.grade) ORDER BY t.position) FROM resume_project_technologies t WHERE t.project_id=p.id), '[]'::jsonb),
- COALESCE((SELECT jsonb_agg(jsonb_build_object('name', c.name, 'surname', c.surname, 'role', c.role, 'contacts', jsonb_build_object('phone', c.phone, 'telegram', c.telegram, 'email', c.email)) ORDER BY c.position) FROM resume_project_contributors c WHERE c.project_id=p.id), '[]'::jsonb)
-FROM resume_projects p
-JOIN resumes rr ON rr.id=p.resume_id
-`
+type projectRow struct {
+	ID          string
+	ResumeID    string
+	Name        string
+	Description *string
+	Role        *string
+	Link        *string
+	GitLink     *string
+}
 
 func (r *ProjectsReader) ListProjects(ctx context.Context, q queries.ListProjectsQuery) ([]queries.ProjectView, error) {
-	if r == nil || r.pool == nil {
-		return nil, fmt.Errorf("list projects: reader dependencies are nil")
-	}
-	rows, err := r.pool.Query(ctx, projectSelect+`WHERE p.resume_id=$1 AND rr.user_id=$2 ORDER BY p.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
+	db, err := resolveDB(ctx, r.db, "list projects")
 	if err != nil {
+		return nil, err
+	}
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return nil, fmt.Errorf("list projects: invalid query")
+	}
+	var rows []projectRow
+	if err := db.Table("resume_projects AS p").Select("p.id::text AS id, p.resume_id::text AS resume_id, p.name, p.description, p.role, p.link, p.git_link").Joins("JOIN resumes AS r ON r.id = p.resume_id").Where("p.resume_id = ? AND r.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("p.sort_order").Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
-	defer rows.Close()
-	out := make([]queries.ProjectView, 0)
-	for rows.Next() {
-		var v queries.ProjectView
-		var screenshots, stack, contributors []byte
-		if err := rows.Scan(&v.ID, &v.ResumeID, &v.Name, &v.Description, &v.Role, &v.Link, &v.GitLink, &screenshots, &stack, &contributors); err != nil {
-			return nil, fmt.Errorf("scan project: %w", err)
-		}
-		if err := decodeProjectChildren(screenshots, stack, contributors, &v); err != nil {
+	out := make([]queries.ProjectView, 0, len(rows))
+	for _, row := range rows {
+		view := queries.ProjectView{ID: row.ID, ResumeID: row.ResumeID, Name: row.Name, Description: row.Description, Role: row.Role, Link: row.Link, GitLink: row.GitLink}
+		if err := r.loadProjectChildren(ctx, db, row.ID, &view); err != nil {
 			return nil, err
 		}
-		out = append(out, v)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate projects: %w", err)
+		out = append(out, view)
 	}
 	return out, nil
 }
 
 func (r *ProjectsReader) GetProject(ctx context.Context, q queries.GetProjectQuery) (queries.ProjectView, error) {
-	if r == nil || r.pool == nil {
-		return queries.ProjectView{}, fmt.Errorf("get project: reader dependencies are nil")
-	}
-	var v queries.ProjectView
-	var screenshots, stack, contributors []byte
-	err := r.pool.QueryRow(ctx, projectSelect+`WHERE p.id=$1 AND p.resume_id=$2 AND rr.user_id=$3`, q.ProjectID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).
-		Scan(&v.ID, &v.ResumeID, &v.Name, &v.Description, &v.Role, &v.Link, &v.GitLink, &screenshots, &stack, &contributors)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return v, queries.ErrResumeNotFound
-	}
+	db, err := resolveDB(ctx, r.db, "get project")
 	if err != nil {
-		return v, fmt.Errorf("get project: %w", err)
-	}
-	if err := decodeProjectChildren(screenshots, stack, contributors, &v); err != nil {
 		return queries.ProjectView{}, err
 	}
-	return v, nil
+	if q.ResumeID.IsZero() || q.ProjectID.IsZero() || q.UserID.IsZero() {
+		return queries.ProjectView{}, fmt.Errorf("get project: invalid query")
+	}
+	var row projectRow
+	if err := db.Table("resume_projects AS p").Select("p.id::text AS id, p.resume_id::text AS resume_id, p.name, p.description, p.role, p.link, p.git_link").Joins("JOIN resumes AS r ON r.id = p.resume_id").Where("p.id = ? AND p.resume_id = ? AND r.user_id = ?", q.ProjectID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&row).Error; err != nil {
+		return queries.ProjectView{}, fmt.Errorf("get project: %w", err)
+	}
+	if row.ID == "" {
+		return queries.ProjectView{}, queries.ErrResumeNotFound
+	}
+	view := queries.ProjectView{ID: row.ID, ResumeID: row.ResumeID, Name: row.Name, Description: row.Description, Role: row.Role, Link: row.Link, GitLink: row.GitLink}
+	if err := r.loadProjectChildren(ctx, db, row.ID, &view); err != nil {
+		return queries.ProjectView{}, err
+	}
+	return view, nil
 }
 
-func decodeProjectChildren(screenshots, stack, contributors []byte, view *queries.ProjectView) error {
-	if err := json.Unmarshal(screenshots, &view.Screenshots); err != nil {
-		return fmt.Errorf("decode project screenshots: %w", err)
+func (r *ProjectsReader) loadProjectChildren(ctx context.Context, db *gorm.DB, projectID string, view *queries.ProjectView) error {
+	id, err := uuid.Parse(projectID)
+	if err != nil {
+		return fmt.Errorf("load project children: %w", err)
 	}
-	if err := json.Unmarshal(stack, &view.Stack); err != nil {
-		return fmt.Errorf("decode project technologies: %w", err)
+	var screenshots []gormmodel.ResumeProjectScreenshot
+	if err := db.WithContext(ctx).Where("project_id = ?", id).Order("position").Find(&screenshots).Error; err != nil {
+		return fmt.Errorf("get project screenshots: %w", err)
 	}
-	if err := json.Unmarshal(contributors, &view.Contributors); err != nil {
-		return fmt.Errorf("decode project contributors: %w", err)
+	view.Screenshots = make([]string, 0, len(screenshots))
+	for _, item := range screenshots {
+		view.Screenshots = append(view.Screenshots, item.Path)
 	}
-	if view.Screenshots == nil {
-		view.Screenshots = []string{}
+	var technologies []gormmodel.ResumeProjectTechnology
+	if err := db.WithContext(ctx).Where("project_id = ?", id).Order("position").Find(&technologies).Error; err != nil {
+		return fmt.Errorf("get project technologies: %w", err)
 	}
-	if view.Stack == nil {
-		view.Stack = []queries.ProjectTechnologyView{}
+	view.Stack = make([]queries.ProjectTechnologyView, 0, len(technologies))
+	for _, item := range technologies {
+		view.Stack = append(view.Stack, queries.ProjectTechnologyView{Name: item.Name, Grade: item.Grade})
 	}
-	if view.Contributors == nil {
-		view.Contributors = []queries.ProjectContributorView{}
+	var contributors []gormmodel.ResumeProjectContributor
+	if err := db.WithContext(ctx).Where("project_id = ?", id).Order("position").Find(&contributors).Error; err != nil {
+		return fmt.Errorf("get project contributors: %w", err)
+	}
+	view.Contributors = make([]queries.ProjectContributorView, 0, len(contributors))
+	for _, item := range contributors {
+		view.Contributors = append(view.Contributors, queries.ProjectContributorView{Name: item.Name, Surname: item.Surname, Role: item.Role, Contacts: queries.ProjectContactsView{Phone: item.Phone, Telegram: item.Telegram, Email: item.Email}})
 	}
 	return nil
 }

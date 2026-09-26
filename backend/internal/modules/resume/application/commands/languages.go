@@ -2,20 +2,19 @@ package commands
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type LanguageInput struct {
 	ID       valueobjects.ID
 	Language enums.SpokenLanguage
 	Grade    *enums.LanguageGrade
-	Position int
 }
 
 type CreateLanguageCommand struct {
@@ -28,6 +27,12 @@ type UpdateLanguageCommand struct {
 	ResumeID, LanguageID valueobjects.ID
 	UserID               useridentity.ID
 	Input                LanguageInput
+}
+
+type ReorderLanguagesCommand struct {
+	ResumeID    valueobjects.ID
+	UserID      useridentity.ID
+	LanguageIDs []valueobjects.ID
 }
 
 type DeleteLanguageCommand struct {
@@ -52,14 +57,13 @@ func (h *CreateLanguageHandler) Handle(ctx context.Context, c CreateLanguageComm
 		c.ID = valueobjects.NewID()
 	}
 	c.Input.ID = c.ID
-	a, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: c.Input.ID, Language: c.Input.Language, Grade: c.Input.Grade, Position: c.Input.Position})
+	a, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: c.Input.ID, Language: c.Input.Language, Grade: c.Input.Grade, Position: 0})
 	if err != nil {
 		return valueobjects.ID{}, err
 	}
-	err = h.u.Do(ctx, func(tx context.Context) error {
+	if err := h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.CreateLanguage(tx, ports.CreateLanguageRepositoryCommand{Language: a, ResumeID: c.ResumeID, UserID: c.UserID})
-	})
-	if err != nil {
+	}); err != nil {
 		return valueobjects.ID{}, err
 	}
 	return a.ID(), nil
@@ -78,12 +82,33 @@ func (h *UpdateLanguageHandler) Handle(ctx context.Context, c UpdateLanguageComm
 	if h == nil || h.u == nil || h.uow == nil {
 		return fmt.Errorf("update language dependencies are nil")
 	}
-	entity, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: c.LanguageID, Language: c.Input.Language, Grade: c.Input.Grade, Position: c.Input.Position})
+	entity, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: c.LanguageID, Language: c.Input.Language, Grade: c.Input.Grade, Position: 0})
 	if err != nil {
 		return err
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
 		return h.u.UpdateLanguage(tx, ports.UpdateLanguageRepositoryCommand{Language: entity, ResumeID: c.ResumeID, UserID: c.UserID})
+	})
+}
+
+type ReorderLanguagesHandler struct {
+	r ports.ReorderLanguagesRepository
+	u UnitOfWork
+}
+
+func NewReorderLanguagesHandler(r ports.ReorderLanguagesRepository, u UnitOfWork) *ReorderLanguagesHandler {
+	return &ReorderLanguagesHandler{r: r, u: u}
+}
+
+func (h *ReorderLanguagesHandler) Handle(ctx context.Context, c ReorderLanguagesCommand) error {
+	if h == nil || h.r == nil || h.u == nil {
+		return fmt.Errorf("reorder languages dependencies are nil")
+	}
+	if len(c.LanguageIDs) == 0 {
+		return fmt.Errorf("reorder languages ids are required: %w", domain.ErrInvalidEntity)
+	}
+	return h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.ReorderLanguages(tx, ports.ReorderLanguagesRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, LanguageIDs: c.LanguageIDs})
 	})
 }
 

@@ -2,48 +2,51 @@ package readers
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/queries"
 	"errors"
 	"fmt"
-	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
+
+	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type ProfileReader struct{ pool *pgxpool.Pool }
+type ProfileReader struct{ db *gorm.DB }
 
-func NewProfileReader(pool *pgxpool.Pool) *ProfileReader { return &ProfileReader{pool: pool} }
+func NewProfileReader(db *gorm.DB) *ProfileReader { return &ProfileReader{db: db} }
+
 func (r *ProfileReader) GetResumeProfile(ctx context.Context, q queries.GetResumeProfileQuery) (queries.ResumeProfileView, error) {
-	if r == nil || r.pool == nil {
-		return queries.ResumeProfileView{}, fmt.Errorf("get resume profile: reader dependencies are nil")
+	db, err := resolveDB(ctx, r.db, "get resume profile")
+	if err != nil {
+		return queries.ResumeProfileView{}, err
 	}
-	var v queries.ResumeProfileView
-	var dob time.Time
-	var patronymic *string
-	if err := r.pool.QueryRow(ctx, `SELECT p.id::text,p.resume_id::text,p.name,p.surname,p.patronymic,p.position,p.photo_path,p.date_of_birth,p.location,p.relocation FROM resume_profiles p JOIN resumes r ON r.id=p.resume_id WHERE p.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Name, &v.Surname, &patronymic, &v.Position, &v.PhotoPath, &dob, &v.Location, &v.Relocation); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return queries.ResumeProfileView{}, queries.ErrResumeNotFound
-		}
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return queries.ResumeProfileView{}, fmt.Errorf("get resume profile: invalid query")
+	}
+
+	var model gormmodel.ResumeProfile
+	err = db.Joins("JOIN resumes ON resumes.id = resume_profiles.resume_id").Where("resume_profiles.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.ResumeProfileView{}, queries.ErrResumeNotFound
+	}
+	if err != nil {
 		return queries.ResumeProfileView{}, fmt.Errorf("get resume profile: %w", err)
 	}
-	v.Patronymic = patronymic
-	v.DateOfBirth = dob.Format("2006-01-02")
-	rows, err := r.pool.Query(ctx, `SELECT value FROM resume_profile_work_formats WHERE profile_id=(SELECT id FROM resume_profiles WHERE resume_id=$1) ORDER BY position`, q.ResumeID.UUID())
-	if err != nil {
+
+	var formats []gormmodel.ResumeProfileWorkFormat
+	if err := db.Where("profile_id = ?", model.ID).Order("position").Find(&formats).Error; err != nil {
 		return queries.ResumeProfileView{}, fmt.Errorf("get profile work formats: %w", err)
 	}
-	defer rows.Close()
-	v.WorkFormat = []string{}
-	for rows.Next() {
-		var x string
-		if err := rows.Scan(&x); err != nil {
-			return queries.ResumeProfileView{}, fmt.Errorf("scan profile work format: %w", err)
-		}
-		v.WorkFormat = append(v.WorkFormat, x)
+
+	workFormat := make([]string, 0, len(formats))
+	for _, format := range formats {
+		workFormat = append(workFormat, format.Value)
 	}
-	if err := rows.Err(); err != nil {
-		return queries.ResumeProfileView{}, fmt.Errorf("iterate profile work formats: %w", err)
-	}
-	return v, nil
+
+	return queries.ResumeProfileView{
+		ID: model.ID.String(), ResumeID: model.ResumeID.String(), Name: model.Name, Surname: model.Surname,
+		Patronymic: model.Patronymic, Position: model.PositionValue(), PhotoPath: model.PhotoPathValue(),
+		DateOfBirth: model.DateOfBirth.Format("2006-01-02"), Location: model.LocationValue(), Relocation: model.Relocation,
+		WorkFormat: workFormat,
+	}, nil
 }

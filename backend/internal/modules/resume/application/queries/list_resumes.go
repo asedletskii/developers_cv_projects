@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ListResumesQuery struct {

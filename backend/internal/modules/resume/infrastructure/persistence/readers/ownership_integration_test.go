@@ -11,18 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
-	"developers-cv/backend/internal/platform/postgres"
+	"developers-cv/backend/internal/platform/database"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/require"
+	testcontainers "github.com/testcontainers/testcontainers-go"
+	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
 func TestPostgresPrivateReadersEnforceResumeOwnership(t *testing.T) {
@@ -39,27 +38,27 @@ func TestPostgresPrivateReadersEnforceResumeOwnership(t *testing.T) {
 	require.NoError(t, err)
 	applyReaderTestMigrations(t, ctx, dsn)
 
-	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
+	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
-	t.Cleanup(pool.Close)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
 	owner := useridentity.NewID()
 	foreign := useridentity.NewID()
 	resumeID := valueobjects.NewID()
-	ids := insertReaderTestData(t, ctx, pool, owner, foreign, resumeID)
+	ids := insertReaderTestData(t, ctx, dsn, owner, foreign, resumeID)
 
-	overview := readers.NewOverviewReader(pool)
-	profile := readers.NewProfileReader(pool)
-	contacts := readers.NewContactsReader(pool)
-	skills := readers.NewSkillsReader(pool)
-	languages := readers.NewLanguagesReader(pool)
-	technologies := readers.NewTechnologiesReader(pool)
-	experiences := readers.NewExperiencesReader(pool)
-	education := readers.NewEducationReader(pool)
-	courses := readers.NewCourseReader(pool)
-	activities := readers.NewActivityReader(pool)
-	projects := readers.NewProjectsReader(pool)
-	metadata := readers.NewResumeMetadataReader(pool)
+	overview := readers.NewOverviewReader(gormDB)
+	profile := readers.NewProfileReader(gormDB)
+	contacts := readers.NewContactsReader(gormDB)
+	skills := readers.NewSkillsReader(gormDB)
+	languages := readers.NewLanguagesReader(gormDB)
+	technologies := readers.NewTechnologiesReader(gormDB)
+	experiences := readers.NewExperiencesReader(gormDB)
+	education := readers.NewEducationReader(gormDB)
+	courses := readers.NewCourseReader(gormDB)
+	activities := readers.NewActivityReader(gormDB)
+	projects := readers.NewProjectsReader(gormDB)
+	metadata := readers.NewResumeMetadataReader(gormDB)
 	resumeReader := readers.NewResumeReader(readers.ResumeReaderDependencies{Metadata: metadata, Overview: overview, Profile: profile, Contacts: contacts, Skills: skills, Languages: languages, Technologies: technologies, Experiences: experiences, Educations: education, Courses: courses, Activities: activities, Projects: projects})
 
 	_, err = resumeReader.GetResume(ctx, queries.GetResumeQuery{ResumeID: resumeID, UserID: owner})
@@ -142,46 +141,51 @@ type readerFixtureIDs struct {
 	language, technology, experience, education, course, activity, project valueobjects.ID
 }
 
-func insertReaderTestData(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, foreign useridentity.ID, resumeID valueobjects.ID) readerFixtureIDs {
+func insertReaderTestData(t *testing.T, ctx context.Context, dsn string, owner, foreign useridentity.ID, resumeID valueobjects.ID) readerFixtureIDs {
 	t.Helper()
 	ids := readerFixtureIDs{
 		language: valueobjects.NewID(), technology: valueobjects.NewID(), experience: valueobjects.NewID(),
 		education: valueobjects.NewID(), course: valueobjects.NewID(), activity: valueobjects.NewID(), project: valueobjects.NewID(),
 	}
-	_, err := pool.Exec(ctx, `INSERT INTO users (id) VALUES ($1), ($2)`, owner.UUID(), foreign.UUID())
+
+	config, err := pgx.ParseConfig(dsn)
+	require.NoError(t, err)
+	conn, err := pgx.ConnectConfig(ctx, config)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1), ($2)`, owner.UUID(), foreign.UUID())
 	require.NoError(t, err)
 	now := time.Now().UTC()
-	_, err = pool.Exec(ctx, `INSERT INTO resumes (id,user_id,title,created_at,updated_at) VALUES ($1,$2,'Ownership test',$3,$3)`, resumeID.UUID(), owner.UUID(), now)
+	_, err = conn.Exec(ctx, `INSERT INTO resumes (id,user_id,title,language,created_at,updated_at) VALUES ($1,$2,'Ownership test','ru',$3,$4)`, resumeID.UUID(), owner.UUID(), now, now)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_overviews (resume_id,greeting_first,greeting_second,greeting_highlight,greeting_third) VALUES ($1,'a','b','c','d')`, resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id,greeting_first,greeting_second,greeting_highlight,greeting_third) VALUES ($1,'a','b','c','d')`, resumeID.UUID())
 	require.NoError(t, err)
-
-	_, err = pool.Exec(ctx, `INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','/photo', '1998-01-01','Paris',false)`, uuid.New(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','/photo','1998-01-01','Paris',false)`, uuid.New(), resumeID.UUID())
 	require.NoError(t, err)
 	contactsID := uuid.New()
-	_, err = pool.Exec(ctx, `INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, contactsID, resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, contactsID, resumeID.UUID())
 	require.NoError(t, err)
 	skillsID := uuid.New()
-	_, err = pool.Exec(ctx, `INSERT INTO resume_skills (id,resume_id) VALUES ($1,$2)`, skillsID, resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_skills (id,resume_id) VALUES ($1,$2)`, skillsID, resumeID.UUID())
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_skill_hard (skills_id,value,position) VALUES ($1,'Go',0)`, skillsID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_skill_hard (skills_id,value,position) VALUES ($1,'architecture',0)`, skillsID)
 	require.NoError(t, err)
-
-	_, err = pool.Exec(ctx, `INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, ids.language.UUID(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, ids.language.UUID(), resumeID.UUID())
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_technologies (id,resume_id,name,position,grade) VALUES ($1,$2,'Go',0,'senior')`, ids.technology.UUID(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_technologies (id,resume_id,name,position,grade) VALUES ($1,$2,'Go',0,'senior')`, ids.technology.UUID(), resumeID.UUID())
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2020-01-01')`, ids.experience.UUID(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2020-01-01')`, ids.experience.UUID(), resumeID.UUID())
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, ids.experience.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, ids.experience.UUID())
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_educations (id,resume_id,sort_order,location,university,grade,program_name,faculty) VALUES ($1,$2,0,'Paris','University',5,'Computer Science','Engineering')`, ids.education.UUID(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_educations (id,resume_id,sort_order,location,university,grade,program_name,faculty) VALUES ($1,$2,0,'Paris','University',5,'Computer Science','Engineering')`, ids.education.UUID(), resumeID.UUID())
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_courses (id,resume_id,sort_order,name,organization,end_date) VALUES ($1,$2,0,'Go Course','Acme','2024-01-01')`, ids.course.UUID(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_courses (id,resume_id,sort_order,name,organization,end_date) VALUES ($1,$2,0,'Go Course','Acme','2024-01-01')`, ids.course.UUID(), resumeID.UUID())
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_activities (id,resume_id,sort_order,type,title) VALUES ($1,$2,0,'openSource','Contributor')`, ids.activity.UUID(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_activities (id,resume_id,sort_order,type,title) VALUES ($1,$2,0,'openSource','Contributor')`, ids.activity.UUID(), resumeID.UUID())
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO resume_projects (id,resume_id,sort_order,name) VALUES ($1,$2,0,'CV')`, ids.project.UUID(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_projects (id,resume_id,sort_order,name) VALUES ($1,$2,0,'CV')`, ids.project.UUID(), resumeID.UUID())
 	require.NoError(t, err)
 
 	return ids

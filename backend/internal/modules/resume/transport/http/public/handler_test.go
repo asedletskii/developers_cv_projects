@@ -39,6 +39,6 @@ func TestHandlerDoesNotRequireLanguageQuery(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, id, reader.query.ID)
+	require.Equal(t, id, reader.query.ID.UUID())
 	require.NotContains(t, req.URL.RawQuery, "lang")
 }

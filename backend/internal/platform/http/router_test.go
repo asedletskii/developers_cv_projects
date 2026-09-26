@@ -252,11 +252,13 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		"POST /api/v1/lk/resume/:resumeId/languages":                    {},
 		"GET /api/v1/lk/resume/:resumeId/languages":                     {},
 		"GET /api/v1/lk/resume/:resumeId/languages/:languageId":         {},
+		"PUT /api/v1/lk/resume/:resumeId/languages/order":               {},
 		"PUT /api/v1/lk/resume/:resumeId/languages/:languageId":         {},
 		"DELETE /api/v1/lk/resume/:resumeId/languages/:languageId":      {},
 		"POST /api/v1/lk/resume/:resumeId/technologies":                 {},
 		"GET /api/v1/lk/resume/:resumeId/technologies":                  {},
 		"GET /api/v1/lk/resume/:resumeId/technologies/:technologyId":    {},
+		"PUT /api/v1/lk/resume/:resumeId/technologies/order":            {},
 		"PUT /api/v1/lk/resume/:resumeId/technologies/:technologyId":    {},
 		"DELETE /api/v1/lk/resume/:resumeId/technologies/:technologyId": {},
 		"POST /api/v1/lk/resume/:resumeId/experiences":                  {},
@@ -295,6 +297,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 	}
 
 	require.Equal(t, expected, actual)
+	require.NotContains(t, actual, "PATCH /api/v1/lk/resume/:resumeId")
 }
 
 func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {

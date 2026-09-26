@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
 
 type PublicResumeView struct {
@@ -42,7 +42,7 @@ type PublicResumeView struct {
 }
 
 type PublicResumeQuery struct {
-	ID uuid.UUID
+	ID valueobjects.ID
 }
 
 type PublicResumeQueryHandler struct {
@@ -155,7 +155,7 @@ func (h *PublicResumeQueryHandler) Handle(ctx context.Context, query PublicResum
 	if h == nil || h.reader == nil {
 		return PublicResumeView{}, fmt.Errorf("public resume query handler dependencies are nil")
 	}
-	if query.ID == uuid.Nil {
+	if query.ID.IsZero() {
 		return PublicResumeView{}, fmt.Errorf("invalid resume id")
 	}
 	return h.reader.GetPublicResume(ctx, query)

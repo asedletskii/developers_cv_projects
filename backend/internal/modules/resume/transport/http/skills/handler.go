@@ -7,9 +7,10 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -22,7 +23,7 @@ func NewHandler(create *commands.CreateSkillsHandler, get *queries.GetSkillsQuer
 	return &Handler{create: create, get: get, update: update}
 }
 
-type SkillsRequest struct {
+type skillsRequest struct {
 	HardSkills []string `json:"hardSkills"`
 	SoftSkills []string `json:"softSkills"`
 }
@@ -32,13 +33,13 @@ func (h *Handler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var b SkillsRequest
+	var b skillsRequest
 	if common.BindJSON(c, &b) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
 	id := valueobjects.NewID()
-	_, e := h.create.Handle(c.Request.Context(), commands.CreateSkillsCommand{ID: id, ResumeID: rid, UserID: uid, Hard: b.HardSkills, Soft: b.SoftSkills})
+	_, e := h.create.Handle(c.Request.Context(), commands.CreateSkillsCommand{ID: id, ResumeID: rid, UserID: uid, Hard: toHardSkills(b.HardSkills), Soft: toSoftSkills(b.SoftSkills)})
 	if e != nil {
 		common.WriteCommandError(c, e)
 		return
@@ -62,12 +63,12 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var b SkillsRequest
+	var b skillsRequest
 	if common.BindJSON(c, &b) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
-	if e := h.update.Handle(c.Request.Context(), commands.UpdateSkillsCommand{ResumeID: rid, UserID: uid, Hard: b.HardSkills, Soft: b.SoftSkills}); e != nil {
+	if e := h.update.Handle(c.Request.Context(), commands.UpdateSkillsCommand{ResumeID: rid, UserID: uid, Hard: toHardSkills(b.HardSkills), Soft: toSoftSkills(b.SoftSkills)}); e != nil {
 		common.WriteCommandError(c, e)
 		return
 	}
@@ -81,4 +82,20 @@ func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
 	}
 	rid, ok := common.ParseResumeID(c)
 	return uid, rid, ok
+}
+
+func toHardSkills(values []string) []enums.HardSkill {
+	out := make([]enums.HardSkill, len(values))
+	for i, value := range values {
+		out[i] = enums.HardSkill(value)
+	}
+	return out
+}
+
+func toSoftSkills(values []string) []enums.SoftSkill {
+	out := make([]enums.SoftSkill, len(values))
+	for i, value := range values {
+		out[i] = enums.SoftSkill(value)
+	}
+	return out
 }

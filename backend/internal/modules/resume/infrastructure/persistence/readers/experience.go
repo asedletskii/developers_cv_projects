@@ -2,97 +2,102 @@ package readers
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/google/uuid"
+
+	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type ExperiencesReader struct{ pool *pgxpool.Pool }
+type ExperiencesReader struct{ db *gorm.DB }
 
-func NewExperiencesReader(pool *pgxpool.Pool) *ExperiencesReader {
-	return &ExperiencesReader{pool: pool}
+func NewExperiencesReader(db *gorm.DB) *ExperiencesReader { return &ExperiencesReader{db: db} }
+
+type experienceRow struct {
+	ID          string
+	ResumeID    string
+	Company     string
+	Position    string
+	Location    *string
+	StartDate   string
+	EndDate     *string
+	Description *string
 }
 
-const experienceSelect = `
-SELECT
- e.id::text,
- e.resume_id::text,
- e.company,
- e.position,
- e.location,
- to_char(e.start_date,'YYYY-MM'),
- to_char(e.end_date,'YYYY-MM'),
- e.description,
- COALESCE((SELECT jsonb_agg(a.value ORDER BY a.position) FROM resume_experience_achievements a WHERE a.experience_id=e.id), '[]'::jsonb),
- COALESCE((SELECT jsonb_agg(jsonb_build_object('name', t.name, 'grade', t.grade) ORDER BY t.position) FROM resume_experience_technologies t WHERE t.experience_id=e.id), '[]'::jsonb)
-FROM resume_experiences e
-JOIN resumes rr ON rr.id=e.resume_id
-`
-
 func (r *ExperiencesReader) ListExperiences(ctx context.Context, q queries.ListExperiencesQuery) ([]queries.ExperienceView, error) {
-	if r == nil || r.pool == nil {
-		return nil, fmt.Errorf("list experiences: reader dependencies are nil")
+	db, err := resolveDB(ctx, r.db, "list experiences")
+	if err != nil {
+		return nil, err
 	}
-	rows, err := r.pool.Query(ctx, experienceSelect+`WHERE e.resume_id=$1 AND rr.user_id=$2 ORDER BY e.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return nil, fmt.Errorf("list experiences: invalid query")
+	}
+	var rows []experienceRow
+	err = db.Table("resume_experiences AS e").Select("e.id::text AS id, e.resume_id::text AS resume_id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Joins("JOIN resumes AS r ON r.id = e.resume_id").Where("e.resume_id = ? AND r.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("e.sort_order").Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("list experiences: %w", err)
 	}
-	defer rows.Close()
-	out := make([]queries.ExperienceView, 0)
-	for rows.Next() {
-		var v queries.ExperienceView
-		var achievements, technologies []byte
-		if err := rows.Scan(&v.ID, &v.ResumeID, &v.Company, &v.Position, &v.Location, &v.StartDate, &v.EndDate, &v.Description, &achievements, &technologies); err != nil {
-			return nil, fmt.Errorf("scan experience: %w", err)
-		}
-		if err := decodeExperienceChildren(achievements, technologies, &v); err != nil {
+	out := make([]queries.ExperienceView, 0, len(rows))
+	for _, row := range rows {
+		view := queries.ExperienceView{ID: row.ID, ResumeID: row.ResumeID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description}
+		if err := r.loadExperienceChildren(ctx, db, row.ID, &view); err != nil {
 			return nil, err
 		}
-		out = append(out, v)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate experiences: %w", err)
+		out = append(out, view)
 	}
 	return out, nil
 }
 
 func (r *ExperiencesReader) GetExperience(ctx context.Context, q queries.GetExperienceQuery) (queries.ExperienceView, error) {
-	if r == nil || r.pool == nil {
-		return queries.ExperienceView{}, fmt.Errorf("get experience: reader dependencies are nil")
-	}
-	var v queries.ExperienceView
-	var achievements, technologies []byte
-	err := r.pool.QueryRow(ctx, experienceSelect+`WHERE e.id=$1 AND e.resume_id=$2 AND rr.user_id=$3`, q.ExperienceID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).
-		Scan(&v.ID, &v.ResumeID, &v.Company, &v.Position, &v.Location, &v.StartDate, &v.EndDate, &v.Description, &achievements, &technologies)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return v, queries.ErrResumeNotFound
-	}
+	db, err := resolveDB(ctx, r.db, "get experience")
 	if err != nil {
-		return v, fmt.Errorf("get experience: %w", err)
-	}
-	if err := decodeExperienceChildren(achievements, technologies, &v); err != nil {
 		return queries.ExperienceView{}, err
 	}
-	return v, nil
+	if q.ResumeID.IsZero() || q.ExperienceID.IsZero() || q.UserID.IsZero() {
+		return queries.ExperienceView{}, fmt.Errorf("get experience: invalid query")
+	}
+	var row experienceRow
+	err = db.Table("resume_experiences AS e").Select("e.id::text AS id, e.resume_id::text AS resume_id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Joins("JOIN resumes AS r ON r.id = e.resume_id").Where("e.id = ? AND e.resume_id = ? AND r.user_id = ?", q.ExperienceID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&row).Error
+	if err != nil {
+		return queries.ExperienceView{}, fmt.Errorf("get experience: %w", err)
+	}
+	if row.ID == "" {
+		return queries.ExperienceView{}, queries.ErrResumeNotFound
+	}
+	view := queries.ExperienceView{ID: row.ID, ResumeID: row.ResumeID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description}
+	if err := r.loadExperienceChildren(ctx, db, row.ID, &view); err != nil {
+		return queries.ExperienceView{}, err
+	}
+	return view, nil
 }
 
-func decodeExperienceChildren(achievements, technologies []byte, view *queries.ExperienceView) error {
-	if err := json.Unmarshal(achievements, &view.Achievements); err != nil {
-		return fmt.Errorf("decode experience achievements: %w", err)
+func (r *ExperiencesReader) loadExperienceChildren(ctx context.Context, db *gorm.DB, experienceID string, view *queries.ExperienceView) error {
+	id, err := uuidParse(experienceID)
+	if err != nil {
+		return fmt.Errorf("load experience children: %w", err)
 	}
-	if err := json.Unmarshal(technologies, &view.Technologies); err != nil {
-		return fmt.Errorf("decode experience technologies: %w", err)
+	var achievements []gormmodel.ResumeExperienceAchievement
+	if err := db.WithContext(ctx).Where("experience_id = ?", id).Order("position").Find(&achievements).Error; err != nil {
+		return fmt.Errorf("get experience achievements: %w", err)
 	}
-	if view.Achievements == nil {
-		view.Achievements = []string{}
+	view.Achievements = make([]string, 0, len(achievements))
+	for _, item := range achievements {
+		view.Achievements = append(view.Achievements, item.Value)
 	}
-	if view.Technologies == nil {
-		view.Technologies = []queries.ExperienceTechnologyView{}
+	var technologies []gormmodel.ResumeExperienceTechnology
+	if err := db.WithContext(ctx).Where("experience_id = ?", id).Order("position").Find(&technologies).Error; err != nil {
+		return fmt.Errorf("get experience technologies: %w", err)
+	}
+	view.Technologies = make([]queries.ExperienceTechnologyView, 0, len(technologies))
+	for _, item := range technologies {
+		view.Technologies = append(view.Technologies, queries.ExperienceTechnologyView{Name: item.Name, Grade: item.Grade})
 	}
 	return nil
+}
+
+func uuidParse(value string) (uuid.UUID, error) {
+	return uuid.Parse(value)
 }

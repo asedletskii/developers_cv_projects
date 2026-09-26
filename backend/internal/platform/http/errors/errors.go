@@ -3,6 +3,10 @@ package errors
 import (
 	"errors"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"developers-cv/backend/internal/platform/http/middleware"
 )
 
 type Code string
@@ -58,4 +62,20 @@ func From(err error) *AppError {
 		return appErr
 	}
 	return Internal(err)
+}
+
+func WriteError(c *gin.Context, err error) {
+	appErr := From(err)
+	requestID := middleware.GetRequestID(c)
+	c.AbortWithStatusJSON(appErr.Status, gin.H{
+		"error": gin.H{
+			"code":      appErr.Code,
+			"message":   appErr.Message,
+			"requestId": requestID,
+		},
+	})
+}
+
+func Unauthorized(c *gin.Context) {
+	WriteError(c, New(CodeUnauthorized, http.StatusUnauthorized, "Authentication required"))
 }

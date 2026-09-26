@@ -5,29 +5,38 @@ import (
 	"errors"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	"gorm.io/gorm"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type ResumeMetadataReader struct{ pool *pgxpool.Pool }
+type ResumeMetadataReader struct{ db *gorm.DB }
 
-func NewResumeMetadataReader(pool *pgxpool.Pool) *ResumeMetadataReader {
-	return &ResumeMetadataReader{pool: pool}
+func NewResumeMetadataReader(db *gorm.DB) *ResumeMetadataReader {
+	return &ResumeMetadataReader{db: db}
 }
 
 func (r *ResumeMetadataReader) GetResumeMetadata(ctx context.Context, q queries.GetResumeMetadataQuery) (queries.ResumeMetadataView, error) {
-	if r == nil || r.pool == nil {
-		return queries.ResumeMetadataView{}, fmt.Errorf("get resume metadata: reader dependencies are nil")
+	db, err := resolveDB(ctx, r.db, "get resume metadata")
+	if err != nil {
+		return queries.ResumeMetadataView{}, err
 	}
-	var v queries.ResumeMetadataView
-	err := r.pool.QueryRow(ctx, `SELECT id::text,title,language,created_at,updated_at FROM resumes WHERE id=$1 AND user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.Title, &v.Language, &v.CreatedAt, &v.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return queries.ResumeMetadataView{}, fmt.Errorf("get resume metadata: invalid query")
+	}
+
+	var model gormmodel.Resume
+	err = db.Where("id = ? AND user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return queries.ResumeMetadataView{}, queries.ErrResumeNotFound
 	}
 	if err != nil {
 		return queries.ResumeMetadataView{}, fmt.Errorf("get resume metadata: %w", err)
 	}
-	return v, nil
+
+	return queries.ResumeMetadataView{
+		ID: model.ID.String(), Title: model.Title, Language: model.Language,
+		CreatedAt: model.CreatedAt, UpdatedAt: model.UpdatedAt,
+	}, nil
 }

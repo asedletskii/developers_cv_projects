@@ -4,6 +4,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
@@ -23,7 +24,7 @@ func NewHandler(c *commands.CreateResumeProfileHandler, g *queries.GetResumeProf
 	return &Handler{create: c, get: g, update: u}
 }
 
-type ProfileRequest struct {
+type profileRequest struct {
 	Name        string   `json:"name"`
 	Surname     string   `json:"surname"`
 	Patronymic  *string  `json:"patronymic,omitempty"`
@@ -35,15 +36,33 @@ type ProfileRequest struct {
 	WorkFormat  []string `json:"workFormat"`
 }
 
-func (r ProfileRequest) input() commands.ProfileInput {
-	return commands.ProfileInput{Name: r.Name, Surname: r.Surname, Patronymic: r.Patronymic, Position: r.Position, PhotoPath: r.PhotoPath, DateOfBirth: r.DateOfBirth, Location: r.Location, Relocation: r.Relocation, WorkFormats: r.WorkFormat}
+func (r profileRequest) input() (commands.ProfileInput, error) {
+	photoPath, err := valueobjects.NewAssetPath(r.PhotoPath)
+	if err != nil {
+		return commands.ProfileInput{}, err
+	}
+	dateOfBirth, err := valueobjects.ParseDate(r.DateOfBirth)
+	if err != nil {
+		return commands.ProfileInput{}, err
+	}
+	workFormats := make([]enums.WorkFormat, len(r.WorkFormat))
+	for i, value := range r.WorkFormat {
+		workFormats[i] = enums.WorkFormat(value)
+	}
+	return commands.ProfileInput{
+		Name:        r.Name,
+		Surname:     r.Surname,
+		Patronymic:  r.Patronymic,
+		Position:    r.Position,
+		PhotoPath:   photoPath,
+		DateOfBirth: dateOfBirth,
+		Location:    r.Location,
+		Relocation:  r.Relocation,
+		WorkFormats: workFormats,
+	}, nil
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	if h == nil || h.create == nil {
-		common.WriteError(c, errors.New("create profile handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
@@ -52,12 +71,16 @@ func (h *Handler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body ProfileRequest
+	var body profileRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
-	params := body.input()
+	params, e := body.input()
+	if e != nil {
+		writeProfileError(c, e)
+		return
+	}
 	id, e := h.create.Handle(c.Request.Context(), commands.CreateResumeProfileCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Profile: params})
 	if e != nil {
 		writeProfileError(c, e)
@@ -74,10 +97,6 @@ func (h *Handler) Get(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if h == nil || h.get == nil {
-		common.WriteError(c, errors.New("get profile handler dependencies are nil"))
-		return
-	}
 	p, e := h.get.Handle(c.Request.Context(), queries.GetResumeProfileQuery{ResumeID: rid, UserID: uid})
 	if e != nil {
 		common.WriteQueryError(c, e)
@@ -86,10 +105,6 @@ func (h *Handler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, p)
 }
 func (h *Handler) Update(c *gin.Context) {
-	if h == nil || h.update == nil {
-		common.WriteError(c, errors.New("update profile handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
@@ -98,13 +113,17 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body ProfileRequest
+	var body profileRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
-	params := body.input()
-	if e := h.update.Handle(c.Request.Context(), commands.UpdateResumeProfileCommand{ResumeID: rid, UserID: uid, Profile: params}); e != nil {
+	params, e := body.input()
+	if e != nil {
+		writeProfileError(c, e)
+		return
+	}
+	if e = h.update.Handle(c.Request.Context(), commands.UpdateResumeProfileCommand{ResumeID: rid, UserID: uid, Profile: params}); e != nil {
 		writeProfileError(c, e)
 		return
 	}
@@ -112,7 +131,7 @@ func (h *Handler) Update(c *gin.Context) {
 }
 func writeProfileError(c *gin.Context, e error) {
 	if errors.Is(e, domain.ErrDuplicateEntity) {
-		common.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume profile already exists"))
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume profile already exists"))
 		return
 	}
 	common.WriteCommandError(c, e)

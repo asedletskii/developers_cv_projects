@@ -31,10 +31,7 @@ func (r *ProfileRepository) CreateProfile(ctx context.Context, c ports.CreateRes
 		return domain.ErrEntityNotFound
 	}
 	if e = tx.WithContext(ctx).Create(&m).Error; e != nil {
-		if errors.Is(e, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return fmt.Errorf("create profile: %w", e)
+		return fmt.Errorf("create profile: %w", mapDBError(e))
 	}
 	if len(fs) > 0 {
 		if e = tx.WithContext(ctx).Create(&fs).Error; e != nil {

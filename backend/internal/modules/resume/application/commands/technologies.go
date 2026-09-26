@@ -2,20 +2,19 @@ package commands
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type TechnologyInput struct {
-	ID       valueobjects.ID
-	Name     string
-	Grade    *enums.TechnologyGrade
-	Position int
+	ID    valueobjects.ID
+	Name  string
+	Grade *enums.TechnologyGrade
 }
 
 type CreateTechnologyCommand struct {
@@ -28,6 +27,12 @@ type UpdateTechnologyCommand struct {
 	ResumeID, TechnologyID valueobjects.ID
 	UserID                 useridentity.ID
 	Input                  TechnologyInput
+}
+
+type ReorderTechnologiesCommand struct {
+	ResumeID      valueobjects.ID
+	UserID        useridentity.ID
+	TechnologyIDs []valueobjects.ID
 }
 
 type DeleteTechnologyCommand struct {
@@ -52,14 +57,13 @@ func (h *CreateTechnologyHandler) Handle(ctx context.Context, c CreateTechnology
 		c.ID = valueobjects.NewID()
 	}
 	c.Input.ID = c.ID
-	a, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: c.Input.ID, Name: c.Input.Name, Grade: c.Input.Grade, Position: c.Input.Position})
+	a, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: c.Input.ID, Name: c.Input.Name, Grade: c.Input.Grade, Position: 0})
 	if err != nil {
 		return valueobjects.ID{}, err
 	}
-	err = h.u.Do(ctx, func(tx context.Context) error {
+	if err := h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.CreateTechnology(tx, ports.CreateTechnologyRepositoryCommand{Technology: a, ResumeID: c.ResumeID, UserID: c.UserID})
-	})
-	if err != nil {
+	}); err != nil {
 		return valueobjects.ID{}, err
 	}
 	return a.ID(), nil
@@ -78,12 +82,33 @@ func (h *UpdateTechnologyHandler) Handle(ctx context.Context, c UpdateTechnology
 	if h == nil || h.u == nil || h.uow == nil {
 		return fmt.Errorf("update technology dependencies are nil")
 	}
-	entity, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: c.TechnologyID, Name: c.Input.Name, Grade: c.Input.Grade, Position: c.Input.Position})
+	entity, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: c.TechnologyID, Name: c.Input.Name, Grade: c.Input.Grade, Position: 0})
 	if err != nil {
 		return err
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
 		return h.u.UpdateTechnology(tx, ports.UpdateTechnologyRepositoryCommand{Technology: entity, ResumeID: c.ResumeID, UserID: c.UserID})
+	})
+}
+
+type ReorderTechnologiesHandler struct {
+	r ports.ReorderTechnologiesRepository
+	u UnitOfWork
+}
+
+func NewReorderTechnologiesHandler(r ports.ReorderTechnologiesRepository, u UnitOfWork) *ReorderTechnologiesHandler {
+	return &ReorderTechnologiesHandler{r: r, u: u}
+}
+
+func (h *ReorderTechnologiesHandler) Handle(ctx context.Context, c ReorderTechnologiesCommand) error {
+	if h == nil || h.r == nil || h.u == nil {
+		return fmt.Errorf("reorder technologies dependencies are nil")
+	}
+	if len(c.TechnologyIDs) == 0 {
+		return fmt.Errorf("reorder technologies ids are required: %w", domain.ErrInvalidEntity)
+	}
+	return h.u.Do(ctx, func(tx context.Context) error {
+		return h.r.ReorderTechnologies(tx, ports.ReorderTechnologiesRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, TechnologyIDs: c.TechnologyIDs})
 	})
 }
 

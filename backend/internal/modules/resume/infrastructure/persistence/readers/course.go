@@ -2,50 +2,53 @@ package readers
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/queries"
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
+
+	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type CourseReader struct{ pool *pgxpool.Pool }
+type CourseReader struct{ db *gorm.DB }
 
-func NewCourseReader(pool *pgxpool.Pool) *CourseReader { return &CourseReader{pool: pool} }
+func NewCourseReader(db *gorm.DB) *CourseReader { return &CourseReader{db: db} }
+
 func (r *CourseReader) ListCourses(ctx context.Context, q queries.ListCoursesQuery) ([]queries.CourseView, error) {
-	if r == nil || r.pool == nil {
-		return nil, fmt.Errorf("list courses: reader dependencies are nil")
-	}
-	rows, err := r.pool.Query(ctx, `SELECT c.id::text,c.resume_id::text,c.name,c.organization,to_char(c.end_date,'YYYY-MM'),c.hours,c.certificate_link FROM resume_courses c JOIN resumes rr ON rr.id=c.resume_id WHERE c.resume_id=$1 AND rr.user_id=$2 ORDER BY c.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
+	db, err := resolveDB(ctx, r.db, "list courses")
 	if err != nil {
+		return nil, err
+	}
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return nil, fmt.Errorf("list courses: invalid query")
+	}
+	var models []gormmodel.ResumeCourse
+	if err := db.Joins("JOIN resumes ON resumes.id = resume_courses.resume_id").Where("resume_courses.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list courses: %w", err)
 	}
-	defer rows.Close()
-	out := make([]queries.CourseView, 0)
-	for rows.Next() {
-		var v queries.CourseView
-		if err := rows.Scan(&v.ID, &v.ResumeID, &v.Name, &v.Organization, &v.EndDate, &v.Hours, &v.CertificateLink); err != nil {
-			return nil, fmt.Errorf("scan course: %w", err)
-		}
-		out = append(out, v)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate courses: %w", err)
+	out := make([]queries.CourseView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.CourseView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Name: model.Name, Organization: model.Organization, EndDate: yearMonth(model.EndDate), Hours: model.Hours, CertificateLink: model.CertificateLink})
 	}
 	return out, nil
 }
+
 func (r *CourseReader) GetCourse(ctx context.Context, q queries.GetCourseQuery) (queries.CourseView, error) {
-	if r == nil || r.pool == nil {
-		return queries.CourseView{}, fmt.Errorf("get course: reader dependencies are nil")
+	db, err := resolveDB(ctx, r.db, "get course")
+	if err != nil {
+		return queries.CourseView{}, err
 	}
-	var v queries.CourseView
-	err := r.pool.QueryRow(ctx, `SELECT c.id::text,c.resume_id::text,c.name,c.organization,to_char(c.end_date,'YYYY-MM'),c.hours,c.certificate_link FROM resume_courses c JOIN resumes rr ON rr.id=c.resume_id WHERE c.id=$1 AND c.resume_id=$2 AND rr.user_id=$3`, q.CourseID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Name, &v.Organization, &v.EndDate, &v.Hours, &v.CertificateLink)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return v, queries.ErrResumeNotFound
+	if q.ResumeID.IsZero() || q.CourseID.IsZero() || q.UserID.IsZero() {
+		return queries.CourseView{}, fmt.Errorf("get course: invalid query")
+	}
+	var model gormmodel.ResumeCourse
+	err = db.Joins("JOIN resumes ON resumes.id = resume_courses.resume_id").Where("resume_courses.id = ? AND resume_courses.resume_id = ? AND resumes.user_id = ?", q.CourseID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.CourseView{}, queries.ErrResumeNotFound
 	}
 	if err != nil {
-		return v, fmt.Errorf("get course: %w", err)
+		return queries.CourseView{}, fmt.Errorf("get course: %w", err)
 	}
-	return v, nil
+	return queries.CourseView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Name: model.Name, Organization: model.Organization, EndDate: yearMonth(model.EndDate), Hours: model.Hours, CertificateLink: model.CertificateLink}, nil
 }

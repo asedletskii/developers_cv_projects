@@ -9,64 +9,47 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ProjectInput struct {
 	Name         string
 	Description  *string
 	Role         *string
-	Screenshots  []string
-	Link         *string
-	GitLink      *string
+	Screenshots  []valueobjects.AssetPath
+	Link         *valueobjects.ExternalURL
+	GitLink      *valueobjects.ExternalURL
 	Stack        []ProjectTechnologyInput
 	Contributors []ProjectContributorInput
 }
 type ProjectTechnologyInput struct {
 	Name  string
-	Grade *string
+	Grade *enums.TechnologyGrade
 }
 type ProjectContributorInput struct {
 	Name, Surname, Role string
 	Contacts            ProjectContactsInput
 }
 type ProjectContactsInput struct {
-	Phone           string
-	Telegram, Email *string
+	Phone    string
+	Telegram *valueobjects.Telegram
+	Email    *valueobjects.Email
 }
 
 func projectFromInput(input ProjectInput, id, resumeID valueobjects.ID) (*domain.Project, error) {
-	screenshots := make([]valueobjects.AssetPath, len(input.Screenshots))
-	for i, v := range input.Screenshots {
-		x, e := valueobjects.NewAssetPath(v)
-		if e != nil {
-			return nil, e
-		}
-		screenshots[i] = x
-	}
+	screenshots := append([]valueobjects.AssetPath(nil), input.Screenshots...)
 	var link, gitLink *valueobjects.ExternalURL
 	if input.Link != nil {
-		x, e := valueobjects.NewExternalURL(*input.Link)
-		if e != nil {
-			return nil, e
-		}
-		link = &x
+		copy := *input.Link
+		link = &copy
 	}
 	if input.GitLink != nil {
-		x, e := valueobjects.NewExternalURL(*input.GitLink)
-		if e != nil {
-			return nil, e
-		}
-		gitLink = &x
+		copy := *input.GitLink
+		gitLink = &copy
 	}
 	stack := make([]entities.Technology, 0, len(input.Stack))
 	for _, v := range input.Stack {
-		var g *enums.TechnologyGrade
-		if v.Grade != nil {
-			x := enums.TechnologyGrade(*v.Grade)
-			g = &x
-		}
-		x, e := entities.NewTechnology(entities.TechnologyParams{Name: v.Name, Grade: g})
+		x, e := entities.NewTechnology(entities.TechnologyParams{Name: v.Name, Grade: v.Grade})
 		if e != nil {
 			return nil, e
 		}
@@ -76,19 +59,13 @@ func projectFromInput(input ProjectInput, id, resumeID valueobjects.ID) (*domain
 	for _, v := range input.Contributors {
 		var tg *valueobjects.Telegram
 		if v.Contacts.Telegram != nil {
-			x, e := valueobjects.NewTelegram(*v.Contacts.Telegram)
-			if e != nil {
-				return nil, e
-			}
-			tg = &x
+			copy := *v.Contacts.Telegram
+			tg = &copy
 		}
 		var em *valueobjects.Email
 		if v.Contacts.Email != nil {
-			x, e := valueobjects.NewEmail(*v.Contacts.Email)
-			if e != nil {
-				return nil, e
-			}
-			em = &x
+			copy := *v.Contacts.Email
+			em = &copy
 		}
 		var cs entities.Contacts
 		if v.Contacts.Phone == "" && tg == nil && em == nil {

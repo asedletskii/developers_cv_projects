@@ -1,7 +1,6 @@
 package public
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,15 +18,11 @@ func NewHandler(query *queries.PublicResumeQueryHandler) *Handler {
 }
 
 func (h *Handler) Handle(c *gin.Context) {
-	if h == nil || h.query == nil {
-		common.WriteError(c, errors.New("public resume handler dependencies are nil"))
-		return
-	}
 	resumeID, ok := common.ParseResumeID(c)
 	if !ok {
 		return
 	}
-	view, err := h.query.Handle(c.Request.Context(), queries.PublicResumeQuery{ID: resumeID.UUID()})
+	view, err := h.query.Handle(c.Request.Context(), queries.PublicResumeQuery{ID: resumeID})
 	if err != nil {
 		common.WriteQueryError(c, err)
 		return

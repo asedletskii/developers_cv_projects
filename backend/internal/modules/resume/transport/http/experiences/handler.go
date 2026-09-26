@@ -6,7 +6,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,11 +24,11 @@ func NewHandler(create *commands.CreateExperienceHandler, list *queries.ListExpe
 	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
 }
 
-type TechnologyRequest struct {
+type technologyRequest struct {
 	Name  string  `json:"name"`
 	Grade *string `json:"grade,omitempty"`
 }
-type ExperienceRequest struct {
+type experienceRequest struct {
 	Company      string              `json:"company"`
 	Position     string              `json:"position"`
 	Location     *string             `json:"location,omitempty"`
@@ -36,7 +36,7 @@ type ExperienceRequest struct {
 	EndDate      *string             `json:"endDate,omitempty"`
 	Description  *string             `json:"description,omitempty"`
 	Achievements []string            `json:"achievements"`
-	Technologies []TechnologyRequest `json:"technologies"`
+	Technologies []technologyRequest `json:"technologies"`
 }
 
 func (h *Handler) Create(c *gin.Context) {
@@ -44,7 +44,7 @@ func (h *Handler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body ExperienceRequest
+	var body experienceRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -68,7 +68,7 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	items, err := h.list.Handle(c.Request.Context(), queries.ListExperiencesQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, items)
@@ -80,7 +80,7 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 	item, err := h.get.Handle(c.Request.Context(), queries.GetExperienceQuery{ResumeID: rid, ExperienceID: id, UserID: uid})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, item)
@@ -90,7 +90,7 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body ExperienceRequest
+	var body experienceRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -117,7 +117,7 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-func experienceInput(body ExperienceRequest) (commands.ExperienceInput, error) {
+func experienceInput(body experienceRequest) (commands.ExperienceInput, error) {
 	start, err := valueobjects.ParseYearMonth(body.StartDate)
 	if err != nil {
 		return commands.ExperienceInput{}, err

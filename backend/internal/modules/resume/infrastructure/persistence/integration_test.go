@@ -4,6 +4,7 @@ package persistence_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -24,9 +25,8 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/platform/database"
-	"developers-cv/backend/internal/platform/postgres"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func newTestResume(t *testing.T, userID useridentity.ID) *domain.Resume {
@@ -133,10 +133,6 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
-	require.NoError(t, err)
-	t.Cleanup(pool.Close)
-
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
@@ -151,7 +147,7 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	resume := newTestResume(t, owner)
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: root})
+		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
 	}))
 
 	var createdAt, updatedAt time.Time
@@ -159,6 +155,37 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	require.False(t, createdAt.IsZero())
 	require.False(t, updatedAt.IsZero())
 	require.WithinDuration(t, createdAt, updatedAt, time.Second)
+
+	beforeReplace, err := resumeRepo.GetResume(ctx, ports.GetResumeRepositoryCommand{ResumeID: resume.ID(), UserID: owner})
+	require.NoError(t, err)
+	beforeReplaceUpdatedAt := updatedAt
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.ReplaceResumeTitle(tx, ports.ReplaceResumeTitleRepositoryCommand{
+			ResumeID: resume.ID(),
+			UserID:   owner,
+			Title:    "Updated Resume Title",
+		})
+	}))
+	afterReplace, err := resumeRepo.GetResume(ctx, ports.GetResumeRepositoryCommand{ResumeID: resume.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, "Updated Resume Title", afterReplace.Title())
+	require.Equal(t, beforeReplace.Language(), afterReplace.Language())
+	require.NoError(t, conn.QueryRow(ctx, "SELECT updated_at FROM resumes WHERE id = $1", resume.ID().UUID()).Scan(&updatedAt))
+	require.True(t, updatedAt.After(beforeReplaceUpdatedAt))
+
+	_, err = resumeRepo.GetResume(ctx, ports.GetResumeRepositoryCommand{ResumeID: resume.ID(), UserID: foreign})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	err = uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.ReplaceResumeTitle(tx, ports.ReplaceResumeTitleRepositoryCommand{
+			ResumeID: resume.ID(),
+			UserID:   foreign,
+			Title:    "Foreign Update",
+		})
+	})
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	unchanged, err := resumeRepo.GetResume(ctx, ports.GetResumeRepositoryCommand{ResumeID: resume.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Equal(t, "Updated Resume Title", unchanged.Title())
 
 	email, err := valueobjects.NewEmail("contacts@example.com")
 	require.NoError(t, err)
@@ -221,9 +248,6 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
-	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute})
-	require.NoError(t, err)
-	t.Cleanup(pool.Close)
 
 	owner := useridentity.NewID()
 	foreign := useridentity.NewID()
@@ -231,14 +255,14 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	insertResumeTestUser(t, ctx, dsn, foreign)
 
 	resumeRepo := repository.NewResumeRepository(gormDB)
-	languagesReader := readers.NewLanguagesReader(pool)
+	languagesReader := readers.NewLanguagesReader(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
 	skillsRepo := repository.NewSkillsRepository(gormDB)
 	languagesRepo := repository.NewLanguagesRepository(gormDB)
 	technologiesRepo := repository.NewTechnologiesRepository(gormDB)
 	resume := newTestResume(t, owner)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: root})
+		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
 	}))
 
 	hard := []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}
@@ -290,6 +314,104 @@ func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {
 	require.Equal(t, 1, technologyCount)
 	_, err = technologiesRepo.GetTechnology(ctx, ports.GetTechnologyRepositoryCommand{ResumeID: resume.ID(), TechnologyID: technologyID, UserID: foreign})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+func TestPostgresOrderedCollectionCreateAndReorder(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyMigrations(t, ctx, dsn)
+
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+
+	owner := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, owner)
+	resumeRepo := repository.NewResumeRepository(gormDB)
+	experiencesRepo := repository.NewExperiencesRepository(gormDB)
+	languagesRepo := repository.NewLanguagesRepository(gormDB)
+	technologiesRepo := repository.NewTechnologiesRepository(gormDB)
+	uow := database.NewUnitOfWork(gormDB)
+	resume := newTestResume(t, owner)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
+	}))
+
+	const experienceCount = 8
+	errs := make(chan error, experienceCount)
+	for i := 0; i < experienceCount; i++ {
+		go func(index int) {
+			itemID := valueobjects.NewID()
+			startDate, parseErr := valueobjects.ParseYearMonth(fmt.Sprintf("202%d-01", index+1))
+			if parseErr != nil {
+				errs <- parseErr
+				return
+			}
+			item, createErr := domain.NewExperience(domain.ExperienceParams{
+				ID: itemID, ResumeID: resume.ID(), Company: "Acme", Position: "Developer", StartDate: startDate,
+			})
+			if createErr != nil {
+				errs <- createErr
+				return
+			}
+			errs <- uow.Do(ctx, func(tx context.Context) error {
+				return experiencesRepo.CreateExperience(tx, ports.CreateExperienceRepositoryCommand{Experience: item, ResumeID: resume.ID(), UserID: owner})
+			})
+		}(i)
+	}
+	for i := 0; i < experienceCount; i++ {
+		require.NoError(t, <-errs)
+	}
+
+	var orders []int
+	require.NoError(t, gormDB.Raw("SELECT sort_order FROM resume_experiences WHERE resume_id = ? ORDER BY sort_order", resume.ID().UUID()).Scan(&orders).Error)
+	require.Equal(t, []int{0, 1, 2, 3, 4, 5, 6, 7}, orders)
+
+	languageIDs := make([]valueobjects.ID, 3)
+	for i, language := range []enums.SpokenLanguage{enums.SpokenLanguageEN, enums.SpokenLanguageFR, enums.SpokenLanguageDE} {
+		languageIDs[i] = valueobjects.NewID()
+		item, createErr := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: languageIDs[i], Language: language, Position: 0})
+		require.NoError(t, createErr)
+		require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+			return languagesRepo.CreateLanguage(tx, ports.CreateLanguageRepositoryCommand{Language: item, ResumeID: resume.ID(), UserID: owner})
+		}))
+	}
+
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return languagesRepo.ReorderLanguages(tx, ports.ReorderLanguagesRepositoryCommand{ResumeID: resume.ID(), UserID: owner, LanguageIDs: []valueobjects.ID{languageIDs[2], languageIDs[0], languageIDs[1]}})
+	}))
+
+	var languagePositions []int
+	require.NoError(t, gormDB.Raw("SELECT position FROM resume_languages WHERE resume_id = ? ORDER BY position", resume.ID().UUID()).Scan(&languagePositions).Error)
+	require.Equal(t, []int{0, 1, 2}, languagePositions)
+	var orderedLanguageIDs []string
+	require.NoError(t, gormDB.Raw("SELECT id::text FROM resume_languages WHERE resume_id = ? ORDER BY position", resume.ID().UUID()).Scan(&orderedLanguageIDs).Error)
+	require.Equal(t, []string{languageIDs[2].String(), languageIDs[0].String(), languageIDs[1].String()}, orderedLanguageIDs)
+
+	technologyIDs := make([]valueobjects.ID, 3)
+	for i, name := range []string{"Go", "PostgreSQL", "Docker"} {
+		technologyIDs[i] = valueobjects.NewID()
+		item, createErr := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: technologyIDs[i], Name: name, Position: 0})
+		require.NoError(t, createErr)
+		require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+			return technologiesRepo.CreateTechnology(tx, ports.CreateTechnologyRepositoryCommand{Technology: item, ResumeID: resume.ID(), UserID: owner})
+		}))
+	}
+
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return technologiesRepo.ReorderTechnologies(tx, ports.ReorderTechnologiesRepositoryCommand{ResumeID: resume.ID(), UserID: owner, TechnologyIDs: []valueobjects.ID{technologyIDs[2], technologyIDs[0], technologyIDs[1]}})
+	}))
+	var orderedTechnologyIDs []string
+	require.NoError(t, gormDB.Raw("SELECT id::text FROM resume_technologies WHERE resume_id = ? ORDER BY position", resume.ID().UUID()).Scan(&orderedTechnologyIDs).Error)
+	require.Equal(t, []string{technologyIDs[2].String(), technologyIDs[0].String(), technologyIDs[1].String()}, orderedTechnologyIDs)
 }
 
 func languageGradePtr(value enums.LanguageGrade) *enums.LanguageGrade {

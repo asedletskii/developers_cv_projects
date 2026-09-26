@@ -16,7 +16,7 @@ import (
 )
 
 func (r *ProjectRepository) CreateProject(ctx context.Context, c ports.CreateProjectRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
@@ -32,10 +32,7 @@ func (r *ProjectRepository) CreateProject(ctx context.Context, c ports.CreatePro
 		return err
 	}
 	if err := tx.WithContext(ctx).Create(&item).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return err
+		return mapDBError(err)
 	}
 	return writeProjectChildrenFromDomain(ctx, tx, &item, c.Project)
 }
