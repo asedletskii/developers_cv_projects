@@ -6,8 +6,6 @@ import { useTranslate } from '@shared/hooks'
 type Props = {
   ref?: Ref<HTMLButtonElement>
   isExpanded: boolean
-
-  /** Сколько мест работы скрыто */
   hiddenCount: number
   onClick(): void
 }

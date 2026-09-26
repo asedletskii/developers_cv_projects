@@ -1,4 +1,3 @@
-import { useEffect, useMemo } from 'react'
 import { AccentTheme } from '@features/curriculumVitae/components/AccentTheme'
 import { ControlsBar } from '@features/curriculumVitae/components/ControlsBar'
 import { CursorGlow } from '@features/curriculumVitae/components/CursorGlow'
@@ -8,42 +7,16 @@ import { ScrollProgress } from '@features/curriculumVitae/components/ScrollProgr
 import { SectionCollapseProvider } from '@features/curriculumVitae/components/SectionCollapseProvider'
 import { SectionNav } from '@features/curriculumVitae/components/SectionNav'
 import { TechnologyFilterProvider } from '@features/curriculumVitae/components/TechnologyFilterProvider'
-import { usePrintLightTheme, useScrollReveal } from '@features/curriculumVitae/hooks'
-import { getVisibleSections, SECTION_DEFINITIONS } from '@features/curriculumVitae/sections'
-import { selectPersonData } from '@features/curriculumVitae/store/curriculumVitae'
 import { Box } from '@mui/material'
-import { ScrollTrigger } from '@shared/animations'
-import { useDocumentTitle, useLanguage } from '@shared/hooks'
-import { useAppSelector } from '@shared/store'
-import { getPersonFIO } from '@shared/utils'
+import { useCurriculumVitae } from './hooks'
 import { Sections } from './Sections'
-import { useNavItems } from './useNavItems'
 
-/** Готовое резюме: hero, плавающие элементы управления и секции в заданном порядке. */
 export const CurriculumVitae = () => {
-  const person = useAppSelector(selectPersonData)
-  const { language } = useLanguage()
-  const containerRef = useScrollReveal()
-
-  usePrintLightTheme()
-  useDocumentTitle(getPersonFIO(person))
-
-  const sections = useMemo(() => getVisibleSections(person), [person])
-  const navItems = useNavItems(sections)
-
-  // От языка зависит длина текстов, а значит и высота страницы — пересчитываем позиции триггеров
-  useEffect(() => {
-    const timer = window.setTimeout(() => ScrollTrigger.refresh(), 100)
-    return () => window.clearTimeout(timer)
-  }, [language])
+  const { person, sections, navItems, initiallyCollapsed, containerRef } = useCurriculumVitae()
 
   return (
     <AccentTheme colors={person.theme}>
-      <SectionCollapseProvider
-        initiallyCollapsed={sections
-          .filter(({ id, collapsed }) => collapsed && SECTION_DEFINITIONS[id].isCollapsible)
-          .map(({ id }) => id)}
-      >
+      <SectionCollapseProvider initiallyCollapsed={initiallyCollapsed}>
         <TechnologyFilterProvider projects={person.projects}>
           <Box
             ref={containerRef}

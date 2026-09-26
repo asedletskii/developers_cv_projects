@@ -1,5 +1,5 @@
-import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
 import { TechnologyList } from '@features/curriculumVitae/components/TechnologyList'
+import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { dimmed, glassCard } from '@features/curriculumVitae/styles'
 import { Experience } from '@features/curriculumVitae/types'
 import { Box, Stack, Typography } from '@mui/material'
@@ -8,12 +8,9 @@ import { Dates } from './Dates'
 
 type Props = {
   job: Experience
-
-  /** Место из «Показать ещё»: проявляется отдельной анимацией, а не вместе с таймлайном */
   isExtra: boolean
 }
 
-/** Одно место работы: точка на линии и карточка с описанием. */
 export const Job = ({ job, isExtra }: Props) => {
   const { isDimmed } = useTechnologyFilter()
 

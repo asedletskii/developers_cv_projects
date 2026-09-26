@@ -1,30 +1,17 @@
-import { glassCard } from '@features/curriculumVitae/styles'
 import { ArrowBackOutlined, EditRounded } from '@mui/icons-material'
 import { Button, Stack } from '@mui/material'
+import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
-import { Link as RouterLink } from 'react-router'
+import { generatePath, Link as RouterLink } from 'react-router'
+import { PILL_SX } from './constants'
 
 type Props = {
   userId: string
-
-  /** id резюме — есть только на странице предпросмотра, там же нужна кнопка «Редактировать» */
   cvId?: string
 }
 
-/**
- * Плавающая кнопка возврата к списку резюме ЛК (и, на предпросмотре, кнопка редактирования рядом).
- * Слева, тем же уровнем z-index и тем же стеклянным стилем, что и ControlsBar/SectionNav резюме
- * справа и по центру — не перекрываются.
- */
 export const BackToResumes = ({ userId, cvId }: Props) => {
   const translate = useTranslate('Lk.Resume')
-
-  const pillSx = {
-    ...glassCard,
-    borderRadius: 999,
-    px: 2,
-    textTransform: 'none',
-  }
 
   return (
     <Stack
@@ -35,9 +22,9 @@ export const BackToResumes = ({ userId, cvId }: Props) => {
     >
       <Button
         component={RouterLink}
-        to={`/cv/lk/${encodeURIComponent(userId)}`}
+        to={generatePath(ROUTES.lkProfile, { userId })}
         startIcon={<ArrowBackOutlined />}
-        sx={pillSx}
+        sx={PILL_SX}
       >
         {translate('back')}
       </Button>
@@ -45,9 +32,9 @@ export const BackToResumes = ({ userId, cvId }: Props) => {
       {cvId && (
         <Button
           component={RouterLink}
-          to={`/cv/lk/${encodeURIComponent(userId)}/${encodeURIComponent(cvId)}`}
+          to={generatePath(ROUTES.lkResume, { userId, cvId })}
           startIcon={<EditRounded />}
-          sx={pillSx}
+          sx={PILL_SX}
         >
           {translate('edit')}
         </Button>

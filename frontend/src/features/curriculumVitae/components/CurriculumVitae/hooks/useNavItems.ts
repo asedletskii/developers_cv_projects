@@ -5,7 +5,6 @@ import { useTranslate } from '@shared/hooks'
 
 type NavKey = Parameters<ReturnType<typeof useTranslate<'CurriculumVitae.Nav'>>>[0]
 
-/** Пункты плавающей навигации: секции, которые в неё входят, в порядке страницы. */
 export const useNavItems = (sections: SectionSettings[]) => {
   const translate = useTranslate('CurriculumVitae.Nav')
 

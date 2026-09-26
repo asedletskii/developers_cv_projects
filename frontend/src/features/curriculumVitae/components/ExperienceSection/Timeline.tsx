@@ -5,7 +5,6 @@ type Props = PropsWithChildren<{
   ref?: Ref<HTMLDivElement>
 }>
 
-/** Вертикальный таймлайн: линия слева «дорисовывается» вместе со скроллом (см. useTimelineAnimation). */
 export const Timeline = ({ ref, children }: Props) => (
   <Stack ref={ref} spacing={4} sx={{ position: 'relative', pl: { xs: 4, sm: 6 } }}>
     <Box

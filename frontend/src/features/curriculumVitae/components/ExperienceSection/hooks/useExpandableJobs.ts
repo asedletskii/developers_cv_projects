@@ -1,10 +1,6 @@
 import { RefObject, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { gsap, prefersReducedMotion, ScrollTrigger } from '@shared/animations'
 
-/**
- * Состояние «Показать ещё / Скрыть» для списка мест работы.
- * Новые места проявляются каскадом, скрываются тоже с анимацией.
- */
 export const useExpandableJobs = (timelineRef: RefObject<HTMLDivElement | null>) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
@@ -20,7 +16,7 @@ export const useExpandableJobs = (timelineRef: RefObject<HTMLDivElement | null>)
     const collapse = () => {
       setIsExpanded(false)
       ScrollTrigger.refresh(true)
-      // Страница стала короче — возвращаем кнопку в поле зрения, если она уехала
+      //страница стала короче — возвращаем кнопку в поле зрения, если она уехала
       buttonRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     }
 
@@ -41,7 +37,6 @@ export const useExpandableJobs = (timelineRef: RefObject<HTMLDivElement | null>)
     })
   }
 
-  // Мягко проявляем только что открытые места работы и пересчитываем триггеры прокрутки
   useLayoutEffect(() => {
     if (!isExpanded) return
 

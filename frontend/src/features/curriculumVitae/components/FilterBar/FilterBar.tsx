@@ -1,33 +1,15 @@
-import { useEffect, useState } from 'react'
-import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Person } from '@features/curriculumVitae/types'
-import { hasTechnology } from '@features/curriculumVitae/utils'
 import { CloseRounded } from '@mui/icons-material'
 import { Chip, IconButton, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
+import { useFilterBar } from './hooks'
 
 type Props = Pick<Person, 'experience' | 'projects'>
 
-/** Плавающая плашка активного фильтра: технология, сколько совпадений и кнопка сброса. */
 export const FilterBar = ({ experience, projects }: Props) => {
   const translate = useTranslate('CurriculumVitae.Filter')
-  const { selected, clear } = useTechnologyFilter()
-
-  // Помним последнюю технологию, чтобы плашка не «схлопывалась» текстом, пока исчезает
-  const [shown, setShown] = useState(selected)
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (selected) setShown(selected)
-  }, [selected])
-
-  const isVisible = !!selected
-
-  const jobs = shown ? experience.filter((job) => hasTechnology(job.stack, shown)).length : 0
-  const matchedProjects = shown
-    ? projects.filter((project) => hasTechnology(project.stack, shown)).length
-    : 0
+  const { isVisible, shown, jobs, matchedProjects, clear } = useFilterBar({ experience, projects })
 
   return (
     <Stack

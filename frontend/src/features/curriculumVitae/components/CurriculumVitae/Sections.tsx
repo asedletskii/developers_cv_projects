@@ -8,7 +8,6 @@ type Props = {
   sections: SectionSettings[]
 }
 
-/** Секции в порядке из настроек: обычные — в контейнере, полноширинные (лента стека) — без него. */
 export const Sections = ({ person, sections }: Props) => (
   <>
     {sections.map(({ id }) => {

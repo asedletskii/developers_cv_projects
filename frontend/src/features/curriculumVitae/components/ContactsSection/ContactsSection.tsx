@@ -2,15 +2,10 @@ import { SparkleField } from '@features/curriculumVitae/components/SparkleField'
 import { ContactKey, Contacts, ContactsText, SectionId } from '@features/curriculumVitae/types'
 import { getContactLinks } from '@features/curriculumVitae/utils'
 import { Stack } from '@mui/material'
-import { keyframes } from '@mui/material/styles'
 import { useTranslate } from '@shared/hooks'
 import { Actions } from './Actions'
+import { DRIFT } from './constants'
 import { Headline } from './Headline'
-
-const drift = keyframes`
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-`
 
 type Props = {
   contacts: Contacts
@@ -41,7 +36,7 @@ export const ContactsSection = ({ contacts, text, hidden = [] }: Props) => {
         position: 'relative',
         overflow: 'hidden',
         color: 'primary.contrastText',
-        animation: `${drift} 12s ease-in-out infinite`,
+        animation: `${DRIFT} 12s ease-in-out infinite`,
         '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
         background: ({ palette }) =>
           `linear-gradient(135deg, ${palette.primary.light}, ${palette.primary.main} 55%, ${palette.primary.dark})`,
