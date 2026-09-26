@@ -14,7 +14,7 @@ import (
 )
 
 func (r *ActivityRepository) CreateActivity(ctx context.Context, c ports.CreateActivityRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
@@ -27,10 +27,7 @@ func (r *ActivityRepository) CreateActivity(ctx context.Context, c ports.CreateA
 		return err
 	}
 	if err := tx.Create(&item).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return err
+		return mapDBError(err)
 	}
 	return nil
 }
@@ -83,7 +80,7 @@ func (r *ActivityRepository) DeleteActivity(ctx context.Context, c ports.DeleteA
 func activityModel(item *domain.Activity) (gormmodel.ResumeActivity, error) {
 	model := gormmodel.ResumeActivity{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Type: string(item.Type()), Title: item.Title(), Description: item.Description(), Link: externalURLString(item.Link())}
 	if item.Date() != nil {
-		value := item.Date().String() + "-01"
+		value := yearMonthDate(*item.Date())
 		model.Date = &value
 	}
 	return model, nil
@@ -103,7 +100,7 @@ func mapActivity(model gormmodel.ResumeActivity) (*domain.Activity, error) {
 	}
 	var date *valueobjects.YearMonth
 	if model.Date != nil {
-		value, err := valueobjects.ParseYearMonth((*model.Date)[:7])
+		value, err := valueobjects.ParseYearMonth(model.Date.Format("2006-01"))
 		if err != nil {
 			return nil, err
 		}

@@ -4,49 +4,35 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type ListResumesReader struct{ pool *pgxpool.Pool }
+type ListResumesReader struct{ db *gorm.DB }
 
-func NewListResumesReader(pool *pgxpool.Pool) *ListResumesReader {
-	return &ListResumesReader{pool: pool}
+func NewListResumesReader(db *gorm.DB) *ListResumesReader {
+	return &ListResumesReader{db: db}
 }
 
-func (r *ListResumesReader) ListResumes(
-	ctx context.Context,
-	query queries.ListResumesQuery,
-) ([]queries.ResumeListItem, error) {
-	if r == nil || r.pool == nil {
-		return nil, fmt.Errorf("list resumes: reader dependencies are nil")
+func (r *ListResumesReader) ListResumes(ctx context.Context, query queries.ListResumesQuery) ([]queries.ResumeListItem, error) {
+	db, err := resolveDB(ctx, r.db, "list resumes")
+	if err != nil {
+		return nil, err
 	}
 	if query.UserID.IsZero() {
-		return nil, fmt.Errorf("invalid user id")
+		return nil, fmt.Errorf("list resumes: invalid user id")
 	}
 
-	rows, err := r.pool.Query(
-		ctx,
-		`SELECT id::text, title, language FROM resumes WHERE user_id = $1 ORDER BY updated_at DESC, id`,
-		query.UserID.UUID(),
-	)
-	if err != nil {
+	var models []gormmodel.Resume
+	if err := db.Where("user_id = ?", query.UserID.UUID()).Order("updated_at DESC, id").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list resumes: %w", err)
 	}
-	defer rows.Close()
 
-	items := make([]queries.ResumeListItem, 0)
-	for rows.Next() {
-		var item queries.ResumeListItem
-		if err := rows.Scan(&item.ID, &item.Title, &item.Language); err != nil {
-			return nil, fmt.Errorf("scan resume list: %w", err)
-		}
-		items = append(items, item)
+	items := make([]queries.ResumeListItem, 0, len(models))
+	for _, model := range models {
+		items = append(items, queries.ResumeListItem{ID: model.ID.String(), Title: model.Title, Language: model.Language})
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate resume list: %w", err)
-	}
-
 	return items, nil
 }

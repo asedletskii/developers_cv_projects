@@ -2,6 +2,7 @@ package valueobjects
 
 import (
 	"fmt"
+	"strings"
 
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 )
@@ -44,7 +45,12 @@ type Greeting struct {
 }
 
 func NewGreeting(params GreetingParams) Greeting {
-	return Greeting{first: params.First, second: params.Second, secondHighlight: params.SecondHighlight, third: params.Third}
+	return Greeting{
+		first:           strings.TrimSpace(params.First),
+		second:          strings.TrimSpace(params.Second),
+		secondHighlight: strings.TrimSpace(params.SecondHighlight),
+		third:           strings.TrimSpace(params.Third),
+	}
 }
 
 func (g Greeting) First() string           { return g.first }
@@ -107,6 +113,9 @@ func cloneString(value *string) *string {
 	if value == nil {
 		return nil
 	}
-	copy := *value
-	return &copy
+	normalized := strings.TrimSpace(*value)
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }

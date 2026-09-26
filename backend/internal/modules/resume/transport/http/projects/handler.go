@@ -9,7 +9,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -29,12 +29,16 @@ func (h *Handler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body ProjectRequest
+	var body projectRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
-	input := projectInput(body)
+	input, err := projectInput(body)
+	if err != nil {
+		common.WriteCommandError(c, err)
+		return
+	}
 	id, err := h.create.Handle(c.Request.Context(), commands.CreateProjectCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: input})
 	if err != nil {
 		common.WriteCommandError(c, err)
@@ -50,7 +54,7 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	items, err := h.list.Handle(c.Request.Context(), queries.ListProjectsQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	out := make([]ProjectResponse, len(items))
@@ -67,7 +71,7 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 	item, err := h.get.Handle(c.Request.Context(), queries.GetProjectQuery{ResumeID: rid, ProjectID: id, UserID: uid})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, projectQueryView(item))
@@ -78,13 +82,17 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body ProjectRequest
+	var body projectRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
-	input := projectInput(body)
-	if err := h.update.Handle(c.Request.Context(), commands.UpdateProjectCommand{ResumeID: rid, ProjectID: id, UserID: uid, Input: input}); err != nil {
+	input, err := projectInput(body)
+	if err != nil {
+		common.WriteCommandError(c, err)
+		return
+	}
+	if err = h.update.Handle(c.Request.Context(), commands.UpdateProjectCommand{ResumeID: rid, ProjectID: id, UserID: uid, Input: input}); err != nil {
 		common.WriteCommandError(c, err)
 		return
 	}

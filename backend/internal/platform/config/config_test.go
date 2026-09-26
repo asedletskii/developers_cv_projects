@@ -105,7 +105,7 @@ func TestPostgresConnectionStringEscapesCredentials(t *testing.T) {
 		Password:        os.Getenv("TEST_POSTGRES_PASSWORD"),
 		SSLMode:         "require",
 		MaxConns:        10,
-		MinConns:        2,
+		MaxIdleConns:    2,
 		MaxConnLifetime: time.Hour,
 		MaxConnIdleTime: 30 * time.Minute,
 	}

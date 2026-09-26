@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type stubListResumesReader struct {

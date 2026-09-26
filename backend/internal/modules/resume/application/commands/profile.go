@@ -8,36 +8,35 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ProfileInput struct {
-	ResumeID    valueobjects.ID
 	Name        string
 	Surname     string
 	Patronymic  *string
 	Position    string
-	PhotoPath   string
-	DateOfBirth string
+	PhotoPath   valueobjects.AssetPath
+	DateOfBirth valueobjects.Date
 	Location    string
 	Relocation  bool
-	WorkFormats []string
+	WorkFormats []enums.WorkFormat
 }
 
-func (i ProfileInput) params(id, resumeID valueobjects.ID) (domain.ProfileParams, error) {
-	dob, err := valueobjects.ParseDate(i.DateOfBirth)
-	if err != nil {
-		return domain.ProfileParams{}, err
+func (i ProfileInput) params(id, resumeID valueobjects.ID) domain.ProfileParams {
+	return domain.ProfileParams{
+		ID:          id,
+		ResumeID:    resumeID,
+		Name:        i.Name,
+		Surname:     i.Surname,
+		Patronymic:  i.Patronymic,
+		Position:    i.Position,
+		PhotoPath:   i.PhotoPath,
+		DateOfBirth: i.DateOfBirth,
+		Location:    i.Location,
+		Relocation:  i.Relocation,
+		WorkFormats: append([]enums.WorkFormat(nil), i.WorkFormats...),
 	}
-	photo, err := valueobjects.NewAssetPath(i.PhotoPath)
-	if err != nil {
-		return domain.ProfileParams{}, err
-	}
-	formats := make([]enums.WorkFormat, len(i.WorkFormats))
-	for n, v := range i.WorkFormats {
-		formats[n] = enums.WorkFormat(v)
-	}
-	return domain.ProfileParams{ID: id, ResumeID: resumeID, Name: i.Name, Surname: i.Surname, Patronymic: i.Patronymic, Position: i.Position, PhotoPath: photo, DateOfBirth: dob, Location: i.Location, Relocation: i.Relocation, WorkFormats: formats}, nil
 }
 
 type CreateResumeProfileCommand struct {
@@ -67,11 +66,8 @@ func (h *CreateResumeProfileHandler) Handle(ctx context.Context, c CreateResumeP
 		c.ID = valueobjects.NewID()
 	}
 	var created *domain.Profile
-	params, err := c.Profile.params(c.ID, c.ResumeID)
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	err = h.uow.Do(ctx, func(tx context.Context) error {
+	params := c.Profile.params(c.ID, c.ResumeID)
+	err := h.uow.Do(ctx, func(tx context.Context) error {
 		p, e := domain.NewProfile(params)
 		if e != nil {
 			return e
@@ -100,10 +96,7 @@ func (h *UpdateResumeProfileHandler) Handle(ctx context.Context, c UpdateResumeP
 	if c.ResumeID.IsZero() || c.UserID.IsZero() {
 		return fmt.Errorf("invalid update resume profile command")
 	}
-	params, e := c.Profile.params(valueobjects.NewID(), c.ResumeID)
-	if e != nil {
-		return e
-	}
+	params := c.Profile.params(valueobjects.NewID(), c.ResumeID)
 	current, e := domain.NewProfile(params)
 	if e != nil {
 		return e

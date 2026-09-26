@@ -3,11 +3,22 @@ package postgres
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 )
 
-type HealthChecker struct{ pool *pgxpool.Pool }
+type HealthChecker struct{ db *gorm.DB }
 
-func NewHealthChecker(pool *pgxpool.Pool) *HealthChecker { return &HealthChecker{pool: pool} }
-func (c *HealthChecker) Name() string                    { return "postgres" }
-func (c *HealthChecker) Check(ctx context.Context) error { return c.pool.Ping(ctx) }
+func NewHealthChecker(db *gorm.DB) *HealthChecker { return &HealthChecker{db: db} }
+
+func (c *HealthChecker) Name() string { return "postgres" }
+
+func (c *HealthChecker) Check(ctx context.Context) error {
+	if c == nil || c.db == nil {
+		return gorm.ErrInvalidDB
+	}
+	sqlDB, err := c.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.PingContext(ctx)
+}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/gorm"
 
 	"go.uber.org/zap"
@@ -17,28 +16,25 @@ import (
 )
 
 type Application struct {
-	server       *httpserver.Server
-	telemetry    *telemetry.Service
-	logger       *zap.Logger
-	postgresPool *pgxpool.Pool
-	gormDB       *gorm.DB
-	once         sync.Once
-	shutdownErr  error
+	server      *httpserver.Server
+	telemetry   *telemetry.Service
+	logger      *zap.Logger
+	gormDB      *gorm.DB
+	once        sync.Once
+	shutdownErr error
 }
 
 func NewApplication(
 	server *httpserver.Server,
 	telemetryService *telemetry.Service,
 	logger *zap.Logger,
-	postgresPool *pgxpool.Pool,
 	gormDB *gorm.DB,
 ) *Application {
 	return &Application{
-		server:       server,
-		telemetry:    telemetryService,
-		logger:       logger,
-		postgresPool: postgresPool,
-		gormDB:       gormDB,
+		server:    server,
+		telemetry: telemetryService,
+		logger:    logger,
+		gormDB:    gormDB,
 	}
 }
 
@@ -66,9 +62,6 @@ func (a *Application) Shutdown(ctx context.Context) error {
 		var dbErr error
 		if a.gormDB != nil {
 			dbErr = database.Close(a.gormDB)
-		}
-		if a.postgresPool != nil {
-			a.postgresPool.Close()
 		}
 		if serverErr != nil || telemetryErr != nil || dbErr != nil {
 			a.shutdownErr = fmt.Errorf("shutdown application: %w", errors.Join(serverErr, telemetryErr, dbErr))

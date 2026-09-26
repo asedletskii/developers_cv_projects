@@ -9,42 +9,26 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactsInput struct {
 	Phone          *string
-	Telegram       *string
-	Email          *string
-	HiddenContacts []string
+	Telegram       *valueobjects.Telegram
+	Email          *valueobjects.Email
+	HiddenContacts []enums.ContactKey
 	ContactsText   *ContactsTextInput
 }
 type ContactsTextInput struct{ Title, Subtitle *string }
 
 func (i ContactsInput) params(id, resumeID valueobjects.ID) (domain.ContactsParams, error) {
-	var tg *valueobjects.Telegram
-	if i.Telegram != nil {
-		v, e := valueobjects.NewTelegram(*i.Telegram)
-		if e != nil {
-			return domain.ContactsParams{}, e
-		}
-		tg = &v
+	phone := ""
+	if i.Phone != nil {
+		phone = *i.Phone
 	}
-	var em *valueobjects.Email
-	if i.Email != nil {
-		v, e := valueobjects.NewEmail(*i.Email)
-		if e != nil {
-			return domain.ContactsParams{}, e
-		}
-		em = &v
-	}
-	cs, e := entities.NewContacts(entities.ContactsParams{Phone: stringValue(i.Phone), Telegram: tg, Email: em})
+	cs, e := entities.NewContacts(entities.ContactsParams{Phone: phone, Telegram: i.Telegram, Email: i.Email})
 	if e != nil {
 		return domain.ContactsParams{}, e
-	}
-	hidden := make([]enums.ContactKey, len(i.HiddenContacts))
-	for n, v := range i.HiddenContacts {
-		hidden[n] = enums.ContactKey(v)
 	}
 	var text *valueobjects.ContactsText
 	if i.ContactsText != nil {
@@ -54,13 +38,7 @@ func (i ContactsInput) params(id, resumeID valueobjects.ID) (domain.ContactsPara
 		}
 		text = &v
 	}
-	return domain.ContactsParams{ID: id, ResumeID: resumeID, Contacts: cs, HiddenContacts: hidden, Text: text}, nil
-}
-func stringValue(v *string) string {
-	if v == nil {
-		return ""
-	}
-	return *v
+	return domain.ContactsParams{ID: id, ResumeID: resumeID, Contacts: cs, HiddenContacts: append([]enums.ContactKey(nil), i.HiddenContacts...), Text: text}, nil
 }
 
 type CreateResumeContactsCommand struct {

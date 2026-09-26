@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
@@ -42,4 +43,18 @@ func TestWriteCommandErrorContract(t *testing.T) {
 			require.Contains(t, w.Body.String(), "request-123")
 		})
 	}
+}
+
+func TestWriteQueryErrorContract(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set(middleware.RequestIDKey, "request-456")
+
+	WriteQueryError(c, queries.ErrResumeNotFound)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Contains(t, w.Body.String(), string(apperrors.CodeNotFound))
+	require.Contains(t, w.Body.String(), "request-456")
 }

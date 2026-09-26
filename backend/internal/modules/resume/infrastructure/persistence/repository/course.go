@@ -13,7 +13,7 @@ import (
 )
 
 func (r *CourseRepository) CreateCourse(ctx context.Context, c ports.CreateCourseRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
@@ -26,10 +26,7 @@ func (r *CourseRepository) CreateCourse(ctx context.Context, c ports.CreateCours
 		return err
 	}
 	if err := tx.Create(&item).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return err
+		return mapDBError(err)
 	}
 	return nil
 }
@@ -80,7 +77,7 @@ func (r *CourseRepository) DeleteCourse(ctx context.Context, c ports.DeleteCours
 	return nil
 }
 func courseModel(item *domain.Course) (gormmodel.ResumeCourse, error) {
-	return gormmodel.ResumeCourse{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Name: item.Name(), Organization: item.Organization(), EndDate: item.EndDate().String() + "-01", Hours: item.Hours(), CertificateLink: externalURLString(item.CertificateLink())}, nil
+	return gormmodel.ResumeCourse{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Name: item.Name(), Organization: item.Organization(), EndDate: yearMonthDate(item.EndDate()), Hours: item.Hours(), CertificateLink: externalURLString(item.CertificateLink())}, nil
 }
 func mapCourse(model gormmodel.ResumeCourse) (*domain.Course, error) {
 	id, err := valueobjects.IDFromUUID(model.ID)
@@ -91,7 +88,7 @@ func mapCourse(model gormmodel.ResumeCourse) (*domain.Course, error) {
 	if err != nil {
 		return nil, err
 	}
-	endDate, err := valueobjects.ParseYearMonth(model.EndDate[:7])
+	endDate, err := valueobjects.ParseYearMonth(model.EndDate.Format("2006-01"))
 	if err != nil {
 		return nil, err
 	}

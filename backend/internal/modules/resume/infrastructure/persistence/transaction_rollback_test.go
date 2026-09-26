@@ -16,9 +16,8 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/platform/database"
-	"developers-cv/backend/internal/platform/postgres"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 
 	"github.com/jackc/pgx/v5"
 	testcontainers "github.com/testcontainers/testcontainers-go"
@@ -42,9 +41,6 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
-	pool, err := postgres.NewPool(ctx, postgres.Config{DSN: dsn, MaxConns: 4, MinConns: 1})
-	require.NoError(t, err)
-	t.Cleanup(pool.Close)
 
 	owner := useridentity.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)

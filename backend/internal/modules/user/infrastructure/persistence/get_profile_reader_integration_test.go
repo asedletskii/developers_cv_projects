@@ -10,13 +10,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
+	"developers-cv/backend/internal/platform/database"
 )
 
 func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
@@ -38,9 +38,9 @@ func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
 	require.NoError(t, err)
 	applyProfileMigrations(t, ctx, dsn)
 
-	pool, err := pgxpool.New(ctx, dsn)
+	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
-	t.Cleanup(func() { pool.Close() })
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
 	firstID := uuid.New()
 	secondID := uuid.New()
@@ -49,7 +49,7 @@ func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
 	insertProfile(t, ctx, dsn, firstID, "Антон", "Седлецкий", "Frontend", "Новосибирск")
 	insertProfile(t, ctx, dsn, secondID, "Second", "User", "Backend", "Москва")
 
-	getProfileReader := readers.NewGetProfileReader(pool)
+	getProfileReader := readers.NewGetProfileReader(gormDB)
 	firstIdentity, err := valueobjects.IDFromUUID(firstID)
 	require.NoError(t, err)
 	secondIdentity, err := valueobjects.IDFromUUID(secondID)
@@ -85,16 +85,16 @@ func TestPostgresGetProfileReaderReturnsNotFoundForMissingProfile(t *testing.T) 
 	require.NoError(t, err)
 	applyProfileMigrations(t, ctx, dsn)
 
-	pool, err := pgxpool.New(ctx, dsn)
+	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
-	t.Cleanup(func() { pool.Close() })
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
 	userID := uuid.New()
 	insertUser(t, ctx, dsn, userID)
 	identity, err := valueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
-	_, err = readers.NewGetProfileReader(pool).GetProfile(ctx, queries.GetProfileQuery{UserID: identity})
+	_, err = readers.NewGetProfileReader(gormDB).GetProfile(ctx, queries.GetProfileQuery{UserID: identity})
 	require.ErrorIs(t, err, queries.ErrProfileNotFound)
 }
 
@@ -158,11 +158,11 @@ func TestPostgresGetProfileReaderReturnsSeededDemoProfiles(t *testing.T) {
 	require.NoError(t, err)
 	applyProfileMigrations(t, ctx, dsn)
 
-	pool, err := pgxpool.New(ctx, dsn)
+	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
-	t.Cleanup(func() { pool.Close() })
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	profile, err := readers.NewGetProfileReader(pool).GetProfile(ctx, queries.GetProfileQuery{
+	profile, err := readers.NewGetProfileReader(gormDB).GetProfile(ctx, queries.GetProfileQuery{
 		UserID: mustUserID(t, "10000000-0000-0000-0000-000000000001"),
 	})
 	require.NoError(t, err)

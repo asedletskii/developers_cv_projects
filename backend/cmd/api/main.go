@@ -10,9 +10,17 @@ import (
 	"go.uber.org/zap"
 
 	"developers-cv/backend/internal/app"
+	"developers-cv/backend/internal/platform/healthcheck"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := healthcheck.Check(context.Background()); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

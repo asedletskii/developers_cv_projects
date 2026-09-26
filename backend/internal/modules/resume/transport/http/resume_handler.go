@@ -5,36 +5,32 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	"errors"
+	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 type resumeHandler struct {
-	create *commands.CreateResumeHandler
-	get    *queries.GetResumeQueryHandler
-	update *commands.UpdateResumeHandler
-	delete *commands.DeleteResumeHandler
-	list   *queries.ListResumesQueryHandler
+	create       *commands.CreateResumeHandler
+	get          *queries.GetResumeQueryHandler
+	replaceTitle *commands.ReplaceResumeTitleHandler
+	delete       *commands.DeleteResumeHandler
+	list         *queries.ListResumesQueryHandler
 }
 
-func newResumeHandler(c *commands.CreateResumeHandler, g *queries.GetResumeQueryHandler, u *commands.UpdateResumeHandler, d *commands.DeleteResumeHandler, l *queries.ListResumesQueryHandler) *resumeHandler {
-	return &resumeHandler{create: c, get: g, update: u, delete: d, list: l}
+func newResumeHandler(c *commands.CreateResumeHandler, g *queries.GetResumeQueryHandler, r *commands.ReplaceResumeTitleHandler, d *commands.DeleteResumeHandler, l *queries.ListResumesQueryHandler) *resumeHandler {
+	return &resumeHandler{create: c, get: g, replaceTitle: r, delete: d, list: l}
 }
 
 func (h *resumeHandler) List(c *gin.Context) {
-	if h == nil || h.list == nil {
-		common.WriteError(c, errors.New("list resumes handler dependencies are nil"))
-		return
-	}
 	userID, ok := common.RequireUserID(c)
 	if !ok {
 		return
 	}
 	items, err := h.list.Handle(c.Request.Context(), queries.ListResumesQuery{UserID: userID})
 	if err != nil {
-		common.WriteError(c, err)
+		apperrors.WriteError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, items)
@@ -46,10 +42,6 @@ type createResumeRequest struct {
 }
 
 func (h *resumeHandler) Create(c *gin.Context) {
-	if h == nil || h.create == nil {
-		common.WriteError(c, errors.New("create resume handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
@@ -68,10 +60,6 @@ func (h *resumeHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 func (h *resumeHandler) Get(c *gin.Context) {
-	if h == nil || h.get == nil {
-		common.WriteError(c, errors.New("get resume handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
@@ -88,11 +76,11 @@ func (h *resumeHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, v)
 }
 
-type UpdateResumeRequest struct {
+type replaceResumeTitleRequest struct {
 	Title string `json:"title"`
 }
 
-func (h *resumeHandler) Update(c *gin.Context) {
+func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
@@ -101,16 +89,12 @@ func (h *resumeHandler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if h == nil || h.update == nil {
-		common.WriteError(c, errors.New("update resume handler dependencies are nil"))
-		return
-	}
-	var body UpdateResumeRequest
+	var body replaceResumeTitleRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
 	}
-	if err := h.update.Handle(c.Request.Context(), commands.UpdateResumeCommand{ResumeID: id, UserID: uid, Title: body.Title}); err != nil {
+	if err := h.replaceTitle.Handle(c.Request.Context(), commands.ReplaceResumeTitleCommand{ResumeID: id, UserID: uid, Title: body.Title}); err != nil {
 		common.WriteCommandError(c, err)
 		return
 	}
@@ -118,10 +102,6 @@ func (h *resumeHandler) Update(c *gin.Context) {
 }
 
 func (h *resumeHandler) Delete(c *gin.Context) {
-	if h == nil || h.delete == nil {
-		common.WriteError(c, errors.New("delete resume handler dependencies are nil"))
-		return
-	}
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return

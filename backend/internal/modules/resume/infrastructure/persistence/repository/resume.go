@@ -7,9 +7,8 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/platform/database"
-	"errors"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
 	"time"
 
@@ -26,10 +25,7 @@ func (r *ResumeRepository) CreateResume(ctx context.Context, c ports.CreateResum
 	}
 	m := gormmodel.Resume{ID: c.Resume.ID().UUID(), UserID: c.Resume.UserID().UUID(), Title: c.Resume.Title(), Language: string(c.Resume.Language()), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
 	if err := tx.WithContext(ctx).Create(&m).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return fmt.Errorf("create resume: %w", err)
+		return fmt.Errorf("create resume: %w", mapDBError(err))
 	}
 	return nil
 }
@@ -55,17 +51,17 @@ func (r *ResumeRepository) GetResume(ctx context.Context, q ports.GetResumeRepos
 	}
 	return domain.NewResume(domain.ResumeParams{ID: id, UserID: uid, Title: m.Title, Language: enums.ResumeLanguage(m.Language)})
 }
-func (r *ResumeRepository) UpdateResume(ctx context.Context, c ports.UpdateResumeRepositoryCommand) error {
+func (r *ResumeRepository) ReplaceResumeTitle(ctx context.Context, c ports.ReplaceResumeTitleRepositoryCommand) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
-		return fmt.Errorf("update resume: %w", err)
+		return fmt.Errorf("replace resume title: %w", err)
 	}
 	if c.ResumeID.IsZero() || c.UserID.IsZero() {
 		return fmt.Errorf("invalid resume identity")
 	}
 	res := tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", c.ResumeID.UUID(), c.UserID.UUID()).Updates(map[string]any{"title": c.Title, "updated_at": time.Now().UTC()})
 	if res.Error != nil {
-		return fmt.Errorf("update resume: %w", res.Error)
+		return fmt.Errorf("replace resume title: %w", res.Error)
 	}
 	if res.RowsAffected == 0 {
 		return domain.ErrEntityNotFound

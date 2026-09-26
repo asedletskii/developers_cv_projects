@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
@@ -15,7 +16,7 @@ import (
 )
 
 func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, c ports.CreateTechnologyRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
@@ -23,11 +24,12 @@ func (r *TechnologiesRepository) CreateTechnology(ctx context.Context, c ports.C
 	if err != nil {
 		return err
 	}
-	if err = tx.Create(&m).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
+	m.Position, err = nextSortOrder(tx, m.TableName(), c.ResumeID.UUID())
+	if err != nil {
 		return err
+	}
+	if err = tx.Create(&m).Error; err != nil {
+		return mapDBError(err)
 	}
 	return nil
 }
@@ -56,26 +58,43 @@ func (r *TechnologiesRepository) UpdateTechnology(ctx context.Context, c ports.U
 	if err != nil {
 		return err
 	}
-	res := tx.Model(&gormmodel.ResumeTechnology{}).Where("id=? AND resume_id=?", c.Technology.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{"name": m.Name, "position": m.Position, "grade": m.Grade})
-	if res.Error != nil {
-		return res.Error
+	result := tx.Model(&gormmodel.ResumeTechnology{}).
+		Where("id=? AND resume_id=?", c.Technology.ID().UUID(), c.ResumeID.UUID()).
+		Updates(map[string]any{"name": m.Name, "grade": m.Grade})
+	if result.Error != nil {
+		return mapDBError(result.Error)
 	}
-	if res.RowsAffected == 0 {
+	if result.RowsAffected == 0 {
 		return domain.ErrEntityNotFound
 	}
 	return nil
 }
 
-func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c ports.DeleteTechnologyRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+func (r *TechnologiesRepository) ReorderTechnologies(ctx context.Context, c ports.ReorderTechnologiesRepositoryCommand) error {
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	res := tx.Where("id=? AND resume_id=?", c.TechnologyID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeTechnology{})
-	if res.Error != nil {
-		return res.Error
+	ids := make([]uuid.UUID, len(c.TechnologyIDs))
+	for i, id := range c.TechnologyIDs {
+		if id.IsZero() {
+			return fmt.Errorf("technology id is required: %w", domain.ErrInvalidEntity)
+		}
+		ids[i] = id.UUID()
 	}
-	if res.RowsAffected == 0 {
+	return reorderPositions(tx, "resume_technologies", c.ResumeID.UUID(), ids)
+}
+
+func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c ports.DeleteTechnologyRepositoryCommand) error {
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
+	if err != nil {
+		return err
+	}
+	result := tx.Where("id=? AND resume_id=?", c.TechnologyID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeTechnology{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
 		return domain.ErrEntityNotFound
 	}
 	return nil
@@ -85,11 +104,11 @@ func technologyModel(x domain.ResumeTechnologyEntry, rid valueobjects.ID) (gormm
 	if x.ID().IsZero() {
 		return gormmodel.ResumeTechnology{}, fmt.Errorf("technology id is required")
 	}
-	if x.Name() == "" {
-		return gormmodel.ResumeTechnology{}, fmt.Errorf("technology name is required")
-	}
 	m := gormmodel.ResumeTechnology{ID: x.ID().UUID(), ResumeID: rid.UUID(), Name: x.Name(), Position: x.Position()}
 	if g := x.Grade(); g != nil {
+		if !g.IsValid() {
+			return gormmodel.ResumeTechnology{}, fmt.Errorf("invalid technology grade")
+		}
 		v := string(*g)
 		m.Grade = &v
 	}
@@ -101,13 +120,13 @@ func mapTechnology(m gormmodel.ResumeTechnology) (domain.ResumeTechnologyEntry, 
 	if err != nil {
 		return domain.ResumeTechnologyEntry{}, err
 	}
-	var g *enums.TechnologyGrade
+	var grade *enums.TechnologyGrade
 	if m.Grade != nil {
-		x := enums.TechnologyGrade(*m.Grade)
-		if !x.IsValid() {
-			return domain.ResumeTechnologyEntry{}, fmt.Errorf("invalid technology grade")
+		value := enums.TechnologyGrade(*m.Grade)
+		if !value.IsValid() {
+			return domain.ResumeTechnologyEntry{}, domain.ErrInvalidEntity
 		}
-		g = &x
+		grade = &value
 	}
-	return domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: id, Name: m.Name, Grade: g, Position: m.Position})
+	return domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: id, Name: m.Name, Grade: grade, Position: m.Position})
 }

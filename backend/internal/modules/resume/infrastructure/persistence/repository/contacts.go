@@ -32,10 +32,7 @@ func (r *ContactsRepository) CreateContacts(ctx context.Context, c ports.CreateR
 		return domain.ErrEntityNotFound
 	}
 	if e = tx.WithContext(ctx).Create(&m).Error; e != nil {
-		if errors.Is(e, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return fmt.Errorf("create contacts: %w", e)
+		return fmt.Errorf("create contacts: %w", mapDBError(e))
 	}
 	if len(h) > 0 {
 		if e = tx.WithContext(ctx).Create(&h).Error; e != nil {

@@ -16,7 +16,7 @@ import (
 )
 
 func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c ports.CreateExperienceRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
@@ -36,10 +36,7 @@ func (r *ExperiencesRepository) CreateExperience(ctx context.Context, c ports.Cr
 		item.SortOrder = *maxOrder + 1
 	}
 	if err := tx.Create(&item).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return err
+		return mapDBError(err)
 	}
 	return replaceExperienceChildren(tx, item.ID, c.Experience)
 }
@@ -109,9 +106,9 @@ func experienceModel(item *domain.Experience) (gormmodel.ResumeExperience, error
 	if item == nil || item.ID().IsZero() || item.ResumeID().IsZero() {
 		return gormmodel.ResumeExperience{}, fmt.Errorf("experience identity is required")
 	}
-	model := gormmodel.ResumeExperience{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Company: item.Company(), Position: item.Position(), Location: item.Location(), StartDate: item.StartDate().String() + "-01", Description: item.Description()}
+	model := gormmodel.ResumeExperience{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Company: item.Company(), Position: item.Position(), Location: item.Location(), StartDate: yearMonthDate(item.StartDate()), Description: item.Description()}
 	if item.EndDate() != nil {
-		value := item.EndDate().String() + "-01"
+		value := yearMonthDate(*item.EndDate())
 		model.EndDate = &value
 	}
 	return model, nil
@@ -154,13 +151,13 @@ func mapExperience(tx *gorm.DB, model gormmodel.ResumeExperience) (*domain.Exper
 	if err != nil {
 		return nil, err
 	}
-	start, err := valueobjects.ParseYearMonth(model.StartDate[:7])
+	start, err := valueobjects.ParseYearMonth(model.StartDate.Format("2006-01"))
 	if err != nil {
 		return nil, err
 	}
 	var end *valueobjects.YearMonth
 	if model.EndDate != nil {
-		value, err := valueobjects.ParseYearMonth((*model.EndDate)[:7])
+		value, err := valueobjects.ParseYearMonth(model.EndDate.Format("2006-01"))
 		if err != nil {
 			return nil, err
 		}

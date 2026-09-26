@@ -7,7 +7,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func validResumeParams() ResumeParams {
@@ -59,4 +59,13 @@ func TestResumeRenameTrimsTitle(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, resume.Rename("  Senior Backend Developer  "))
 	require.Equal(t, "Senior Backend Developer", resume.Title())
+}
+
+func TestResumeRenameRejectsEmptyTitle(t *testing.T) {
+	resume, err := NewResume(validResumeParams())
+	require.NoError(t, err)
+
+	err = resume.Rename("   ")
+	require.ErrorIs(t, err, ErrInvalidResume)
+	require.Equal(t, "Frontend Developer", resume.Title())
 }

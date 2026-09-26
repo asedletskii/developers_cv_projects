@@ -15,7 +15,7 @@ import (
 )
 
 func (r *EducationRepository) CreateEducation(ctx context.Context, c ports.CreateEducationRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
@@ -28,10 +28,7 @@ func (r *EducationRepository) CreateEducation(ctx context.Context, c ports.Creat
 		return err
 	}
 	if err := tx.Create(&item).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return err
+		return mapDBError(err)
 	}
 	return nil
 }
@@ -92,7 +89,7 @@ func (r *EducationRepository) DeleteEducation(ctx context.Context, c ports.Delet
 func educationModel(item *domain.Education) (gormmodel.ResumeEducation, error) {
 	model := gormmodel.ResumeEducation{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Location: item.Location(), University: item.University(), Grade: int(item.Grade()), ProgramName: item.ProgramName(), ProfileName: item.ProfileName(), Faculty: item.Faculty(), Course: item.Course()}
 	if item.EndDate() != nil {
-		value := item.EndDate().String() + "-01-01"
+		value := yearDate(*item.EndDate())
 		model.EndDate = &value
 	}
 	return model, nil
@@ -113,7 +110,7 @@ func mapEducation(model gormmodel.ResumeEducation) (*domain.Education, error) {
 	}
 	var endDate *valueobjects.Year
 	if model.EndDate != nil {
-		value, err := valueobjects.ParseYear((*model.EndDate)[:4])
+		value, err := valueobjects.ParseYear(model.EndDate.Format("2006"))
 		if err != nil {
 			return nil, err
 		}

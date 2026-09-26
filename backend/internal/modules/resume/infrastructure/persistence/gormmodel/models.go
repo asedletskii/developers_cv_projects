@@ -134,8 +134,8 @@ type ResumeExperience struct {
 	Company     string    `gorm:"not null"`
 	Position    string    `gorm:"not null"`
 	Location    *string
-	StartDate   string  `gorm:"type:date;not null"`
-	EndDate     *string `gorm:"type:date"`
+	StartDate   time.Time  `gorm:"type:date;not null"`
+	EndDate     *time.Time `gorm:"type:date"`
 	Description *string
 }
 
@@ -167,7 +167,7 @@ type ResumeEducation struct {
 	ProfileName *string
 	Faculty     string `gorm:"not null"`
 	Course      *int
-	EndDate     *string `gorm:"type:date"`
+	EndDate     *time.Time `gorm:"type:date"`
 }
 
 func (ResumeEducation) TableName() string { return "resume_educations" }
@@ -178,7 +178,7 @@ type ResumeCourse struct {
 	SortOrder       int       `gorm:"not null"`
 	Name            string    `gorm:"not null"`
 	Organization    string    `gorm:"not null"`
-	EndDate         string    `gorm:"type:date;not null"`
+	EndDate         time.Time `gorm:"type:date;not null"`
 	Hours           *int
 	CertificateLink *string
 }
@@ -192,7 +192,7 @@ type ResumeActivity struct {
 	Type        string    `gorm:"not null"`
 	Title       string    `gorm:"not null"`
 	Description *string
-	Date        *string `gorm:"type:date"`
+	Date        *time.Time `gorm:"type:date"`
 	Link        *string
 }
 
@@ -238,3 +238,19 @@ func (ResumeProject) TableName() string            { return "resume_projects" }
 func (ResumeProjectScreenshot) TableName() string  { return "resume_project_screenshots" }
 func (ResumeProjectTechnology) TableName() string  { return "resume_project_technologies" }
 func (ResumeProjectContributor) TableName() string { return "resume_project_contributors" }
+
+func (m ResumeProfile) PositionValue() string {
+	return valueOrEmpty(m.Position)
+}
+
+func (m ResumeProfile) PhotoPathValue() string {
+	return valueOrEmpty(m.PhotoPath)
+}
+
+func (m ResumeProfile) LocationValue() string {
+	return valueOrEmpty(m.Location)
+}
+
+func valueOrEmpty(value string) string {
+	return value
+}

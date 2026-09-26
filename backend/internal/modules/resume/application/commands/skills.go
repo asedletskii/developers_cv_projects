@@ -8,18 +8,20 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CreateSkillsCommand struct {
 	ID, ResumeID valueobjects.ID
 	UserID       useridentity.ID
-	Hard, Soft   []string
+	Hard         []enums.HardSkill
+	Soft         []enums.SoftSkill
 }
 type UpdateSkillsCommand struct {
-	ResumeID   valueobjects.ID
-	UserID     useridentity.ID
-	Hard, Soft []string
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Hard     []enums.HardSkill
+	Soft     []enums.SoftSkill
 }
 
 type CreateSkillsHandler struct {
@@ -40,7 +42,7 @@ func (h *CreateSkillsHandler) Handle(ctx context.Context, c CreateSkillsCommand)
 	var a *domain.Skills
 	err := h.u.Do(ctx, func(tx context.Context) error {
 		var e error
-		a, e = domain.NewSkills(domain.SkillsParams{ID: c.ID, ResumeID: c.ResumeID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft)})
+		a, e = domain.NewSkills(domain.SkillsParams{ID: c.ID, ResumeID: c.ResumeID, Hard: c.Hard, Soft: c.Soft})
 		if e != nil {
 			return e
 		}
@@ -68,27 +70,13 @@ func (h *UpdateSkillsHandler) Handle(ctx context.Context, c UpdateSkillsCommand)
 		return fmt.Errorf("invalid update skills command")
 	}
 	if _, err := domain.NewSkills(domain.SkillsParams{
-		ID: valueobjects.NewID(), ResumeID: c.ResumeID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft),
+		ID: valueobjects.NewID(), ResumeID: c.ResumeID, Hard: c.Hard, Soft: c.Soft,
 	}); err != nil {
 		return err
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
 		return h.u.UpdateSkills(tx, ports.UpdateSkillsRepositoryCommand{
-			ResumeID: c.ResumeID, UserID: c.UserID, Hard: toHard(c.Hard), Soft: toSoft(c.Soft),
+			ResumeID: c.ResumeID, UserID: c.UserID, Hard: c.Hard, Soft: c.Soft,
 		})
 	})
-}
-func toHard(v []string) []enums.HardSkill {
-	out := make([]enums.HardSkill, len(v))
-	for i, x := range v {
-		out[i] = enums.HardSkill(x)
-	}
-	return out
-}
-func toSoft(v []string) []enums.SoftSkill {
-	out := make([]enums.SoftSkill, len(v))
-	for i, x := range v {
-		out[i] = enums.SoftSkill(x)
-	}
-	return out
 }

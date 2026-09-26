@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
@@ -15,7 +16,7 @@ import (
 )
 
 func (r *LanguagesRepository) CreateLanguage(ctx context.Context, c ports.CreateLanguageRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
@@ -23,11 +24,12 @@ func (r *LanguagesRepository) CreateLanguage(ctx context.Context, c ports.Create
 	if err != nil {
 		return err
 	}
-	if err = tx.Create(&m).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
+	m.Position, err = nextSortOrder(tx, m.TableName(), c.ResumeID.UUID())
+	if err != nil {
 		return err
+	}
+	if err = tx.Create(&m).Error; err != nil {
+		return mapDBError(err)
 	}
 	return nil
 }
@@ -56,26 +58,43 @@ func (r *LanguagesRepository) UpdateLanguage(ctx context.Context, c ports.Update
 	if err != nil {
 		return err
 	}
-	res := tx.Model(&gormmodel.ResumeLanguage{}).Where("id=? AND resume_id=?", c.Language.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{"language": m.Language, "position": m.Position, "grade": m.Grade})
-	if res.Error != nil {
-		return res.Error
+	result := tx.Model(&gormmodel.ResumeLanguage{}).
+		Where("id=? AND resume_id=?", c.Language.ID().UUID(), c.ResumeID.UUID()).
+		Updates(map[string]any{"language": m.Language, "grade": m.Grade})
+	if result.Error != nil {
+		return mapDBError(result.Error)
 	}
-	if res.RowsAffected == 0 {
+	if result.RowsAffected == 0 {
 		return domain.ErrEntityNotFound
 	}
 	return nil
 }
 
-func (r *LanguagesRepository) DeleteLanguage(ctx context.Context, c ports.DeleteLanguageRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+func (r *LanguagesRepository) ReorderLanguages(ctx context.Context, c ports.ReorderLanguagesRepositoryCommand) error {
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
-	res := tx.Where("id=? AND resume_id=?", c.LanguageID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeLanguage{})
-	if res.Error != nil {
-		return res.Error
+	ids := make([]uuid.UUID, len(c.LanguageIDs))
+	for i, id := range c.LanguageIDs {
+		if id.IsZero() {
+			return fmt.Errorf("language id is required: %w", domain.ErrInvalidEntity)
+		}
+		ids[i] = id.UUID()
 	}
-	if res.RowsAffected == 0 {
+	return reorderPositions(tx, "resume_languages", c.ResumeID.UUID(), ids)
+}
+
+func (r *LanguagesRepository) DeleteLanguage(ctx context.Context, c ports.DeleteLanguageRepositoryCommand) error {
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
+	if err != nil {
+		return err
+	}
+	result := tx.Where("id=? AND resume_id=?", c.LanguageID.UUID(), c.ResumeID.UUID()).Delete(&gormmodel.ResumeLanguage{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
 		return domain.ErrEntityNotFound
 	}
 	return nil
@@ -101,13 +120,17 @@ func mapLanguage(m gormmodel.ResumeLanguage) (domain.ResumeLanguageEntry, error)
 	if err != nil {
 		return domain.ResumeLanguageEntry{}, err
 	}
-	var g *enums.LanguageGrade
-	if m.Grade != nil {
-		x := enums.LanguageGrade(*m.Grade)
-		if !x.IsValid() {
-			return domain.ResumeLanguageEntry{}, fmt.Errorf("invalid language grade")
-		}
-		g = &x
+	language := enums.SpokenLanguage(m.Language)
+	if !language.IsValid() {
+		return domain.ResumeLanguageEntry{}, domain.ErrInvalidEntity
 	}
-	return domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: id, Language: enums.SpokenLanguage(m.Language), Grade: g, Position: m.Position})
+	var grade *enums.LanguageGrade
+	if m.Grade != nil {
+		value := enums.LanguageGrade(*m.Grade)
+		if !value.IsValid() {
+			return domain.ResumeLanguageEntry{}, domain.ErrInvalidEntity
+		}
+		grade = &value
+	}
+	return domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: id, Language: language, Grade: grade, Position: m.Position})
 }

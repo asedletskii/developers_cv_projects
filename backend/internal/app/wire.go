@@ -3,10 +3,7 @@
 package app
 
 import (
-	"context"
-
 	"github.com/google/wire"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumeports "developers-cv/backend/internal/modules/resume/application/ports"
@@ -38,10 +35,6 @@ import (
 func Initialize() (*Application, error) {
 	panic(wire.Build(
 		config.Load,
-
-		func(cfg config.Config) (*pgxpool.Pool, error) {
-			return newPostgresPool(context.Background(), cfg)
-		},
 
 		logger.New,
 		newHealthService,
@@ -80,7 +73,7 @@ func Initialize() (*Application, error) {
 		resumerepository.NewProjectRepository,
 		wire.Bind(new(resumeports.CreateResumeRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumeports.GetResumeRepository), new(*resumerepository.ResumeRepository)),
-		wire.Bind(new(resumeports.UpdateResumeRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumeports.ReplaceResumeTitleRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumeports.DeleteResumeRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumeports.CreateResumeProfileRepository), new(*resumerepository.ProfileRepository)),
 		wire.Bind(new(resumeports.GetResumeProfileRepository), new(*resumerepository.ProfileRepository)),
@@ -150,7 +143,7 @@ func Initialize() (*Application, error) {
 		userqueries.NewGetProfileHandler,
 		userhttp.NewHandler,
 		resumecommands.NewCreateResumeHandler,
-		resumecommands.NewUpdateResumeHandler,
+		resumecommands.NewReplaceResumeTitleHandler,
 		resumecommands.NewUpdateOverviewHandler,
 		resumecommands.NewDeleteResumeHandler,
 		resumecommands.NewCreateResumeProfileHandler,
@@ -163,11 +156,13 @@ func Initialize() (*Application, error) {
 		resumequeries.NewListLanguagesQueryHandler,
 		resumequeries.NewGetLanguageQueryHandler,
 		resumecommands.NewUpdateLanguageHandler,
+		resumecommands.NewReorderLanguagesHandler,
 		resumecommands.NewDeleteLanguageHandler,
 		resumecommands.NewCreateTechnologyHandler,
 		resumequeries.NewListTechnologiesQueryHandler,
 		resumequeries.NewGetTechnologyQueryHandler,
 		resumecommands.NewUpdateTechnologyHandler,
+		resumecommands.NewReorderTechnologiesHandler,
 		resumecommands.NewDeleteTechnologyHandler,
 		resumecommands.NewCreateExperienceHandler,
 		resumequeries.NewListExperiencesQueryHandler,

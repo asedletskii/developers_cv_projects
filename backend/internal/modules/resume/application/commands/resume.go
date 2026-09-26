@@ -6,8 +6,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
+	"strings"
 )
 
 type CreateResumeCommand struct {
@@ -15,7 +16,7 @@ type CreateResumeCommand struct {
 	Title    string
 	Language enums.ResumeLanguage
 }
-type UpdateResumeCommand struct {
+type ReplaceResumeTitleCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
 	Title    string
@@ -59,27 +60,28 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand)
 	return resumeID, nil
 }
 
-type UpdateResumeHandler struct {
-	updater ports.UpdateResumeRepository
-	uow     UnitOfWork
+type ReplaceResumeTitleHandler struct {
+	replacer ports.ReplaceResumeTitleRepository
+	uow      UnitOfWork
 }
 
-func NewUpdateResumeHandler(updater ports.UpdateResumeRepository, uow UnitOfWork) *UpdateResumeHandler {
-	return &UpdateResumeHandler{updater: updater, uow: uow}
+func NewReplaceResumeTitleHandler(replacer ports.ReplaceResumeTitleRepository, uow UnitOfWork) *ReplaceResumeTitleHandler {
+	return &ReplaceResumeTitleHandler{replacer: replacer, uow: uow}
 }
 
-func (h *UpdateResumeHandler) Handle(ctx context.Context, c UpdateResumeCommand) error {
-	if h == nil || h.updater == nil || h.uow == nil {
-		return fmt.Errorf("update resume handler dependencies are nil")
+func (h *ReplaceResumeTitleHandler) Handle(ctx context.Context, c ReplaceResumeTitleCommand) error {
+	if h == nil || h.replacer == nil || h.uow == nil {
+		return fmt.Errorf("replace resume title handler dependencies are nil")
 	}
 	if c.ResumeID.IsZero() || c.UserID.IsZero() {
-		return fmt.Errorf("invalid update resume command")
+		return fmt.Errorf("invalid replace resume title command")
 	}
-	if err := domain.ValidateResumeTitle(c.Title); err != nil {
+	title := strings.TrimSpace(c.Title)
+	if err := domain.ValidateResumeTitle(title); err != nil {
 		return err
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.updater.UpdateResume(tx, ports.UpdateResumeRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, Title: c.Title})
+		return h.replacer.ReplaceResumeTitle(tx, ports.ReplaceResumeTitleRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, Title: title})
 	})
 }
 

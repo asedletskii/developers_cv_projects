@@ -87,8 +87,8 @@ type PostgresConfig struct {
 	User            string
 	Password        string
 	SSLMode         string
-	MaxConns        int32
-	MinConns        int32
+	MaxConns        int
+	MaxIdleConns    int
 	MaxConnLifetime time.Duration
 	MaxConnIdleTime time.Duration
 }
@@ -242,7 +242,7 @@ func parse() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	postgresMinConns, err := envInt("POSTGRES_MIN_CONNS", 2)
+	postgresMaxIdleConns, err := envInt("POSTGRES_MAX_IDLE_CONNS", 2)
 	if err != nil {
 		return Config{}, err
 	}
@@ -298,8 +298,8 @@ func parse() (Config, error) {
 			User:            postgresUser,
 			Password:        postgresPassword,
 			SSLMode:         postgresSSLMode,
-			MaxConns:        int32(postgresMaxConns),
-			MinConns:        int32(postgresMinConns),
+			MaxConns:        postgresMaxConns,
+			MaxIdleConns:    postgresMaxIdleConns,
 			MaxConnLifetime: postgresMaxLifetime,
 			MaxConnIdleTime: postgresMaxIdle,
 		},
@@ -349,7 +349,7 @@ func validate(cfg Config) error {
 	if !isValidPostgresSSLMode(cfg.Postgres.SSLMode) {
 		return fmt.Errorf("invalid POSTGRES_SSLMODE: %q", cfg.Postgres.SSLMode)
 	}
-	if cfg.Postgres.MaxConns <= 0 || cfg.Postgres.MinConns < 0 || cfg.Postgres.MinConns > cfg.Postgres.MaxConns {
+	if cfg.Postgres.MaxConns <= 0 || cfg.Postgres.MaxIdleConns < 0 || cfg.Postgres.MaxIdleConns > cfg.Postgres.MaxConns {
 		return errors.New("invalid PostgreSQL pool limits")
 	}
 	if cfg.Postgres.MaxConnLifetime <= 0 || cfg.Postgres.MaxConnIdleTime <= 0 {

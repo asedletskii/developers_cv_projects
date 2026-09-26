@@ -1,6 +1,10 @@
 package domain
 
-import "developers-cv/backend/internal/modules/resume/domain/valueobjects"
+import (
+	"strings"
+
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+)
 
 func cloneInt(value *int) *int {
 	if value == nil {
@@ -14,8 +18,11 @@ func cloneString(value *string) *string {
 	if value == nil {
 		return nil
 	}
-	copy := *value
-	return &copy
+	normalized := strings.TrimSpace(*value)
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }
 
 func cloneYear(value *valueobjects.Year) *valueobjects.Year {
