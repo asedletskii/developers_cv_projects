@@ -1,15 +1,12 @@
-import { useTechnologyFilter } from '@features/curriculumVitae/components/TechnologyFilterProvider'
+import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { Box, ButtonBase } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
 type Props = {
   name: string
-
-  /** Копия для бесшовной прокрутки: скрыта от скринридеров и не берёт фокус */
   isClone: boolean
 }
 
-/** Слово в ленте технологий; клик включает фильтр по этой технологии. */
 export const Item = ({ name, isClone }: Props) => {
   const translate = useTranslate('CurriculumVitae.Filter')
   const { selected, isSelected, toggle } = useTechnologyFilter()
@@ -32,7 +29,6 @@ export const Item = ({ name, isClone }: Props) => {
         '&::after': { content: '"✦"', mx: { xs: 3, md: 5 }, opacity: 0.5 },
       }}
     >
-      {/* Выделение только у названия: разделитель-звёздочка при выборе фильтра не меняется */}
       <Box
         component="span"
         sx={{

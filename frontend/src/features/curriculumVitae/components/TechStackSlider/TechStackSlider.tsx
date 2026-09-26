@@ -1,20 +1,17 @@
 import { useMemo } from 'react'
-import { useTechMarquee } from '@features/curriculumVitae/hooks'
+import { useTechMarquee } from '@features/curriculumVitae/components/TechStackSlider/hooks/useTechMarquee'
 import { Technology } from '@features/curriculumVitae/types'
 import { Box } from '@mui/material'
+import { MIN_ITEMS_PER_HALF } from './constants'
 import { Item } from './Item'
 
 type Props = {
   technologies: Technology[]
 }
 
-const MIN_ITEMS_PER_HALF = 8
-
-/** Наклонная лента с бегущим списком технологий (см. useTechMarquee). */
 export const TechStackSlider = ({ technologies }: Props) => {
   const trackRef = useTechMarquee()
 
-  // Трек состоит из двух одинаковых половин, чтобы прокрутка выглядела бесконечной
   const items = useMemo(() => {
     if (!technologies.length) return []
 
