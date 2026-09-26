@@ -138,3 +138,105 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	require.Zero(t, childCounts.technologies)
 	require.Zero(t, childCounts.screenshots)
 }
+
+func TestPostgresUpdateProfileReplacesWorkFormatsWithExistingProfileID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
+
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyMigrations(t, ctx, dsn)
+
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+
+	owner := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, owner)
+	resumeRepo := repository.NewResumeRepository(gormDB)
+	uow := database.NewUnitOfWork(gormDB)
+	resume := newTestResume(t, owner)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
+	}))
+
+	photo, err := valueobjects.NewExternalURL("https://example.com/assets/profile.svg")
+	require.NoError(t, err)
+	date, err := valueobjects.NewDate(time.Date(1998, time.April, 12, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	profile, err := domain.NewProfile(domain.ProfileParams{
+		ID:          valueobjects.NewID(),
+		ResumeID:    resume.ID(),
+		Name:        "John",
+		Surname:     "Doe",
+		Position:    "Developer",
+		PhotoPath:   photo,
+		DateOfBirth: date,
+		Location:    "Paris",
+		WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote},
+	})
+	require.NoError(t, err)
+
+	profileRepo := repository.NewProfileRepository(gormDB)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return profileRepo.CreateProfile(tx, ports.CreateResumeProfileRepositoryCommand{Profile: profile, UserID: owner})
+	}))
+
+	updated, err := domain.NewProfile(domain.ProfileParams{
+		ID:          valueobjects.NewID(),
+		ResumeID:    resume.ID(),
+		Name:        "Jane",
+		Surname:     "Doe",
+		Position:    "Senior Developer",
+		PhotoPath:   photo,
+		DateOfBirth: date,
+		Location:    "Paris",
+		WorkFormats: []enums.WorkFormat{enums.WorkFormatOffice, enums.WorkFormatHybrid},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return profileRepo.UpdateProfile(tx, ports.UpdateResumeProfileRepositoryCommand{Profile: updated, UserID: owner})
+	}))
+
+	conn, err := pgx.Connect(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	var profileID string
+	require.NoError(t, conn.QueryRow(ctx, "SELECT id::text FROM resume_profiles WHERE resume_id = $1", resume.ID().UUID()).Scan(&profileID))
+	require.Equal(t, profile.ID().String(), profileID)
+
+	rows, err := conn.Query(ctx, "SELECT profile_id::text, value, position FROM resume_profile_work_formats WHERE profile_id = $1 ORDER BY position", profile.ID().UUID())
+	require.NoError(t, err)
+	t.Cleanup(func() { rows.Close() })
+
+	var formats []struct {
+		ProfileID string
+		Value     string
+		Position  int
+	}
+	for rows.Next() {
+		var format struct {
+			ProfileID string
+			Value     string
+			Position  int
+		}
+		require.NoError(t, rows.Scan(&format.ProfileID, &format.Value, &format.Position))
+		formats = append(formats, format)
+	}
+	require.NoError(t, rows.Err())
+	require.Len(t, formats, 2)
+	require.Equal(t, profile.ID().String(), formats[0].ProfileID)
+	require.Equal(t, "office", formats[0].Value)
+	require.Equal(t, 0, formats[0].Position)
+	require.Equal(t, profile.ID().String(), formats[1].ProfileID)
+	require.Equal(t, "hybrid", formats[1].Value)
+	require.Equal(t, 1, formats[1].Position)
+}

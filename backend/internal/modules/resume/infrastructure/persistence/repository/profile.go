@@ -76,6 +76,9 @@ func (r *ProfileRepository) UpdateProfile(ctx context.Context, c ports.UpdateRes
 	}
 	m.ID = current.ID
 	m.ResumeID = current.ResumeID
+	for i := range fs {
+		fs[i].ProfileID = current.ID
+	}
 	result := tx.WithContext(ctx).Model(&gormmodel.ResumeProfile{}).Where("id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", m.ID, m.ResumeID, c.UserID.UUID()).Updates(map[string]any{"name": m.Name, "surname": m.Surname, "patronymic": m.Patronymic, "position": m.Position, "photo_path": m.PhotoPath, "date_of_birth": m.DateOfBirth, "location": m.Location, "relocation": m.Relocation})
 	if result.Error != nil {
 		return fmt.Errorf("update profile: %w", result.Error)
