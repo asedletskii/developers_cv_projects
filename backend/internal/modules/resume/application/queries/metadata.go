@@ -15,6 +15,7 @@ type GetResumeMetadataQuery struct {
 
 type ResumeMetadataReader interface {
 	GetResumeMetadata(context.Context, GetResumeMetadataQuery) (ResumeMetadataView, error)
+	ReadResumeMetadata(context.Context, valueobjects.ID) (ResumeMetadataView, error)
 }
 
 type ResumeMetadataView struct {

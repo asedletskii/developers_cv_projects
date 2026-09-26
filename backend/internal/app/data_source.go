@@ -19,10 +19,6 @@ import (
 	"developers-cv/backend/internal/platform/postgres"
 )
 
-func newPublicResumeReader(db *gorm.DB) resumequeries.PublicResumeReader {
-	return resumereaders.NewPublicResumeReader(db)
-}
-
 func newListResumesReader(db *gorm.DB) resumequeries.ListResumesReader {
 	return resumereaders.NewListResumesReader(db)
 }
@@ -31,11 +27,11 @@ func newResumeMetadataReader(db *gorm.DB) resumequeries.ResumeMetadataReader {
 	return resumereaders.NewResumeMetadataReader(db)
 }
 
-func newResumeOverviewReader(db *gorm.DB) resumequeries.OverviewReader {
+func newResumeOverviewReader(db *gorm.DB) *resumereaders.OverviewReader {
 	return resumereaders.NewOverviewReader(db)
 }
 
-func newResumeReader(deps resumereaders.ResumeReaderDependencies) resumequeries.ResumeReader {
+func newResumeReader(deps resumereaders.ResumeReaderDependencies) *resumereaders.ResumeReader {
 	return resumereaders.NewResumeReader(deps)
 }
 

@@ -35,6 +35,10 @@ type ExperiencesReader interface {
 	ListExperiences(context.Context, ListExperiencesQuery) ([]ExperienceView, error)
 	GetExperience(context.Context, GetExperienceQuery) (ExperienceView, error)
 }
+
+type ExperiencesSource interface {
+	ReadExperiences(context.Context, valueobjects.ID) ([]ExperienceView, error)
+}
 type ListExperiencesQueryHandler struct{ reader ExperiencesReader }
 
 func NewListExperiencesQueryHandler(reader ExperiencesReader) *ListExperiencesQueryHandler {

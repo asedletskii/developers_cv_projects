@@ -24,6 +24,10 @@ type LanguagesReader interface {
 	GetLanguage(context.Context, GetLanguageQuery) (LanguageView, error)
 }
 
+type LanguagesSource interface {
+	ReadLanguages(context.Context, valueobjects.ID) ([]LanguageView, error)
+}
+
 type ListLanguagesQueryHandler struct{ reader LanguagesReader }
 
 func NewListLanguagesQueryHandler(reader LanguagesReader) *ListLanguagesQueryHandler {

@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
@@ -24,7 +25,29 @@ func (r *ActivityReader) ListActivities(ctx context.Context, q queries.ListActiv
 		return nil, fmt.Errorf("list activities: invalid query")
 	}
 	var models []gormmodel.ResumeActivity
-	if err := db.Joins("JOIN resumes ON resumes.id = resume_activities.resume_id").Where("resume_activities.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_activities.resume_id").Where("resume_activities.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	if err := readDB.Order("sort_order").Find(&models).Error; err != nil {
+		return nil, fmt.Errorf("list activities: %w", err)
+	}
+	out := make([]queries.ActivityView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.ActivityView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Type: model.Type, Title: model.Title, Description: model.Description, Date: optionalYearMonth(model.Date), Link: model.Link})
+	}
+	return out, nil
+}
+
+func (r *ActivityReader) ReadActivities(ctx context.Context, resumeID valueobjects.ID) ([]queries.ActivityView, error) {
+	db, err := resolveDB(ctx, r.db, "list activities")
+	if err != nil {
+		return nil, err
+	}
+	if resumeID.IsZero() {
+		return nil, fmt.Errorf("list activities: invalid query")
+	}
+	var models []gormmodel.ResumeActivity
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_activities.resume_id").Where("resume_activities.resume_id = ?", resumeID.UUID())
+	if err := readDB.Order("sort_order").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list activities: %w", err)
 	}
 	out := make([]queries.ActivityView, 0, len(models))
@@ -43,7 +66,9 @@ func (r *ActivityReader) GetActivity(ctx context.Context, q queries.GetActivityQ
 		return queries.ActivityView{}, fmt.Errorf("get activity: invalid query")
 	}
 	var model gormmodel.ResumeActivity
-	err = db.Joins("JOIN resumes ON resumes.id = resume_activities.resume_id").Where("resume_activities.id = ? AND resume_activities.resume_id = ? AND resumes.user_id = ?", q.ActivityID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_activities.resume_id").Where("resume_activities.id = ? AND resume_activities.resume_id = ?", q.ActivityID.UUID(), q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return queries.ActivityView{}, queries.ErrResumeNotFound
 	}

@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -34,7 +35,33 @@ func (r *ProjectsReader) ListProjects(ctx context.Context, q queries.ListProject
 		return nil, fmt.Errorf("list projects: invalid query")
 	}
 	var rows []projectRow
-	if err := db.Table("resume_projects AS p").Select("p.id::text AS id, p.resume_id::text AS resume_id, p.name, p.description, p.role, p.link, p.git_link").Joins("JOIN resumes AS r ON r.id = p.resume_id").Where("p.resume_id = ? AND r.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("p.sort_order").Scan(&rows).Error; err != nil {
+	readDB := db.Table("resume_projects AS p").Select("p.id::text AS id, p.resume_id::text AS resume_id, p.name, p.description, p.role, p.link, p.git_link").Joins("JOIN resumes AS r ON r.id = p.resume_id").Where("p.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("r.user_id = ?", q.UserID.UUID())
+	if err := readDB.Order("p.sort_order").Scan(&rows).Error; err != nil {
+		return nil, fmt.Errorf("list projects: %w", err)
+	}
+	out := make([]queries.ProjectView, 0, len(rows))
+	for _, row := range rows {
+		view := queries.ProjectView{ID: row.ID, ResumeID: row.ResumeID, Name: row.Name, Description: row.Description, Role: row.Role, Link: row.Link, GitLink: row.GitLink}
+		if err := r.loadProjectChildren(ctx, db, row.ID, &view); err != nil {
+			return nil, err
+		}
+		out = append(out, view)
+	}
+	return out, nil
+}
+
+func (r *ProjectsReader) ReadProjects(ctx context.Context, resumeID valueobjects.ID) ([]queries.ProjectView, error) {
+	db, err := resolveDB(ctx, r.db, "list projects")
+	if err != nil {
+		return nil, err
+	}
+	if resumeID.IsZero() {
+		return nil, fmt.Errorf("list projects: invalid query")
+	}
+	var rows []projectRow
+	readDB := db.Table("resume_projects AS p").Select("p.id::text AS id, p.resume_id::text AS resume_id, p.name, p.description, p.role, p.link, p.git_link").Joins("JOIN resumes AS r ON r.id = p.resume_id").Where("p.resume_id = ?", resumeID.UUID())
+	if err := readDB.Order("p.sort_order").Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
 	out := make([]queries.ProjectView, 0, len(rows))
@@ -57,7 +84,9 @@ func (r *ProjectsReader) GetProject(ctx context.Context, q queries.GetProjectQue
 		return queries.ProjectView{}, fmt.Errorf("get project: invalid query")
 	}
 	var row projectRow
-	if err := db.Table("resume_projects AS p").Select("p.id::text AS id, p.resume_id::text AS resume_id, p.name, p.description, p.role, p.link, p.git_link").Joins("JOIN resumes AS r ON r.id = p.resume_id").Where("p.id = ? AND p.resume_id = ? AND r.user_id = ?", q.ProjectID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&row).Error; err != nil {
+	readDB := db.Table("resume_projects AS p").Select("p.id::text AS id, p.resume_id::text AS resume_id, p.name, p.description, p.role, p.link, p.git_link").Joins("JOIN resumes AS r ON r.id = p.resume_id").Where("p.id = ? AND p.resume_id = ?", q.ProjectID.UUID(), q.ResumeID.UUID())
+	readDB = readDB.Where("r.user_id = ?", q.UserID.UUID())
+	if err := readDB.Scan(&row).Error; err != nil {
 		return queries.ProjectView{}, fmt.Errorf("get project: %w", err)
 	}
 	if row.ID == "" {

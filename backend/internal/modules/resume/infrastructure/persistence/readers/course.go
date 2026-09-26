@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
@@ -24,7 +25,29 @@ func (r *CourseReader) ListCourses(ctx context.Context, q queries.ListCoursesQue
 		return nil, fmt.Errorf("list courses: invalid query")
 	}
 	var models []gormmodel.ResumeCourse
-	if err := db.Joins("JOIN resumes ON resumes.id = resume_courses.resume_id").Where("resume_courses.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_courses.resume_id").Where("resume_courses.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	if err := readDB.Order("sort_order").Find(&models).Error; err != nil {
+		return nil, fmt.Errorf("list courses: %w", err)
+	}
+	out := make([]queries.CourseView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.CourseView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Name: model.Name, Organization: model.Organization, EndDate: yearMonth(model.EndDate), Hours: model.Hours, CertificateLink: model.CertificateLink})
+	}
+	return out, nil
+}
+
+func (r *CourseReader) ReadCourses(ctx context.Context, resumeID valueobjects.ID) ([]queries.CourseView, error) {
+	db, err := resolveDB(ctx, r.db, "list courses")
+	if err != nil {
+		return nil, err
+	}
+	if resumeID.IsZero() {
+		return nil, fmt.Errorf("list courses: invalid query")
+	}
+	var models []gormmodel.ResumeCourse
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_courses.resume_id").Where("resume_courses.resume_id = ?", resumeID.UUID())
+	if err := readDB.Order("sort_order").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list courses: %w", err)
 	}
 	out := make([]queries.CourseView, 0, len(models))
@@ -43,7 +66,9 @@ func (r *CourseReader) GetCourse(ctx context.Context, q queries.GetCourseQuery) 
 		return queries.CourseView{}, fmt.Errorf("get course: invalid query")
 	}
 	var model gormmodel.ResumeCourse
-	err = db.Joins("JOIN resumes ON resumes.id = resume_courses.resume_id").Where("resume_courses.id = ? AND resume_courses.resume_id = ? AND resumes.user_id = ?", q.CourseID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_courses.resume_id").Where("resume_courses.id = ? AND resume_courses.resume_id = ?", q.CourseID.UUID(), q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return queries.CourseView{}, queries.ErrResumeNotFound
 	}

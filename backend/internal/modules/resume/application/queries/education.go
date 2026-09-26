@@ -31,6 +31,10 @@ type EducationsReader interface {
 	ListEducations(context.Context, ListEducationsQuery) ([]EducationView, error)
 	GetEducation(context.Context, GetEducationQuery) (EducationView, error)
 }
+
+type EducationsSource interface {
+	ReadEducations(context.Context, valueobjects.ID) ([]EducationView, error)
+}
 type ListEducationsQueryHandler struct{ reader EducationsReader }
 
 func NewListEducationsQueryHandler(reader EducationsReader) *ListEducationsQueryHandler {

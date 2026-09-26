@@ -61,10 +61,17 @@ func TestPostgresPrivateReadersEnforceResumeOwnership(t *testing.T) {
 	metadata := readers.NewResumeMetadataReader(gormDB)
 	resumeReader := readers.NewResumeReader(readers.ResumeReaderDependencies{Metadata: metadata, Overview: overview, Profile: profile, Contacts: contacts, Skills: skills, Languages: languages, Technologies: technologies, Experiences: experiences, Educations: education, Courses: courses, Activities: activities, Projects: projects})
 
-	_, err = resumeReader.GetResume(ctx, queries.GetResumeQuery{ResumeID: resumeID, UserID: owner})
+	_, err = resumeReader.GetOwned(ctx, resumeID, owner)
 	require.NoError(t, err)
-	_, err = resumeReader.GetResume(ctx, queries.GetResumeQuery{ResumeID: resumeID, UserID: foreign})
+	_, err = resumeReader.GetOwned(ctx, resumeID, foreign)
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
+
+	publicView, err := resumeReader.GetPublic(ctx, resumeID)
+	require.NoError(t, err)
+	require.Equal(t, resumeID.String(), publicView.ID)
+	require.Equal(t, "Developer", publicView.Profile.Position)
+	require.Len(t, publicView.Languages, 1)
+	require.Len(t, publicView.Experiences, 1)
 
 	_, err = profile.GetResumeProfile(ctx, queries.GetResumeProfileQuery{ResumeID: resumeID, UserID: foreign})
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
@@ -161,7 +168,7 @@ func insertReaderTestData(t *testing.T, ctx context.Context, dsn string, owner, 
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id,greeting_first,greeting_second,greeting_highlight,greeting_third) VALUES ($1,'a','b','c','d')`, resumeID.UUID())
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','/photo','1998-01-01','Paris',false)`, uuid.New(), resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','https://example.com/photo','1998-01-01','Paris',false)`, uuid.New(), resumeID.UUID())
 	require.NoError(t, err)
 	contactsID := uuid.New()
 	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, contactsID, resumeID.UUID())

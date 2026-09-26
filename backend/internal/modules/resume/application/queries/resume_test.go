@@ -12,19 +12,24 @@ import (
 
 type stubResumeReader struct{ view ResumeView }
 
-func (s stubResumeReader) GetResume(context.Context, GetResumeQuery) (ResumeView, error) {
+func (s stubResumeReader) GetOwned(context.Context, valueobjects.ID, useridentity.ID) (ResumeView, error) {
 	return s.view, nil
 }
 
-func TestGetResumeQueryHandlerDelegatesToReader(t *testing.T) {
+func TestGetResumeQueryHandlerDelegatesToOwnedReader(t *testing.T) {
 	expected := ResumeView{ID: "resume-1", Title: "Backend Developer", Language: "en"}
 	got, err := NewGetResumeQueryHandler(stubResumeReader{view: expected}).Handle(context.Background(), GetResumeQuery{ResumeID: valueobjects.NewID(), UserID: useridentity.NewID()})
 	require.NoError(t, err)
 	require.Equal(t, expected, got)
 }
 
-func TestGetResumeQueryHandlerRejectsMissingIDs(t *testing.T) {
+func TestGetResumeQueryHandlerRejectsMissingUserID(t *testing.T) {
 	_, err := NewGetResumeQueryHandler(stubResumeReader{}).Handle(context.Background(), GetResumeQuery{ResumeID: valueobjects.NewID()})
+	require.Error(t, err)
+}
+
+func TestGetResumeQueryHandlerRejectsMissingResumeID(t *testing.T) {
+	_, err := NewGetResumeQueryHandler(stubResumeReader{}).Handle(context.Background(), GetResumeQuery{UserID: useridentity.NewID()})
 	require.Error(t, err)
 }
 
@@ -42,6 +47,6 @@ func TestGetResumeQueryHandlerPropagatesReaderError(t *testing.T) {
 
 type resumeReaderErrorStub struct{ err error }
 
-func (s resumeReaderErrorStub) GetResume(context.Context, GetResumeQuery) (ResumeView, error) {
+func (s resumeReaderErrorStub) GetOwned(context.Context, valueobjects.ID, useridentity.ID) (ResumeView, error) {
 	return ResumeView{}, s.err
 }

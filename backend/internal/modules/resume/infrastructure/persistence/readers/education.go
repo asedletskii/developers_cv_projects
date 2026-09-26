@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
@@ -24,7 +25,29 @@ func (r *EducationReader) ListEducations(ctx context.Context, q queries.ListEduc
 		return nil, fmt.Errorf("list educations: invalid query")
 	}
 	var models []gormmodel.ResumeEducation
-	if err := db.Joins("JOIN resumes ON resumes.id = resume_educations.resume_id").Where("resume_educations.resume_id = ? AND resumes.user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_educations.resume_id").Where("resume_educations.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	if err := readDB.Order("sort_order").Find(&models).Error; err != nil {
+		return nil, fmt.Errorf("list educations: %w", err)
+	}
+	out := make([]queries.EducationView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.EducationView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Location: model.Location, University: model.University, Grade: model.Grade, ProgramName: model.ProgramName, ProfileName: model.ProfileName, Faculty: model.Faculty, Course: model.Course, EndDate: optionalYear(model.EndDate)})
+	}
+	return out, nil
+}
+
+func (r *EducationReader) ReadEducations(ctx context.Context, resumeID valueobjects.ID) ([]queries.EducationView, error) {
+	db, err := resolveDB(ctx, r.db, "list educations")
+	if err != nil {
+		return nil, err
+	}
+	if resumeID.IsZero() {
+		return nil, fmt.Errorf("list educations: invalid query")
+	}
+	var models []gormmodel.ResumeEducation
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_educations.resume_id").Where("resume_educations.resume_id = ?", resumeID.UUID())
+	if err := readDB.Order("sort_order").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list educations: %w", err)
 	}
 	out := make([]queries.EducationView, 0, len(models))
@@ -43,7 +66,9 @@ func (r *EducationReader) GetEducation(ctx context.Context, q queries.GetEducati
 		return queries.EducationView{}, fmt.Errorf("get education: invalid query")
 	}
 	var model gormmodel.ResumeEducation
-	err = db.Joins("JOIN resumes ON resumes.id = resume_educations.resume_id").Where("resume_educations.id = ? AND resume_educations.resume_id = ? AND resumes.user_id = ?", q.EducationID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).First(&model).Error
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_educations.resume_id").Where("resume_educations.id = ? AND resume_educations.resume_id = ?", q.EducationID.UUID(), q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return queries.EducationView{}, queries.ErrResumeNotFound
 	}

@@ -28,6 +28,10 @@ type CoursesReader interface {
 	ListCourses(context.Context, ListCoursesQuery) ([]CourseView, error)
 	GetCourse(context.Context, GetCourseQuery) (CourseView, error)
 }
+
+type CoursesSource interface {
+	ReadCourses(context.Context, valueobjects.ID) ([]CourseView, error)
+}
 type ListCoursesQueryHandler struct{ reader CoursesReader }
 
 func NewListCoursesQueryHandler(reader CoursesReader) *ListCoursesQueryHandler {
