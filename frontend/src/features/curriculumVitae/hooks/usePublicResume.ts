@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import {
   clearCurriculumVitaeState,
-  getPersonData,
-  selectIsPersonDataLoading,
-  selectPersonDataError,
+  getPublicResume,
+  selectIsResumeLoading,
+  selectResumeError,
 } from '@features/curriculumVitae/store/curriculumVitae'
 import { useAppDispatch, useAppSelector } from '@shared/store'
 
@@ -14,13 +14,13 @@ import { useAppDispatch, useAppSelector } from '@shared/store'
  */
 export const usePublicResume = (cvId?: string) => {
   const dispatch = useAppDispatch()
-  const isLoading = useAppSelector(selectIsPersonDataLoading)
-  const error = useAppSelector(selectPersonDataError)
+  const isLoading = useAppSelector(selectIsResumeLoading)
+  const error = useAppSelector(selectResumeError)
 
   useEffect(() => {
     if (!cvId) return
 
-    const request = dispatch(getPersonData({ cvId }))
+    const request = dispatch(getPublicResume({ cvId }))
     return () => {
       request.abort()
     }

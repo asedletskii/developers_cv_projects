@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { FieldPath, useController, useFormContext } from 'react-hook-form'
 
 /** Поле цвета: значение формы (или цвет по умолчанию) и состояние всплывающей палитры. */
-export const useColorField = (name: FieldPath<Person>, defaultColor: string) => {
-  const { control } = useFormContext<Person>()
+export const useColorField = (name: FieldPath<Resume>, defaultColor: string) => {
+  const { control } = useFormContext<Resume>()
   const { field } = useController({ control, name })
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
 

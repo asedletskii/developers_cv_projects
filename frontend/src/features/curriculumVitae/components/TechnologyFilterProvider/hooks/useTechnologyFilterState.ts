@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSectionCollapse } from '@features/curriculumVitae/hooks/useSectionCollapse'
-import { Person, SectionId, TechnologyFilterValue } from '@features/curriculumVitae/types'
+import { Resume, SectionId, TechnologyFilterValue } from '@features/curriculumVitae/types'
 import { hasTechnology, isSameTechnology } from '@features/curriculumVitae/utils'
 
-export const useTechnologyFilterState = (projects: Person['projects']): TechnologyFilterValue => {
+export const useTechnologyFilterState = (projects: Resume['projects']): TechnologyFilterValue => {
   const [selected, setSelected] = useState<string | null>(null)
   const { expand } = useSectionCollapse()
 

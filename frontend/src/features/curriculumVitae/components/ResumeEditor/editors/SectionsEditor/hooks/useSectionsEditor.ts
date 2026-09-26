@@ -1,4 +1,4 @@
-import { Person, SectionId } from '@features/curriculumVitae/types'
+import { Resume, SectionId } from '@features/curriculumVitae/types'
 import { useFieldArray, useFormContext } from 'react-hook-form'
 
 /**
@@ -9,8 +9,12 @@ import { useFieldArray, useFormContext } from 'react-hook-form'
  * это `SectionId`, а не случайный ключ) как свой служебный React-key и затирает его случайным.
  */
 export const useSectionsEditor = () => {
-  const { control } = useFormContext<Person>()
-  const { fields, move, update } = useFieldArray({ control, name: 'sections', keyName: '_key' })
+  const { control } = useFormContext<Resume>()
+  const { fields, move, update } = useFieldArray({
+    control,
+    name: 'overview.sections',
+    keyName: '_key',
+  })
 
   return {
     fields,

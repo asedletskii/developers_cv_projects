@@ -12,7 +12,7 @@ import { Controller } from 'react-hook-form'
 export const ExperienceEditor = () => {
   const translate = useTranslate('Lk.Edit.Experience')
   const { control, register, fields, addItem, itemProps } = useFormList(
-    'experience',
+    'experiences',
     blankExperience,
   )
 
@@ -23,13 +23,13 @@ export const ExperienceEditor = () => {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               label={translate('position')}
-              {...register(`experience.${index}.position`)}
+              {...register(`experiences.${index}.position`)}
               required
               fullWidth
             />
             <TextField
               label={translate('company')}
-              {...register(`experience.${index}.company`)}
+              {...register(`experiences.${index}.company`)}
               required
               fullWidth
             />
@@ -38,19 +38,19 @@ export const ExperienceEditor = () => {
           <TextField
             fullWidth
             label={translate('location')}
-            {...register(`experience.${index}.location`)}
+            {...register(`experiences.${index}.location`)}
           />
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <DateField
-              name={`experience.${index}.startDate`}
+              name={`experiences.${index}.startDate`}
               label={translate('startDate')}
               format="YYYY-MM"
               views={['year', 'month']}
               required
             />
             <DateField
-              name={`experience.${index}.endDate`}
+              name={`experiences.${index}.endDate`}
               label={translate('endDate')}
               format="YYYY-MM"
               views={['year', 'month']}
@@ -60,13 +60,13 @@ export const ExperienceEditor = () => {
           <TextField
             fullWidth
             label={translate('description')}
-            {...register(`experience.${index}.description`)}
+            {...register(`experiences.${index}.description`)}
             multiline
           />
 
           <Controller
             control={control}
-            name={`experience.${index}.achievements`}
+            name={`experiences.${index}.achievements`}
             render={({ field }) => (
               <TextField
                 fullWidth
@@ -79,7 +79,7 @@ export const ExperienceEditor = () => {
             )}
           />
 
-          <TechnologyListField name={`experience.${index}.stack`} />
+          <TechnologyListField name={`experiences.${index}.stack`} />
         </ArrayItemCard>
       ))}
 

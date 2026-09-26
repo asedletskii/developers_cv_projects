@@ -8,14 +8,15 @@ import { ExperienceSection } from '@features/curriculumVitae/components/Experien
 import { ProjectsSection } from '@features/curriculumVitae/components/ProjectsSection'
 import { SkillsSection } from '@features/curriculumVitae/components/SkillsSection'
 import { TechStackSlider } from '@features/curriculumVitae/components/TechStackSlider'
-import { Person, SectionId, SectionSettings } from '@features/curriculumVitae/types'
+import { EMPTY_CONTACTS, EMPTY_PROFILE, EMPTY_SKILLS } from '@features/curriculumVitae/constants'
+import { Resume, SectionId, SectionSettings } from '@features/curriculumVitae/types'
 import { withPinnedAbout } from '@features/curriculumVitae/utils/withPinnedAbout'
 
 type SectionDefinition = {
   /** Есть ли что показывать: пустые секции не рендерятся, даже если включены */
-  hasContent(person: Person): boolean
+  hasContent(resume: Resume): boolean
 
-  render(person: Person): ReactNode
+  render(resume: Resume): ReactNode
 
   /** Пункт в плавающей навигации */
   inNav: boolean
@@ -32,70 +33,74 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
     isCollapsible: false,
     inNav: true,
     hasContent: () => true,
-    render: (person) => <AboutSection {...person} />,
+    render: (resume) => (
+      <AboutSection profile={resume.profile ?? EMPTY_PROFILE} languages={resume.languages} />
+    ),
   },
 
   [SectionId.TechStack]: {
     isCollapsible: false,
     inNav: false,
     isFullWidth: true,
-    hasContent: (person) => !!person.technologies.length,
-    render: (person) => <TechStackSlider technologies={person.technologies} />,
+    hasContent: (resume) => !!resume.technologies.length,
+    render: (resume) => <TechStackSlider technologies={resume.technologies} />,
   },
 
   [SectionId.Experience]: {
     isCollapsible: false,
     inNav: true,
-    hasContent: (person) => !!person.experience.length,
-    render: (person) => <ExperienceSection experience={person.experience} />,
+    hasContent: (resume) => !!resume.experiences.length,
+    render: (resume) => <ExperienceSection experience={resume.experiences} />,
   },
 
   [SectionId.Skills]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (person) => !!person.hardSkills.length || !!person.softSkills.length,
-    render: (person) => (
-      <SkillsSection hardSkills={person.hardSkills} softSkills={person.softSkills} />
+    hasContent: ({ skills = EMPTY_SKILLS }) =>
+      !!skills.hardSkills.length || !!skills.softSkills.length,
+    render: ({ skills = EMPTY_SKILLS }) => (
+      <SkillsSection hardSkills={skills.hardSkills} softSkills={skills.softSkills} />
     ),
   },
 
   [SectionId.Education]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (person) => !!person.education.length,
-    render: (person) => <EducationSection education={person.education} />,
+    hasContent: (resume) => !!resume.educations.length,
+    render: (resume) => <EducationSection education={resume.educations} />,
   },
 
   [SectionId.Courses]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (person) => !!person.courses.length,
-    render: (person) => <CoursesSection courses={person.courses} />,
+    hasContent: (resume) => !!resume.courses.length,
+    render: (resume) => <CoursesSection courses={resume.courses} />,
   },
 
   [SectionId.Projects]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (person) => !!person.projects.length,
-    render: (person) => <ProjectsSection projects={person.projects} />,
+    hasContent: (resume) => !!resume.projects.length,
+    render: (resume) => <ProjectsSection projects={resume.projects} />,
   },
 
   [SectionId.Activities]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (person) => !!person.activities.length,
-    render: (person) => <ActivitiesSection activities={person.activities} />,
+    hasContent: (resume) => !!resume.activities.length,
+    render: (resume) => <ActivitiesSection activities={resume.activities} />,
   },
 
   [SectionId.Contacts]: {
     isCollapsible: false,
     inNav: true,
-    hasContent: (person) => Object.values(person.contacts).some(Boolean),
-    render: (person) => (
+    hasContent: ({ contacts = EMPTY_CONTACTS }) =>
+      !!(contacts.phone || contacts.telegram || contacts.email),
+    render: ({ contacts = EMPTY_CONTACTS }) => (
       <ContactsSection
-        contacts={person.contacts}
-        text={person.contactsText}
-        hidden={person.hiddenContacts}
+        contacts={contacts}
+        text={contacts.contactsText}
+        hidden={contacts.hiddenContacts}
       />
     ),
   },
@@ -107,7 +112,7 @@ export const DEFAULT_SECTIONS: SectionSettings[] = (
 ).map((id) => ({ id, enabled: true }))
 
 /** Секции в порядке из настроек: включённые, известные и с данными */
-export const getVisibleSections = (person: Person): SectionSettings[] =>
-  withPinnedAbout(person.sections?.length ? person.sections : DEFAULT_SECTIONS).filter(
-    ({ id, enabled }) => enabled && SECTION_DEFINITIONS[id]?.hasContent(person),
-  )
+export const getVisibleSections = (resume: Resume): SectionSettings[] =>
+  withPinnedAbout(
+    resume.overview.sections.length ? resume.overview.sections : DEFAULT_SECTIONS,
+  ).filter(({ id, enabled }) => enabled && SECTION_DEFINITIONS[id]?.hasContent(resume))

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
-import { CurriculumVitaeError, ResumeView } from '@features/curriculumVitae/types'
+import { CurriculumVitaeError, Resume } from '@features/curriculumVitae/types'
 import { parseApiError } from '@features/curriculumVitae/utils'
 
 /**
@@ -10,7 +10,7 @@ import { parseApiError } from '@features/curriculumVitae/utils'
 export const useOwnerResume = (userId?: string, resumeId?: string) => {
   // Резюме хранится вместе с id, к которому относится: при смене id старое не показываем, и
   // сбрасывать состояние в эффекте не нужно
-  const [loaded, setLoaded] = useState<{ resumeId: string; view: ResumeView } | null>(null)
+  const [loaded, setLoaded] = useState<{ resumeId: string; view: Resume } | null>(null)
   const [error, setError] = useState<CurriculumVitaeError | null>(null)
 
   const reload = useCallback(

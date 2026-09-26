@@ -1,34 +1,19 @@
 import { Section } from '@features/curriculumVitae/components/Section'
 import { glassCard } from '@features/curriculumVitae/styles'
-import { Person, SectionId } from '@features/curriculumVitae/types'
+import { ResumeLanguageItem, ResumeProfile, SectionId } from '@features/curriculumVitae/types'
 import { Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { getPersonFIO } from '@shared/utils'
 import { Facts } from './Facts'
 import { Portrait } from './Portrait'
 
-type Props = Pick<
-  Person,
-  | 'name'
-  | 'surname'
-  | 'patronymic'
-  | 'position'
-  | 'photoPath'
-  | 'dateOfBirth'
-  | 'location'
-  | 'relocation'
-  | 'workFormat'
-  | 'languages'
->
+type Props = {
+  profile: ResumeProfile
+  languages: ResumeLanguageItem[]
+}
 
-export const AboutSection = ({
-  name,
-  surname,
-  patronymic,
-  position,
-  photoPath,
-  ...facts
-}: Props) => {
+export const AboutSection = ({ profile, languages }: Props) => {
+  const { name, surname, patronymic, position, photoPath, ...facts } = profile
   const translate = useTranslate('CurriculumVitae.About')
 
   const fio = getPersonFIO({ name, surname, patronymic })
@@ -58,7 +43,7 @@ export const AboutSection = ({
             </Typography>
           </Stack>
 
-          <Facts {...facts} />
+          <Facts {...facts} languages={languages} />
         </Stack>
       </Stack>
     </Section>

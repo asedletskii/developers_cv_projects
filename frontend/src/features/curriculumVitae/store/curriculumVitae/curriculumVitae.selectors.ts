@@ -6,8 +6,8 @@ const sliceStateSelector = createLazySliceStateSelector(
   getCurriculumVitaeInitialState(),
 )
 
-export const selectPersonData = sliceStateSelector((state) => state.person)
+export const selectResume = sliceStateSelector((state) => state.resume)
 
-export const selectPersonDataError = sliceStateSelector((state) => state.error)
+export const selectResumeError = sliceStateSelector((state) => state.error)
 
-export const selectIsPersonDataLoading = sliceStateSelector((state) => state.isLoading)
+export const selectIsResumeLoading = sliceStateSelector((state) => state.isLoading)

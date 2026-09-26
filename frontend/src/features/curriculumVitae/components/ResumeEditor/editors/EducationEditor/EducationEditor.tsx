@@ -12,7 +12,7 @@ import { useEducationOptions } from './hooks'
 export const EducationEditor = () => {
   const translate = useTranslate('Lk.Edit.Education')
   const { levelOptions } = useEducationOptions()
-  const { register, fields, addItem, itemProps } = useFormList('education', blankEducation)
+  const { register, fields, addItem, itemProps } = useFormList('educations', blankEducation)
 
   return (
     <Stack spacing={1.5}>
@@ -20,7 +20,7 @@ export const EducationEditor = () => {
         <ArrayItemCard key={field.id} {...itemProps(index)}>
           <TextField
             label={translate('university')}
-            {...register(`education.${index}.university`)}
+            {...register(`educations.${index}.university`)}
             required
             fullWidth
           />
@@ -28,13 +28,13 @@ export const EducationEditor = () => {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               label={translate('location')}
-              {...register(`education.${index}.location`)}
+              {...register(`educations.${index}.location`)}
               required
               fullWidth
             />
 
             <SelectField
-              name={`education.${index}.grade`}
+              name={`educations.${index}.grade`}
               clearable={false}
               label={translate('grade')}
               options={levelOptions}
@@ -45,18 +45,18 @@ export const EducationEditor = () => {
           <TextField
             fullWidth
             label={translate('programName')}
-            {...register(`education.${index}.programName`)}
+            {...register(`educations.${index}.programName`)}
             required
           />
           <TextField
             fullWidth
             label={translate('profileName')}
-            {...register(`education.${index}.profileName`)}
+            {...register(`educations.${index}.profileName`)}
           />
           <TextField
             fullWidth
             label={translate('faculty')}
-            {...register(`education.${index}.faculty`)}
+            {...register(`educations.${index}.faculty`)}
             required
           />
 
@@ -65,10 +65,10 @@ export const EducationEditor = () => {
               fullWidth
               type="number"
               label={translate('course')}
-              {...register(`education.${index}.course`, { valueAsNumber: true })}
+              {...register(`educations.${index}.course`, { valueAsNumber: true })}
             />
             <DateField
-              name={`education.${index}.endDate`}
+              name={`educations.${index}.endDate`}
               label={translate('endDate')}
               format="YYYY"
               views={['year']}

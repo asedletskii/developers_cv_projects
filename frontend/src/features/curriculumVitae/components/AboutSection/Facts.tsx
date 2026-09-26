@@ -1,4 +1,4 @@
-import { Person } from '@features/curriculumVitae/types'
+import { ResumeLanguageItem, ResumeProfile } from '@features/curriculumVitae/types'
 import {
   CakeOutlined,
   FlightTakeoffOutlined,
@@ -10,7 +10,9 @@ import { Chip, Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { formatAge } from '@shared/utils'
 
-type Props = Pick<Person, 'dateOfBirth' | 'location' | 'relocation' | 'workFormat' | 'languages'>
+type Props = Pick<ResumeProfile, 'dateOfBirth' | 'location' | 'relocation' | 'workFormat'> & {
+  languages: ResumeLanguageItem[]
+}
 
 export const Facts = ({ dateOfBirth, location, relocation, workFormat, languages }: Props) => {
   const translate = useTranslate('CurriculumVitae.About')

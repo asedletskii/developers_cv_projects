@@ -1,11 +1,11 @@
 import { Section } from '@features/curriculumVitae/components/Section'
-import { Person, SectionId } from '@features/curriculumVitae/types'
+import { Resume, SectionId } from '@features/curriculumVitae/types'
 import { Box } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { Project } from './Project'
 
 type Props = {
-  projects: Person['projects']
+  projects: Resume['projects']
 }
 
 export const ProjectsSection = ({ projects }: Props) => {

@@ -1,6 +1,6 @@
 import { EditResumeTitleDialog } from '@features/curriculumVitae/components/EditResumeTitleDialog'
 import { glassCard } from '@features/curriculumVitae/styles'
-import { CurriculumVitaeError, ResumeView } from '@features/curriculumVitae/types'
+import { CurriculumVitaeError, Resume } from '@features/curriculumVitae/types'
 import {
   ArrowBackRounded,
   DeleteOutlineRounded,
@@ -28,7 +28,7 @@ import { useResumeHeader } from './hooks'
 
 type Props = {
   userId: string
-  view: ResumeView
+  view: Resume
   onReload: () => void
   onError: (error: CurriculumVitaeError) => void
 }

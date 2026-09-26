@@ -1,9 +1,9 @@
-import { ResumeEditorTab, ResumeView } from '@features/curriculumVitae/types'
+import { Resume, ResumeEditorTab } from '@features/curriculumVitae/types'
 
 export type ChecklistTab = Exclude<ResumeEditorTab, 'overview'>
 
 /** Что считается заполненным в резюме: вкладка редактора → есть ли в ней данные. */
-export const getResumeChecklist = (view: ResumeView): Record<ChecklistTab, boolean> => ({
+export const getResumeChecklist = (view: Resume): Record<ChecklistTab, boolean> => ({
   profile: !!view.profile?.name,
   languages: view.languages.length > 0,
   technologies: view.technologies.length > 0,

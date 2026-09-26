@@ -1,11 +1,11 @@
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { MenuItem, TextField, TextFieldProps } from '@mui/material'
 import { Controller, FieldPath, useFormContext } from 'react-hook-form'
 
 type Option = { value: string | number; label: string }
 
 type Props = {
-  name: FieldPath<Person>
+  name: FieldPath<Resume>
   label: string
   multiple?: boolean
 
@@ -28,7 +28,7 @@ export const SelectField = ({
   options,
   ...rest
 }: Props) => {
-  const { control } = useFormContext<Person>()
+  const { control } = useFormContext<Resume>()
 
   return (
     <Controller

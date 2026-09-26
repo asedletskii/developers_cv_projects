@@ -3,12 +3,12 @@ import { TechnologyList } from '@features/curriculumVitae/components/TechnologyL
 import { TiltCard } from '@features/curriculumVitae/components/TiltCard'
 import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { dimmed, glassCard } from '@features/curriculumVitae/styles'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { Box, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
 type Props = {
-  project: Person['projects'][number]
+  project: Resume['projects'][number]
 }
 
 /** Карточка проекта: наклоняется за курсором, внутри название, описание, стек и ссылка. */

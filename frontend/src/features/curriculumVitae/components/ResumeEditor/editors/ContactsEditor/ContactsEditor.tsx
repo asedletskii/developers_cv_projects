@@ -1,5 +1,5 @@
 import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useFormContext } from 'react-hook-form'
@@ -9,7 +9,7 @@ import { useContactOptions } from './hooks'
 export const ContactsEditor = () => {
   const translate = useTranslate('Lk.Edit.Contacts')
   const { hiddenContactOptions } = useContactOptions()
-  const { register } = useFormContext<Person>()
+  const { register } = useFormContext<Resume>()
 
   return (
     <Stack spacing={2}>
@@ -18,17 +18,21 @@ export const ContactsEditor = () => {
       <TextField fullWidth label={translate('email')} {...register('contacts.email')} />
 
       <SelectField
-        name="hiddenContacts"
+        name="contacts.hiddenContacts"
         multiple
         label={translate('hiddenContacts')}
         options={hiddenContactOptions}
       />
 
-      <TextField fullWidth label={translate('contactsTitle')} {...register('contactsText.title')} />
+      <TextField
+        fullWidth
+        label={translate('contactsTitle')}
+        {...register('contacts.contactsText.title')}
+      />
       <TextField
         fullWidth
         label={translate('contactsSubtitle')}
-        {...register('contactsText.subtitle')}
+        {...register('contacts.contactsText.subtitle')}
       />
     </Stack>
   )

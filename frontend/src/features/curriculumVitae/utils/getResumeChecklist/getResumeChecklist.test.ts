@@ -1,4 +1,4 @@
-import { ResumeView } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { getResumeChecklist } from './getResumeChecklist'
 
 const emptyView = {
@@ -9,7 +9,7 @@ const emptyView = {
   courses: [],
   projects: [],
   activities: [],
-} as unknown as ResumeView
+} as unknown as Resume
 
 describe('getResumeChecklist', () => {
   it('у пустого резюме ничего не заполнено', () => {
@@ -23,7 +23,7 @@ describe('getResumeChecklist', () => {
       experiences: [{}],
       skills: { hardSkills: [], softSkills: ['teamwork'] },
       contacts: { telegram: 'anton' },
-    } as unknown as ResumeView
+    } as unknown as Resume
 
     const checklist = getResumeChecklist(view)
 

@@ -2,7 +2,7 @@ import { DateField } from '@features/curriculumVitae/components/form/DateField'
 import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
 import { HeroPreview } from '@features/curriculumVitae/components/HeroPreview'
 import { glassCard } from '@features/curriculumVitae/styles'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { Stack, TextField, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useFormContext } from 'react-hook-form'
@@ -11,7 +11,7 @@ import { useHeroOptions } from './hooks'
 export const HeroEditor = () => {
   const translate = useTranslate('Lk.Edit.Hero')
   const { availabilityOptions } = useHeroOptions()
-  const { register } = useFormContext<Person>()
+  const { register } = useFormContext<Resume>()
 
   return (
     <Stack spacing={2} sx={{ p: { xs: 2, sm: 3 }, ...glassCard }}>
@@ -22,7 +22,7 @@ export const HeroEditor = () => {
       <TextField
         fullWidth
         label={translate('greetingFirst')}
-        {...register('greeting.first')}
+        {...register('overview.greeting.first')}
         required
       />
 
@@ -30,13 +30,13 @@ export const HeroEditor = () => {
         <TextField
           fullWidth
           label={translate('greetingSecond')}
-          {...register('greeting.second')}
+          {...register('overview.greeting.second')}
           required
         />
 
         <TextField
           label={translate('greetingHighlight')}
-          {...register('greeting.secondHighlight')}
+          {...register('overview.greeting.secondHighlight')}
           required
           fullWidth
         />
@@ -45,21 +45,21 @@ export const HeroEditor = () => {
       <TextField
         fullWidth
         label={translate('greetingThird')}
-        {...register('greeting.third')}
+        {...register('overview.greeting.third')}
         required
         sx={{ color: 'text.secondary' }}
       />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <SelectField
-          name="availability.status"
+          name="overview.availability.status"
           label={translate('availabilityStatus')}
           sx={{ minWidth: 200 }}
           options={availabilityOptions}
         />
 
         <DateField
-          name="availability.from"
+          name="overview.availability.from"
           label={translate('availabilityFrom')}
           format="YYYY-MM-DD"
         />
@@ -68,11 +68,11 @@ export const HeroEditor = () => {
       <TextField
         fullWidth
         label={translate('availabilityNote')}
-        {...register('availability.note')}
+        {...register('overview.availability.note')}
         multiline
       />
 
-      <TextField fullWidth label={translate('resumeLink')} {...register('resumeLink')} />
+      <TextField fullWidth label={translate('resumeLink')} {...register('overview.resumeLink')} />
     </Stack>
   )
 }

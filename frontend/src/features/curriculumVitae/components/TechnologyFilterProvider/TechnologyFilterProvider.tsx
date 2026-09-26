@@ -1,5 +1,5 @@
 import { createContext, PropsWithChildren } from 'react'
-import { Person, TechnologyFilterValue } from '@features/curriculumVitae/types'
+import { Resume, TechnologyFilterValue } from '@features/curriculumVitae/types'
 import { useTechnologyFilterState } from './hooks'
 
 export const TechnologyFilterContext = createContext<TechnologyFilterValue>({
@@ -11,7 +11,7 @@ export const TechnologyFilterContext = createContext<TechnologyFilterValue>({
 })
 
 type Props = PropsWithChildren<{
-  projects: Person['projects']
+  projects: Resume['projects']
 }>
 
 export const TechnologyFilterProvider = ({ projects, children }: Props) => {

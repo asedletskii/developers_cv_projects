@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { ResumeView } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { ChecklistTab, getResumeChecklist } from '@features/curriculumVitae/utils'
 
 /** Чек-лист заполненности резюме: элементы по порядку, число выполненных и процент. */
-export const useResumeChecklist = (view: ResumeView) =>
+export const useResumeChecklist = (view: Resume) =>
   useMemo(() => {
     const items = Object.entries(getResumeChecklist(view)) as [ChecklistTab, boolean][]
     const done = items.filter(([, isDone]) => isDone).length

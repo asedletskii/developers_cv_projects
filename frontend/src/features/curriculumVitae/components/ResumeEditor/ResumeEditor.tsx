@@ -1,5 +1,5 @@
 import { SectionForm } from '@features/curriculumVitae/components/SectionForm'
-import { ResumeView } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { Stack, Tab, Tabs } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { EDITOR_TABS, TAB_SX } from './constants'
@@ -7,7 +7,7 @@ import { useResumeEditor } from './hooks'
 
 type Props = {
   userId: string
-  view: ResumeView
+  view: Resume
   onSaved: () => Promise<void>
   isDirtyRef: { current: boolean }
 }
@@ -16,7 +16,7 @@ type Props = {
  *  Активная вкладка живёт в `?tab=`, чтобы на неё можно было сослаться. */
 export const ResumeEditor = ({ userId, view, onSaved, isDirtyRef }: Props) => {
   const translateTabs = useTranslate('Lk.Edit.Tabs')
-  const { person, activeTab, changeTab, setDirty } = useResumeEditor({ view, isDirtyRef })
+  const { values, activeTab, changeTab, setDirty } = useResumeEditor({ view, isDirtyRef })
 
   return (
     <Stack spacing={3}>
@@ -35,7 +35,7 @@ export const ResumeEditor = ({ userId, view, onSaved, isDirtyRef }: Props) => {
         key={activeTab.id}
         userId={userId}
         view={view}
-        person={person}
+        values={values}
         section={activeTab.id}
         previewSection={activeTab.preview}
         previewHighlight={activeTab.highlight}

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { hasTechnology } from '@features/curriculumVitae/utils'
 
-type Params = Pick<Person, 'experience' | 'projects'>
+type Params = Pick<Resume, 'experiences' | 'projects'>
 
-export const useFilterBar = ({ experience, projects }: Params) => {
+export const useFilterBar = ({ experiences, projects }: Params) => {
   const { selected, clear } = useTechnologyFilter()
 
   const [shown, setShown] = useState(selected)
@@ -15,7 +15,7 @@ export const useFilterBar = ({ experience, projects }: Params) => {
     if (selected) setShown(selected)
   }, [selected])
 
-  const jobs = shown ? experience.filter((job) => hasTechnology(job.stack, shown)).length : 0
+  const jobs = shown ? experiences.filter((job) => hasTechnology(job.stack, shown)).length : 0
   const matchedProjects = shown
     ? projects.filter((project) => hasTechnology(project.stack, shown)).length
     : 0

@@ -1,16 +1,16 @@
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
-import { CurriculumVitaeError, Person } from '@features/curriculumVitae/types'
+import { CurriculumVitaeError, Resume } from '@features/curriculumVitae/types'
 import { parseApiError } from '@features/curriculumVitae/utils'
 import { createAsyncThunk } from '@reduxjs/toolkit'
 
-type GetPersonDataArg = { cvId: string }
+type GetPublicResumeArg = { cvId: string }
 
 /** Публичная проекция резюме (`GET /cv/:id`) — её же показывает предпросмотр в ЛК. */
-export const getPersonData = createAsyncThunk<
-  Person,
-  GetPersonDataArg,
+export const getPublicResume = createAsyncThunk<
+  Resume,
+  GetPublicResumeArg,
   { rejectValue: CurriculumVitaeError }
->('getPersonData', async ({ cvId }, { rejectWithValue, signal }) => {
+>('getPublicResume', async ({ cvId }, { rejectWithValue, signal }) => {
   try {
     return await curriculumVitaeApi.getPublicResume(cvId, signal)
   } catch (e) {
