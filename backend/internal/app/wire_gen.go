@@ -38,60 +38,44 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
-	poolValue, err := newPostgresPool(context.Background(), configValue)
-	if err != nil {
-		return nil, err
-	}
-
 	loggerValue, err := logger.New(configValue.Log)
 	if err != nil {
-		if poolValue != nil {
-			poolValue.Close()
-		}
-		return nil, err
-	}
-
-	healthValue := newHealthService(poolValue)
-
-	telemetryValue, err := telemetry.New(configValue.Telemetry, loggerValue)
-	if err != nil {
-		if poolValue != nil {
-			poolValue.Close()
-		}
-		return nil, err
-	}
-
-	metricsValue, err := telemetry.NewMetrics(configValue.Prometheus.Enabled)
-	if err != nil {
-		if poolValue != nil {
-			poolValue.Close()
-		}
-		_ = telemetryValue.Shutdown(context.Background())
 		return nil, err
 	}
 
 	gormDBValue, err := database.NewGORMFromConfig(configValue)
 	if err != nil {
-		if poolValue != nil {
-			poolValue.Close()
-		}
 		return nil, err
 	}
 
-	publicResumeReaderValue := newPublicResumeReader(poolValue)
-	listResumesReaderValue := newListResumesReader(poolValue)
-	metadataReaderValue := newResumeMetadataReader(poolValue)
-	overviewReaderValue := newResumeOverviewReader(poolValue)
-	profileReaderValue := resumereaders.NewProfileReader(poolValue)
-	contactsReaderValue := resumereaders.NewContactsReader(poolValue)
-	skillsReaderValue := resumereaders.NewSkillsReader(poolValue)
-	languagesReaderValue := resumereaders.NewLanguagesReader(poolValue)
-	technologiesReaderValue := resumereaders.NewTechnologiesReader(poolValue)
-	experiencesReaderValue := resumereaders.NewExperiencesReader(poolValue)
-	educationReaderValue := resumereaders.NewEducationReader(poolValue)
-	courseReaderValue := resumereaders.NewCourseReader(poolValue)
-	activityReaderValue := resumereaders.NewActivityReader(poolValue)
-	projectsReaderValue := resumereaders.NewProjectsReader(poolValue)
+	healthValue := newHealthService(gormDBValue)
+
+	telemetryValue, err := telemetry.New(configValue.Telemetry, loggerValue)
+	if err != nil {
+		_ = database.Close(gormDBValue)
+		return nil, err
+	}
+
+	metricsValue, err := telemetry.NewMetrics(configValue.Prometheus.Enabled)
+	if err != nil {
+		_ = database.Close(gormDBValue)
+		_ = telemetryValue.Shutdown(context.Background())
+		return nil, err
+	}
+
+	listResumesReaderValue := newListResumesReader(gormDBValue)
+	metadataReaderValue := newResumeMetadataReader(gormDBValue)
+	overviewReaderValue := newResumeOverviewReader(gormDBValue)
+	profileReaderValue := resumereaders.NewProfileReader(gormDBValue)
+	contactsReaderValue := resumereaders.NewContactsReader(gormDBValue)
+	skillsReaderValue := resumereaders.NewSkillsReader(gormDBValue)
+	languagesReaderValue := resumereaders.NewLanguagesReader(gormDBValue)
+	technologiesReaderValue := resumereaders.NewTechnologiesReader(gormDBValue)
+	experiencesReaderValue := resumereaders.NewExperiencesReader(gormDBValue)
+	educationReaderValue := resumereaders.NewEducationReader(gormDBValue)
+	courseReaderValue := resumereaders.NewCourseReader(gormDBValue)
+	activityReaderValue := resumereaders.NewActivityReader(gormDBValue)
+	projectsReaderValue := resumereaders.NewProjectsReader(gormDBValue)
 	resumeReaderDependencies := resumereaders.ResumeReaderDependencies{
 		Metadata:     metadataReaderValue,
 		Overview:     overviewReaderValue,
@@ -120,7 +104,7 @@ func Initialize() (*Application, error) {
 	activityRepositoryValue := resumerepository.NewActivityRepository(gormDBValue)
 	projectRepositoryValue := resumerepository.NewProjectRepository(gormDBValue)
 	userReaderValue := userreaders.NewUserReader(gormDBValue)
-	getProfileReaderValue := newGetProfileReader(poolValue)
+	getProfileReaderValue := newGetProfileReader(gormDBValue)
 	mockAuthenticatorValue := userauth.NewMockAuthenticator(userReaderValue)
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
@@ -134,7 +118,7 @@ func Initialize() (*Application, error) {
 	getLanguageQueryHandlerValue := queries.NewGetLanguageQueryHandler(languagesReaderValue)
 	listTechnologiesQueryHandlerValue := queries.NewListTechnologiesQueryHandler(technologiesReaderValue)
 	getTechnologyQueryHandlerValue := queries.NewGetTechnologyQueryHandler(technologiesReaderValue)
-	updateResumeHandlerValue := resumecommands.NewUpdateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
+	replaceResumeTitleHandlerValue := resumecommands.NewReplaceResumeTitleHandler(resumeRepositoryValue, unitOfWorkValue)
 	updateOverviewHandlerValue := resumecommands.NewUpdateOverviewHandler(overviewRepositoryValue, unitOfWorkValue)
 	deleteResumeHandlerValue := resumecommands.NewDeleteResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	createResumeProfileHandlerValue := resumecommands.NewCreateResumeProfileHandler(profileRepositoryValue, unitOfWorkValue)
@@ -145,9 +129,11 @@ func Initialize() (*Application, error) {
 	updateSkillsHandlerValue := resumecommands.NewUpdateSkillsHandler(skillsRepositoryValue, unitOfWorkValue)
 	createLanguageHandlerValue := resumecommands.NewCreateLanguageHandler(languagesRepositoryValue, unitOfWorkValue)
 	updateLanguageHandlerValue := resumecommands.NewUpdateLanguageHandler(languagesRepositoryValue, unitOfWorkValue)
+	reorderLanguagesHandlerValue := resumecommands.NewReorderLanguagesHandler(languagesRepositoryValue, unitOfWorkValue)
 	deleteLanguageHandlerValue := resumecommands.NewDeleteLanguageHandler(languagesRepositoryValue, unitOfWorkValue)
 	createTechnologyHandlerValue := resumecommands.NewCreateTechnologyHandler(technologiesRepositoryValue, unitOfWorkValue)
 	updateTechnologyHandlerValue := resumecommands.NewUpdateTechnologyHandler(technologiesRepositoryValue, unitOfWorkValue)
+	reorderTechnologiesHandlerValue := resumecommands.NewReorderTechnologiesHandler(technologiesRepositoryValue, unitOfWorkValue)
 	deleteTechnologyHandlerValue := resumecommands.NewDeleteTechnologyHandler(technologiesRepositoryValue, unitOfWorkValue)
 	createExperienceHandlerValue := resumecommands.NewCreateExperienceHandler(experiencesRepositoryValue, unitOfWorkValue)
 	listExperiencesQueryHandlerValue := queries.NewListExperiencesQueryHandler(experiencesReaderValue)
@@ -175,41 +161,41 @@ func Initialize() (*Application, error) {
 	updateProjectHandlerValue := resumecommands.NewUpdateProjectHandler(projectRepositoryValue, unitOfWorkValue)
 	deleteProjectHandlerValue := resumecommands.NewDeleteProjectHandler(projectRepositoryValue, unitOfWorkValue)
 	skillsHandlerValue := skillshttp.NewHandler(createSkillsHandlerValue, getSkillsQueryHandlerValue, updateSkillsHandlerValue)
-	languagesHandlerValue := languageshttp.NewHandler(createLanguageHandlerValue, listLanguagesQueryHandlerValue, getLanguageQueryHandlerValue, updateLanguageHandlerValue, deleteLanguageHandlerValue)
-	technologiesHandlerValue := technologieshttp.NewHandler(createTechnologyHandlerValue, listTechnologiesQueryHandlerValue, getTechnologyQueryHandlerValue, updateTechnologyHandlerValue, deleteTechnologyHandlerValue)
+	languagesHandlerValue := languageshttp.NewHandler(createLanguageHandlerValue, listLanguagesQueryHandlerValue, getLanguageQueryHandlerValue, updateLanguageHandlerValue, reorderLanguagesHandlerValue, deleteLanguageHandlerValue)
+	technologiesHandlerValue := technologieshttp.NewHandler(createTechnologyHandlerValue, listTechnologiesQueryHandlerValue, getTechnologyQueryHandlerValue, updateTechnologyHandlerValue, reorderTechnologiesHandlerValue, deleteTechnologyHandlerValue)
 	experiencesHandlerValue := experienceshttp.NewHandler(createExperienceHandlerValue, listExperiencesQueryHandlerValue, getExperienceQueryHandlerValue, updateExperienceHandlerValue, deleteExperienceHandlerValue)
 	educationsHandlerValue := educationshttp.NewHandler(createEducationHandlerValue, listEducationsQueryHandlerValue, getEducationQueryHandlerValue, updateEducationHandlerValue, deleteEducationHandlerValue)
 	coursesHandlerValue := courseshttp.NewHandler(createCourseHandlerValue, listCoursesQueryHandlerValue, getCourseQueryHandlerValue, updateCourseHandlerValue, deleteCourseHandlerValue)
 	activitiesHandlerValue := activitieshttp.NewHandler(createActivityHandlerValue, listActivitiesQueryHandlerValue, getActivityQueryHandlerValue, updateActivityHandlerValue, deleteActivityHandlerValue)
 	projectsHandlerValue := projectshttp.NewHandler(createProjectHandlerValue, listProjectsQueryHandlerValue, getProjectQueryHandlerValue, updateProjectHandlerValue, deleteProjectHandlerValue)
-	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(publicResumeReaderValue)
+	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(resumeReaderValue)
 	publicHandlerValue := publichandler.NewHandler(publicResumeQueryHandlerValue)
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
 	resumeHandlerDependencies := http.HandlerDependencies{
-		ListResumes:    listResumesHandlerValue,
-		CreateResume:   createResumeHandlerValue,
-		GetResume:      getResumeQueryHandlerValue,
-		UpdateResume:   updateResumeHandlerValue,
-		DeleteResume:   deleteResumeHandlerValue,
-		GetOverview:    getOverviewQueryHandlerValue,
-		UpdateOverview: updateOverviewHandlerValue,
-		CreateProfile:  createResumeProfileHandlerValue,
-		GetProfile:     getResumeProfileQueryHandlerValue,
-		UpdateProfile:  updateResumeProfileHandlerValue,
-		CreateContacts: createResumeContactsHandlerValue,
-		GetContacts:    getResumeContactsQueryHandlerValue,
-		UpdateContacts: updateResumeContactsHandlerValue,
-		Skills:         skillsHandlerValue,
-		Languages:      languagesHandlerValue,
-		Technologies:   technologiesHandlerValue,
-		Experiences:    experiencesHandlerValue,
-		Education:      educationsHandlerValue,
-		Courses:        coursesHandlerValue,
-		Activities:     activitiesHandlerValue,
-		Projects:       projectsHandlerValue,
-		Public:         publicHandlerValue,
+		ListResumes:        listResumesHandlerValue,
+		CreateResume:       createResumeHandlerValue,
+		GetResume:          getResumeQueryHandlerValue,
+		ReplaceResumeTitle: replaceResumeTitleHandlerValue,
+		DeleteResume:       deleteResumeHandlerValue,
+		GetOverview:        getOverviewQueryHandlerValue,
+		UpdateOverview:     updateOverviewHandlerValue,
+		CreateProfile:      createResumeProfileHandlerValue,
+		GetProfile:         getResumeProfileQueryHandlerValue,
+		UpdateProfile:      updateResumeProfileHandlerValue,
+		CreateContacts:     createResumeContactsHandlerValue,
+		GetContacts:        getResumeContactsQueryHandlerValue,
+		UpdateContacts:     updateResumeContactsHandlerValue,
+		Skills:             skillsHandlerValue,
+		Languages:          languagesHandlerValue,
+		Technologies:       technologiesHandlerValue,
+		Experiences:        experiencesHandlerValue,
+		Education:          educationsHandlerValue,
+		Courses:            coursesHandlerValue,
+		Activities:         activitiesHandlerValue,
+		Projects:           projectsHandlerValue,
+		Public:             publicHandlerValue,
 	}
 	resumeHandlerValue := http.NewHandler(resumeHandlerDependencies)
 
@@ -226,9 +212,6 @@ func Initialize() (*Application, error) {
 		if gormDBValue != nil {
 			_ = database.Close(gormDBValue)
 		}
-		if poolValue != nil {
-			poolValue.Close()
-		}
 		_ = telemetryValue.Shutdown(context.Background())
 		return nil, err
 	}
@@ -243,7 +226,6 @@ func Initialize() (*Application, error) {
 		serverValue,
 		telemetryValue,
 		loggerValue,
-		poolValue,
 		gormDBValue,
 	)
 

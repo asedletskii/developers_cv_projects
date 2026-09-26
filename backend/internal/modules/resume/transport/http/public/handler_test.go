@@ -11,22 +11,28 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
 
 type readerStub struct {
-	view  queries.PublicResumeView
-	err   error
-	query queries.PublicResumeQuery
+	view        queries.ResumeView
+	err         error
+	publicID    valueobjects.ID
+	publicCalls int
 }
 
-func (s *readerStub) GetPublicResume(_ context.Context, q queries.PublicResumeQuery) (queries.PublicResumeView, error) {
-	s.query = q
-	return s.view, s.err
+func (s *readerStub) GetPublic(_ context.Context, resumeID valueobjects.ID) (queries.ResumeView, error) {
+	s.publicID = resumeID
+	s.publicCalls++
+	if s.err != nil {
+		return queries.ResumeView{}, s.err
+	}
+	return s.view, nil
 }
 
-func TestHandlerDoesNotRequireLanguageQuery(t *testing.T) {
+func TestHandlerUsesPublicReadMethod(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	reader := &readerStub{view: queries.PublicResumeView{ID: "resume"}}
+	reader := &readerStub{view: queries.ResumeView{ID: "resume"}}
 	query := queries.NewPublicResumeQueryHandler(reader)
 	handler := NewHandler(query)
 
@@ -39,6 +45,6 @@ func TestHandlerDoesNotRequireLanguageQuery(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, id, reader.query.ID)
-	require.NotContains(t, req.URL.RawQuery, "lang")
+	require.Equal(t, id, reader.publicID.UUID())
+	require.Equal(t, 1, reader.publicCalls)
 }

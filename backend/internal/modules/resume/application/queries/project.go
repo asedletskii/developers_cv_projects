@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ListProjectsQuery struct {
@@ -22,6 +22,10 @@ type GetProjectQuery struct {
 type ProjectsReader interface {
 	ListProjects(context.Context, ListProjectsQuery) ([]ProjectView, error)
 	GetProject(context.Context, GetProjectQuery) (ProjectView, error)
+}
+
+type ProjectsSource interface {
+	ReadProjects(context.Context, valueobjects.ID) ([]ProjectView, error)
 }
 
 type ListProjectsQueryHandler struct{ reader ProjectsReader }

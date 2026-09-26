@@ -3,7 +3,7 @@ package queries
 import (
 	"context"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
 )
 
@@ -13,6 +13,10 @@ type GetResumeProfileQuery struct {
 }
 type ResumeProfileReader interface {
 	GetResumeProfile(context.Context, GetResumeProfileQuery) (ResumeProfileView, error)
+}
+
+type ResumeProfileSource interface {
+	ReadResumeProfile(context.Context, valueobjects.ID) (ResumeProfileView, error)
 }
 type GetResumeProfileQueryHandler struct{ reader ResumeProfileReader }
 

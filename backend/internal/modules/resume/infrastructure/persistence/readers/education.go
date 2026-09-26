@@ -2,50 +2,78 @@ package readers
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
+
+	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type EducationReader struct{ pool *pgxpool.Pool }
+type EducationReader struct{ db *gorm.DB }
 
-func NewEducationReader(pool *pgxpool.Pool) *EducationReader { return &EducationReader{pool: pool} }
+func NewEducationReader(db *gorm.DB) *EducationReader { return &EducationReader{db: db} }
+
 func (r *EducationReader) ListEducations(ctx context.Context, q queries.ListEducationsQuery) ([]queries.EducationView, error) {
-	if r == nil || r.pool == nil {
-		return nil, fmt.Errorf("list educations: reader dependencies are nil")
-	}
-	rows, err := r.pool.Query(ctx, `SELECT e.id::text,e.resume_id::text,e.location,e.university,e.grade,e.program_name,e.profile_name,e.faculty,e.course,to_char(e.end_date,'YYYY') FROM resume_educations e JOIN resumes rr ON rr.id=e.resume_id WHERE e.resume_id=$1 AND rr.user_id=$2 ORDER BY e.sort_order`, q.ResumeID.UUID(), q.UserID.UUID())
+	db, err := resolveDB(ctx, r.db, "list educations")
 	if err != nil {
+		return nil, err
+	}
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return nil, fmt.Errorf("list educations: invalid query")
+	}
+	var models []gormmodel.ResumeEducation
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_educations.resume_id").Where("resume_educations.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	if err := readDB.Order("sort_order").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list educations: %w", err)
 	}
-	defer rows.Close()
-	out := make([]queries.EducationView, 0)
-	for rows.Next() {
-		var v queries.EducationView
-		if err := rows.Scan(&v.ID, &v.ResumeID, &v.Location, &v.University, &v.Grade, &v.ProgramName, &v.ProfileName, &v.Faculty, &v.Course, &v.EndDate); err != nil {
-			return nil, fmt.Errorf("scan education: %w", err)
-		}
-		out = append(out, v)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate educations: %w", err)
+	out := make([]queries.EducationView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.EducationView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Location: model.Location, University: model.University, Grade: model.Grade, ProgramName: model.ProgramName, ProfileName: model.ProfileName, Faculty: model.Faculty, Course: model.Course, EndDate: optionalYear(model.EndDate)})
 	}
 	return out, nil
 }
-func (r *EducationReader) GetEducation(ctx context.Context, q queries.GetEducationQuery) (queries.EducationView, error) {
-	if r == nil || r.pool == nil {
-		return queries.EducationView{}, fmt.Errorf("get education: reader dependencies are nil")
+
+func (r *EducationReader) ReadEducations(ctx context.Context, resumeID valueobjects.ID) ([]queries.EducationView, error) {
+	db, err := resolveDB(ctx, r.db, "list educations")
+	if err != nil {
+		return nil, err
 	}
-	var v queries.EducationView
-	err := r.pool.QueryRow(ctx, `SELECT e.id::text,e.resume_id::text,e.location,e.university,e.grade,e.program_name,e.profile_name,e.faculty,e.course,to_char(e.end_date,'YYYY') FROM resume_educations e JOIN resumes rr ON rr.id=e.resume_id WHERE e.id=$1 AND e.resume_id=$2 AND rr.user_id=$3`, q.EducationID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Location, &v.University, &v.Grade, &v.ProgramName, &v.ProfileName, &v.Faculty, &v.Course, &v.EndDate)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return v, queries.ErrResumeNotFound
+	if resumeID.IsZero() {
+		return nil, fmt.Errorf("list educations: invalid query")
+	}
+	var models []gormmodel.ResumeEducation
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_educations.resume_id").Where("resume_educations.resume_id = ?", resumeID.UUID())
+	if err := readDB.Order("sort_order").Find(&models).Error; err != nil {
+		return nil, fmt.Errorf("list educations: %w", err)
+	}
+	out := make([]queries.EducationView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.EducationView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Location: model.Location, University: model.University, Grade: model.Grade, ProgramName: model.ProgramName, ProfileName: model.ProfileName, Faculty: model.Faculty, Course: model.Course, EndDate: optionalYear(model.EndDate)})
+	}
+	return out, nil
+}
+
+func (r *EducationReader) GetEducation(ctx context.Context, q queries.GetEducationQuery) (queries.EducationView, error) {
+	db, err := resolveDB(ctx, r.db, "get education")
+	if err != nil {
+		return queries.EducationView{}, err
+	}
+	if q.ResumeID.IsZero() || q.EducationID.IsZero() || q.UserID.IsZero() {
+		return queries.EducationView{}, fmt.Errorf("get education: invalid query")
+	}
+	var model gormmodel.ResumeEducation
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_educations.resume_id").Where("resume_educations.id = ? AND resume_educations.resume_id = ?", q.EducationID.UUID(), q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.EducationView{}, queries.ErrResumeNotFound
 	}
 	if err != nil {
-		return v, fmt.Errorf("get education: %w", err)
+		return queries.EducationView{}, fmt.Errorf("get education: %w", err)
 	}
-	return v, nil
+	return queries.EducationView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Location: model.Location, University: model.University, Grade: model.Grade, ProgramName: model.ProgramName, ProfileName: model.ProfileName, Faculty: model.Faculty, Course: model.Course, EndDate: optionalYear(model.EndDate)}, nil
 }

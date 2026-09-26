@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GetResumeMetadataQuery struct {
@@ -15,6 +15,7 @@ type GetResumeMetadataQuery struct {
 
 type ResumeMetadataReader interface {
 	GetResumeMetadata(context.Context, GetResumeMetadataQuery) (ResumeMetadataView, error)
+	ReadResumeMetadata(context.Context, valueobjects.ID) (ResumeMetadataView, error)
 }
 
 type ResumeMetadataView struct {

@@ -8,7 +8,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
-	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -39,10 +38,7 @@ func (r *OverviewRepository) CreateOverview(ctx context.Context, c ports.CreateO
 		return domain.ErrEntityNotFound
 	}
 	if e = tx.WithContext(ctx).Create(&p).Error; e != nil {
-		if errors.Is(e, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return fmt.Errorf("create overview: %w", e)
+		return fmt.Errorf("create overview: %w", mapDBError(e))
 	}
 	if len(s) > 0 {
 		if e = tx.WithContext(ctx).Create(&s).Error; e != nil {
@@ -154,9 +150,9 @@ func mapOverview(m gormmodel.ResumeOverview, s []gormmodel.ResumeOverviewSection
 		}
 		av = &v
 	}
-	var link *valueobjects.AssetPath
+	var link *valueobjects.ExternalURL
 	if m.ResumeLink != nil {
-		v, e := valueobjects.NewAssetPath(*m.ResumeLink)
+		v, e := valueobjects.NewExternalURL(*m.ResumeLink)
 		if e != nil {
 			return nil, e
 		}

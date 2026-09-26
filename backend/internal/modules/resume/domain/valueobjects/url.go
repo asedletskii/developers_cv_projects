@@ -27,18 +27,3 @@ func NewExternalURL(value string) (ExternalURL, error) {
 
 func (u ExternalURL) String() string { return u.value }
 func (u ExternalURL) IsZero() bool   { return u.value == "" }
-
-type AssetPath struct {
-	value string
-}
-
-func NewAssetPath(value string) (AssetPath, error) {
-	value = strings.TrimSpace(value)
-	if value == "" || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") {
-		return AssetPath{}, fmt.Errorf("%w: invalid asset path", ErrInvalidValue)
-	}
-	return AssetPath{value: value}, nil
-}
-
-func (p AssetPath) String() string { return p.value }
-func (p AssetPath) IsZero() bool   { return p.value == "" }

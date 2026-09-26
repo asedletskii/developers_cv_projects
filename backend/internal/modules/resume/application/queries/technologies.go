@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ListTechnologiesQuery struct {
@@ -22,6 +22,10 @@ type GetTechnologyQuery struct {
 type TechnologiesReader interface {
 	ListTechnologies(context.Context, ListTechnologiesQuery) ([]TechnologyView, error)
 	GetTechnology(context.Context, GetTechnologyQuery) (TechnologyView, error)
+}
+
+type TechnologiesSource interface {
+	ReadTechnologies(context.Context, valueobjects.ID) ([]TechnologyView, error)
 }
 
 type ListTechnologiesQueryHandler struct{ reader TechnologiesReader }

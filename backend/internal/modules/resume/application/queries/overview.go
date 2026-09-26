@@ -3,7 +3,7 @@ package queries
 import (
 	"context"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
 )
 
@@ -13,6 +13,10 @@ type GetOverviewQuery struct {
 }
 type OverviewReader interface {
 	GetOverview(context.Context, GetOverviewQuery) (ResumeOverviewView, error)
+}
+
+type OverviewSource interface {
+	ReadOverview(context.Context, valueobjects.ID) (ResumeOverviewView, error)
 }
 type GetOverviewQueryHandler struct{ reader OverviewReader }
 

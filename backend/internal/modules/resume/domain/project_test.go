@@ -19,12 +19,12 @@ func TestNewProjectBuildsOwnedChildren(t *testing.T) {
 	contacts := entities.EmptyContacts()
 	contributor, err := entities.NewContributor(entities.ContributorParams{Name: " Jane ", Surname: " Doe ", Role: " Developer ", Contacts: contacts})
 	require.NoError(t, err)
-	screenshot, err := valueobjects.NewAssetPath("/assets/project.png")
+	screenshot, err := valueobjects.NewExternalURL("https://example.com/assets/project.png")
 	require.NoError(t, err)
 
 	project, err := NewProject(ProjectParams{
 		ID: id, ResumeID: resumeID, Name: " My project ",
-		Screenshots: []valueobjects.AssetPath{screenshot},
+		Screenshots: []valueobjects.ExternalURL{screenshot},
 		Stack:       []entities.Technology{technology}, Contributors: []entities.Contributor{contributor},
 	})
 	require.NoError(t, err)

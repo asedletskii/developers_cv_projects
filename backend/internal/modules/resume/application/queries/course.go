@@ -3,7 +3,7 @@ package queries
 import (
 	"context"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
 )
 
@@ -27,6 +27,10 @@ type CourseView struct {
 type CoursesReader interface {
 	ListCourses(context.Context, ListCoursesQuery) ([]CourseView, error)
 	GetCourse(context.Context, GetCourseQuery) (CourseView, error)
+}
+
+type CoursesSource interface {
+	ReadCourses(context.Context, valueobjects.ID) ([]CourseView, error)
 }
 type ListCoursesQueryHandler struct{ reader CoursesReader }
 

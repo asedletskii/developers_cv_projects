@@ -2,55 +2,78 @@ package readers
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type TechnologiesReader struct{ pool *pgxpool.Pool }
+type TechnologiesReader struct{ db *gorm.DB }
 
-func NewTechnologiesReader(pool *pgxpool.Pool) *TechnologiesReader {
-	return &TechnologiesReader{pool: pool}
-}
+func NewTechnologiesReader(db *gorm.DB) *TechnologiesReader { return &TechnologiesReader{db: db} }
 
 func (r *TechnologiesReader) ListTechnologies(ctx context.Context, q queries.ListTechnologiesQuery) ([]queries.TechnologyView, error) {
-	if r == nil || r.pool == nil {
-		return nil, fmt.Errorf("list technologies: reader dependencies are nil")
-	}
-	rows, err := r.pool.Query(ctx, `SELECT t.id::text,t.resume_id::text,t.name,t.grade,t.position FROM resume_technologies t JOIN resumes rr ON rr.id=t.resume_id WHERE t.resume_id=$1 AND rr.user_id=$2 ORDER BY t.position`, q.ResumeID.UUID(), q.UserID.UUID())
+	db, err := resolveDB(ctx, r.db, "list technologies")
 	if err != nil {
+		return nil, err
+	}
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return nil, fmt.Errorf("list technologies: invalid query")
+	}
+	var models []gormmodel.ResumeTechnology
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_technologies.resume_id").Where("resume_technologies.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	if err := readDB.Order("position").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list technologies: %w", err)
 	}
-	defer rows.Close()
-	out := make([]queries.TechnologyView, 0)
-	for rows.Next() {
-		var v queries.TechnologyView
-		if err := rows.Scan(&v.ID, &v.ResumeID, &v.Name, &v.Grade, &v.Position); err != nil {
-			return nil, fmt.Errorf("scan technology: %w", err)
-		}
-		out = append(out, v)
+	out := make([]queries.TechnologyView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.TechnologyView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Name: model.Name, Grade: model.Grade, Position: model.Position})
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate technologies: %w", err)
+	return out, nil
+}
+
+func (r *TechnologiesReader) ReadTechnologies(ctx context.Context, resumeID valueobjects.ID) ([]queries.TechnologyView, error) {
+	db, err := resolveDB(ctx, r.db, "list technologies")
+	if err != nil {
+		return nil, err
+	}
+	if resumeID.IsZero() {
+		return nil, fmt.Errorf("list technologies: invalid query")
+	}
+	var models []gormmodel.ResumeTechnology
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_technologies.resume_id").Where("resume_technologies.resume_id = ?", resumeID.UUID())
+	if err := readDB.Order("position").Find(&models).Error; err != nil {
+		return nil, fmt.Errorf("list technologies: %w", err)
+	}
+	out := make([]queries.TechnologyView, 0, len(models))
+	for _, model := range models {
+		out = append(out, queries.TechnologyView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Name: model.Name, Grade: model.Grade, Position: model.Position})
 	}
 	return out, nil
 }
 
 func (r *TechnologiesReader) GetTechnology(ctx context.Context, q queries.GetTechnologyQuery) (queries.TechnologyView, error) {
-	if r == nil || r.pool == nil {
-		return queries.TechnologyView{}, fmt.Errorf("get technology: reader dependencies are nil")
+	db, err := resolveDB(ctx, r.db, "get technology")
+	if err != nil {
+		return queries.TechnologyView{}, err
 	}
-	var v queries.TechnologyView
-	err := r.pool.QueryRow(ctx, `SELECT t.id::text,t.resume_id::text,t.name,t.grade,t.position FROM resume_technologies t JOIN resumes rr ON rr.id=t.resume_id WHERE t.id=$1 AND t.resume_id=$2 AND rr.user_id=$3`, q.TechnologyID.UUID(), q.ResumeID.UUID(), q.UserID.UUID()).Scan(&v.ID, &v.ResumeID, &v.Name, &v.Grade, &v.Position)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return v, queries.ErrResumeNotFound
+	if q.ResumeID.IsZero() || q.TechnologyID.IsZero() || q.UserID.IsZero() {
+		return queries.TechnologyView{}, fmt.Errorf("get technology: invalid query")
+	}
+	var model gormmodel.ResumeTechnology
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_technologies.resume_id").Where("resume_technologies.id = ? AND resume_technologies.resume_id = ?", q.TechnologyID.UUID(), q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.TechnologyView{}, queries.ErrResumeNotFound
 	}
 	if err != nil {
-		return v, fmt.Errorf("get technology: %w", err)
+		return queries.TechnologyView{}, fmt.Errorf("get technology: %w", err)
 	}
-	return v, nil
+	return queries.TechnologyView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Name: model.Name, Grade: model.Grade, Position: model.Position}, nil
 }

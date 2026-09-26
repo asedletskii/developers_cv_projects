@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ListLanguagesQuery struct {
@@ -22,6 +22,10 @@ type GetLanguageQuery struct {
 type LanguagesReader interface {
 	ListLanguages(context.Context, ListLanguagesQuery) ([]LanguageView, error)
 	GetLanguage(context.Context, GetLanguageQuery) (LanguageView, error)
+}
+
+type LanguagesSource interface {
+	ReadLanguages(context.Context, valueobjects.ID) ([]LanguageView, error)
 }
 
 type ListLanguagesQueryHandler struct{ reader LanguagesReader }

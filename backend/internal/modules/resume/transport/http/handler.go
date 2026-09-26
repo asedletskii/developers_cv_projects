@@ -36,33 +36,33 @@ type Handler struct {
 }
 
 type HandlerDependencies struct {
-	ListResumes    *queries.ListResumesQueryHandler
-	CreateResume   *commands.CreateResumeHandler
-	GetResume      *queries.GetResumeQueryHandler
-	UpdateResume   *commands.UpdateResumeHandler
-	DeleteResume   *commands.DeleteResumeHandler
-	GetOverview    *queries.GetOverviewQueryHandler
-	UpdateOverview *commands.UpdateOverviewHandler
-	CreateProfile  *commands.CreateResumeProfileHandler
-	GetProfile     *queries.GetResumeProfileQueryHandler
-	UpdateProfile  *commands.UpdateResumeProfileHandler
-	CreateContacts *commands.CreateResumeContactsHandler
-	GetContacts    *queries.GetResumeContactsQueryHandler
-	UpdateContacts *commands.UpdateResumeContactsHandler
-	Skills         *skillsHandler.Handler
-	Languages      *languagesHandler.Handler
-	Technologies   *technologiesHandler.Handler
-	Experiences    *experiencesHandler.Handler
-	Education      *educationHandler.Handler
-	Courses        *coursesHandler.Handler
-	Activities     *activitiesHandler.Handler
-	Projects       *projectsHandler.Handler
-	Public         *publichandler.Handler
+	ListResumes        *queries.ListResumesQueryHandler
+	CreateResume       *commands.CreateResumeHandler
+	GetResume          *queries.GetResumeQueryHandler
+	ReplaceResumeTitle *commands.ReplaceResumeTitleHandler
+	DeleteResume       *commands.DeleteResumeHandler
+	GetOverview        *queries.GetOverviewQueryHandler
+	UpdateOverview     *commands.UpdateOverviewHandler
+	CreateProfile      *commands.CreateResumeProfileHandler
+	GetProfile         *queries.GetResumeProfileQueryHandler
+	UpdateProfile      *commands.UpdateResumeProfileHandler
+	CreateContacts     *commands.CreateResumeContactsHandler
+	GetContacts        *queries.GetResumeContactsQueryHandler
+	UpdateContacts     *commands.UpdateResumeContactsHandler
+	Skills             *skillsHandler.Handler
+	Languages          *languagesHandler.Handler
+	Technologies       *technologiesHandler.Handler
+	Experiences        *experiencesHandler.Handler
+	Education          *educationHandler.Handler
+	Courses            *coursesHandler.Handler
+	Activities         *activitiesHandler.Handler
+	Projects           *projectsHandler.Handler
+	Public             *publichandler.Handler
 }
 
 func NewHandler(deps HandlerDependencies) *Handler {
 	return &Handler{
-		resume:       newResumeHandler(deps.CreateResume, deps.GetResume, deps.UpdateResume, deps.DeleteResume, deps.ListResumes),
+		resume:       newResumeHandler(deps.CreateResume, deps.GetResume, deps.ReplaceResumeTitle, deps.DeleteResume, deps.ListResumes),
 		overview:     overviewhandler.NewHandler(deps.GetOverview, deps.UpdateOverview),
 		profile:      profilehandler.NewHandler(deps.CreateProfile, deps.GetProfile, deps.UpdateProfile),
 		contacts:     contactshandler.NewHandler(deps.CreateContacts, deps.GetContacts, deps.UpdateContacts),
@@ -82,7 +82,7 @@ func (h *Handler) ListResumes(c *gin.Context)          { h.resume.List(c) }
 func (h *Handler) GetPublicResume(c *gin.Context)      { h.public.Handle(c) }
 func (h *Handler) CreateResume(c *gin.Context)         { h.resume.Create(c) }
 func (h *Handler) GetResume(c *gin.Context)            { h.resume.Get(c) }
-func (h *Handler) UpdateResume(c *gin.Context)         { h.resume.Update(c) }
+func (h *Handler) ReplaceResumeTitle(c *gin.Context)   { h.resume.ReplaceTitle(c) }
 func (h *Handler) GetResumeOverview(c *gin.Context)    { h.overview.Get(c) }
 func (h *Handler) UpdateResumeOverview(c *gin.Context) { h.overview.Update(c) }
 func (h *Handler) DeleteResume(c *gin.Context)         { h.resume.Delete(c) }
@@ -99,11 +99,13 @@ func (h *Handler) CreateLanguage(c *gin.Context)       { h.languages.Create(c) }
 func (h *Handler) ListLanguages(c *gin.Context)        { h.languages.List(c) }
 func (h *Handler) GetLanguage(c *gin.Context)          { h.languages.Get(c) }
 func (h *Handler) UpdateLanguage(c *gin.Context)       { h.languages.Update(c) }
+func (h *Handler) ReorderLanguages(c *gin.Context)     { h.languages.Reorder(c) }
 func (h *Handler) DeleteLanguage(c *gin.Context)       { h.languages.Delete(c) }
 func (h *Handler) CreateTechnology(c *gin.Context)     { h.technologies.Create(c) }
 func (h *Handler) ListTechnologies(c *gin.Context)     { h.technologies.List(c) }
 func (h *Handler) GetTechnology(c *gin.Context)        { h.technologies.Get(c) }
 func (h *Handler) UpdateTechnology(c *gin.Context)     { h.technologies.Update(c) }
+func (h *Handler) ReorderTechnologies(c *gin.Context)  { h.technologies.Reorder(c) }
 func (h *Handler) DeleteTechnology(c *gin.Context)     { h.technologies.Delete(c) }
 func (h *Handler) CreateExperience(c *gin.Context)     { h.experiences.Create(c) }
 func (h *Handler) ListExperiences(c *gin.Context)      { h.experiences.List(c) }

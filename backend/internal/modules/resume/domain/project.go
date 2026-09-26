@@ -14,7 +14,7 @@ type ProjectParams struct {
 	Name         string
 	Description  *string
 	Role         *string
-	Screenshots  []valueobjects.AssetPath
+	Screenshots  []valueobjects.ExternalURL
 	Link         *valueobjects.ExternalURL
 	GitLink      *valueobjects.ExternalURL
 	Stack        []entities.Technology
@@ -27,7 +27,7 @@ type Project struct {
 	name         string
 	description  *string
 	role         *string
-	screenshots  []valueobjects.AssetPath
+	screenshots  []valueobjects.ExternalURL
 	link         *valueobjects.ExternalURL
 	gitLink      *valueobjects.ExternalURL
 	stack        []entities.Technology
@@ -45,7 +45,7 @@ func NewProject(params ProjectParams) (*Project, error) {
 		name:         name,
 		description:  cloneString(params.Description),
 		role:         cloneString(params.Role),
-		screenshots:  cloneAssetPaths(params.Screenshots),
+		screenshots:  cloneExternalURLs(params.Screenshots),
 		link:         cloneExternalURL(params.Link),
 		gitLink:      cloneExternalURL(params.GitLink),
 		stack:        append([]entities.Technology(nil), params.Stack...),
@@ -63,14 +63,14 @@ func (p *Project) Replace(params ProjectParams) error {
 	return nil
 }
 
-func (p *Project) ID() valueobjects.ID                   { return p.id }
-func (p *Project) ResumeID() valueobjects.ID             { return p.resumeID }
-func (p *Project) Name() string                          { return p.name }
-func (p *Project) Description() *string                  { return cloneString(p.description) }
-func (p *Project) Role() *string                         { return cloneString(p.role) }
-func (p *Project) Screenshots() []valueobjects.AssetPath { return cloneAssetPaths(p.screenshots) }
-func (p *Project) Link() *valueobjects.ExternalURL       { return cloneExternalURL(p.link) }
-func (p *Project) GitLink() *valueobjects.ExternalURL    { return cloneExternalURL(p.gitLink) }
+func (p *Project) ID() valueobjects.ID                     { return p.id }
+func (p *Project) ResumeID() valueobjects.ID               { return p.resumeID }
+func (p *Project) Name() string                            { return p.name }
+func (p *Project) Description() *string                    { return cloneString(p.description) }
+func (p *Project) Role() *string                           { return cloneString(p.role) }
+func (p *Project) Screenshots() []valueobjects.ExternalURL { return cloneExternalURLs(p.screenshots) }
+func (p *Project) Link() *valueobjects.ExternalURL         { return cloneExternalURL(p.link) }
+func (p *Project) GitLink() *valueobjects.ExternalURL      { return cloneExternalURL(p.gitLink) }
 func (p *Project) Stack() []entities.Technology {
 	return append([]entities.Technology(nil), p.stack...)
 }

@@ -5,7 +5,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CreateLanguageRepositoryCommand struct {
@@ -25,6 +25,12 @@ type UpdateLanguageRepositoryCommand struct {
 	UserID   useridentity.ID
 }
 
+type ReorderLanguagesRepositoryCommand struct {
+	ResumeID    valueobjects.ID
+	UserID      useridentity.ID
+	LanguageIDs []valueobjects.ID
+}
+
 type DeleteLanguageRepositoryCommand struct {
 	ResumeID, LanguageID valueobjects.ID
 	UserID               useridentity.ID
@@ -40,6 +46,10 @@ type GetLanguageRepository interface {
 
 type UpdateLanguageRepository interface {
 	UpdateLanguage(context.Context, UpdateLanguageRepositoryCommand) error
+}
+
+type ReorderLanguagesRepository interface {
+	ReorderLanguages(context.Context, ReorderLanguagesRepositoryCommand) error
 }
 
 type DeleteLanguageRepository interface {

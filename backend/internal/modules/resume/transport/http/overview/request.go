@@ -2,58 +2,90 @@ package overview
 
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
-
-	"github.com/google/uuid"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type OverviewRequest struct {
-	Presentation PresentationRequest `json:"presentation"`
+type overviewRequest struct {
+	Presentation presentationRequest `json:"presentation"`
 }
-type PresentationRequest struct {
-	Theme        *ThemeRequest        `json:"theme,omitempty"`
-	Greeting     GreetingRequest      `json:"greeting"`
-	Availability *AvailabilityRequest `json:"availability,omitempty"`
+type presentationRequest struct {
+	Theme        *themeRequest        `json:"theme,omitempty"`
+	Greeting     greetingRequest      `json:"greeting"`
+	Availability *availabilityRequest `json:"availability,omitempty"`
 	ResumeLink   *string              `json:"resumeLink,omitempty"`
-	Sections     []SectionRequest     `json:"sections"`
+	Sections     []sectionRequest     `json:"sections"`
 }
-type ThemeRequest struct {
+type themeRequest struct {
 	Primary   *string `json:"primary,omitempty"`
 	Secondary *string `json:"secondary,omitempty"`
 }
-type GreetingRequest struct {
+type greetingRequest struct {
 	First           string `json:"first"`
 	Second          string `json:"second"`
 	SecondHighlight string `json:"secondHighlight"`
 	Third           string `json:"third"`
 }
-type AvailabilityRequest struct {
+type availabilityRequest struct {
 	Status string  `json:"status"`
 	From   *string `json:"from,omitempty"`
 	Note   *string `json:"note,omitempty"`
 }
-type SectionRequest struct {
+type sectionRequest struct {
 	ID        string `json:"id"`
 	Enabled   bool   `json:"enabled"`
 	Collapsed bool   `json:"collapsed"`
 }
 
-func (r OverviewRequest) ToCommand(uid uuid.UUID, id valueobjects.ID) (commands.UpdateOverviewCommand, error) {
-	u, e := useridentity.IDFromUUID(uid)
-	if e != nil {
-		return commands.UpdateOverviewCommand{}, e
+func (r overviewRequest) ToCommand(uid useridentity.ID, id valueobjects.ID) (commands.UpdateOverviewCommand, error) {
+	p := commands.OverviewInput{
+		Greeting: commands.GreetingInput{
+			First:           r.Presentation.Greeting.First,
+			Second:          r.Presentation.Greeting.Second,
+			SecondHighlight: r.Presentation.Greeting.SecondHighlight,
+			Third:           r.Presentation.Greeting.Third,
+		},
 	}
-	p := commands.OverviewInput{Greeting: commands.GreetingInput{First: r.Presentation.Greeting.First, Second: r.Presentation.Greeting.Second, SecondHighlight: r.Presentation.Greeting.SecondHighlight, Third: r.Presentation.Greeting.Third}, ResumeLink: r.Presentation.ResumeLink}
+	if r.Presentation.ResumeLink != nil {
+		link, err := valueobjects.NewExternalURL(*r.Presentation.ResumeLink)
+		if err != nil {
+			return commands.UpdateOverviewCommand{}, err
+		}
+		p.ResumeLink = &link
+	}
 	if r.Presentation.Theme != nil {
-		p.Theme = &commands.ThemeInput{Primary: r.Presentation.Theme.Primary, Secondary: r.Presentation.Theme.Secondary}
+		theme := &commands.ThemeInput{}
+		if r.Presentation.Theme.Primary != nil {
+			color, err := valueobjects.NewColor(*r.Presentation.Theme.Primary)
+			if err != nil {
+				return commands.UpdateOverviewCommand{}, err
+			}
+			theme.Primary = &color
+		}
+		if r.Presentation.Theme.Secondary != nil {
+			color, err := valueobjects.NewColor(*r.Presentation.Theme.Secondary)
+			if err != nil {
+				return commands.UpdateOverviewCommand{}, err
+			}
+			theme.Secondary = &color
+		}
+		p.Theme = theme
 	}
 	if r.Presentation.Availability != nil {
-		p.Availability = &commands.AvailabilityInput{Status: r.Presentation.Availability.Status, From: r.Presentation.Availability.From, Note: r.Presentation.Availability.Note}
+		availability := &commands.AvailabilityInput{Status: enums.AvailabilityStatus(r.Presentation.Availability.Status), Note: r.Presentation.Availability.Note}
+		if r.Presentation.Availability.From != nil {
+			date, err := valueobjects.ParseDate(*r.Presentation.Availability.From)
+			if err != nil {
+				return commands.UpdateOverviewCommand{}, err
+			}
+			availability.From = &date
+		}
+		p.Availability = availability
 	}
 	p.Sections = make([]commands.SectionInput, len(r.Presentation.Sections))
-	for i, s := range r.Presentation.Sections {
-		p.Sections[i] = commands.SectionInput{ID: s.ID, Enabled: s.Enabled, Collapsed: s.Collapsed}
+	for i, section := range r.Presentation.Sections {
+		p.Sections[i] = commands.SectionInput{ID: enums.SectionID(section.ID), Enabled: section.Enabled, Collapsed: section.Collapsed}
 	}
-	return commands.UpdateOverviewCommand{ResumeID: id, UserID: u, Presentation: p}, nil
+	return commands.UpdateOverviewCommand{ResumeID: id, UserID: uid, Presentation: p}, nil
 }

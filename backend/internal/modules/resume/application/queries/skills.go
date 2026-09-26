@@ -3,7 +3,7 @@ package queries
 import (
 	"context"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
 )
 
@@ -13,6 +13,10 @@ type GetSkillsQuery struct {
 }
 type SkillsReader interface {
 	GetSkills(context.Context, GetSkillsQuery) (SkillsView, error)
+}
+
+type SkillsSource interface {
+	ReadSkills(context.Context, valueobjects.ID) (SkillsView, error)
 }
 type GetSkillsQueryHandler struct{ reader SkillsReader }
 

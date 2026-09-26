@@ -3,7 +3,7 @@ package queries
 import (
 	"context"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
 )
 
@@ -34,6 +34,10 @@ type ExperienceView struct {
 type ExperiencesReader interface {
 	ListExperiences(context.Context, ListExperiencesQuery) ([]ExperienceView, error)
 	GetExperience(context.Context, GetExperienceQuery) (ExperienceView, error)
+}
+
+type ExperiencesSource interface {
+	ReadExperiences(context.Context, valueobjects.ID) ([]ExperienceView, error)
 }
 type ListExperiencesQueryHandler struct{ reader ExperiencesReader }
 

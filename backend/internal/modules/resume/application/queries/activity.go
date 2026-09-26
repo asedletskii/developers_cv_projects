@@ -3,7 +3,7 @@ package queries
 import (
 	"context"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
 )
 
@@ -27,6 +27,10 @@ type ActivityView struct {
 type ActivitiesReader interface {
 	ListActivities(context.Context, ListActivitiesQuery) ([]ActivityView, error)
 	GetActivity(context.Context, GetActivityQuery) (ActivityView, error)
+}
+
+type ActivitiesSource interface {
+	ReadActivities(context.Context, valueobjects.ID) ([]ActivityView, error)
 }
 type ListActivitiesQueryHandler struct{ reader ActivitiesReader }
 

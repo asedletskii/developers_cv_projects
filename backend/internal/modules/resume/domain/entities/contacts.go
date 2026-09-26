@@ -46,8 +46,11 @@ func cloneString(value *string) *string {
 	if value == nil {
 		return nil
 	}
-	copy := *value
-	return &copy
+	normalized := strings.TrimSpace(*value)
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }
 
 func cloneTelegram(value *valueobjects.Telegram) *valueobjects.Telegram {

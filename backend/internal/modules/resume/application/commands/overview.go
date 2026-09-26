@@ -6,26 +6,26 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"fmt"
 )
 
 type GreetingInput struct{ First, Second, SecondHighlight, Third string }
 type AvailabilityInput struct {
-	Status string
-	From   *string
+	Status enums.AvailabilityStatus
+	From   *valueobjects.Date
 	Note   *string
 }
-type ThemeInput struct{ Primary, Secondary *string }
+type ThemeInput struct{ Primary, Secondary *valueobjects.Color }
 type SectionInput struct {
-	ID                 string
+	ID                 enums.SectionID
 	Enabled, Collapsed bool
 }
 type OverviewInput struct {
 	Theme        *ThemeInput
 	Greeting     GreetingInput
 	Availability *AvailabilityInput
-	ResumeLink   *string
+	ResumeLink   *valueobjects.ExternalURL
 	Sections     []SectionInput
 }
 
@@ -35,18 +35,10 @@ func (i OverviewInput) toDomain() (domain.OverviewPresentation, error) {
 	if i.Theme != nil {
 		var a, b *valueobjects.Color
 		if i.Theme.Primary != nil {
-			v, e := valueobjects.NewColor(*i.Theme.Primary)
-			if e != nil {
-				return domain.OverviewPresentation{}, e
-			}
-			a = &v
+			a = cloneColor(i.Theme.Primary)
 		}
 		if i.Theme.Secondary != nil {
-			v, e := valueobjects.NewColor(*i.Theme.Secondary)
-			if e != nil {
-				return domain.OverviewPresentation{}, e
-			}
-			b = &v
+			b = cloneColor(i.Theme.Secondary)
 		}
 		v, e := valueobjects.NewThemeSettings(valueobjects.ThemeSettingsParams{Primary: a, Secondary: b})
 		if e != nil {
@@ -56,31 +48,16 @@ func (i OverviewInput) toDomain() (domain.OverviewPresentation, error) {
 	}
 	var av *valueobjects.Availability
 	if i.Availability != nil {
-		var from *valueobjects.Date
-		if i.Availability.From != nil {
-			v, e := valueobjects.ParseDate(*i.Availability.From)
-			if e != nil {
-				return domain.OverviewPresentation{}, e
-			}
-			from = &v
-		}
-		v, e := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: enums.AvailabilityStatus(i.Availability.Status), From: from, Note: i.Availability.Note})
+		v, e := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: i.Availability.Status, From: i.Availability.From, Note: i.Availability.Note})
 		if e != nil {
 			return domain.OverviewPresentation{}, e
 		}
 		av = &v
 	}
-	var link *valueobjects.AssetPath
-	if i.ResumeLink != nil {
-		v, e := valueobjects.NewAssetPath(*i.ResumeLink)
-		if e != nil {
-			return domain.OverviewPresentation{}, e
-		}
-		link = &v
-	}
+	link := cloneExternalURL(i.ResumeLink)
 	sections := make([]valueobjects.SectionSettings, len(i.Sections))
 	for n, v := range i.Sections {
-		x, e := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: enums.SectionID(v.ID), Enabled: v.Enabled, Collapsed: v.Collapsed})
+		x, e := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed})
 		if e != nil {
 			return domain.OverviewPresentation{}, e
 		}
@@ -118,4 +95,20 @@ func (h *UpdateOverviewHandler) Handle(ctx context.Context, c UpdateOverviewComm
 	return h.uow.Do(ctx, func(tx context.Context) error {
 		return h.updater.UpdateOverview(tx, ports.UpdateOverviewRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, Overview: o})
 	})
+}
+
+func cloneColor(value *valueobjects.Color) *valueobjects.Color {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func cloneExternalURL(value *valueobjects.ExternalURL) *valueobjects.ExternalURL {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
 }

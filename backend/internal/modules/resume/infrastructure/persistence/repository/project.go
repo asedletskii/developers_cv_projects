@@ -16,7 +16,7 @@ import (
 )
 
 func (r *ProjectRepository) CreateProject(ctx context.Context, c ports.CreateProjectRepositoryCommand) error {
-	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
+	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}
@@ -32,10 +32,7 @@ func (r *ProjectRepository) CreateProject(ctx context.Context, c ports.CreatePro
 		return err
 	}
 	if err := tx.WithContext(ctx).Create(&item).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return err
+		return mapDBError(err)
 	}
 	return writeProjectChildrenFromDomain(ctx, tx, &item, c.Project)
 }
@@ -161,9 +158,9 @@ func (r *ProjectRepository) mapProject(ctx context.Context, tx *gorm.DB, model g
 	if err := tx.WithContext(ctx).Where("project_id = ?", model.ID).Order("position").Find(&screenshots).Error; err != nil {
 		return nil, err
 	}
-	screenshotValues := make([]valueobjects.AssetPath, 0, len(screenshots))
+	screenshotValues := make([]valueobjects.ExternalURL, 0, len(screenshots))
 	for _, screenshot := range screenshots {
-		value, err := valueobjects.NewAssetPath(screenshot.Path)
+		value, err := valueobjects.NewExternalURL(screenshot.Path)
 		if err != nil {
 			return nil, err
 		}

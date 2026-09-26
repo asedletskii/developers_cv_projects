@@ -3,10 +3,7 @@
 package app
 
 import (
-	"context"
-
 	"github.com/google/wire"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumeports "developers-cv/backend/internal/modules/resume/application/ports"
@@ -39,15 +36,10 @@ func Initialize() (*Application, error) {
 	panic(wire.Build(
 		config.Load,
 
-		func(cfg config.Config) (*pgxpool.Pool, error) {
-			return newPostgresPool(context.Background(), cfg)
-		},
-
 		logger.New,
 		newHealthService,
 		telemetry.New,
 		telemetry.NewMetrics,
-		newPublicResumeReader,
 		newListResumesReader,
 		newResumeMetadataReader,
 		newResumeOverviewReader,
@@ -80,7 +72,7 @@ func Initialize() (*Application, error) {
 		resumerepository.NewProjectRepository,
 		wire.Bind(new(resumeports.CreateResumeRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumeports.GetResumeRepository), new(*resumerepository.ResumeRepository)),
-		wire.Bind(new(resumeports.UpdateResumeRepository), new(*resumerepository.ResumeRepository)),
+		wire.Bind(new(resumeports.ReplaceResumeTitleRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumeports.DeleteResumeRepository), new(*resumerepository.ResumeRepository)),
 		wire.Bind(new(resumeports.CreateResumeProfileRepository), new(*resumerepository.ProfileRepository)),
 		wire.Bind(new(resumeports.GetResumeProfileRepository), new(*resumerepository.ProfileRepository)),
@@ -117,8 +109,20 @@ func Initialize() (*Application, error) {
 		wire.Bind(new(resumeports.UpdateProjectRepository), new(*resumerepository.ProjectRepository)),
 		wire.Bind(new(resumeports.DeleteProjectRepository), new(*resumerepository.ProjectRepository)),
 		wire.Bind(new(resumequeries.ResumeMetadataReader), new(*resumereaders.ResumeMetadataReader)),
+		wire.Bind(new(resumequeries.OverviewSource), new(*resumereaders.OverviewReader)),
+		wire.Bind(new(resumequeries.ResumeProfileSource), new(*resumereaders.ProfileReader)),
+		wire.Bind(new(resumequeries.ResumeContactsSource), new(*resumereaders.ContactsReader)),
+		wire.Bind(new(resumequeries.SkillsSource), new(*resumereaders.SkillsReader)),
+		wire.Bind(new(resumequeries.LanguagesSource), new(*resumereaders.LanguagesReader)),
+		wire.Bind(new(resumequeries.TechnologiesSource), new(*resumereaders.TechnologiesReader)),
+		wire.Bind(new(resumequeries.ExperiencesSource), new(*resumereaders.ExperiencesReader)),
+		wire.Bind(new(resumequeries.EducationsSource), new(*resumereaders.EducationReader)),
+		wire.Bind(new(resumequeries.CoursesSource), new(*resumereaders.CourseReader)),
+		wire.Bind(new(resumequeries.ActivitiesSource), new(*resumereaders.ActivityReader)),
+		wire.Bind(new(resumequeries.ProjectsSource), new(*resumereaders.ProjectsReader)),
 		wire.Bind(new(resumequeries.OverviewReader), new(*resumereaders.OverviewReader)),
-		wire.Bind(new(resumequeries.ResumeReader), new(*resumereaders.ResumeReader)),
+		wire.Bind(new(resumequeries.OwnedResumeReader), new(*resumereaders.ResumeReader)),
+		wire.Bind(new(resumequeries.PublicResumeReader), new(*resumereaders.ResumeReader)),
 		wire.Bind(new(resumeports.CreateOverviewRepository), new(*resumerepository.OverviewRepository)),
 		wire.Bind(new(resumeports.GetOverviewRepository), new(*resumerepository.OverviewRepository)),
 		wire.Bind(new(resumeports.UpdateOverviewRepository), new(*resumerepository.OverviewRepository)),
@@ -150,7 +154,7 @@ func Initialize() (*Application, error) {
 		userqueries.NewGetProfileHandler,
 		userhttp.NewHandler,
 		resumecommands.NewCreateResumeHandler,
-		resumecommands.NewUpdateResumeHandler,
+		resumecommands.NewReplaceResumeTitleHandler,
 		resumecommands.NewUpdateOverviewHandler,
 		resumecommands.NewDeleteResumeHandler,
 		resumecommands.NewCreateResumeProfileHandler,
@@ -163,11 +167,13 @@ func Initialize() (*Application, error) {
 		resumequeries.NewListLanguagesQueryHandler,
 		resumequeries.NewGetLanguageQueryHandler,
 		resumecommands.NewUpdateLanguageHandler,
+		resumecommands.NewReorderLanguagesHandler,
 		resumecommands.NewDeleteLanguageHandler,
 		resumecommands.NewCreateTechnologyHandler,
 		resumequeries.NewListTechnologiesQueryHandler,
 		resumequeries.NewGetTechnologyQueryHandler,
 		resumecommands.NewUpdateTechnologyHandler,
+		resumecommands.NewReorderTechnologiesHandler,
 		resumecommands.NewDeleteTechnologyHandler,
 		resumecommands.NewCreateExperienceHandler,
 		resumequeries.NewListExperiencesQueryHandler,

@@ -31,10 +31,7 @@ func (r *ProfileRepository) CreateProfile(ctx context.Context, c ports.CreateRes
 		return domain.ErrEntityNotFound
 	}
 	if e = tx.WithContext(ctx).Create(&m).Error; e != nil {
-		if errors.Is(e, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return fmt.Errorf("create profile: %w", e)
+		return fmt.Errorf("create profile: %w", mapDBError(e))
 	}
 	if len(fs) > 0 {
 		if e = tx.WithContext(ctx).Create(&fs).Error; e != nil {
@@ -79,6 +76,9 @@ func (r *ProfileRepository) UpdateProfile(ctx context.Context, c ports.UpdateRes
 	}
 	m.ID = current.ID
 	m.ResumeID = current.ResumeID
+	for i := range fs {
+		fs[i].ProfileID = current.ID
+	}
 	result := tx.WithContext(ctx).Model(&gormmodel.ResumeProfile{}).Where("id = ? AND resume_id IN (SELECT id FROM resumes WHERE id = ? AND user_id = ?)", m.ID, m.ResumeID, c.UserID.UUID()).Updates(map[string]any{"name": m.Name, "surname": m.Surname, "patronymic": m.Patronymic, "position": m.Position, "photo_path": m.PhotoPath, "date_of_birth": m.DateOfBirth, "location": m.Location, "relocation": m.Relocation})
 	if result.Error != nil {
 		return fmt.Errorf("update profile: %w", result.Error)
@@ -116,7 +116,7 @@ func mapProfile(m gormmodel.ResumeProfile, fs []gormmodel.ResumeProfileWorkForma
 	if e != nil {
 		return nil, e
 	}
-	photo, e := valueobjects.NewAssetPath(m.PhotoPath)
+	photo, e := valueobjects.NewExternalURL(m.PhotoPath)
 	if e != nil {
 		return nil, e
 	}

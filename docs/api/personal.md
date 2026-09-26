@@ -1,0 +1,53 @@
+# Личные данные: профиль, контакты, навыки
+
+Три секции с **одной записью на резюме**. Сначала они не существуют: их создают `POST` (повторный `POST` → `409`), дальше меняют `PUT`.
+Фронтенд: `saveSingleton('profile' | 'contacts' | 'skills')`. Он сам выбирает `POST` или `PUT` по наличию поля в `GET /lk/resume/:id` (`view.profile`, `view.contacts`, `view.skills`).
+
+Общая схема ручек (`{section}` — `profile`, `contacts` или `skills`):
+
+| Метод и путь | Что делает | Ответ |
+|---|---|---|
+| `POST /lk/resume/:resumeId/{section}` | создать | `201 {"id"}`; `409`, если уже есть |
+| `GET /lk/resume/:resumeId/{section}` | прочитать | `200`; `404`, если не создана |
+| `PUT /lk/resume/:resumeId/{section}` | заменить целиком | `204`; `404`, если не создана |
+
+Удаления нет: секция живёт, пока существует резюме. Навыки можно «очистить» пустыми массивами; у контактов очистить всё нельзя (нужен хотя бы один — см. ниже).
+
+## Профиль (`/profile`) — блок «Обо мне»
+
+| Поле | Тип | Обяз. | Ограничения | Дефолт при создании |
+|---|---|---|---|---|
+| `name` | string | да | непустое | — |
+| `surname` | string | да | непустое | — |
+| `patronymic` | string | нет | пустая строка = не задано | отсутствует |
+| `position` | string | да | непустое (вакансия) | — |
+| `photoPath` | string | да | `http`/`https`-ссылка на фото | — |
+| `dateOfBirth` | string | да | `YYYY-MM-DD`, не в будущем | — |
+| `location` | string | да | непустое (город) | — |
+| `relocation` | boolean | нет | готовность к релокации; без ключа = `false` | `false` |
+| `workFormat` | string[] | нет | значения `fullTime partTime office remote hybrid`, без повторов | `[]` |
+
+Ответ `GET` дополнительно содержит `id` и `resumeId`.
+
+## Контакты (`/contacts`)
+
+| Поле | Тип | Обяз. | Ограничения | Дефолт при создании |
+|---|---|---|---|---|
+| `phone` | string | нет | свободная строка, формат не проверяется | отсутствует |
+| `telegram` | string | нет | без `@` (ведущий `@` отбрасывается); только `a-z A-Z 0-9 _` | отсутствует |
+| `email` | string | нет | корректный адрес (`name@host`) | отсутствует |
+| `hiddenContacts` | string[] | нет | `telegram email phone`, без повторов; контакты, которые на странице раскрываются кликом | `[]` |
+| `contactsText` | object | нет | если задан — хотя бы одно из `title`/`subtitle` (`{}` → `400`) | отсутствует |
+| `contactsText.title` | string | нет | пустая строка `""` = заголовок скрыт; поле отсутствует = текст по умолчанию | отсутствует |
+| `contactsText.subtitle` | string | нет | то же | отсутствует |
+
+**Важное ограничение:** задан должен быть хотя бы один из `phone`, `telegram`, `email` (в БД `resume_contacts_presence_check`), иначе `400`.
+
+## Навыки (`/skills`)
+
+| Поле | Тип | Обяз. | Ограничения | Дефолт при создании |
+|---|---|---|---|---|
+| `hardSkills` | string[] | нет | только значения справочника (`architecture testing cicd performance accessibility codeReview uiDesign api`), без повторов; порядок сохраняется | `[]` |
+| `softSkills` | string[] | нет | только `communication teamwork problemSolving timeManagement mentoring adaptability ownership`, без повторов | `[]` |
+
+Собственные значения бэкенд отклоняет (`400`): список закрытый. Оба массива могут быть пустыми.

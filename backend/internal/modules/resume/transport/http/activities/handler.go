@@ -10,7 +10,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -25,7 +25,7 @@ func NewHandler(create *commands.CreateActivityHandler, list *queries.ListActivi
 	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
 }
 
-type ActivityRequest struct {
+type activityRequest struct {
 	Type        string  `json:"type"`
 	Title       string  `json:"title"`
 	Description *string `json:"description,omitempty"`
@@ -38,7 +38,7 @@ func (h *Handler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body ActivityRequest
+	var body activityRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -62,7 +62,7 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	items, err := h.list.Handle(c.Request.Context(), queries.ListActivitiesQuery{ResumeID: rid, UserID: uid})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, items)
@@ -74,7 +74,7 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 	item, err := h.get.Handle(c.Request.Context(), queries.GetActivityQuery{ResumeID: rid, ActivityID: id, UserID: uid})
 	if err != nil {
-		common.WriteCommandError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, item)
@@ -84,7 +84,7 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var body ActivityRequest
+	var body activityRequest
 	if common.BindJSON(c, &body) != nil {
 		common.WriteInvalidBody(c)
 		return
@@ -111,7 +111,7 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-func activityInput(body ActivityRequest) (commands.ActivityInput, error) {
+func activityInput(body activityRequest) (commands.ActivityInput, error) {
 	var date *valueobjects.YearMonth
 	if body.Date != nil {
 		v, err := valueobjects.ParseYearMonth(*body.Date)

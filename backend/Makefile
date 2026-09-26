@@ -4,6 +4,7 @@ GO := go
 -include .env
 export
 
+
 .PHONY: help fmt vet test test-unit build run lint generate docker-build compose-up compose-down check migrate-up migrate-down migrate-version
 
 help:
@@ -64,16 +65,14 @@ migrate-up:
 
 migrate-down:
 	docker compose run --rm \
-		--entrypoint migrate \
+		--entrypoint /bin/sh \
 		migrations \
-		-path=/migrations \
-		-database "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable" \
-		down 1
+		-c \
+			'exec migrate -path=/migrations -database "$$MIGRATE_DATABASE_URL" down 1'
 
 migrate-version:
 	docker compose run --rm \
-		--entrypoint migrate \
+		--entrypoint /bin/sh \
 		migrations \
-		-path=/migrations \
-		-database "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable" \
-		version
+		-c \
+		'exec migrate -path=/migrations -database "$$MIGRATE_DATABASE_URL" version'

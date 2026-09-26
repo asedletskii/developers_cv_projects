@@ -21,10 +21,7 @@ func (r *SkillsRepository) CreateSkills(ctx context.Context, c ports.CreateSkill
 	}
 	m := gormmodel.ResumeSkills{ID: a.ID().UUID(), ResumeID: a.ResumeID().UUID()}
 	if e = tx.Create(&m).Error; e != nil {
-		if errors.Is(e, gorm.ErrDuplicatedKey) {
-			return domain.ErrDuplicateEntity
-		}
-		return e
+		return mapDBError(e)
 	}
 	for i, v := range a.HardSkills() {
 		if e = tx.Create(&gormmodel.ResumeSkillHard{SkillsID: m.ID, Value: string(v), Position: i}).Error; e != nil {

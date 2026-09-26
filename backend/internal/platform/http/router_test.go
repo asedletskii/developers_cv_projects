@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	publichttp "developers-cv/backend/internal/modules/resume/transport/http/public"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
@@ -127,11 +128,11 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 
 type routerPublicResumeReader struct{}
 
-func (routerPublicResumeReader) GetPublicResume(
+func (routerPublicResumeReader) GetPublic(
 	_ context.Context,
-	query resumequeries.PublicResumeQuery,
-) (resumequeries.PublicResumeView, error) {
-	return resumequeries.PublicResumeView{ID: query.ID.String(), Name: "Public Resume"}, nil
+	resumeID valueobjects.ID,
+) (resumequeries.ResumeView, error) {
+	return resumequeries.ResumeView{ID: resumeID.String()}, nil
 }
 
 func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
@@ -164,7 +165,7 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 	router.Handler().ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Contains(t, w.Body.String(), "Public Resume")
+	require.Contains(t, w.Body.String(), `"id":"10000000-0000-0000-0000-000000000001"`)
 }
 
 type routerGetProfileReader struct{}
@@ -252,11 +253,13 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		"POST /api/v1/lk/resume/:resumeId/languages":                    {},
 		"GET /api/v1/lk/resume/:resumeId/languages":                     {},
 		"GET /api/v1/lk/resume/:resumeId/languages/:languageId":         {},
+		"PUT /api/v1/lk/resume/:resumeId/languages/order":               {},
 		"PUT /api/v1/lk/resume/:resumeId/languages/:languageId":         {},
 		"DELETE /api/v1/lk/resume/:resumeId/languages/:languageId":      {},
 		"POST /api/v1/lk/resume/:resumeId/technologies":                 {},
 		"GET /api/v1/lk/resume/:resumeId/technologies":                  {},
 		"GET /api/v1/lk/resume/:resumeId/technologies/:technologyId":    {},
+		"PUT /api/v1/lk/resume/:resumeId/technologies/order":            {},
 		"PUT /api/v1/lk/resume/:resumeId/technologies/:technologyId":    {},
 		"DELETE /api/v1/lk/resume/:resumeId/technologies/:technologyId": {},
 		"POST /api/v1/lk/resume/:resumeId/experiences":                  {},
@@ -295,6 +298,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 	}
 
 	require.Equal(t, expected, actual)
+	require.NotContains(t, actual, "PATCH /api/v1/lk/resume/:resumeId")
 }
 
 func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {

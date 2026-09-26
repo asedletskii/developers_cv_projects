@@ -5,57 +5,38 @@ import (
 	"errors"
 	"net/http"
 
+	"gorm.io/gorm"
+
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
-	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
 	httpmiddleware "developers-cv/backend/internal/platform/http/middleware"
 	"developers-cv/backend/internal/platform/postgres"
 )
 
-func newPostgresPool(
-	ctx context.Context,
-	cfg config.Config,
-) (*pgxpool.Pool, error) {
-	return postgres.NewPool(ctx,
-		postgres.Config{
-			DSN:             cfg.Postgres.ConnectionString(),
-			MaxConns:        cfg.Postgres.MaxConns,
-			MinConns:        cfg.Postgres.MinConns,
-			MaxConnLifetime: cfg.Postgres.MaxConnLifetime,
-			MaxConnIdleTime: cfg.Postgres.MaxConnIdleTime,
-		},
-	)
+func newListResumesReader(db *gorm.DB) resumequeries.ListResumesReader {
+	return resumereaders.NewListResumesReader(db)
 }
 
-func newPublicResumeReader(pool *pgxpool.Pool) resumequeries.PublicResumeReader {
-	return resumereaders.NewPublicResumeReader(pool)
+func newResumeMetadataReader(db *gorm.DB) resumequeries.ResumeMetadataReader {
+	return resumereaders.NewResumeMetadataReader(db)
 }
 
-func newListResumesReader(pool *pgxpool.Pool) resumequeries.ListResumesReader {
-	return resumereaders.NewListResumesReader(pool)
+func newResumeOverviewReader(db *gorm.DB) *resumereaders.OverviewReader {
+	return resumereaders.NewOverviewReader(db)
 }
 
-func newResumeMetadataReader(pool *pgxpool.Pool) resumequeries.ResumeMetadataReader {
-	return resumereaders.NewResumeMetadataReader(pool)
-}
-
-func newResumeOverviewReader(pool *pgxpool.Pool) resumequeries.OverviewReader {
-	return resumereaders.NewOverviewReader(pool)
-}
-
-func newResumeReader(deps resumereaders.ResumeReaderDependencies) resumequeries.ResumeReader {
+func newResumeReader(deps resumereaders.ResumeReaderDependencies) *resumereaders.ResumeReader {
 	return resumereaders.NewResumeReader(deps)
 }
 
-func newGetProfileReader(pool *pgxpool.Pool) userqueries.GetProfileReader {
-	return userreaders.NewGetProfileReader(pool)
+func newGetProfileReader(db *gorm.DB) userqueries.GetProfileReader {
+	return userreaders.NewGetProfileReader(db)
 }
 
 func newAuthenticate(authenticator *userauth.MockAuthenticator) httpmiddleware.AuthenticateFunc {
@@ -71,6 +52,6 @@ func newAuthenticate(authenticator *userauth.MockAuthenticator) httpmiddleware.A
 	}
 }
 
-func newHealthService(pool *pgxpool.Pool) *health.Service {
-	return health.NewService(postgres.NewHealthChecker(pool))
+func newHealthService(db *gorm.DB) *health.Service {
+	return health.NewService(postgres.NewHealthChecker(db))
 }

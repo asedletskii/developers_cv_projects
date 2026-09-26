@@ -2,58 +2,102 @@ package readers
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
+
+	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
-type ContactsReader struct{ pool *pgxpool.Pool }
+type ContactsReader struct{ db *gorm.DB }
 
-func NewContactsReader(pool *pgxpool.Pool) *ContactsReader { return &ContactsReader{pool: pool} }
+func NewContactsReader(db *gorm.DB) *ContactsReader { return &ContactsReader{db: db} }
+
 func (r *ContactsReader) GetResumeContacts(ctx context.Context, q queries.GetResumeContactsQuery) (queries.ResumeContactsView, error) {
-	if r == nil || r.pool == nil {
-		return queries.ResumeContactsView{}, fmt.Errorf("get resume contacts: reader dependencies are nil")
-	}
-	var v queries.ResumeContactsView
-	var phone, tg, email *string
-	var cid uuid.UUID
-	var language string
-	if err := r.pool.QueryRow(ctx, `SELECT c.id::text,c.resume_id::text,c.phone,c.telegram,c.email,r.language FROM resume_contacts c JOIN resumes r ON r.id=c.resume_id WHERE c.resume_id=$1 AND r.user_id=$2`, q.ResumeID.UUID(), q.UserID.UUID()).Scan(&cid, &v.ResumeID, &phone, &tg, &email, &language); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return v, queries.ErrResumeNotFound
-		}
-		return v, fmt.Errorf("get resume contacts: %w", err)
-	}
-	v.ID = cid.String()
-	v.Phone = phone
-	v.Telegram = tg
-	v.Email = email
-	rows, err := r.pool.Query(ctx, `SELECT value FROM resume_contact_hidden WHERE contacts_id=$1 ORDER BY position`, cid)
+	db, err := resolveDB(ctx, r.db, "get resume contacts")
 	if err != nil {
-		return v, fmt.Errorf("get hidden contacts: %w", err)
+		return queries.ResumeContactsView{}, err
 	}
-	defer rows.Close()
-	v.HiddenContacts = []string{}
-	for rows.Next() {
-		var x string
-		if err := rows.Scan(&x); err != nil {
-			return v, fmt.Errorf("scan hidden contact: %w", err)
-		}
-		v.HiddenContacts = append(v.HiddenContacts, x)
+	if q.ResumeID.IsZero() || q.UserID.IsZero() {
+		return queries.ResumeContactsView{}, fmt.Errorf("get resume contacts: invalid query")
 	}
-	if err := rows.Err(); err != nil {
-		return v, fmt.Errorf("iterate hidden contacts: %w", err)
+
+	var model gormmodel.ResumeContacts
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_contacts.resume_id").Where("resume_contacts.resume_id = ?", q.ResumeID.UUID())
+	readDB = readDB.Where("resumes.user_id = ?", q.UserID.UUID())
+	err = readDB.First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.ResumeContactsView{}, queries.ErrResumeNotFound
 	}
-	var title, subtitle *string
-	err = r.pool.QueryRow(ctx, `SELECT title,subtitle FROM resume_contacts_text WHERE contacts_id=$1`, cid).Scan(&title, &subtitle)
-	if err == nil {
-		v.ContactsText = &queries.ResumeContactsTextView{Title: title, Subtitle: subtitle}
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return v, fmt.Errorf("get contacts text: %w", err)
+	if err != nil {
+		return queries.ResumeContactsView{}, fmt.Errorf("get resume contacts: %w", err)
 	}
-	return v, nil
+
+	var hidden []gormmodel.ResumeContactHidden
+	if err := db.Where("contacts_id = ?", model.ID).Order("position").Find(&hidden).Error; err != nil {
+		return queries.ResumeContactsView{}, fmt.Errorf("get hidden contacts: %w", err)
+	}
+	hiddenContacts := make([]string, 0, len(hidden))
+	for _, item := range hidden {
+		hiddenContacts = append(hiddenContacts, item.Value)
+	}
+
+	view := queries.ResumeContactsView{
+		ID: model.ID.String(), ResumeID: model.ResumeID.String(), Phone: model.Phone,
+		Telegram: model.Telegram, Email: model.Email, HiddenContacts: hiddenContacts,
+	}
+	var text gormmodel.ResumeContactsText
+	if err := db.Where("contacts_id = ?", model.ID).First(&text).Error; err == nil {
+		view.ContactsText = &queries.ResumeContactsTextView{Title: text.Title, Subtitle: text.Subtitle}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.ResumeContactsView{}, fmt.Errorf("get contacts text: %w", err)
+	}
+	return view, nil
 }
+
+func (r *ContactsReader) ReadResumeContacts(ctx context.Context, resumeID valueobjects.ID) (queries.ResumeContactsView, error) {
+	db, err := resolveDB(ctx, r.db, "get resume contacts")
+	if err != nil {
+		return queries.ResumeContactsView{}, err
+	}
+	if resumeID.IsZero() {
+		return queries.ResumeContactsView{}, fmt.Errorf("get resume contacts: invalid query")
+	}
+
+	var model gormmodel.ResumeContacts
+	readDB := db.Joins("JOIN resumes ON resumes.id = resume_contacts.resume_id").Where("resume_contacts.resume_id = ?", resumeID.UUID())
+	err = readDB.First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.ResumeContactsView{}, queries.ErrResumeNotFound
+	}
+	if err != nil {
+		return queries.ResumeContactsView{}, fmt.Errorf("get resume contacts: %w", err)
+	}
+
+	var hidden []gormmodel.ResumeContactHidden
+	if err := db.Where("contacts_id = ?", model.ID).Order("position").Find(&hidden).Error; err != nil {
+		return queries.ResumeContactsView{}, fmt.Errorf("get hidden contacts: %w", err)
+	}
+	hiddenContacts := make([]string, 0, len(hidden))
+	for _, item := range hidden {
+		hiddenContacts = append(hiddenContacts, item.Value)
+	}
+
+	view := queries.ResumeContactsView{
+		ID: model.ID.String(), ResumeID: model.ResumeID.String(), Phone: model.Phone,
+		Telegram: model.Telegram, Email: model.Email, HiddenContacts: hiddenContacts,
+	}
+	var text gormmodel.ResumeContactsText
+	if err := db.Where("contacts_id = ?", model.ID).First(&text).Error; err == nil {
+		view.ContactsText = &queries.ResumeContactsTextView{Title: text.Title, Subtitle: text.Subtitle}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return queries.ResumeContactsView{}, fmt.Errorf("get contacts text: %w", err)
+	}
+	return view, nil
+}
+
+var _ = uuid.Nil

@@ -5,7 +5,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/modules/user/domain/valueobjects"
+	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CreateTechnologyRepositoryCommand struct {
@@ -25,6 +25,12 @@ type UpdateTechnologyRepositoryCommand struct {
 	UserID     useridentity.ID
 }
 
+type ReorderTechnologiesRepositoryCommand struct {
+	ResumeID      valueobjects.ID
+	UserID        useridentity.ID
+	TechnologyIDs []valueobjects.ID
+}
+
 type DeleteTechnologyRepositoryCommand struct {
 	ResumeID, TechnologyID valueobjects.ID
 	UserID                 useridentity.ID
@@ -40,6 +46,10 @@ type GetTechnologyRepository interface {
 
 type UpdateTechnologyRepository interface {
 	UpdateTechnology(context.Context, UpdateTechnologyRepositoryCommand) error
+}
+
+type ReorderTechnologiesRepository interface {
+	ReorderTechnologies(context.Context, ReorderTechnologiesRepositoryCommand) error
 }
 
 type DeleteTechnologyRepository interface {
