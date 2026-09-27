@@ -94,6 +94,9 @@ func (h *DeleteCourseHandler) Handle(ctx context.Context, c DeleteCourseCommand)
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete course dependencies are nil")
 	}
+	if err := validateDeleteCommandIDs("course", c.ResumeID, c.CourseID, c.UserID); err != nil {
+		return err
+	}
 	return h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.DeleteCourse(tx, ports.DeleteCourseRepositoryCommand{ResumeID: c.ResumeID, CourseID: c.CourseID, UserID: c.UserID})
 	})

@@ -107,6 +107,16 @@ func (h *ReorderLanguagesHandler) Handle(ctx context.Context, c ReorderLanguages
 	if len(c.LanguageIDs) == 0 {
 		return fmt.Errorf("reorder languages ids are required: %w", domain.ErrInvalidEntity)
 	}
+	seen := make(map[valueobjects.ID]struct{}, len(c.LanguageIDs))
+	for _, id := range c.LanguageIDs {
+		if id.IsZero() {
+			return fmt.Errorf("reorder languages contains zero id: %w", domain.ErrInvalidEntity)
+		}
+		if _, ok := seen[id]; ok {
+			return fmt.Errorf("reorder languages contains duplicate id: %w", domain.ErrInvalidEntity)
+		}
+		seen[id] = struct{}{}
+	}
 	return h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.ReorderLanguages(tx, ports.ReorderLanguagesRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, LanguageIDs: c.LanguageIDs})
 	})
@@ -124,6 +134,9 @@ func NewDeleteLanguageHandler(r ports.DeleteLanguageRepository, u UnitOfWork) *D
 func (h *DeleteLanguageHandler) Handle(ctx context.Context, c DeleteLanguageCommand) error {
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete language dependencies are nil")
+	}
+	if err := validateDeleteCommandIDs("language", c.ResumeID, c.LanguageID, c.UserID); err != nil {
+		return err
 	}
 	return h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.DeleteLanguage(tx, ports.DeleteLanguageRepositoryCommand{ResumeID: c.ResumeID, LanguageID: c.LanguageID, UserID: c.UserID})

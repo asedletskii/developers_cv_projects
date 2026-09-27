@@ -5,33 +5,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-)
 
-const (
-	RequestIDHeader = "X-Request-ID"
-	RequestIDKey    = "request_id"
+	"developers-cv/backend/internal/platform/http/requestid"
 )
 
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		requestID := strings.TrimSpace(c.GetHeader(RequestIDHeader))
+		requestID := strings.TrimSpace(c.GetHeader(requestid.Header))
 		if requestID == "" || len(requestID) > 128 {
 			requestID = uuid.NewString()
 		}
-		c.Set(RequestIDKey, requestID)
-		c.Header(RequestIDHeader, requestID)
+
+		c.Set(requestid.Key, requestID)
+		c.Header(requestid.Header, requestID)
 		c.Next()
 	}
-}
-
-func GetRequestID(c *gin.Context) string {
-	value, exists := c.Get(RequestIDKey)
-	if !exists {
-		return ""
-	}
-	requestID, ok := value.(string)
-	if !ok {
-		return ""
-	}
-	return requestID
 }

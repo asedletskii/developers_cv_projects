@@ -36,7 +36,9 @@ func NewContacts(params ContactsParams) (Contacts, error) {
 	}, nil
 }
 
-func EmptyContacts() Contacts { return Contacts{} }
+func (c Contacts) HasAny() bool {
+	return c.phone != nil || c.telegram != nil || c.email != nil
+}
 
 func (c Contacts) Phone() *string                   { return cloneString(c.phone) }
 func (c Contacts) Telegram() *valueobjects.Telegram { return cloneTelegram(c.telegram) }

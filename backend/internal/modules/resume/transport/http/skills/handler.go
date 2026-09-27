@@ -34,8 +34,8 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 	var b skillsRequest
-	if common.BindJSON(c, &b) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &b); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	id := valueobjects.NewID()
@@ -64,8 +64,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	var b skillsRequest
-	if common.BindJSON(c, &b) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &b); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	if e := h.update.Handle(c.Request.Context(), commands.UpdateSkillsCommand{ResumeID: rid, UserID: uid, Hard: toHardSkills(b.HardSkills), Soft: toSoftSkills(b.SoftSkills)}); e != nil {

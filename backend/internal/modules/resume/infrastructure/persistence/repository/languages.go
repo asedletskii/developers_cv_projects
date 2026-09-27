@@ -86,7 +86,7 @@ func (r *LanguagesRepository) ReorderLanguages(ctx context.Context, c ports.Reor
 }
 
 func (r *LanguagesRepository) DeleteLanguage(ctx context.Context, c ports.DeleteLanguageRepositoryCommand) error {
-	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
+	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}

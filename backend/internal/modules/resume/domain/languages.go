@@ -47,16 +47,26 @@ func NewResumeLanguages(p ResumeLanguagesParams) (*ResumeLanguages, error) {
 		return nil, fmt.Errorf("%w: language collection ids are required", ErrInvalidEntity)
 	}
 	out := make([]ResumeLanguageEntry, 0, len(p.Entries))
-	seen := map[string]bool{}
+	seenLanguages := make(map[string]struct{}, len(p.Entries))
+	seenIDs := make(map[valueobjects.ID]struct{}, len(p.Entries))
+	seenPositions := make(map[int]struct{}, len(p.Entries))
 	for _, x := range p.Entries {
 		e, err := NewResumeLanguageEntry(x)
 		if err != nil {
 			return nil, err
 		}
-		if seen[string(e.language)] {
+		if _, ok := seenLanguages[string(e.language)]; ok {
 			return nil, fmt.Errorf("%w: duplicate language", ErrInvalidEntity)
 		}
-		seen[string(e.language)] = true
+		if _, ok := seenIDs[e.id]; ok {
+			return nil, fmt.Errorf("%w: duplicate language id", ErrInvalidEntity)
+		}
+		if _, ok := seenPositions[e.position]; ok {
+			return nil, fmt.Errorf("%w: duplicate language position", ErrInvalidEntity)
+		}
+		seenLanguages[string(e.language)] = struct{}{}
+		seenIDs[e.id] = struct{}{}
+		seenPositions[e.position] = struct{}{}
 		out = append(out, e)
 	}
 	return &ResumeLanguages{id: p.ID, resumeID: p.ResumeID, entries: out}, nil

@@ -97,6 +97,9 @@ func (h *DeleteActivityHandler) Handle(ctx context.Context, c DeleteActivityComm
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete activity dependencies are nil")
 	}
+	if err := validateDeleteCommandIDs("activity", c.ResumeID, c.ActivityID, c.UserID); err != nil {
+		return err
+	}
 	return h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.DeleteActivity(tx, ports.DeleteActivityRepositoryCommand{ResumeID: c.ResumeID, ActivityID: c.ActivityID, UserID: c.UserID})
 	})

@@ -28,6 +28,9 @@ func NewContacts(params ContactsParams) (*Contacts, error) {
 	if params.ID.IsZero() || params.ResumeID.IsZero() {
 		return nil, fmt.Errorf("%w: invalid contacts identity", ErrInvalidResume)
 	}
+	if !params.Contacts.HasAny() {
+		return nil, fmt.Errorf("%w: contacts are empty", ErrInvalidResume)
+	}
 	seen := make(map[enums.ContactKey]struct{}, len(params.HiddenContacts))
 	for _, key := range params.HiddenContacts {
 		if !key.IsValid() {
@@ -63,12 +66,6 @@ func cloneContactsText(value *valueobjects.ContactsText) *valueobjects.ContactsT
 	if value == nil {
 		return nil
 	}
-	copy, err := valueobjects.NewContactsText(valueobjects.ContactsTextParams{
-		Title:    value.Title(),
-		Subtitle: value.Subtitle(),
-	})
-	if err != nil {
-		return nil
-	}
+	copy := value.Clone()
 	return &copy
 }

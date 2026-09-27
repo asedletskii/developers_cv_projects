@@ -29,7 +29,7 @@ type OverviewInput struct {
 	Sections     []SectionInput
 }
 
-func (i OverviewInput) toDomain() (domain.OverviewPresentation, error) {
+func (i OverviewInput) toDomain() (domain.ResumeOverviewParams, error) {
 	g := valueobjects.NewGreeting(valueobjects.GreetingParams{First: i.Greeting.First, Second: i.Greeting.Second, SecondHighlight: i.Greeting.SecondHighlight, Third: i.Greeting.Third})
 	var theme *valueobjects.ThemeSettings
 	if i.Theme != nil {
@@ -42,7 +42,7 @@ func (i OverviewInput) toDomain() (domain.OverviewPresentation, error) {
 		}
 		v, e := valueobjects.NewThemeSettings(valueobjects.ThemeSettingsParams{Primary: a, Secondary: b})
 		if e != nil {
-			return domain.OverviewPresentation{}, e
+			return domain.ResumeOverviewParams{}, e
 		}
 		theme = &v
 	}
@@ -50,7 +50,7 @@ func (i OverviewInput) toDomain() (domain.OverviewPresentation, error) {
 	if i.Availability != nil {
 		v, e := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: i.Availability.Status, From: i.Availability.From, Note: i.Availability.Note})
 		if e != nil {
-			return domain.OverviewPresentation{}, e
+			return domain.ResumeOverviewParams{}, e
 		}
 		av = &v
 	}
@@ -59,17 +59,17 @@ func (i OverviewInput) toDomain() (domain.OverviewPresentation, error) {
 	for n, v := range i.Sections {
 		x, e := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed})
 		if e != nil {
-			return domain.OverviewPresentation{}, e
+			return domain.ResumeOverviewParams{}, e
 		}
 		sections[n] = x
 	}
-	return domain.OverviewPresentation{Theme: theme, Greeting: g, Availability: av, ResumeLink: link, Sections: sections}, nil
+	return domain.ResumeOverviewParams{Theme: theme, Greeting: g, Availability: av, ResumeLink: link, Sections: sections}, nil
 }
 
 type UpdateOverviewCommand struct {
-	ResumeID     valueobjects.ID
-	UserID       useridentity.ID
-	Presentation OverviewInput
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Input    OverviewInput
 }
 
 type UpdateOverviewHandler struct {
@@ -84,11 +84,11 @@ func (h *UpdateOverviewHandler) Handle(ctx context.Context, c UpdateOverviewComm
 	if h == nil || h.updater == nil || h.uow == nil {
 		return fmt.Errorf("update overview handler dependencies are nil")
 	}
-	p, e := c.Presentation.toDomain()
+	p, e := c.Input.toDomain()
 	if e != nil {
 		return e
 	}
-	o, e := domain.NewResumeOverview(domain.ResumeOverviewParams{Presentation: p})
+	o, e := domain.NewResumeOverview(p)
 	if e != nil {
 		return e
 	}

@@ -30,8 +30,8 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 	var body projectRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	input, err := projectInput(body)
@@ -83,8 +83,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	var body projectRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	input, err := projectInput(body)

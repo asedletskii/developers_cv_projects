@@ -145,7 +145,7 @@ type ResumeExperienceAchievement struct {
 	Value        string    `gorm:"not null"`
 }
 
-type ResumeExperienceTechnology struct {
+type ResumeExperienceStack struct {
 	ExperienceID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position     int       `gorm:"primaryKey"`
 	Name         string    `gorm:"not null"`
@@ -154,7 +154,7 @@ type ResumeExperienceTechnology struct {
 
 func (ResumeExperience) TableName() string            { return "resume_experiences" }
 func (ResumeExperienceAchievement) TableName() string { return "resume_experience_achievements" }
-func (ResumeExperienceTechnology) TableName() string  { return "resume_experience_technologies" }
+func (ResumeExperienceStack) TableName() string       { return "resume_experience_stack" }
 
 type ResumeEducation struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`

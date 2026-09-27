@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	apperrors "developers-cv/backend/internal/platform/http/errors"
+
 	"golang.org/x/time/rate"
 )
 
@@ -64,11 +67,7 @@ func (l *RateLimiter) Middleware() gin.HandlerFunc {
 
 		if !allowed {
 			c.Header("Retry-After", "1")
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": gin.H{
-				"code":      "TOO_MANY_REQUESTS",
-				"message":   "Too many requests",
-				"requestId": GetRequestID(c),
-			}})
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeTooMany, http.StatusTooManyRequests, "Too many requests"))
 			return
 		}
 		c.Next()

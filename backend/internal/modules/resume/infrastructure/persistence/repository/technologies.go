@@ -86,7 +86,7 @@ func (r *TechnologiesRepository) ReorderTechnologies(ctx context.Context, c port
 }
 
 func (r *TechnologiesRepository) DeleteTechnology(ctx context.Context, c ports.DeleteTechnologyRepositoryCommand) error {
-	tx, err := r.ownedForWrite(ctx, c.ResumeID, c.UserID)
+	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
 	}

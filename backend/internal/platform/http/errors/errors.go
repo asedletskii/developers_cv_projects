@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"developers-cv/backend/internal/platform/http/middleware"
+	"developers-cv/backend/internal/platform/http/requestid"
 )
 
 type Code string
@@ -66,7 +66,13 @@ func From(err error) *AppError {
 
 func WriteError(c *gin.Context, err error) {
 	appErr := From(err)
-	requestID := middleware.GetRequestID(c)
+	requestID := requestid.Get(c)
+	if requestID == "" && c.Request != nil {
+		requestID = c.GetHeader(requestid.Header)
+	}
+	if requestID != "" {
+		c.Header(requestid.Header, requestID)
+	}
 	c.AbortWithStatusJSON(appErr.Status, gin.H{
 		"error": gin.H{
 			"code":      appErr.Code,

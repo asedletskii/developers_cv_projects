@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -48,6 +49,9 @@ func (r *EducationRepository) GetEducation(ctx context.Context, q ports.GetEduca
 }
 
 func (r *EducationRepository) UpdateEducation(ctx context.Context, c ports.UpdateEducationRepositoryCommand) error {
+	if c.Education == nil {
+		return fmt.Errorf("education is nil")
+	}
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -86,6 +90,9 @@ func (r *EducationRepository) DeleteEducation(ctx context.Context, c ports.Delet
 }
 
 func educationModel(item *domain.Education) (gormmodel.ResumeEducation, error) {
+	if item == nil {
+		return gormmodel.ResumeEducation{}, fmt.Errorf("education is nil")
+	}
 	model := gormmodel.ResumeEducation{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Location: item.Location(), University: item.University(), Grade: int(item.Grade()), ProgramName: item.ProgramName(), ProfileName: item.ProfileName(), Faculty: item.Faculty(), Course: item.Course()}
 	if item.EndDate() != nil {
 		value := yearDate(*item.EndDate())

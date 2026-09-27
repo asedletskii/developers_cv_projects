@@ -2,6 +2,7 @@ package readers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -121,7 +122,7 @@ func (r *ResumeReader) read(ctx context.Context, resumeID valueobjects.ID, metad
 			return
 		}
 		mu.Lock()
-		v.Overview = x.Presentation
+		v.Overview = x
 		mu.Unlock()
 	}()
 
@@ -135,7 +136,7 @@ func (r *ResumeReader) read(ctx context.Context, resumeID valueobjects.ID, metad
 			mu.Unlock()
 			return
 		}
-		if err != queries.ErrResumeNotFound {
+		if !errors.Is(err, queries.ErrResumeNotFound) {
 			setErr(err)
 		}
 	}()
@@ -150,7 +151,7 @@ func (r *ResumeReader) read(ctx context.Context, resumeID valueobjects.ID, metad
 			mu.Unlock()
 			return
 		}
-		if err != queries.ErrResumeNotFound {
+		if !errors.Is(err, queries.ErrResumeNotFound) {
 			setErr(err)
 		}
 	}()
@@ -165,7 +166,7 @@ func (r *ResumeReader) read(ctx context.Context, resumeID valueobjects.ID, metad
 			mu.Unlock()
 			return
 		}
-		if err != queries.ErrResumeNotFound {
+		if !errors.Is(err, queries.ErrResumeNotFound) {
 			setErr(err)
 		}
 	}()
@@ -265,5 +266,73 @@ func (r *ResumeReader) read(ctx context.Context, resumeID valueobjects.ID, metad
 	if firstErr != nil {
 		return queries.ResumeView{}, firstErr
 	}
-	return v, nil
+	return normalizeResumeView(v), nil
+}
+
+func normalizeResumeView(view queries.ResumeView) queries.ResumeView {
+	if view.Overview.Sections == nil {
+		view.Overview.Sections = make([]queries.OverviewSectionSettings, 0)
+	}
+
+	if view.Profile != nil && view.Profile.WorkFormat == nil {
+		view.Profile.WorkFormat = make([]string, 0)
+	}
+	if view.Contacts != nil {
+		if view.Contacts.HiddenContacts == nil {
+			view.Contacts.HiddenContacts = make([]string, 0)
+		}
+	}
+	if view.Skills != nil {
+		if view.Skills.HardSkills == nil {
+			view.Skills.HardSkills = make([]string, 0)
+		}
+		if view.Skills.SoftSkills == nil {
+			view.Skills.SoftSkills = make([]string, 0)
+		}
+	}
+
+	if view.Languages == nil {
+		view.Languages = make([]queries.LanguageView, 0)
+	}
+	if view.Technologies == nil {
+		view.Technologies = make([]queries.TechnologyView, 0)
+	}
+	if view.Experiences == nil {
+		view.Experiences = make([]queries.ExperienceView, 0)
+	}
+	if view.Educations == nil {
+		view.Educations = make([]queries.EducationView, 0)
+	}
+	if view.Courses == nil {
+		view.Courses = make([]queries.CourseView, 0)
+	}
+	if view.Activities == nil {
+		view.Activities = make([]queries.ActivityView, 0)
+	}
+	if view.Projects == nil {
+		view.Projects = make([]queries.ProjectView, 0)
+	}
+
+	for index := range view.Experiences {
+		if view.Experiences[index].Achievements == nil {
+			view.Experiences[index].Achievements = make([]string, 0)
+		}
+		if view.Experiences[index].Stack == nil {
+			view.Experiences[index].Stack = make([]queries.ExperienceStackItemView, 0)
+		}
+	}
+
+	for index := range view.Projects {
+		if view.Projects[index].Screenshots == nil {
+			view.Projects[index].Screenshots = make([]string, 0)
+		}
+		if view.Projects[index].Stack == nil {
+			view.Projects[index].Stack = make([]queries.ProjectTechnologyView, 0)
+		}
+		if view.Projects[index].Contributors == nil {
+			view.Projects[index].Contributors = make([]queries.ProjectContributorView, 0)
+		}
+	}
+
+	return view
 }

@@ -61,6 +61,9 @@ func NewContributor(params ContributorParams) (Contributor, error) {
 	if name == "" || surname == "" || role == "" {
 		return Contributor{}, fmt.Errorf("%w: contributor fields are required", valueobjects.ErrInvalidValue)
 	}
+	if !params.Contacts.HasAny() {
+		return Contributor{}, fmt.Errorf("%w: contributor requires at least one contact", valueobjects.ErrInvalidValue)
+	}
 	return Contributor{name: name, surname: surname, contacts: params.Contacts, role: role}, nil
 }
 

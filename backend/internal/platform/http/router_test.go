@@ -431,3 +431,70 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 		})
 	}
 }
+
+type routerHealthChecker struct {
+	name string
+	err  error
+}
+
+func (c routerHealthChecker) Name() string {
+	return c.name
+}
+
+func (c routerHealthChecker) Check(context.Context) error {
+	return c.err
+}
+
+func TestRouterReadinessReturnsUnavailableWhenDependencyFails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		HTTP: config.HTTPConfig{},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(routerHealthChecker{name: "postgres", err: context.DeadlineExceeded}),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(nil),
+		fakeAuthenticate,
+	)
+	require.NoError(t, err)
+
+	response := httptest.NewRecorder()
+	router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
+
+	require.Equal(t, http.StatusServiceUnavailable, response.Code)
+	require.Contains(t, response.Body.String(), `"status":"not_ready"`)
+	require.Contains(t, response.Body.String(), `"postgres":"failed"`)
+}
+
+func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		HTTP: config.HTTPConfig{},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(routerHealthChecker{name: "postgres"}),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(nil),
+		fakeAuthenticate,
+	)
+	require.NoError(t, err)
+
+	response := httptest.NewRecorder()
+	router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
+
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), `"status":"ready"`)
+	require.Contains(t, response.Body.String(), `"postgres":"ok"`)
+}

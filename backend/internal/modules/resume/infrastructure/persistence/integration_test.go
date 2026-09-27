@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -225,6 +226,86 @@ func TestPostgresContactsVerticalSlice(t *testing.T) {
 	require.Equal(t, []enums.ContactKey{enums.ContactKeyEmail}, loadedUpdated.HiddenContacts())
 	require.Equal(t, beforeResume.Title(), afterResume.Title())
 	require.Equal(t, beforeResume.Language(), afterResume.Language())
+
+	secondResume := newTestResume(t, foreign)
+	secondResumeID := secondResume.ID()
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: secondResume})
+	}))
+	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id,resume_id,phone,telegram,email) VALUES ($1,$2,'   ',NULL,NULL)`, valueobjects.NewID().UUID(), secondResumeID.UUID())
+	require.Error(t, err)
+	contactsID := valueobjects.NewID()
+	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'second@example.com')`, contactsID.UUID(), secondResumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts_text (contacts_id,title,subtitle) VALUES ($1,'   ',NULL)`, contactsID.UUID())
+	require.Error(t, err)
+}
+
+func TestPostgresOrderedCreatesSerializeOnResumeLock(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
+
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyMigrations(t, ctx, dsn)
+
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+
+	owner := useridentity.NewID()
+	insertResumeTestUser(t, ctx, dsn, owner)
+	resume := newTestResume(t, owner)
+	uow := database.NewUnitOfWork(gormDB)
+	resumeRepository := repository.NewResumeRepository(gormDB)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepository.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
+	}))
+
+	activityRepository := repository.NewActivityRepository(gormDB)
+	activities := make([]*domain.Activity, 2)
+	for i := range activities {
+		activity, createErr := domain.NewActivity(domain.ActivityParams{
+			ID:       valueobjects.NewID(),
+			ResumeID: resume.ID(),
+			Type:     enums.ActivityTypeOpenSource,
+			Title:    fmt.Sprintf("Activity %d", i),
+		})
+		require.NoError(t, createErr)
+		activities[i] = activity
+	}
+
+	start := make(chan struct{})
+	errs := make(chan error, len(activities))
+	var wg sync.WaitGroup
+	for _, activity := range activities {
+		activity := activity
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			errs <- uow.Do(ctx, func(tx context.Context) error {
+				return activityRepository.CreateActivity(tx, ports.CreateActivityRepositoryCommand{Activity: activity, ResumeID: resume.ID(), UserID: owner})
+			})
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	var orders []int
+	require.NoError(t, gormDB.Raw("SELECT sort_order FROM resume_activities WHERE resume_id = ? ORDER BY sort_order", resume.ID().UUID()).Scan(&orders).Error)
+	require.Equal(t, []int{0, 1}, orders)
 }
 
 func TestPostgresSkillsLanguagesTechnologiesVerticalSlice(t *testing.T) {

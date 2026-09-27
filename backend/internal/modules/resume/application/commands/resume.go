@@ -48,7 +48,7 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand)
 		if e := h.repository.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: r}); e != nil {
 			return e
 		}
-		o, e := domain.NewResumeOverview(domain.ResumeOverviewParams{Presentation: domain.OverviewPresentation{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{}), Sections: []valueobjects.SectionSettings{}}})
+		o, e := domain.NewResumeOverview(domain.ResumeOverviewParams{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{}), Sections: []valueobjects.SectionSettings{}})
 		if e != nil {
 			return e
 		}

@@ -10,6 +10,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
@@ -57,6 +58,9 @@ func (r *ExperiencesRepository) GetExperience(ctx context.Context, q ports.GetEx
 }
 
 func (r *ExperiencesRepository) UpdateExperience(ctx context.Context, c ports.UpdateExperienceRepositoryCommand) error {
+	if c.Experience == nil {
+		return fmt.Errorf("experience is nil")
+	}
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -103,6 +107,9 @@ func (r *ExperiencesRepository) DeleteExperience(ctx context.Context, c ports.De
 }
 
 func experienceModel(item *domain.Experience) (gormmodel.ResumeExperience, error) {
+	if item == nil {
+		return gormmodel.ResumeExperience{}, fmt.Errorf("experience is nil")
+	}
 	if item == nil || item.ID().IsZero() || item.ResumeID().IsZero() {
 		return gormmodel.ResumeExperience{}, fmt.Errorf("experience identity is required")
 	}
@@ -121,7 +128,7 @@ func replaceExperienceChildren(tx *gorm.DB, experienceID uuid.UUID, item *domain
 	if err := tx.Where("experience_id = ?", experienceID).Delete(&gormmodel.ResumeExperienceAchievement{}).Error; err != nil {
 		return err
 	}
-	if err := tx.Where("experience_id = ?", experienceID).Delete(&gormmodel.ResumeExperienceTechnology{}).Error; err != nil {
+	if err := tx.Where("experience_id = ?", experienceID).Delete(&gormmodel.ResumeExperienceStack{}).Error; err != nil {
 		return err
 	}
 	for i, achievement := range item.Achievements() {
@@ -129,13 +136,13 @@ func replaceExperienceChildren(tx *gorm.DB, experienceID uuid.UUID, item *domain
 			return err
 		}
 	}
-	for i, technology := range item.Technologies() {
+	for i, technology := range item.Stack() {
 		var grade *string
 		if value := technology.Grade(); value != nil {
 			text := string(*value)
 			grade = &text
 		}
-		if err := tx.Create(&gormmodel.ResumeExperienceTechnology{ExperienceID: experienceID, Position: i, Name: technology.Name(), Grade: grade}).Error; err != nil {
+		if err := tx.Create(&gormmodel.ResumeExperienceStack{ExperienceID: experienceID, Position: i, Name: technology.Name(), Grade: grade}).Error; err != nil {
 			return err
 		}
 	}
@@ -167,21 +174,25 @@ func mapExperience(tx *gorm.DB, model gormmodel.ResumeExperience) (*domain.Exper
 	if err := tx.Where("experience_id = ?", model.ID).Order("position").Find(&achievements).Error; err != nil {
 		return nil, err
 	}
-	var technologies []gormmodel.ResumeExperienceTechnology
-	if err := tx.Where("experience_id = ?", model.ID).Order("position").Find(&technologies).Error; err != nil {
+	var stack []gormmodel.ResumeExperienceStack
+	if err := tx.Where("experience_id = ?", model.ID).Order("position").Find(&stack).Error; err != nil {
 		return nil, err
 	}
-	technologyParams := make([]domain.ExperienceTechnologyParams, 0, len(technologies))
-	for _, technology := range technologies {
+	stackValues := make([]entities.Technology, 0, len(stack))
+	for _, technology := range stack {
 		var grade *enums.TechnologyGrade
 		if technology.Grade != nil {
 			value := enums.TechnologyGrade(*technology.Grade)
 			if !value.IsValid() {
-				return nil, fmt.Errorf("invalid experience technology grade")
+				return nil, fmt.Errorf("invalid stack technology grade")
 			}
 			grade = &value
 		}
-		technologyParams = append(technologyParams, domain.ExperienceTechnologyParams{Name: technology.Name, Grade: grade})
+		item, err := entities.NewTechnology(entities.TechnologyParams{Name: technology.Name, Grade: grade})
+		if err != nil {
+			return nil, err
+		}
+		stackValues = append(stackValues, item)
 	}
 	achievementValues := make([]string, len(achievements))
 	for i, achievement := range achievements {
@@ -197,6 +208,6 @@ func mapExperience(tx *gorm.DB, model gormmodel.ResumeExperience) (*domain.Exper
 		EndDate:      end,
 		Description:  model.Description,
 		Achievements: achievementValues,
-		Technologies: technologyParams,
+		Stack:        stackValues,
 	})
 }

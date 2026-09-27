@@ -16,20 +16,13 @@ import (
 )
 
 func (r *ContactsRepository) CreateContacts(ctx context.Context, c ports.CreateResumeContactsRepositoryCommand) error {
-	tx, e := database.DBFromTransactionContext(ctx)
-	if e != nil {
-		return fmt.Errorf("create contacts: %w", e)
-	}
 	m, h, t, e := contactsModels(c.Contacts)
 	if e != nil {
 		return e
 	}
-	var n int64
-	if e = tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", m.ResumeID, c.UserID.UUID()).Count(&n).Error; e != nil {
-		return fmt.Errorf("create contacts ownership: %w", e)
-	}
-	if n == 0 {
-		return domain.ErrEntityNotFound
+	tx, e := r.ownedInTransaction(ctx, c.Contacts.ResumeID(), c.UserID)
+	if e != nil {
+		return fmt.Errorf("create contacts: %w", e)
 	}
 	if e = tx.WithContext(ctx).Create(&m).Error; e != nil {
 		return fmt.Errorf("create contacts: %w", mapDBError(e))
@@ -80,6 +73,9 @@ func (r *ContactsRepository) GetContacts(ctx context.Context, q ports.GetResumeC
 	return mapContacts(m, hidden, tp, root.Language)
 }
 func (r *ContactsRepository) UpdateContacts(ctx context.Context, c ports.UpdateResumeContactsRepositoryCommand) error {
+	if c.Contacts == nil {
+		return fmt.Errorf("contacts is nil")
+	}
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("update contacts: %w", e)

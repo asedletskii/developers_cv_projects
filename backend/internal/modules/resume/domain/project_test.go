@@ -16,7 +16,10 @@ func TestNewProjectBuildsOwnedChildren(t *testing.T) {
 	grade := enums.TechnologyGradeSenior
 	technology, err := entities.NewTechnology(entities.TechnologyParams{Name: " Go ", Grade: &grade})
 	require.NoError(t, err)
-	contacts := entities.EmptyContacts()
+	email, err := valueobjects.NewEmail("jane@example.com")
+	require.NoError(t, err)
+	contacts, err := entities.NewContacts(entities.ContactsParams{Email: &email})
+	require.NoError(t, err)
 	contributor, err := entities.NewContributor(entities.ContributorParams{Name: " Jane ", Surname: " Doe ", Role: " Developer ", Contacts: contacts})
 	require.NoError(t, err)
 	screenshot, err := valueobjects.NewExternalURL("https://example.com/assets/project.png")

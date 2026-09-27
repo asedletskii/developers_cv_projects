@@ -36,7 +36,7 @@ type experienceRequest struct {
 	EndDate      *string             `json:"endDate,omitempty"`
 	Description  *string             `json:"description,omitempty"`
 	Achievements []string            `json:"achievements"`
-	Technologies []technologyRequest `json:"technologies"`
+	Stack        []technologyRequest `json:"stack"`
 }
 
 func (h *Handler) Create(c *gin.Context) {
@@ -45,8 +45,8 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 	var body experienceRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	input, err := experienceInput(body)
@@ -91,8 +91,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	var body experienceRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	input, err := experienceInput(body)
@@ -130,16 +130,16 @@ func experienceInput(body experienceRequest) (commands.ExperienceInput, error) {
 		}
 		end = &parsed
 	}
-	technologies := make([]commands.ExperienceTechnologyInput, len(body.Technologies))
-	for i, t := range body.Technologies {
+	stack := make([]commands.ExperienceStackItemInput, len(body.Stack))
+	for i, t := range body.Stack {
 		var grade *enums.TechnologyGrade
 		if t.Grade != nil {
 			v := enums.TechnologyGrade(*t.Grade)
 			grade = &v
 		}
-		technologies[i] = commands.ExperienceTechnologyInput{Name: t.Name, Grade: grade}
+		stack[i] = commands.ExperienceStackItemInput{Name: t.Name, Grade: grade}
 	}
-	return commands.ExperienceInput{Company: body.Company, Position: body.Position, Location: body.Location, StartDate: start, EndDate: end, Description: body.Description, Achievements: body.Achievements, Technologies: technologies}, nil
+	return commands.ExperienceInput{Company: body.Company, Position: body.Position, Location: body.Location, StartDate: start, EndDate: end, Description: body.Description, Achievements: body.Achievements, Stack: stack}, nil
 }
 func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
 	uid, ok := common.RequireUserID(c)

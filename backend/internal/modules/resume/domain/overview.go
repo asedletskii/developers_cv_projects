@@ -1,77 +1,99 @@
 package domain
 
 import (
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"fmt"
+
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
 
-type ResumeOverview struct{ presentation OverviewPresentation }
-type OverviewPresentation struct {
+type ResumeOverviewParams struct {
 	Theme        *valueobjects.ThemeSettings
 	Greeting     valueobjects.Greeting
 	Availability *valueobjects.Availability
 	ResumeLink   *valueobjects.ExternalURL
 	Sections     []valueobjects.SectionSettings
 }
-type ResumeOverviewParams struct{ Presentation OverviewPresentation }
+
+type ResumeOverview struct {
+	theme        *valueobjects.ThemeSettings
+	greeting     valueobjects.Greeting
+	availability *valueobjects.Availability
+	resumeLink   *valueobjects.ExternalURL
+	sections     []valueobjects.SectionSettings
+}
 
 func NewResumeOverview(params ResumeOverviewParams) (*ResumeOverview, error) {
-	if err := validateOverviewSections(params.Presentation.Sections); err != nil {
+	if err := validateOverviewSections(params.Sections); err != nil {
 		return nil, err
 	}
-	return &ResumeOverview{presentation: cloneOverviewPresentation(params.Presentation)}, nil
+	return &ResumeOverview{
+		theme:        cloneThemeSettings(params.Theme),
+		greeting:     params.Greeting,
+		availability: cloneAvailability(params.Availability),
+		resumeLink:   cloneExternalURL(params.ResumeLink),
+		sections:     cloneSectionSettings(params.Sections),
+	}, nil
 }
-func (o *ResumeOverview) Presentation() OverviewPresentation {
-	return cloneOverviewPresentation(o.presentation)
+
+func (o *ResumeOverview) Theme() *valueobjects.ThemeSettings { return cloneThemeSettings(o.theme) }
+func (o *ResumeOverview) Greeting() valueobjects.Greeting    { return o.greeting }
+func (o *ResumeOverview) Availability() *valueobjects.Availability {
+	return cloneAvailability(o.availability)
 }
-func (o *ResumeOverview) ReplacePresentation(p OverviewPresentation) error {
-	if err := validateOverviewSections(p.Sections); err != nil {
+func (o *ResumeOverview) ResumeLink() *valueobjects.ExternalURL {
+	return cloneExternalURL(o.resumeLink)
+}
+func (o *ResumeOverview) Sections() []valueobjects.SectionSettings {
+	return cloneSectionSettings(o.sections)
+}
+
+func (o *ResumeOverview) Replace(params ResumeOverviewParams) error {
+	if err := validateOverviewSections(params.Sections); err != nil {
 		return err
 	}
-	o.presentation = cloneOverviewPresentation(p)
+	o.theme = cloneThemeSettings(params.Theme)
+	o.greeting = params.Greeting
+	o.availability = cloneAvailability(params.Availability)
+	o.resumeLink = cloneExternalURL(params.ResumeLink)
+	o.sections = cloneSectionSettings(params.Sections)
 	return nil
 }
+
 func validateOverviewSections(sections []valueobjects.SectionSettings) error {
 	seen := make(map[string]struct{}, len(sections))
-	for _, s := range sections {
-		if !s.ID().IsValid() {
+	for _, section := range sections {
+		if !section.ID().IsValid() {
 			return fmt.Errorf("%w: invalid section id", valueobjects.ErrInvalidValue)
 		}
-		k := string(s.ID())
-		if _, ok := seen[k]; ok {
+		key := string(section.ID())
+		if _, ok := seen[key]; ok {
 			return fmt.Errorf("%w: duplicate resume section", ErrInvalidResume)
 		}
-		seen[k] = struct{}{}
+		seen[key] = struct{}{}
 	}
 	return nil
 }
-func cloneOverviewPresentation(p OverviewPresentation) OverviewPresentation {
-	var theme *valueobjects.ThemeSettings
-	if p.Theme != nil {
-		t := *p.Theme
-		if p.Theme.Primary != nil {
-			v := *p.Theme.Primary
-			t.Primary = &v
-		}
-		if p.Theme.Secondary != nil {
-			v := *p.Theme.Secondary
-			t.Secondary = &v
-		}
-		theme = &t
+
+func cloneThemeSettings(value *valueobjects.ThemeSettings) *valueobjects.ThemeSettings {
+	if value == nil {
+		return nil
 	}
-	var av *valueobjects.Availability
-	if p.Availability != nil {
-		v := *p.Availability
-		av = &v
+	copy := *value
+	if value.Primary != nil {
+		primary := *value.Primary
+		copy.Primary = &primary
 	}
-	var link *valueobjects.ExternalURL
-	if p.ResumeLink != nil {
-		v := *p.ResumeLink
-		link = &v
+	if value.Secondary != nil {
+		secondary := *value.Secondary
+		copy.Secondary = &secondary
 	}
-	var sections []valueobjects.SectionSettings
-	if p.Sections != nil {
-		sections = append([]valueobjects.SectionSettings(nil), p.Sections...)
+	return &copy
+}
+
+func cloneAvailability(value *valueobjects.Availability) *valueobjects.Availability {
+	if value == nil {
+		return nil
 	}
-	return OverviewPresentation{Theme: theme, Greeting: p.Greeting, Availability: av, ResumeLink: link, Sections: sections}
+	copy := *value
+	return &copy
 }

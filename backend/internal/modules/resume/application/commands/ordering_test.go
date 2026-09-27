@@ -88,3 +88,35 @@ func TestReorderTechnologiesHandlerRejectsEmptyOrder(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, repository.called)
 }
+
+func TestReorderLanguagesHandlerRejectsDuplicateIDs(t *testing.T) {
+	repository := &fakeReorderLanguagesRepository{}
+	uow := &fakeResumeUnitOfWork{}
+	handler := NewReorderLanguagesHandler(repository, uow)
+	id := valueobjects.NewID()
+
+	err := handler.Handle(context.Background(), ReorderLanguagesCommand{
+		ResumeID:    valueobjects.NewID(),
+		UserID:      useridentity.NewID(),
+		LanguageIDs: []valueobjects.ID{id, id},
+	})
+
+	require.Error(t, err)
+	require.False(t, repository.called)
+}
+
+func TestReorderTechnologiesHandlerRejectsDuplicateIDs(t *testing.T) {
+	repository := &fakeReorderTechnologiesRepository{}
+	uow := &fakeResumeUnitOfWork{}
+	handler := NewReorderTechnologiesHandler(repository, uow)
+	id := valueobjects.NewID()
+
+	err := handler.Handle(context.Background(), ReorderTechnologiesCommand{
+		ResumeID:      valueobjects.NewID(),
+		UserID:        useridentity.NewID(),
+		TechnologyIDs: []valueobjects.ID{id, id},
+	})
+
+	require.Error(t, err)
+	require.False(t, repository.called)
+}

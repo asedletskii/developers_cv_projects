@@ -81,6 +81,72 @@ func TestResumeReaderReturnsConsistentEmptyCollections(t *testing.T) {
 	require.Empty(t, view.Languages)
 }
 
+func TestResumeReaderNormalizesNestedNilCollections(t *testing.T) {
+	stub := compositeReaderStubWithNilCollections{}
+	reader := NewResumeReader(ResumeReaderDependencies{Metadata: stub, Overview: stub, Profile: stub, Contacts: stub, Skills: stub, Languages: stub, Technologies: stub, Experiences: stub, Educations: stub, Courses: stub, Activities: stub, Projects: stub})
+
+	view, err := reader.GetOwned(context.Background(), valueobjects.NewID(), useridentity.NewID())
+	require.NoError(t, err)
+	require.NotNil(t, view.Overview.Sections)
+	require.NotNil(t, view.Profile)
+	require.NotNil(t, view.Profile.WorkFormat)
+	require.NotNil(t, view.Contacts)
+	require.NotNil(t, view.Contacts.HiddenContacts)
+	require.NotNil(t, view.Skills)
+	require.NotNil(t, view.Skills.HardSkills)
+	require.NotNil(t, view.Skills.SoftSkills)
+	require.Len(t, view.Experiences, 1)
+	require.NotNil(t, view.Experiences[0].Achievements)
+	require.NotNil(t, view.Experiences[0].Stack)
+	require.Len(t, view.Projects, 1)
+	require.NotNil(t, view.Projects[0].Screenshots)
+	require.NotNil(t, view.Projects[0].Stack)
+	require.NotNil(t, view.Projects[0].Contributors)
+}
+
+type compositeReaderStubWithNilCollections struct{}
+
+func (compositeReaderStubWithNilCollections) GetResumeMetadata(context.Context, queries.GetResumeMetadataQuery) (queries.ResumeMetadataView, error) {
+	return queries.ResumeMetadataView{ID: "resume-1", Title: "Backend Developer", Language: "en"}, nil
+}
+
+func (compositeReaderStubWithNilCollections) ReadResumeMetadata(context.Context, valueobjects.ID) (queries.ResumeMetadataView, error) {
+	return queries.ResumeMetadataView{ID: "resume-1", Title: "Backend Developer", Language: "en"}, nil
+}
+func (compositeReaderStubWithNilCollections) ReadOverview(context.Context, valueobjects.ID) (queries.ResumeOverviewView, error) {
+	return queries.ResumeOverviewView{}, nil
+}
+func (compositeReaderStubWithNilCollections) ReadResumeProfile(context.Context, valueobjects.ID) (queries.ResumeProfileView, error) {
+	return queries.ResumeProfileView{}, nil
+}
+func (compositeReaderStubWithNilCollections) ReadResumeContacts(context.Context, valueobjects.ID) (queries.ResumeContactsView, error) {
+	return queries.ResumeContactsView{}, nil
+}
+func (compositeReaderStubWithNilCollections) ReadSkills(context.Context, valueobjects.ID) (queries.SkillsView, error) {
+	return queries.SkillsView{}, nil
+}
+func (compositeReaderStubWithNilCollections) ReadLanguages(context.Context, valueobjects.ID) ([]queries.LanguageView, error) {
+	return nil, nil
+}
+func (compositeReaderStubWithNilCollections) ReadTechnologies(context.Context, valueobjects.ID) ([]queries.TechnologyView, error) {
+	return nil, nil
+}
+func (compositeReaderStubWithNilCollections) ReadExperiences(context.Context, valueobjects.ID) ([]queries.ExperienceView, error) {
+	return []queries.ExperienceView{{}}, nil
+}
+func (compositeReaderStubWithNilCollections) ReadEducations(context.Context, valueobjects.ID) ([]queries.EducationView, error) {
+	return nil, nil
+}
+func (compositeReaderStubWithNilCollections) ReadCourses(context.Context, valueobjects.ID) ([]queries.CourseView, error) {
+	return nil, nil
+}
+func (compositeReaderStubWithNilCollections) ReadActivities(context.Context, valueobjects.ID) ([]queries.ActivityView, error) {
+	return nil, nil
+}
+func (compositeReaderStubWithNilCollections) ReadProjects(context.Context, valueobjects.ID) ([]queries.ProjectView, error) {
+	return []queries.ProjectView{{}}, nil
+}
+
 func TestResumeReaderPublicDoesNotRequireUserID(t *testing.T) {
 	stub := compositeReaderStub{}
 	reader := NewResumeReader(ResumeReaderDependencies{Metadata: stub, Overview: stub, Profile: stub, Contacts: stub, Skills: stub, Languages: stub, Technologies: stub, Experiences: stub, Educations: stub, Courses: stub, Activities: stub, Projects: stub})

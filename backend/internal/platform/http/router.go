@@ -79,7 +79,7 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, userHandler *
 	userhttp.RegisterRoutes(userHandler, lk)
 	resumehttp.RegisterRoutes(resumeHandler, api, lk)
 	engine.NoRoute(func(c *gin.Context) {
-		writeError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})
 }
 
@@ -104,14 +104,4 @@ func (r *Router) readyHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "ready", "checks": checks})
-}
-
-func writeError(c *gin.Context, err error) {
-	appErr := apperrors.From(err)
-	requestID := middleware.GetRequestID(c)
-	c.AbortWithStatusJSON(appErr.Status, gin.H{"error": gin.H{
-		"code":      appErr.Code,
-		"message":   appErr.Message,
-		"requestId": requestID,
-	}})
 }

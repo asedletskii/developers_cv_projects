@@ -4,8 +4,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+
+	"developers-cv/backend/internal/platform/http/requestid"
 )
 
 func HTTPMiddleware(serviceName string) gin.HandlerFunc {
@@ -22,14 +25,19 @@ func HTTPMiddleware(serviceName string) gin.HandlerFunc {
 		ctx, span := tracer.Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-
 		span.SetAttributes(
 			attribute.String("http.request.method", c.Request.Method),
 			attribute.String("http.route", route),
-			attribute.Int("http.response.status_code", c.Writer.Status()),
+			attribute.String("request.id", requestid.Get(c)),
 		)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+
+		status := c.Writer.Status()
+		span.SetAttributes(attribute.Int("http.response.status_code", status))
+		if status >= 500 {
+			span.SetStatus(codes.Error, "HTTP request failed")
+		}
 	}
 }
 

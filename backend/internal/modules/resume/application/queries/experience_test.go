@@ -13,7 +13,7 @@ import (
 type stubExperienceQueryReader struct{}
 
 func (stubExperienceQueryReader) ListExperiences(context.Context, ListExperiencesQuery) ([]ExperienceView, error) {
-	return []ExperienceView{{ID: uuid.NewString()}}, nil
+	return []ExperienceView{{ID: uuid.NewString(), Stack: []ExperienceStackItemView{{Name: "Go"}}}}, nil
 }
 func (stubExperienceQueryReader) GetExperience(context.Context, GetExperienceQuery) (ExperienceView, error) {
 	return ExperienceView{ID: uuid.NewString()}, nil
@@ -25,6 +25,7 @@ func TestExperienceQueryHandlersDelegateToReader(t *testing.T) {
 	items, err := NewListExperiencesQueryHandler(r).Handle(context.Background(), ListExperiencesQuery{ResumeID: rid, UserID: uid})
 	require.NoError(t, err)
 	require.Len(t, items, 1)
+	require.Equal(t, "Go", items[0].Stack[0].Name)
 	_, err = NewGetExperienceQueryHandler(r).Handle(context.Background(), GetExperienceQuery{ResumeID: rid, ExperienceID: valueobjects.NewID(), UserID: uid})
 	require.NoError(t, err)
 }

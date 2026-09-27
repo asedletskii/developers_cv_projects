@@ -15,20 +15,13 @@ import (
 )
 
 func (r *ProfileRepository) CreateProfile(ctx context.Context, c ports.CreateResumeProfileRepositoryCommand) error {
-	tx, e := database.DBFromTransactionContext(ctx)
-	if e != nil {
-		return fmt.Errorf("create profile: %w", e)
-	}
 	m, fs, e := profileModels(c.Profile)
 	if e != nil {
 		return e
 	}
-	var rootCount int64
-	if e = tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", m.ResumeID, c.UserID.UUID()).Count(&rootCount).Error; e != nil {
-		return fmt.Errorf("create profile ownership: %w", e)
-	}
-	if rootCount == 0 {
-		return domain.ErrEntityNotFound
+	tx, e := r.ownedInTransaction(ctx, c.Profile.ResumeID(), c.UserID)
+	if e != nil {
+		return fmt.Errorf("create profile: %w", e)
 	}
 	if e = tx.WithContext(ctx).Create(&m).Error; e != nil {
 		return fmt.Errorf("create profile: %w", mapDBError(e))
@@ -59,6 +52,9 @@ func (r *ProfileRepository) GetProfile(ctx context.Context, q ports.GetResumePro
 	return mapProfile(m, fs)
 }
 func (r *ProfileRepository) UpdateProfile(ctx context.Context, c ports.UpdateResumeProfileRepositoryCommand) error {
+	if c.Profile == nil {
+		return fmt.Errorf("profile is nil")
+	}
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("update profile: %w", e)

@@ -47,4 +47,6 @@ func TestHandlerUsesPublicReadMethod(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, id, reader.publicID.UUID())
 	require.Equal(t, 1, reader.publicCalls)
+	require.Contains(t, w.Body.String(), `"id":"resume"`)
+	require.NotContains(t, w.Body.String(), `"experience"`)
 }
