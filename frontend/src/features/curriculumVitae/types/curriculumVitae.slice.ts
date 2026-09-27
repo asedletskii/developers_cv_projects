@@ -1,5 +1,5 @@
 import { SliceCaseReducers } from '@shared/types'
-import { Person } from './curriculumVitae'
+import { Resume } from './resume'
 
 export type CurriculumVitaeErrorKind = 'notFound' | 'cannotGetPersonData'
 
@@ -14,11 +14,11 @@ export type CurriculumVitaeError = {
 }
 
 export type CurriculumVitaeSliceState = {
-  person: Person
+  resume: Resume
   isLoading: boolean
   error: CurriculumVitaeError | null
 
-  /** requestId последнего запущенного getPersonData — чтобы игнорировать ответ уже отменённого запроса */
+  /** requestId последнего запущенного getPublicResume — чтобы игнорировать ответ уже отменённого запроса */
   currentRequestId: string | null
 }
 

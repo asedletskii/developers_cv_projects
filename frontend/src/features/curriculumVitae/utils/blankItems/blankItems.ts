@@ -5,7 +5,7 @@ import {
   Education,
   EducationLevel,
   Experience,
-  Person,
+  Project,
 } from '@features/curriculumVitae/types'
 
 /** Новые пустые записи списков в форме редактора. Клиентский `id` нужен только форме: бэкенд
@@ -42,8 +42,10 @@ export const blankActivity = (): Activity => ({
   title: '',
 })
 
-export const blankProject = (): Person['projects'][number] => ({
+export const blankProject = (): Project => ({
   id: crypto.randomUUID(),
   name: '',
+  screenshots: [],
   stack: [],
+  contributors: [],
 })

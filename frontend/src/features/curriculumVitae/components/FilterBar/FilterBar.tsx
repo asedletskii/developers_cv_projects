@@ -1,15 +1,15 @@
 import { glassCard } from '@features/curriculumVitae/styles'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { CloseRounded } from '@mui/icons-material'
 import { Chip, IconButton, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useFilterBar } from './hooks'
 
-type Props = Pick<Person, 'experience' | 'projects'>
+type Props = Pick<Resume, 'experiences' | 'projects'>
 
-export const FilterBar = ({ experience, projects }: Props) => {
+export const FilterBar = ({ experiences, projects }: Props) => {
   const translate = useTranslate('CurriculumVitae.Filter')
-  const { isVisible, shown, jobs, matchedProjects, clear } = useFilterBar({ experience, projects })
+  const { isVisible, shown, jobs, matchedProjects, clear } = useFilterBar({ experiences, projects })
 
   return (
     <Stack

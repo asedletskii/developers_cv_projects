@@ -1,12 +1,12 @@
-import { Person, Technology } from '@features/curriculumVitae/types'
+import { Resume, Technology } from '@features/curriculumVitae/types'
 import { isSameTechnology } from '@features/curriculumVitae/utils'
 import { useController, useFormContext } from 'react-hook-form'
 
-type Name = 'technologies' | `experience.${number}.stack` | `projects.${number}.stack`
+type Name = 'technologies' | `experiences.${number}.stack` | `projects.${number}.stack`
 
 /** Поле-список технологий: значения формы ↔ названия в выпадающем списке. */
 export const useTechnologyListField = (name: Name) => {
-  const { control } = useFormContext<Person>()
+  const { control } = useFormContext<Resume>()
   const { field } = useController({ control, name })
 
   const value = (field.value ?? []) as Technology[]

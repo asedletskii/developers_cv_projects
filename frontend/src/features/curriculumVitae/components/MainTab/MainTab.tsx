@@ -1,5 +1,5 @@
 import { glassCard } from '@features/curriculumVitae/styles'
-import { ResumeEditorTab, ResumeView } from '@features/curriculumVitae/types'
+import { Resume, ResumeEditorTab } from '@features/curriculumVitae/types'
 import { LinearProgress, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import dayjs from 'dayjs'
@@ -7,7 +7,7 @@ import { ChecklistItem } from './ChecklistItem'
 import { useResumeChecklist } from './hooks'
 
 type Props = {
-  view: ResumeView
+  view: Resume
 
   /** Открыть вкладку раздела «Редактирование» */
   onOpenTab: (tab: ResumeEditorTab) => void

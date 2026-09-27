@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { createAccentTheme } from '@features/curriculumVitae/utils'
 import { darkTheme } from '@shared/styles/darkTheme'
 import { lightTheme } from '@shared/styles/lightTheme'
@@ -8,9 +8,9 @@ import { useFormContext, useWatch } from 'react-hook-form'
 
 /** Тема предпросмотра: цвета из формы поверх светлой или тёмной базовой темы. */
 export const useThemePreview = () => {
-  const { control } = useFormContext<Person>()
-  const primary = useWatch({ control, name: 'theme.primary' })
-  const secondary = useWatch({ control, name: 'theme.secondary' })
+  const { control } = useFormContext<Resume>()
+  const primary = useWatch({ control, name: 'overview.theme.primary' })
+  const secondary = useWatch({ control, name: 'overview.theme.secondary' })
 
   const [mode, setMode] = useState(ColorMode.Dark)
 

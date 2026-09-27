@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 import { SectionPreview } from '@features/curriculumVitae/components/SectionPreview'
 import { glassCard } from '@features/curriculumVitae/styles'
-import { Person, ResumeEditorTab, ResumeView, SectionId } from '@features/curriculumVitae/types'
+import { Resume, ResumeEditorTab, SectionId } from '@features/curriculumVitae/types'
 import { Stack } from '@mui/material'
 import { FormProvider } from 'react-hook-form'
 import { useSectionForm } from './hooks'
@@ -9,8 +9,8 @@ import { SectionFormActions } from './SectionFormActions'
 
 type Props = {
   userId: string
-  view: ResumeView
-  person: Person
+  view: Resume
+  values: Resume
   section: ResumeEditorTab
 
   /** Секция страницы, которую вкладка правит — по ней рисуется предпросмотр (нет — без него) */
@@ -31,7 +31,7 @@ type Props = {
 export const SectionForm = ({
   userId,
   view,
-  person,
+  values,
   section,
   previewSection,
   previewHighlight,
@@ -42,7 +42,7 @@ export const SectionForm = ({
   const { form, isDirty, status, submit, reset, resetStatus } = useSectionForm({
     userId,
     view,
-    person,
+    values,
     section,
     onSaved,
     onDirtyChange,

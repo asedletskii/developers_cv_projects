@@ -12,31 +12,31 @@ import { useCurriculumVitae } from './hooks'
 import { Sections } from './Sections'
 
 export const CurriculumVitae = () => {
-  const { person, sections, navItems, initiallyCollapsed, containerRef } = useCurriculumVitae()
+  const { resume, sections, navItems, initiallyCollapsed, containerRef } = useCurriculumVitae()
 
   return (
-    <AccentTheme colors={person.theme}>
+    <AccentTheme colors={resume.overview.theme}>
       <SectionCollapseProvider initiallyCollapsed={initiallyCollapsed}>
-        <TechnologyFilterProvider projects={person.projects}>
+        <TechnologyFilterProvider projects={resume.projects}>
           <Box
             ref={containerRef}
             sx={{ position: 'relative', isolation: 'isolate', width: '100%', overflowX: 'clip' }}
           >
             <ScrollProgress />
-            <ControlsBar resumeLink={person.resumeLink} />
+            <ControlsBar resumeLink={resume.overview.resumeLink} />
             <SectionNav items={navItems} />
             <CursorGlow />
 
             <HeroSection
-              greeting={person.greeting}
-              resumeLink={person.resumeLink}
-              availability={person.availability}
-              updatedAt={person.updatedAt}
+              greeting={resume.overview.greeting}
+              resumeLink={resume.overview.resumeLink}
+              availability={resume.overview.availability}
+              updatedAt={resume.updatedAt}
             />
 
-            <Sections person={person} sections={sections} />
+            <Sections resume={resume} sections={sections} />
 
-            <FilterBar experience={person.experience} projects={person.projects} />
+            <FilterBar experiences={resume.experiences} projects={resume.projects} />
           </Box>
         </TechnologyFilterProvider>
       </SectionCollapseProvider>

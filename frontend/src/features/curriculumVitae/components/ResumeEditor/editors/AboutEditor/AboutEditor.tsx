@@ -1,6 +1,6 @@
 import { DateField } from '@features/curriculumVitae/components/form/DateField'
 import { SelectField } from '@features/curriculumVitae/components/form/SelectField'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { Checkbox, FormControlLabel, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useFormContext } from 'react-hook-form'
@@ -10,38 +10,58 @@ import { useProfileOptions } from './hooks'
 export const AboutEditor = () => {
   const translate = useTranslate('Lk.Edit.About')
   const { workFormatOptions } = useProfileOptions()
-  const { register } = useFormContext<Person>()
+  const { register } = useFormContext<Resume>()
 
   return (
     <Stack spacing={2}>
-      <TextField fullWidth label={translate('photoPath')} {...register('photoPath')} required />
+      <TextField
+        fullWidth
+        label={translate('photoPath')}
+        {...register('profile.photoPath')}
+        required
+      />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <TextField label={translate('name')} {...register('name')} required fullWidth />
-        <TextField label={translate('surname')} {...register('surname')} required fullWidth />
-        <TextField label={translate('patronymic')} {...register('patronymic')} fullWidth />
+        <TextField label={translate('name')} {...register('profile.name')} required fullWidth />
+        <TextField
+          label={translate('surname')}
+          {...register('profile.surname')}
+          required
+          fullWidth
+        />
+        <TextField label={translate('patronymic')} {...register('profile.patronymic')} fullWidth />
       </Stack>
 
-      <TextField fullWidth label={translate('position')} {...register('position')} required />
+      <TextField
+        fullWidth
+        label={translate('position')}
+        {...register('profile.position')}
+        required
+      />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <DateField
-          name="dateOfBirth"
+          name="profile.dateOfBirth"
           label={translate('dateOfBirth')}
           format="YYYY-MM-DD"
           required
         />
 
-        <TextField label={translate('location')} {...register('location')} required fullWidth />
+        <TextField
+          label={translate('location')}
+          {...register('profile.location')}
+          required
+          fullWidth
+        />
       </Stack>
 
       <FormControlLabel
-        control={<Checkbox {...register('relocation')} />}
+        control={<Checkbox {...register('profile.relocation')} />}
         label={translate('relocation')}
       />
 
       <SelectField
-        name="workFormat"
+        name="profile.workFormat"
         multiple
         label={translate('workFormat')}
         options={workFormatOptions}

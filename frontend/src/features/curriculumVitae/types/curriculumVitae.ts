@@ -1,106 +1,4 @@
-import {
-  ActivityType,
-  AvailabilityStatus,
-  ContactKey,
-  EducationLevel,
-  HardSkill,
-  LanguageGrade,
-  LanguageType,
-  SectionId,
-  SoftSkill,
-  WorkFormat,
-} from './enums'
-
-export type Person = {
-  id: string
-
-  /** Имя */
-  name: string
-
-  /** Фамилия */
-  surname: string
-
-  /** Отчество */
-  patronymic?: string
-
-  /** Вакансия */
-  position: string
-
-  /** Доступность для работодателей */
-  availability?: Availability
-
-  /** Когда резюме обновлялось в последний раз (ISO-дата) */
-  updatedAt?: string
-
-  /** Ссылка на файл резюме (если нет, кнопки скачивания скрыты) */
-  resumeLink?: string
-
-  /** Акцентные цвета резюме (если не заданы, используются цвета по умолчанию) */
-  theme?: ThemeSettings
-
-  /** Настройки секций: порядок массива = порядок на странице */
-  sections: SectionSettings[]
-
-  /** Контакты, которые показываются только по клику (защита от сборщиков почты и телефонов) */
-  hiddenContacts?: ContactKey[]
-
-  /** Тексты блока контактов (если не заданы, берутся тексты по умолчанию) */
-  contactsText?: ContactsText
-
-  /** Приветствие на главном экране */
-  greeting: Greeting
-
-  /** Фото */
-  photoPath: string
-
-  /** Дата рождения */
-  dateOfBirth: string
-
-  /** Город проживания */
-  location: string
-
-  /** Готовность к релокации */
-  relocation: boolean
-
-  /** Формат работы */
-  workFormat: WorkFormat[]
-
-  /** Контакты */
-  contacts: Contacts
-
-  /** Знание языков */
-  languages: {
-    /** Язык */
-    language: LanguageType
-
-    /** Уровень знания языка */
-    grade?: LanguageGrade
-  }[]
-
-  /** Опыт работы */
-  experience: Experience[]
-
-  /** Образование */
-  education: Education[]
-
-  /** Курсы и сертификаты */
-  courses: Course[]
-
-  /** Дополнительная активность */
-  activities: Activity[]
-
-  /** Хард скилы */
-  hardSkills: HardSkill[]
-
-  /** Софт скилы */
-  softSkills: SoftSkill[]
-
-  /** Используемые технологии/основной стэк */
-  technologies: Technology[]
-
-  /** Проекты */
-  projects: Pick<Project, 'id' | 'name' | 'description' | 'stack' | 'link'>[]
-}
+import { ActivityType, AvailabilityStatus, EducationLevel, SectionId } from './enums'
 
 /** Тексты блока контактов: не пришло поле — текст по умолчанию, пустая строка — элемент скрыт */
 export type ContactsText = {
@@ -155,6 +53,9 @@ export type Greeting = {
 export type Technology = {
   /** Название */
   name: string
+
+  /** Уровень владения */
+  grade?: string
 }
 
 export type Contacts = {
@@ -271,25 +172,28 @@ export type Project = {
   /** Описание проекта */
   description?: string
 
-  /** Роль в проекте */
+  /** Роль в проекте (в публичном ответе нет) */
   role?: string
 
-  /** Скриншоты проекта */
-  screenshots?: string[]
+  /** Скриншоты проекта (в публичном ответе всегда пусто) */
+  screenshots: string[]
 
   /** Ссылка на проект (где посмотреть)*/
   link?: string
 
-  /** Ссылка на гит */
+  /** Ссылка на гит (в публичном ответе нет) */
   gitLink?: string
 
   /** Стэк проекта */
   stack: Technology[]
 
-  /** Участники проекта */
+  /** Участники проекта (в публичном ответе всегда пусто) */
   contributors: SimplifiedPerson[]
 }
 
-type SimplifiedPerson = Pick<Person, 'name' | 'surname' | 'contacts'> & {
+type SimplifiedPerson = {
+  name: string
+  surname: string
+  contacts: Contacts
   role: string
 }

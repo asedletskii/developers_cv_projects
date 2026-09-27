@@ -1,4 +1,4 @@
-import { LanguageType, Person } from '@features/curriculumVitae/types'
+import { LanguageType, Resume } from '@features/curriculumVitae/types'
 import { useTranslate } from '@shared/hooks'
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
 
@@ -9,7 +9,7 @@ import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
  */
 export const useLanguagesEditor = () => {
   const translate = useTranslate('CurriculumVitae.About')
-  const { control } = useFormContext<Person>()
+  const { control } = useFormContext<Resume>()
   const { fields, append, remove, move } = useFieldArray({ control, name: 'languages' })
   const languages = useWatch({ control, name: 'languages' }) ?? []
 

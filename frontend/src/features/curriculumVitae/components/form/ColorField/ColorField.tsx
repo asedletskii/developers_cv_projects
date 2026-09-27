@@ -1,12 +1,12 @@
 import { glassCard } from '@features/curriculumVitae/styles'
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { Box, ClickAwayListener, Popper, Stack, TextField } from '@mui/material'
 import { HexColorPicker } from 'react-colorful'
 import { FieldPath } from 'react-hook-form'
 import { useColorField } from './hooks'
 
 type Props = {
-  name: FieldPath<Person>
+  name: FieldPath<Resume>
   label: string
   defaultColor: string
 }

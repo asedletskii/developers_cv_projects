@@ -1,11 +1,6 @@
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
-import {
-  LanguageType,
-  ListSection,
-  Person,
-  ResumeEditorTab,
-  ResumeView,
-} from '@features/curriculumVitae/types'
+import { EMPTY_CONTACTS, EMPTY_PROFILE, EMPTY_SKILLS } from '@features/curriculumVitae/constants'
+import { LanguageType, ListSection, Resume, ResumeEditorTab } from '@features/curriculumVitae/types'
 import { ListOps, syncById, syncByIndex } from '@features/curriculumVitae/utils/syncList'
 import { toOptionalNumber, toOptionalString } from '@features/curriculumVitae/utils/toOptional'
 import { withPinnedAbout } from '@features/curriculumVitae/utils/withPinnedAbout'
@@ -13,11 +8,13 @@ import { withPinnedAbout } from '@features/curriculumVitae/utils/withPinnedAbout
 /** Отправляет на бэк ровно одну секцию из значений формы. */
 export const saveResumeSection = async (
   userId: string,
-  view: ResumeView,
+  view: Resume,
   section: ResumeEditorTab,
-  p: Person,
+  values: Resume,
 ): Promise<void> => {
   const { id: resumeId } = view
+  const { overview, languages, technologies, experiences, educations, courses, activities } = values
+  const { profile = EMPTY_PROFILE, contacts = EMPTY_CONTACTS, skills = EMPTY_SKILLS } = values
   const cv = curriculumVitaeApi
 
   const list = <F>(kind: ListSection, toBody: (item: F, index: number) => unknown): ListOps<F> => ({
@@ -33,23 +30,21 @@ export const saveResumeSection = async (
         resumeId,
         'overview',
         {
-          presentation: {
-            theme: p.theme?.primary || p.theme?.secondary ? p.theme : undefined,
-            greeting: p.greeting,
-            availability: p.availability?.status
-              ? {
-                  status: p.availability.status,
-                  from: toOptionalString(p.availability.from),
-                  note: toOptionalString(p.availability.note),
-                }
-              : undefined,
-            resumeLink: toOptionalString(p.resumeLink),
-            sections: withPinnedAbout(p.sections).map(({ id, enabled, collapsed }) => ({
-              id,
-              enabled,
-              collapsed: !!collapsed,
-            })),
-          },
+          theme: overview.theme?.primary || overview.theme?.secondary ? overview.theme : undefined,
+          greeting: overview.greeting,
+          availability: overview.availability?.status
+            ? {
+                status: overview.availability.status,
+                from: toOptionalString(overview.availability.from),
+                note: toOptionalString(overview.availability.note),
+              }
+            : undefined,
+          resumeLink: toOptionalString(overview.resumeLink),
+          sections: withPinnedAbout(overview.sections).map(({ id, enabled, collapsed }) => ({
+            id,
+            enabled,
+            collapsed: !!collapsed,
+          })),
         },
         true,
       )
@@ -60,15 +55,15 @@ export const saveResumeSection = async (
         resumeId,
         'profile',
         {
-          name: p.name,
-          surname: p.surname,
-          patronymic: toOptionalString(p.patronymic),
-          position: p.position,
-          photoPath: p.photoPath,
-          dateOfBirth: p.dateOfBirth,
-          location: p.location,
-          relocation: p.relocation,
-          workFormat: p.workFormat,
+          name: profile.name,
+          surname: profile.surname,
+          patronymic: toOptionalString(profile.patronymic),
+          position: profile.position,
+          photoPath: profile.photoPath,
+          dateOfBirth: profile.dateOfBirth,
+          location: profile.location,
+          relocation: profile.relocation,
+          workFormat: profile.workFormat,
         },
         !!view.profile,
       )
@@ -79,12 +74,12 @@ export const saveResumeSection = async (
         resumeId,
         'contacts',
         {
-          phone: toOptionalString(p.contacts.phone),
-          telegram: toOptionalString(p.contacts.telegram),
-          email: toOptionalString(p.contacts.email),
-          hiddenContacts: p.hiddenContacts ?? [],
+          phone: toOptionalString(contacts.phone),
+          telegram: toOptionalString(contacts.telegram),
+          email: toOptionalString(contacts.email),
+          hiddenContacts: contacts.hiddenContacts,
           // Пустая строка в contactsText значима («элемент скрыт»), поэтому передаём как есть
-          contactsText: p.contactsText,
+          contactsText: contacts.contactsText,
         },
         !!view.contacts,
       )
@@ -95,8 +90,8 @@ export const saveResumeSection = async (
         resumeId,
         'skills',
         {
-          hardSkills: p.hardSkills,
-          softSkills: p.softSkills,
+          hardSkills: skills.hardSkills,
+          softSkills: skills.softSkills,
         },
         !!view.skills,
       )
@@ -104,9 +99,9 @@ export const saveResumeSection = async (
     case 'languages': {
       // Язык в резюме уникален, поэтому записи сопоставляем по коду языка, а не по индексу: иначе
       // перестановка двух языков местами упёрлась бы в `409` на первом же PUT. Порядок задаём отдельно.
-      const byLanguage = new Map(view.languages.map((item) => [item.language, item.id]))
-      const wanted = new Set(p.languages.map(({ language }) => language))
-      const body = ({ grade, language }: (typeof p.languages)[number]) => ({
+      const byLanguage = new Map(view.languages.map((item) => [item.language, item.id as string]))
+      const wanted = new Set(languages.map(({ language }) => language))
+      const body = ({ grade, language }: (typeof languages)[number]) => ({
         language,
         grade: toOptionalString(grade),
       })
@@ -117,7 +112,7 @@ export const saveResumeSection = async (
       }
 
       const ids: string[] = []
-      for (const item of p.languages) {
+      for (const item of languages) {
         const existingId = byLanguage.get(item.language)
 
         if (existingId) {
@@ -134,15 +129,15 @@ export const saveResumeSection = async (
 
     case 'technologies':
       return syncByIndex(
-        view.technologies,
-        p.technologies,
+        view.technologies as { id: string }[],
+        technologies,
         list('technologies', ({ name }) => ({ name })),
       )
 
     case 'experience':
       return syncById(
         view.experiences,
-        p.experience,
+        experiences,
         list('experiences', (e) => ({
           company: e.company,
           position: e.position,
@@ -151,14 +146,14 @@ export const saveResumeSection = async (
           endDate: toOptionalString(e.endDate),
           description: toOptionalString(e.description),
           achievements: e.achievements.filter(Boolean),
-          technologies: e.stack.map(({ name }) => ({ name })),
+          stack: e.stack.map(({ name }) => ({ name })),
         })),
       )
 
     case 'education':
       return syncById(
         view.educations,
-        p.education,
+        educations,
         list('educations', (e) => ({
           location: e.location,
           university: e.university,
@@ -174,7 +169,7 @@ export const saveResumeSection = async (
     case 'courses':
       return syncById(
         view.courses,
-        p.courses,
+        courses,
         list('courses', (c) => ({
           name: c.name,
           organization: c.organization,
@@ -187,7 +182,7 @@ export const saveResumeSection = async (
     case 'activities':
       return syncById(
         view.activities,
-        p.activities,
+        activities,
         list('activities', (a) => ({
           type: a.type,
           title: a.title,
@@ -200,7 +195,7 @@ export const saveResumeSection = async (
     case 'projects':
       return syncById(
         view.projects,
-        p.projects,
+        values.projects,
         list('projects', (project) => {
           // Форма правит только название/описание/ссылку/стэк — остальные поля берём с сервера,
           // иначе PUT затёр бы роль, скриншоты, git-ссылку и участников

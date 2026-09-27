@@ -2,36 +2,20 @@ import { CurriculumVitaeSliceState } from '@features/curriculumVitae/types'
 
 export const getCurriculumVitaeInitialState = (): CurriculumVitaeSliceState => {
   return {
-    person: {
+    resume: {
       id: '',
-      name: '',
-      surname: '',
-      position: '',
-      sections: [],
-      greeting: {
-        first: '',
-        second: '',
-        secondHighlight: '',
-        third: '',
-      },
-      photoPath: '',
-      dateOfBirth: '',
-      location: '',
-      relocation: false,
-      workFormat: [],
-      contacts: {
-        phone: undefined,
-        telegram: undefined,
-        email: undefined,
+      title: '',
+      language: 'ru',
+      overview: {
+        greeting: { first: '', second: '', secondHighlight: '', third: '' },
+        sections: [],
       },
       languages: [],
-      experience: [],
-      education: [],
+      technologies: [],
+      experiences: [],
+      educations: [],
       courses: [],
       activities: [],
-      hardSkills: [],
-      softSkills: [],
-      technologies: [],
       projects: [],
     },
     isLoading: true,

@@ -1,10 +1,10 @@
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { Autocomplete, TextField } from '@mui/material'
 import { FieldPath } from 'react-hook-form'
 import { useSkillsField } from './hooks'
 
 type Props = {
-  name: Extract<FieldPath<Person>, 'hardSkills' | 'softSkills'>
+  name: Extract<FieldPath<Resume>, 'skills.hardSkills' | 'skills.softSkills'>
   label: string
   options: { value: string; label: string }[]
 }

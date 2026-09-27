@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
-import { ResumeEditorTab, ResumeView } from '@features/curriculumVitae/types'
-import { viewToPerson } from '@features/curriculumVitae/utils'
+import { Resume, ResumeEditorTab } from '@features/curriculumVitae/types'
+import { getResumeFormValues } from '@features/curriculumVitae/utils'
 import { useTranslate } from '@shared/hooks'
 import { useSearchParams } from 'react-router'
 import { EDITOR_TABS } from '../constants'
 
 type Params = {
-  view: ResumeView
+  view: Resume
 
   /** Есть ли несохранённые правки — при уходе с вкладки спрашиваем подтверждение */
   isDirtyRef: { current: boolean }
@@ -17,7 +17,7 @@ export const useResumeEditor = ({ view, isDirtyRef }: Params) => {
   const translate = useTranslate('Lk.Edit')
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const person = useMemo(() => viewToPerson(view), [view])
+  const values = useMemo(() => getResumeFormValues(view), [view])
   const activeTab = EDITOR_TABS.find(({ id }) => id === searchParams.get('tab')) ?? EDITOR_TABS[0]
 
   const changeTab = (id: ResumeEditorTab) => {
@@ -37,5 +37,5 @@ export const useResumeEditor = ({ view, isDirtyRef }: Params) => {
     isDirtyRef.current = isDirty
   }
 
-  return { person, activeTab, changeTab, setDirty }
+  return { values, activeTab, changeTab, setDirty }
 }

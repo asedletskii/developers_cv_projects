@@ -4,7 +4,7 @@ import { useTranslate } from '@shared/hooks'
 import { useTechnologyListField } from './hooks'
 
 type Props = {
-  name: 'technologies' | `experience.${number}.stack` | `projects.${number}.stack`
+  name: 'technologies' | `experiences.${number}.stack` | `projects.${number}.stack`
 }
 
 /** Технологии выпадающим списком с подсказками; если нужной нет — её можно вписать и нажать Enter.

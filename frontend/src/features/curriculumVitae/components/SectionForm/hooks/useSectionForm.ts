@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Person, ResumeEditorTab, ResumeView } from '@features/curriculumVitae/types'
+import { Resume, ResumeEditorTab } from '@features/curriculumVitae/types'
 import { saveResumeSection } from '@features/curriculumVitae/utils'
 import { useForm } from 'react-hook-form'
 
@@ -7,8 +7,8 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 type Params = {
   userId: string
-  view: ResumeView
-  person: Person
+  view: Resume
+  values: Resume
   section: ResumeEditorTab
 
   /** Вызывается после успешного сохранения — экран перечитывает резюме с бэка */
@@ -20,12 +20,12 @@ type Params = {
 export const useSectionForm = ({
   userId,
   view,
-  person,
+  values,
   section,
   onSaved,
   onDirtyChange,
 }: Params) => {
-  const form = useForm<Person>({ values: person })
+  const form = useForm<Resume>({ values })
   const { isDirty } = form.formState
 
   const [status, setStatus] = useState<SaveStatus>('idle')

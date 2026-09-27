@@ -3,22 +3,20 @@ import {
   ListSection,
   LkProfile,
   LkResumeSummary,
-  Person,
+  Resume,
   ResumeLanguage,
-  ResumeView,
   SingletonSection,
 } from '@features/curriculumVitae/types'
-import { normalizePerson } from '@features/curriculumVitae/utils'
 import { api } from '@shared/api'
 import { generatePath } from 'react-router'
 
 const ownerHeaders = (userId: string) => ({ 'X-Mock-User-ID': userId })
 class CurriculumVitaeApi {
-  async getPublicResume(resumeId: string, signal?: AbortSignal): Promise<Person> {
-    const response = await api.get<Person>(generatePath(API_ROUTES.publicResume, { resumeId }), {
+  async getPublicResume(resumeId: string, signal?: AbortSignal): Promise<Resume> {
+    const response = await api.get<Resume>(generatePath(API_ROUTES.publicResume, { resumeId }), {
       signal,
     })
-    return normalizePerson(response.data)
+    return response.data
   }
 
   async getProfile(userId: string, signal?: AbortSignal): Promise<LkProfile> {
@@ -37,8 +35,8 @@ class CurriculumVitaeApi {
     return response.data
   }
 
-  async getResume(userId: string, resumeId: string, signal?: AbortSignal): Promise<ResumeView> {
-    const response = await api.get<ResumeView>(generatePath(API_ROUTES.lkResume, { resumeId }), {
+  async getResume(userId: string, resumeId: string, signal?: AbortSignal): Promise<Resume> {
+    const response = await api.get<Resume>(generatePath(API_ROUTES.lkResume, { resumeId }), {
       signal,
       headers: ownerHeaders(userId),
     })

@@ -1,7 +1,7 @@
-import { Person } from '@features/curriculumVitae/types'
+import { Resume } from '@features/curriculumVitae/types'
 import { useFieldArray, useFormContext } from 'react-hook-form'
 
-type ListName = 'education' | 'experience' | 'courses' | 'activities' | 'projects'
+type ListName = 'educations' | 'experiences' | 'courses' | 'activities' | 'projects'
 
 /**
  * Список записей в форме редактора (опыт, образование, курсы, …): добавление пустой записи,
@@ -9,12 +9,12 @@ type ListName = 'education' | 'experience' | 'courses' | 'activities' | 'project
  */
 export const useFormList = <Name extends ListName>(
   name: Name,
-  createItem: () => Person[Name][number],
+  createItem: () => Resume[Name][number],
 ) => {
-  const { control, register } = useFormContext<Person>()
-  const { fields, append, remove, move } = useFieldArray({ control, name: name as 'education' })
+  const { control, register } = useFormContext<Resume>()
+  const { fields, append, remove, move } = useFieldArray({ control, name: name as 'educations' })
 
-  const addItem = () => append(createItem() as Person['education'][number])
+  const addItem = () => append(createItem() as Resume['educations'][number])
 
   const itemProps = (index: number) => ({
     canMoveUp: index > 0,

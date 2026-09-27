@@ -21,12 +21,12 @@ type Props = {
  */
 export const SectionPreview = ({ section, highlight }: Props) => {
   const translate = useTranslate('Lk.Edit')
-  const { person, definition, hasContent } = useSectionPreview(section)
+  const { resume, definition, hasContent } = useSectionPreview(section)
 
   return (
-    <AccentTheme colors={person.theme}>
+    <AccentTheme colors={resume.overview.theme}>
       <SectionCollapseProvider initiallyCollapsed={[]}>
-        <TechnologyFilterProvider projects={person.projects ?? []}>
+        <TechnologyFilterProvider projects={resume.projects ?? []}>
           <Stack spacing={1}>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               {translate('preview')}
@@ -46,7 +46,7 @@ export const SectionPreview = ({ section, highlight }: Props) => {
               }}
             >
               {hasContent ? (
-                <Box sx={{ zoom: 0.6, pointerEvents: 'none' }}>{definition.render(person)}</Box>
+                <Box sx={{ zoom: 0.6, pointerEvents: 'none' }}>{definition.render(resume)}</Box>
               ) : (
                 <Typography sx={{ color: 'text.secondary' }}>
                   {translate('previewEmpty')}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
+import { EMPTY_PROFILE } from '@features/curriculumVitae/constants'
 import { getVisibleSections, SECTION_DEFINITIONS } from '@features/curriculumVitae/sections'
-import { selectPersonData } from '@features/curriculumVitae/store/curriculumVitae'
+import { selectResume } from '@features/curriculumVitae/store/curriculumVitae'
 import { ScrollTrigger } from '@shared/animations'
 import { useDocumentTitle, useLanguage, usePrintLightTheme, useScrollReveal } from '@shared/hooks'
 import { useAppSelector } from '@shared/store'
@@ -8,14 +9,14 @@ import { getPersonFIO } from '@shared/utils'
 import { useNavItems } from './useNavItems'
 
 export const useCurriculumVitae = () => {
-  const person = useAppSelector(selectPersonData)
+  const resume = useAppSelector(selectResume)
   const { language } = useLanguage()
   const containerRef = useScrollReveal()
 
   usePrintLightTheme()
-  useDocumentTitle(getPersonFIO(person))
+  useDocumentTitle(getPersonFIO(resume.profile ?? EMPTY_PROFILE))
 
-  const sections = useMemo(() => getVisibleSections(person), [person])
+  const sections = useMemo(() => getVisibleSections(resume), [resume])
   const navItems = useNavItems(sections)
 
   const initiallyCollapsed = sections
@@ -28,5 +29,5 @@ export const useCurriculumVitae = () => {
     return () => window.clearTimeout(timer)
   }, [language])
 
-  return { person, sections, navItems, initiallyCollapsed, containerRef }
+  return { resume, sections, navItems, initiallyCollapsed, containerRef }
 }

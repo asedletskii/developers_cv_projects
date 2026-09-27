@@ -10,9 +10,9 @@ export const SkillsEditor = () => {
 
   return (
     <Stack spacing={2}>
-      <SkillsField name="hardSkills" label={translate('hard')} options={hardSkillOptions} />
+      <SkillsField name="skills.hardSkills" label={translate('hard')} options={hardSkillOptions} />
 
-      <SkillsField name="softSkills" label={translate('soft')} options={softSkillOptions} />
+      <SkillsField name="skills.softSkills" label={translate('soft')} options={softSkillOptions} />
     </Stack>
   )
 }

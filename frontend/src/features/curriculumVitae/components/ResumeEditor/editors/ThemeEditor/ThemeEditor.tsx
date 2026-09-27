@@ -28,12 +28,12 @@ export const ThemeEditor = () => {
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
         <ColorField
-          name="theme.primary"
+          name="overview.theme.primary"
           label={translate('primary')}
           defaultColor={defaultPrimary}
         />
         <ColorField
-          name="theme.secondary"
+          name="overview.theme.secondary"
           label={translate('secondary')}
           defaultColor={defaultSecondary}
         />
