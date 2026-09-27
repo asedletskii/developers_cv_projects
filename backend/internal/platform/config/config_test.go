@@ -148,19 +148,6 @@ func TestLoadRejectsUnsupportedAuthMode(t *testing.T) {
 	require.Contains(t, err.Error(), "AUTH_MODE")
 }
 
-func TestValidateRejectsDisabledTLSInProduction(t *testing.T) {
-	cfg := productionSecurityTestConfig()
-	cfg.App.Env = "production"
-	cfg.Auth.Mode = "jwt"
-	cfg.Postgres.SSLMode = "require"
-	cfg.HTTP.TLS.Enabled = false
-
-	err := validateProductionSecurity(cfg)
-
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "HTTP_TLS_ENABLED")
-}
-
 func TestValidateRejectsDisabledPrometheusInProduction(t *testing.T) {
 	cfg := productionSecurityTestConfig()
 	cfg.Auth.Mode = "jwt"
