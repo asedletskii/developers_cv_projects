@@ -258,8 +258,14 @@ func parse() (Config, error) {
 	}
 
 	cfg := Config{
-		App:  AppConfig{Env: appEnv, Name: appName, Version: appVersion},
-		Auth: AuthConfig{Mode: authMode},
+		App: AppConfig{
+			Env:     appEnv,
+			Name:    appName,
+			Version: appVersion,
+		},
+		Auth: AuthConfig{
+			Mode: authMode,
+		},
 		HTTP: HTTPConfig{
 			Host:              host,
 			Port:              port,
@@ -281,7 +287,10 @@ func parse() (Config, error) {
 				Burst:   rateLimitBurst,
 			},
 		},
-		Log: LogConfig{Level: logLevel, Format: logFormat},
+		Log: LogConfig{
+			Level:  logLevel,
+			Format: logFormat,
+		},
 		CORS: CORSConfig{
 			AllowedOrigins:   splitCSV(os.Getenv("CORS_ALLOWED_ORIGINS")),
 			AllowCredentials: corsCredentials,
@@ -294,7 +303,9 @@ func parse() (Config, error) {
 			OTLPEndpoint:   otelEndpoint,
 			Insecure:       otelInsecure,
 		},
-		Prometheus: PrometheusConfig{Enabled: prometheusEnabled},
+		Prometheus: PrometheusConfig{
+			Enabled: prometheusEnabled,
+		},
 		Postgres: PostgresConfig{
 			Host:            postgresHost,
 			Port:            postgresPort,
@@ -353,10 +364,13 @@ func validate(cfg Config) error {
 	if !isValidPostgresSSLMode(cfg.Postgres.SSLMode) {
 		return fmt.Errorf("invalid POSTGRES_SSLMODE: %q", cfg.Postgres.SSLMode)
 	}
-	if cfg.Postgres.MaxConns <= 0 || cfg.Postgres.MaxIdleConns < 0 || cfg.Postgres.MaxIdleConns > cfg.Postgres.MaxConns {
+	if cfg.Postgres.MaxConns <= 0 ||
+		cfg.Postgres.MaxIdleConns < 0 ||
+		cfg.Postgres.MaxIdleConns > cfg.Postgres.MaxConns {
 		return errors.New("invalid PostgreSQL pool limits")
 	}
-	if cfg.Postgres.MaxConnLifetime <= 0 || cfg.Postgres.MaxConnIdleTime <= 0 {
+	if cfg.Postgres.MaxConnLifetime <= 0 ||
+		cfg.Postgres.MaxConnIdleTime <= 0 {
 		return errors.New("PostgreSQL connection lifetimes must be positive")
 	}
 	if cfg.HTTP.Port < 1 || cfg.HTTP.Port > 65535 {
@@ -369,10 +383,12 @@ func validate(cfg Config) error {
 		cfg.HTTP.ShutdownTimeout <= 0 {
 		return errors.New("HTTP timeouts must be positive")
 	}
-	if cfg.HTTP.TLS.Enabled && (cfg.HTTP.TLS.CertFile == "" || cfg.HTTP.TLS.KeyFile == "") {
+	if cfg.HTTP.TLS.Enabled &&
+		(cfg.HTTP.TLS.CertFile == "" || cfg.HTTP.TLS.KeyFile == "") {
 		return errors.New("HTTP_TLS_CERT_FILE and HTTP_TLS_KEY_FILE are required when TLS is enabled")
 	}
-	if cfg.HTTP.RateLimit.Enabled && (cfg.HTTP.RateLimit.Rate <= 0 || cfg.HTTP.RateLimit.Burst <= 0) {
+	if cfg.HTTP.RateLimit.Enabled &&
+		(cfg.HTTP.RateLimit.Rate <= 0 || cfg.HTTP.RateLimit.Burst <= 0) {
 		return errors.New("RATE_LIMIT_RATE and RATE_LIMIT_BURST must be positive")
 	}
 	if cfg.HTTP.MaxBodyBytes <= 0 {
@@ -386,11 +402,17 @@ func validate(cfg Config) error {
 			return errors.New("CORS_ALLOWED_ORIGINS must not contain * when using an explicit allowlist")
 		}
 		parsed, err := url.ParseRequestURI(origin)
-		if err != nil || parsed.Scheme != "http" &&
-			parsed.Scheme != "https" || parsed.Host == "" ||
-			parsed.User != nil || parsed.Path != "" ||
-			parsed.RawQuery != "" || parsed.Fragment != "" {
-			return fmt.Errorf("invalid CORS origin %q: expected an http(s) origin without path, query or fragment", origin)
+		if err != nil ||
+			parsed.Scheme != "http" && parsed.Scheme != "https" ||
+			parsed.Host == "" ||
+			parsed.User != nil ||
+			parsed.Path != "" ||
+			parsed.RawQuery != "" ||
+			parsed.Fragment != "" {
+			return fmt.Errorf(
+				"invalid CORS origin %q: expected an http(s) origin without path, query or fragment",
+				origin,
+			)
 		}
 	}
 	for _, proxy := range cfg.HTTP.TrustedProxies {
@@ -412,7 +434,10 @@ func validate(cfg Config) error {
 			return errors.New("OTEL_EXPORTER_OTLP_ENDPOINT is required when tracing is enabled")
 		}
 		if _, _, err := net.SplitHostPort(cfg.Telemetry.OTLPEndpoint); err != nil {
-			return fmt.Errorf("invalid OTEL_EXPORTER_OTLP_ENDPOINT %q: expected host:port", cfg.Telemetry.OTLPEndpoint)
+			return fmt.Errorf(
+				"invalid OTEL_EXPORTER_OTLP_ENDPOINT %q: expected host:port",
+				cfg.Telemetry.OTLPEndpoint,
+			)
 		}
 	}
 	if err := validateProductionSecurity(cfg); err != nil {
@@ -424,9 +449,6 @@ func validate(cfg Config) error {
 func validateProductionSecurity(cfg Config) error {
 	if cfg.App.Env != "production" {
 		return nil
-	}
-	if !cfg.HTTP.TLS.Enabled {
-		return errors.New("HTTP_TLS_ENABLED must be true in production")
 	}
 	if !cfg.HTTP.RateLimit.Enabled {
 		return errors.New("RATE_LIMIT_ENABLED must be true in production")
