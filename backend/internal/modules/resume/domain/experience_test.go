@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
@@ -30,18 +31,32 @@ func TestNewExperienceTrimsValuesAndBuildsChildren(t *testing.T) {
 	start, err := valueobjects.ParseYearMonth("2024-01")
 	require.NoError(t, err)
 	grade := enums.TechnologyGradeSenior
+	technology, err := entities.NewTechnology(entities.TechnologyParams{Name: " Go ", Grade: &grade})
+	require.NoError(t, err)
 
 	item, err := NewExperience(ExperienceParams{
 		ID: id, ResumeID: resumeID, Company: " Acme ", Position: " Developer ",
 		StartDate:    start,
 		Achievements: []string{" shipped v2 ", "reduced latency"},
-		Technologies: []ExperienceTechnologyParams{{Name: " Go ", Grade: &grade}},
+		Stack:        []entities.Technology{technology},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "Acme", item.Company())
 	require.Equal(t, "Developer", item.Position())
 	require.Equal(t, []string{"shipped v2", "reduced latency"}, item.Achievements())
-	require.Len(t, item.Technologies(), 1)
-	require.Equal(t, "Go", item.Technologies()[0].Name())
-	require.Equal(t, &grade, item.Technologies()[0].Grade())
+	require.Len(t, item.Stack(), 1)
+	require.Equal(t, "Go", item.Stack()[0].Name())
+	require.Equal(t, &grade, item.Stack()[0].Grade())
+}
+
+func TestNewExperienceRejectsZeroStartDate(t *testing.T) {
+	_, err := NewExperience(ExperienceParams{
+		ID:        valueobjects.NewID(),
+		ResumeID:  valueobjects.NewID(),
+		Company:   "Acme",
+		Position:  "Developer",
+		StartDate: valueobjects.YearMonth{},
+	})
+
+	require.ErrorIs(t, err, ErrInvalidEntity)
 }

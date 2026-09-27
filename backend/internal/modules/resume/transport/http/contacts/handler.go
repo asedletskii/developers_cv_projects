@@ -1,18 +1,15 @@
 package contacts
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	apperrors "developers-cv/backend/internal/platform/http/errors"
 )
 
 type Handler struct {
@@ -82,8 +79,8 @@ func (h *Handler) handleCreate(c *gin.Context) {
 		return
 	}
 	var b contactsRequest
-	if common.BindJSON(c, &b) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &b); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	p, e := b.input()
@@ -94,7 +91,7 @@ func (h *Handler) handleCreate(c *gin.Context) {
 	id := valueobjects.NewID()
 	_, e = h.create.Handle(c.Request.Context(), commands.CreateResumeContactsCommand{ID: id, ResumeID: rid, UserID: uid, Contacts: p})
 	if e != nil {
-		writeError(c, e)
+		common.WriteCommandError(c, e)
 		return
 	}
 	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
@@ -125,8 +122,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	var b contactsRequest
-	if common.BindJSON(c, &b) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &b); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	p, e := b.input()
@@ -135,15 +132,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	if e = h.update.Handle(c.Request.Context(), commands.UpdateResumeContactsCommand{ResumeID: rid, UserID: uid, Contacts: p}); e != nil {
-		writeError(c, e)
+		common.WriteCommandError(c, e)
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-func writeError(c *gin.Context, e error) {
-	if errors.Is(e, domain.ErrDuplicateEntity) {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume contacts already exists"))
-		return
-	}
-	common.WriteCommandError(c, e)
 }

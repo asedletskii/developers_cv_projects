@@ -117,13 +117,13 @@ func (r *ExperiencesReader) loadExperienceChildren(ctx context.Context, db *gorm
 	for _, item := range achievements {
 		view.Achievements = append(view.Achievements, item.Value)
 	}
-	var technologies []gormmodel.ResumeExperienceTechnology
-	if err := db.WithContext(ctx).Where("experience_id = ?", id).Order("position").Find(&technologies).Error; err != nil {
-		return fmt.Errorf("get experience technologies: %w", err)
+	var stack []gormmodel.ResumeExperienceStack
+	if err := db.WithContext(ctx).Where("experience_id = ?", id).Order("position").Find(&stack).Error; err != nil {
+		return fmt.Errorf("get experience stack: %w", err)
 	}
-	view.Technologies = make([]queries.ExperienceTechnologyView, 0, len(technologies))
-	for _, item := range technologies {
-		view.Technologies = append(view.Technologies, queries.ExperienceTechnologyView{Name: item.Name, Grade: item.Grade})
+	view.Stack = make([]queries.ExperienceStackItemView, 0, len(stack))
+	for _, item := range stack {
+		view.Stack = append(view.Stack, queries.ExperienceStackItemView{Name: item.Name, Grade: item.Grade})
 	}
 	return nil
 }

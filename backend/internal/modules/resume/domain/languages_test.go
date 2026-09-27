@@ -31,3 +31,28 @@ func TestResumeLanguageEntryRejectsInvalidPosition(t *testing.T) {
 	})
 	require.ErrorIs(t, err, domain.ErrInvalidEntity)
 }
+
+func TestResumeLanguagesRejectsDuplicateIDs(t *testing.T) {
+	id := valueobjects.NewID()
+	_, err := domain.NewResumeLanguages(domain.ResumeLanguagesParams{
+		ID:       valueobjects.NewID(),
+		ResumeID: valueobjects.NewID(),
+		Entries: []domain.ResumeLanguageEntryParams{
+			{ID: id, Language: enums.SpokenLanguageEN, Position: 0},
+			{ID: id, Language: enums.SpokenLanguageFR, Position: 1},
+		},
+	})
+	require.ErrorIs(t, err, domain.ErrInvalidEntity)
+}
+
+func TestResumeLanguagesRejectsDuplicatePositions(t *testing.T) {
+	_, err := domain.NewResumeLanguages(domain.ResumeLanguagesParams{
+		ID:       valueobjects.NewID(),
+		ResumeID: valueobjects.NewID(),
+		Entries: []domain.ResumeLanguageEntryParams{
+			{ID: valueobjects.NewID(), Language: enums.SpokenLanguageEN, Position: 0},
+			{ID: valueobjects.NewID(), Language: enums.SpokenLanguageFR, Position: 0},
+		},
+	})
+	require.ErrorIs(t, err, domain.ErrInvalidEntity)
+}

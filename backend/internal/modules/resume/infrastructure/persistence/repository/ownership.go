@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -36,10 +37,28 @@ func (r *baseRepository) ownedForWrite(ctx context.Context, resumeID valueobject
 	tx := database.DBFromContext(ctx, r.db).WithContext(ctx)
 	var resume gormmodel.Resume
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND user_id=?", resumeID.UUID(), uid.UUID()).First(&resume).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}
 		return nil, err
+	}
+	return tx, nil
+}
+
+func (r *baseRepository) ownedInTransaction(ctx context.Context, resumeID valueobjects.ID, uid useridentity.ID) (*gorm.DB, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("repository dependencies are nil")
+	}
+	tx, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var n int64
+	if err := tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id=? AND user_id=?", resumeID.UUID(), uid.UUID()).Count(&n).Error; err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return nil, domain.ErrEntityNotFound
 	}
 	return tx, nil
 }

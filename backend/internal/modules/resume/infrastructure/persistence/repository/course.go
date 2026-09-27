@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -45,6 +46,9 @@ func (r *CourseRepository) GetCourse(ctx context.Context, q ports.GetCourseRepos
 	return mapCourse(model)
 }
 func (r *CourseRepository) UpdateCourse(ctx context.Context, c ports.UpdateCourseRepositoryCommand) error {
+	if c.Course == nil {
+		return fmt.Errorf("course is nil")
+	}
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -77,6 +81,9 @@ func (r *CourseRepository) DeleteCourse(ctx context.Context, c ports.DeleteCours
 	return nil
 }
 func courseModel(item *domain.Course) (gormmodel.ResumeCourse, error) {
+	if item == nil {
+		return gormmodel.ResumeCourse{}, fmt.Errorf("course is nil")
+	}
 	return gormmodel.ResumeCourse{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Name: item.Name(), Organization: item.Organization(), EndDate: yearMonthDate(item.EndDate()), Hours: item.Hours(), CertificateLink: externalURLString(item.CertificateLink())}, nil
 }
 func mapCourse(model gormmodel.ResumeCourse) (*domain.Course, error) {

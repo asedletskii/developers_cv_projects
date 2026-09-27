@@ -43,8 +43,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	var body overviewRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	cmd, e := body.ToCommand(uid, id)

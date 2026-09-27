@@ -41,8 +41,8 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 	var body languageRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	id, err := h.create.Handle(c.Request.Context(), commands.CreateLanguageCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: langInput(body)})
@@ -85,8 +85,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	var body languageRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	if err := h.update.Handle(c.Request.Context(), commands.UpdateLanguageCommand{ResumeID: rid, LanguageID: id, UserID: uid, Input: langInput(body)}); err != nil {
@@ -102,8 +102,8 @@ func (h *Handler) Reorder(c *gin.Context) {
 		return
 	}
 	var body reorderLanguagesRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	ids := make([]valueobjects.ID, len(body.IDs))

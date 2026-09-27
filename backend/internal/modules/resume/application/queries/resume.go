@@ -23,22 +23,22 @@ type PublicResumeReader interface {
 }
 
 type ResumeView struct {
-	ID           string                   `json:"id"`
-	Title        string                   `json:"title"`
-	Language     string                   `json:"language"`
-	CreatedAt    time.Time                `json:"createdAt"`
-	UpdatedAt    time.Time                `json:"updatedAt"`
-	Overview     OverviewPresentationView `json:"overview"`
-	Profile      *ResumeProfileView       `json:"profile,omitempty"`
-	Contacts     *ResumeContactsView      `json:"contacts,omitempty"`
-	Skills       *SkillsView              `json:"skills,omitempty"`
-	Languages    []LanguageView           `json:"languages"`
-	Technologies []TechnologyView         `json:"technologies"`
-	Experiences  []ExperienceView         `json:"experiences"`
-	Educations   []EducationView          `json:"educations"`
-	Courses      []CourseView             `json:"courses"`
-	Activities   []ActivityView           `json:"activities"`
-	Projects     []ProjectView            `json:"projects"`
+	ID           string              `json:"id"`
+	Title        string              `json:"title"`
+	Language     string              `json:"language"`
+	CreatedAt    time.Time           `json:"createdAt"`
+	UpdatedAt    time.Time           `json:"updatedAt"`
+	Overview     ResumeOverviewView  `json:"overview"`
+	Profile      *ResumeProfileView  `json:"profile,omitempty"`
+	Contacts     *ResumeContactsView `json:"contacts,omitempty"`
+	Skills       *SkillsView         `json:"skills,omitempty"`
+	Languages    []LanguageView      `json:"languages"`
+	Technologies []TechnologyView    `json:"technologies"`
+	Experiences  []ExperienceView    `json:"experiences"`
+	Educations   []EducationView     `json:"educations"`
+	Courses      []CourseView        `json:"courses"`
+	Activities   []ActivityView      `json:"activities"`
+	Projects     []ProjectView       `json:"projects"`
 }
 
 type GetResumeQueryHandler struct{ reader OwnedResumeReader }

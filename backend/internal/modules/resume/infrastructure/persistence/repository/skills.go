@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -14,8 +15,11 @@ import (
 )
 
 func (r *SkillsRepository) CreateSkills(ctx context.Context, c ports.CreateSkillsRepositoryCommand) error {
+	if c.Skills == nil {
+		return fmt.Errorf("skills is nil")
+	}
 	a, uid := c.Skills, c.UserID
-	tx, e := r.owned(ctx, a.ResumeID(), uid)
+	tx, e := r.ownedInTransaction(ctx, a.ResumeID(), uid)
 	if e != nil {
 		return e
 	}
@@ -74,6 +78,9 @@ func (r *SkillsRepository) GetSkills(ctx context.Context, q ports.GetSkillsRepos
 	return domain.NewSkills(domain.SkillsParams{ID: id, ResumeID: rid, Hard: hp, Soft: sp})
 }
 func (r *SkillsRepository) UpdateSkills(ctx context.Context, c ports.UpdateSkillsRepositoryCommand) error {
+	if c.Hard == nil || c.Soft == nil {
+		return fmt.Errorf("skills is nil")
+	}
 	tx, e := r.owned(ctx, c.ResumeID, c.UserID)
 	if e != nil {
 		return e

@@ -49,11 +49,21 @@ func NewResumeTechnologies(p ResumeTechnologiesParams) (*ResumeTechnologies, err
 		return nil, fmt.Errorf("%w: technology collection ids are required", ErrInvalidEntity)
 	}
 	out := make([]ResumeTechnologyEntry, 0, len(p.Entries))
+	seenIDs := make(map[valueobjects.ID]struct{}, len(p.Entries))
+	seenPositions := make(map[int]struct{}, len(p.Entries))
 	for _, x := range p.Entries {
 		e, err := NewResumeTechnologyEntry(x)
 		if err != nil {
 			return nil, err
 		}
+		if _, ok := seenIDs[e.id]; ok {
+			return nil, fmt.Errorf("%w: duplicate technology id", ErrInvalidEntity)
+		}
+		if _, ok := seenPositions[e.position]; ok {
+			return nil, fmt.Errorf("%w: duplicate technology position", ErrInvalidEntity)
+		}
+		seenIDs[e.id] = struct{}{}
+		seenPositions[e.position] = struct{}{}
 		out = append(out, e)
 	}
 	return &ResumeTechnologies{id: p.ID, resumeID: p.ResumeID, entries: out}, nil

@@ -70,10 +70,12 @@ type CORSConfig struct {
 }
 
 type TelemetryConfig struct {
-	Enabled      bool
-	ServiceName  string
-	OTLPEndpoint string
-	Insecure     bool
+	Enabled        bool
+	ServiceName    string
+	ServiceVersion string
+	Environment    string
+	OTLPEndpoint   string
+	Insecure       bool
 }
 
 type PrometheusConfig struct {
@@ -285,10 +287,12 @@ func parse() (Config, error) {
 			AllowCredentials: corsCredentials,
 		},
 		Telemetry: TelemetryConfig{
-			Enabled:      otelEnabled,
-			ServiceName:  otelServiceName,
-			OTLPEndpoint: otelEndpoint,
-			Insecure:     otelInsecure,
+			Enabled:        otelEnabled,
+			ServiceName:    otelServiceName,
+			ServiceVersion: appVersion,
+			Environment:    appEnv,
+			OTLPEndpoint:   otelEndpoint,
+			Insecure:       otelInsecure,
 		},
 		Prometheus: PrometheusConfig{Enabled: prometheusEnabled},
 		Postgres: PostgresConfig{
@@ -384,16 +388,54 @@ func validate(cfg Config) error {
 		parsed, err := url.ParseRequestURI(origin)
 		if err != nil || parsed.Scheme != "http" &&
 			parsed.Scheme != "https" || parsed.Host == "" ||
-			parsed.Path != "" || parsed.RawQuery != "" ||
-			parsed.Fragment != "" {
+			parsed.User != nil || parsed.Path != "" ||
+			parsed.RawQuery != "" || parsed.Fragment != "" {
 			return fmt.Errorf("invalid CORS origin %q: expected an http(s) origin without path, query or fragment", origin)
+		}
+	}
+	for _, proxy := range cfg.HTTP.TrustedProxies {
+		if net.ParseIP(proxy) != nil {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(proxy); err != nil {
+			return fmt.Errorf("invalid HTTP_TRUSTED_PROXIES entry %q", proxy)
 		}
 	}
 	if cfg.Log.Format != "json" && cfg.Log.Format != "console" {
 		return fmt.Errorf("LOG_FORMAT must be json or console: %q", cfg.Log.Format)
 	}
-	if cfg.Telemetry.Enabled && strings.TrimSpace(cfg.Telemetry.OTLPEndpoint) == "" {
-		return errors.New("OTEL_EXPORTER_OTLP_ENDPOINT is required when tracing is enabled")
+	if cfg.Telemetry.Enabled {
+		if strings.TrimSpace(cfg.Telemetry.ServiceName) == "" {
+			return errors.New("OTEL_SERVICE_NAME must not be empty when tracing is enabled")
+		}
+		if strings.TrimSpace(cfg.Telemetry.OTLPEndpoint) == "" {
+			return errors.New("OTEL_EXPORTER_OTLP_ENDPOINT is required when tracing is enabled")
+		}
+		if _, _, err := net.SplitHostPort(cfg.Telemetry.OTLPEndpoint); err != nil {
+			return fmt.Errorf("invalid OTEL_EXPORTER_OTLP_ENDPOINT %q: expected host:port", cfg.Telemetry.OTLPEndpoint)
+		}
+	}
+	if err := validateProductionSecurity(cfg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateProductionSecurity(cfg Config) error {
+	if cfg.App.Env != "production" {
+		return nil
+	}
+	if !cfg.HTTP.TLS.Enabled {
+		return errors.New("HTTP_TLS_ENABLED must be true in production")
+	}
+	if !cfg.HTTP.RateLimit.Enabled {
+		return errors.New("RATE_LIMIT_ENABLED must be true in production")
+	}
+	if !cfg.Prometheus.Enabled {
+		return errors.New("PROMETHEUS_ENABLED must be true in production")
+	}
+	if cfg.Telemetry.Enabled && cfg.Telemetry.Insecure {
+		return errors.New("OTEL_EXPORTER_OTLP_INSECURE must be false in production")
 	}
 	return nil
 }

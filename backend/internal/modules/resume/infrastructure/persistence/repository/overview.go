@@ -19,23 +19,13 @@ func NewOverviewRepository(db *gorm.DB) *OverviewRepository {
 	return &OverviewRepository{newBaseRepository(db)}
 }
 func (r *OverviewRepository) CreateOverview(ctx context.Context, c ports.CreateOverviewRepositoryCommand) error {
-	tx, e := database.DBFromTransactionContext(ctx)
-	if e != nil {
-		return fmt.Errorf("create overview: %w", e)
-	}
-	if c.Overview == nil {
-		return fmt.Errorf("overview is nil")
-	}
 	p, s, e := overviewModels(c.ResumeID, c.Overview)
 	if e != nil {
 		return e
 	}
-	var count int64
-	if e = tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ?", c.ResumeID.UUID(), c.UserID.UUID()).Count(&count).Error; e != nil {
-		return fmt.Errorf("create overview ownership: %w", e)
-	}
-	if count == 0 {
-		return domain.ErrEntityNotFound
+	tx, e := r.ownedInTransaction(ctx, c.ResumeID, c.UserID)
+	if e != nil {
+		return fmt.Errorf("create overview: %w", e)
 	}
 	if e = tx.WithContext(ctx).Create(&p).Error; e != nil {
 		return fmt.Errorf("create overview: %w", mapDBError(e))
@@ -66,6 +56,9 @@ func (r *OverviewRepository) GetOverview(ctx context.Context, c ports.GetOvervie
 	return mapOverview(p, s)
 }
 func (r *OverviewRepository) UpdateOverview(ctx context.Context, c ports.UpdateOverviewRepositoryCommand) error {
+	if c.Overview == nil {
+		return fmt.Errorf("overview is nil")
+	}
 	tx, e := database.DBFromTransactionContext(ctx)
 	if e != nil {
 		return fmt.Errorf("update overview: %w", e)
@@ -94,36 +87,43 @@ func (r *OverviewRepository) UpdateOverview(ctx context.Context, c ports.UpdateO
 	return nil
 }
 func overviewModels(id valueobjects.ID, o *domain.ResumeOverview) (gormmodel.ResumeOverview, []gormmodel.ResumeOverviewSection, error) {
-	p := o.Presentation()
-	m := gormmodel.ResumeOverview{ResumeID: id.UUID(), GreetingFirst: p.Greeting.First(), GreetingSecond: p.Greeting.Second(), GreetingHighlight: p.Greeting.SecondHighlight(), GreetingThird: p.Greeting.Third()}
-	if p.Availability != nil {
-		v := string(p.Availability.Status())
+	if o == nil {
+		return gormmodel.ResumeOverview{}, nil, fmt.Errorf("overview is nil")
+	}
+	theme := o.Theme()
+	greeting := o.Greeting()
+	availability := o.Availability()
+	resumeLink := o.ResumeLink()
+	sections := o.Sections()
+	m := gormmodel.ResumeOverview{ResumeID: id.UUID(), GreetingFirst: greeting.First(), GreetingSecond: greeting.Second(), GreetingHighlight: greeting.SecondHighlight(), GreetingThird: greeting.Third()}
+	if availability != nil {
+		v := string(availability.Status())
 		m.AvailabilityStatus = &v
-		if d := p.Availability.From(); d != nil {
+		if d := availability.From(); d != nil {
 			x := d.Time()
 			m.AvailabilityFrom = &x
 		}
-		if n := p.Availability.Note(); n != nil {
+		if n := availability.Note(); n != nil {
 			v := *n
 			m.AvailabilityNote = &v
 		}
 	}
-	if p.ResumeLink != nil {
-		v := p.ResumeLink.String()
+	if resumeLink != nil {
+		v := resumeLink.String()
 		m.ResumeLink = &v
 	}
-	if p.Theme != nil {
-		if p.Theme.Primary != nil {
-			v := p.Theme.Primary.String()
+	if theme != nil {
+		if theme.Primary != nil {
+			v := theme.Primary.String()
 			m.ThemePrimary = &v
 		}
-		if p.Theme.Secondary != nil {
-			v := p.Theme.Secondary.String()
+		if theme.Secondary != nil {
+			v := theme.Secondary.String()
 			m.ThemeSecondary = &v
 		}
 	}
-	s := make([]gormmodel.ResumeOverviewSection, 0, len(p.Sections))
-	for i, x := range p.Sections {
+	s := make([]gormmodel.ResumeOverviewSection, 0, len(sections))
+	for i, x := range sections {
 		s = append(s, gormmodel.ResumeOverviewSection{ResumeID: id.UUID(), SectionID: string(x.ID()), Position: i, Enabled: x.Enabled(), Collapsed: x.Collapsed()})
 	}
 	return m, s, nil
@@ -189,5 +189,5 @@ func mapOverview(m gormmodel.ResumeOverview, s []gormmodel.ResumeOverviewSection
 		}
 		ss = append(ss, v)
 	}
-	return domain.NewResumeOverview(domain.ResumeOverviewParams{Presentation: domain.OverviewPresentation{Theme: theme, Greeting: g, Availability: av, ResumeLink: link, Sections: ss}})
+	return domain.NewResumeOverview(domain.ResumeOverviewParams{Theme: theme, Greeting: g, Availability: av, ResumeLink: link, Sections: ss})
 }

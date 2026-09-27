@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -46,6 +47,9 @@ func (r *ActivityRepository) GetActivity(ctx context.Context, q ports.GetActivit
 	return mapActivity(model)
 }
 func (r *ActivityRepository) UpdateActivity(ctx context.Context, c ports.UpdateActivityRepositoryCommand) error {
+	if c.Activity == nil {
+		return fmt.Errorf("activity is nil")
+	}
 	tx, err := r.owned(ctx, c.ResumeID, c.UserID)
 	if err != nil {
 		return err
@@ -78,6 +82,9 @@ func (r *ActivityRepository) DeleteActivity(ctx context.Context, c ports.DeleteA
 	return nil
 }
 func activityModel(item *domain.Activity) (gormmodel.ResumeActivity, error) {
+	if item == nil {
+		return gormmodel.ResumeActivity{}, fmt.Errorf("activity is nil")
+	}
 	model := gormmodel.ResumeActivity{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Type: string(item.Type()), Title: item.Title(), Description: item.Description(), Link: externalURLString(item.Link())}
 	if item.Date() != nil {
 		value := yearMonthDate(*item.Date())

@@ -41,8 +41,8 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 	var body educationRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	input, err := educationInput(body)
@@ -87,8 +87,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	var body educationRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	input, err := educationInput(body)

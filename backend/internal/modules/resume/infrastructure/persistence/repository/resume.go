@@ -2,6 +2,12 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"gorm.io/gorm"
+
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
@@ -9,10 +15,6 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
 	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-	"fmt"
-	"time"
-
-	"gorm.io/gorm"
 )
 
 func (r *ResumeRepository) CreateResume(ctx context.Context, c ports.CreateResumeRepositoryCommand) error {
@@ -36,7 +38,7 @@ func (r *ResumeRepository) GetResume(ctx context.Context, q ports.GetResumeRepos
 	tx := database.DBFromContext(ctx, r.db)
 	var m gormmodel.Resume
 	if err := tx.WithContext(ctx).Where("id = ? AND user_id = ?", q.ResumeID.UUID(), q.UserID.UUID()).First(&m).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}
 		return nil, fmt.Errorf("get resume: %w", err)

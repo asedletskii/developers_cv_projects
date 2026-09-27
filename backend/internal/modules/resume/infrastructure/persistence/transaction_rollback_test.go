@@ -70,7 +70,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 
 	start, err := valueobjects.NewYearMonth(time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
-	experience, err := domain.NewExperience(domain.ExperienceParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Company: "Example", Position: "Developer", StartDate: start, Achievements: []string{"Built things"}, Technologies: []domain.ExperienceTechnologyParams{{Name: "Go"}}})
+	experience, err := domain.NewExperience(domain.ExperienceParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Company: "Example", Position: "Developer", StartDate: start, Achievements: []string{"Built things"}, Stack: []entities.Technology{mustTechnology(t, "Go")}})
 	require.NoError(t, err)
 
 	project, err := domain.NewProject(domain.ProjectParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Name: "Rollback project", Screenshots: []valueobjects.ExternalURL{photo}})
@@ -122,20 +122,20 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		require.Zero(t, count, check.table+" must rollback with the surrounding transaction")
 	}
 
-	var childCounts struct{ profile, hidden, hard, soft, achievements, technologies, screenshots int }
+	var childCounts struct{ profile, hidden, hard, soft, achievements, stack, screenshots int }
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_profile_work_formats").Scan(&childCounts.profile))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contact_hidden").Scan(&childCounts.hidden))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&childCounts.hard))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&childCounts.soft))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_achievements").Scan(&childCounts.achievements))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_technologies").Scan(&childCounts.technologies))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_stack").Scan(&childCounts.stack))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_project_screenshots").Scan(&childCounts.screenshots))
 	require.Zero(t, childCounts.profile)
 	require.Zero(t, childCounts.hidden)
 	require.Zero(t, childCounts.hard)
 	require.Zero(t, childCounts.soft)
 	require.Zero(t, childCounts.achievements)
-	require.Zero(t, childCounts.technologies)
+	require.Zero(t, childCounts.stack)
 	require.Zero(t, childCounts.screenshots)
 }
 
@@ -239,4 +239,11 @@ func TestPostgresUpdateProfileReplacesWorkFormatsWithExistingProfileID(t *testin
 	require.Equal(t, profile.ID().String(), formats[1].ProfileID)
 	require.Equal(t, "hybrid", formats[1].Value)
 	require.Equal(t, 1, formats[1].Position)
+}
+
+func mustTechnology(t *testing.T, name string) entities.Technology {
+	t.Helper()
+	technology, err := entities.NewTechnology(entities.TechnologyParams{Name: name})
+	require.NoError(t, err)
+	return technology
 }

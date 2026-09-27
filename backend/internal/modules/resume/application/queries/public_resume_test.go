@@ -1,75 +1,189 @@
 package queries
 
 import (
+	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
 
-func TestPublicResumeViewJSONGolden(t *testing.T) {
-	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	view := PublicResumeView{
-		ID: "resume-1", Name: "Ada", Surname: "Lovelace", Position: "Engineer", Title: "CV", Language: "en",
-		Availability:   &Availability{Status: "open"},
-		UpdatedAt:      &now,
-		ResumeLink:     stringPtr("https://example.com/cv/resume.pdf"),
-		Theme:          &ThemeSettings{Primary: "#fff", Secondary: "#000"},
-		Sections:       []SectionSettings{{ID: "about", Enabled: true}},
-		HiddenContacts: []string{"email"},
-		ContactsText:   &ContactsText{Title: stringPtr("Contact"), Subtitle: stringPtr("Say hello")},
-		Greeting:       Greeting{First: "Hello", Second: "I am", SecondHighlight: "Ada", Third: "Engineer"},
-		PhotoPath:      "https://example.com/assets/photo.svg", DateOfBirth: "1998-04-12", Location: "Paris", Relocation: true,
-		WorkFormat: []string{"remote"}, Contacts: Contacts{Email: stringPtr("ada@example.com")},
-		Languages:    []ResumeLanguage{{Language: "en", Grade: stringPtr("C1")}},
-		Experience:   []Experience{{ID: "exp-1", Company: "Acme", Position: "Engineer", StartDate: "2024-01", Achievements: []string{"shipped"}, Stack: []Technology{{Name: "Go"}}}},
-		Education:    []Education{{ID: "edu-1", Location: "Paris", University: "University", Grade: 2, ProgramName: "CS", Faculty: "Engineering"}},
-		Courses:      []Course{{ID: "course-1", Name: "Go", Organization: "Academy", EndDate: "2025-01"}},
-		Activities:   []Activity{{ID: "activity-1", Type: "openSource", Title: "Project"}},
-		HardSkills:   []string{"Go"},
-		SoftSkills:   []string{"Communication"},
-		Technologies: []Technology{{Name: "PostgreSQL"}},
-		Projects:     []ProjectSummary{{ID: "project-1", Name: "CV", Stack: []Technology{{Name: "Go"}}, Link: stringPtr("https://example.com")}},
-	}
-
-	actual, err := json.MarshalIndent(view, "", "  ")
-	require.NoError(t, err)
-
-	golden, err := os.ReadFile(filepath.Join("testdata", "public_resume.json"))
-	require.NoError(t, err)
-	require.JSONEq(t, string(golden), string(actual))
+type publicResumeReaderStub struct {
+	view ResumeView
+	err  error
 }
 
-func stringPtr(value string) *string { return &value }
+func (s publicResumeReaderStub) GetPublic(context.Context, valueobjects.ID) (ResumeView, error) {
+	if s.err != nil {
+		return ResumeView{}, s.err
+	}
+	return s.view, nil
+}
 
-func TestProjectPublicResumeMapsCanonicalResumeView(t *testing.T) {
-	phone := "+33123456789"
+func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 	view := ResumeView{
-		ID: "resume-1", Title: "Backend Developer", Language: "en",
-		Overview: OverviewPresentationView{
-			Greeting: OverviewGreeting{First: "Hello", Second: "I am", SecondHighlight: "Ada", Third: "Engineer"},
-			Sections: []OverviewSectionSettings{{ID: "experience", Enabled: true, Collapsed: false}},
+		ID:       "resume-1",
+		Title:    "Backend Developer",
+		Language: "en",
+		Overview: ResumeOverviewView{
+			Greeting: OverviewGreeting{First: "Hello"},
 		},
-		Profile:      &ResumeProfileView{Name: "Ada", Surname: "Lovelace", Position: "Backend Developer", PhotoPath: "https://example.com/avatar.jpg", WorkFormat: []string{"remote"}},
-		Contacts:     &ResumeContactsView{Phone: &phone, HiddenContacts: []string{"email"}},
-		Skills:       &SkillsView{HardSkills: []string{"Go"}, SoftSkills: []string{"Communication"}},
-		Languages:    []LanguageView{{Language: "en", Grade: stringPtr("C1")}},
-		Technologies: []TechnologyView{{Name: "PostgreSQL"}},
-		Projects:     []ProjectView{{ID: "project-1", Name: "CV", Stack: []ProjectTechnologyView{{Name: "Go"}}}},
+		Profile: &ResumeProfileView{
+			Name:       "Ada",
+			Surname:    "Lovelace",
+			WorkFormat: []string{"remote"},
+		},
+		Contacts: &ResumeContactsView{HiddenContacts: []string{"email"}},
+		Skills:   &SkillsView{HardSkills: []string{"Go"}},
+		Projects: []ProjectView{{
+			ID:           "project-1",
+			ResumeID:     "resume-1",
+			Name:         "CV",
+			Role:         stringPtr("Backend engineer"),
+			GitLink:      stringPtr("https://github.com/example/cv"),
+			Screenshots:  []string{"https://example.com/shot.png"},
+			Stack:        []ProjectTechnologyView{{Name: "Go"}},
+			Contributors: []ProjectContributorView{{Name: "Grace", Surname: "Hopper", Role: "Advisor"}},
+		}},
 	}
 
-	result := projectPublicResume(view)
-	require.Equal(t, "resume-1", result.ID)
-	require.Equal(t, "Ada", result.Name)
-	require.Equal(t, "Backend Developer", result.Position)
-	require.Equal(t, []string{"remote"}, result.WorkFormat)
-	require.Equal(t, &phone, result.Contacts.Phone)
-	require.Equal(t, []string{"email"}, result.HiddenContacts)
-	require.Equal(t, []string{"Go"}, result.HardSkills)
-	require.Len(t, result.Languages, 1)
+	result, err := NewPublicResumeQueryHandler(publicResumeReaderStub{view: view}).Handle(
+		context.Background(),
+		PublicResumeQuery{ID: valueobjects.NewID()},
+	)
+	require.NoError(t, err)
+	require.Equal(t, view.ID, result.ID)
+	require.Equal(t, view.Title, result.Title)
+	require.Equal(t, view.Profile, result.Profile)
+	require.Equal(t, view.Contacts, result.Contacts)
+	require.Equal(t, view.Skills, result.Skills)
 	require.Len(t, result.Projects, 1)
-	require.Equal(t, []string{"Go"}, []string{result.Projects[0].Stack[0].Name})
+	require.Equal(t, "project-1", result.Projects[0].ID)
+	require.Equal(t, "resume-1", result.Projects[0].ResumeID)
+	require.Nil(t, result.Projects[0].Role)
+	require.Nil(t, result.Projects[0].GitLink)
+	require.NotNil(t, result.Projects[0].Screenshots)
+	require.Empty(t, result.Projects[0].Screenshots)
+	require.NotNil(t, result.Projects[0].Contributors)
+	require.Empty(t, result.Projects[0].Contributors)
+}
+
+func TestToPublicDoesNotMutateSourceProjects(t *testing.T) {
+	role := "Backend engineer"
+	gitLink := "https://github.com/example/cv"
+	view := ResumeView{Projects: []ProjectView{{
+		Role:         &role,
+		GitLink:      &gitLink,
+		Screenshots:  []string{"https://example.com/shot.png"},
+		Contributors: []ProjectContributorView{{Name: "Grace"}},
+	}}}
+
+	result := toPublic(view)
+
+	require.NotSame(t, &view.Projects[0], &result.Projects[0])
+	require.NotNil(t, view.Projects[0].Role)
+	require.NotNil(t, view.Projects[0].GitLink)
+	require.Len(t, view.Projects[0].Screenshots, 1)
+	require.Len(t, view.Projects[0].Contributors, 1)
+}
+
+func TestToPublicRedactsHiddenContactValuesWithoutMutatingSource(t *testing.T) {
+	phone := "+33123456789"
+	telegram := "developer"
+	email := "user@example.com"
+	view := ResumeView{
+		Contacts: &ResumeContactsView{
+			Phone:          &phone,
+			Telegram:       &telegram,
+			Email:          &email,
+			HiddenContacts: []string{"phone", "email"},
+		},
+	}
+
+	result := toPublic(view)
+
+	require.NotNil(t, result.Contacts)
+	require.Nil(t, result.Contacts.Phone)
+	require.Equal(t, &telegram, result.Contacts.Telegram)
+	require.Nil(t, result.Contacts.Email)
+	require.Equal(t, []string{"phone", "email"}, result.Contacts.HiddenContacts)
+	require.NotNil(t, view.Contacts.Phone)
+	require.NotNil(t, view.Contacts.Email)
+	require.Equal(t, &phone, view.Contacts.Phone)
+	require.Equal(t, &email, view.Contacts.Email)
+}
+
+func TestToPublicRedactsEverySupportedHiddenContact(t *testing.T) {
+	phone := "+33123456789"
+	telegram := "developer"
+	email := "user@example.com"
+	view := ResumeView{
+		Contacts: &ResumeContactsView{
+			Phone:          &phone,
+			Telegram:       &telegram,
+			Email:          &email,
+			HiddenContacts: []string{"phone", "telegram", "email"},
+		},
+	}
+
+	result := toPublic(view)
+
+	require.Nil(t, result.Contacts.Phone)
+	require.Nil(t, result.Contacts.Telegram)
+	require.Nil(t, result.Contacts.Email)
+
+	payload, err := json.Marshal(result)
+	require.NoError(t, err)
+	require.NotContains(t, string(payload), phone)
+	require.NotContains(t, string(payload), telegram)
+	require.NotContains(t, string(payload), email)
+	require.Contains(t, string(payload), `"hiddenContacts":["phone","telegram","email"]`)
+}
+
+func TestPublicResumeQueryHandlerRejectsInvalidID(t *testing.T) {
+	_, err := NewPublicResumeQueryHandler(publicResumeReaderStub{}).Handle(context.Background(), PublicResumeQuery{})
+	require.Error(t, err)
+}
+
+func TestPublicResumeQueryHandlerPropagatesReaderError(t *testing.T) {
+	want := context.Canceled
+	_, err := NewPublicResumeQueryHandler(publicResumeReaderStub{err: want}).Handle(
+		context.Background(),
+		PublicResumeQuery{ID: valueobjects.NewID()},
+	)
+	require.ErrorIs(t, err, want)
+}
+
+func TestPublicResumeJSONUsesCanonicalNestedShape(t *testing.T) {
+	view := ResumeView{
+		ID:           "resume-1",
+		Title:        "CV",
+		Language:     "en",
+		Overview:     ResumeOverviewView{Sections: []OverviewSectionSettings{}},
+		Languages:    []LanguageView{},
+		Technologies: []TechnologyView{},
+		Experiences:  []ExperienceView{},
+		Educations:   []EducationView{},
+		Courses:      []CourseView{},
+		Activities:   []ActivityView{},
+		Projects:     []ProjectView{},
+	}
+
+	payload, err := json.Marshal(toPublic(view))
+	require.NoError(t, err)
+
+	var object map[string]any
+	require.NoError(t, json.Unmarshal(payload, &object))
+	require.Contains(t, object, "overview")
+	require.Contains(t, object, "experiences")
+	require.Contains(t, object, "educations")
+	require.NotContains(t, object, "name")
+	require.NotContains(t, object, "surname")
+	require.NotContains(t, object, "experience")
+	require.NotContains(t, object, "education")
+	require.NotContains(t, object, "presentation")
+	require.NotContains(t, object, "hardSkills")
+	require.NotContains(t, object, "softSkills")
 }

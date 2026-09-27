@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -15,6 +16,8 @@ import (
 
 	"developers-cv/backend/internal/platform/config"
 )
+
+const exporterInitTimeout = 5 * time.Second
 
 type Service struct {
 	provider *sdktrace.TracerProvider
@@ -33,28 +36,48 @@ func New(cfg config.TelemetryConfig, log *zap.Logger) (*Service, error) {
 			otlptracegrpc.WithTLSCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})),
 		)
 	}
-	exporter, err := otlptracegrpc.New(context.Background(), options...)
+
+	ctx, cancel := context.WithTimeout(context.Background(), exporterInitTimeout)
+	defer cancel()
+
+	exporter, err := otlptracegrpc.New(ctx, options...)
 	if err != nil {
 		return nil, fmt.Errorf("create OTLP exporter: %w", err)
 	}
 
 	res, err := resource.New(
-		context.Background(),
-		resource.WithAttributes(semconv.ServiceName(cfg.ServiceName)),
+		ctx,
+		resource.WithAttributes(
+			semconv.ServiceName(cfg.ServiceName),
+			semconv.ServiceVersion(cfg.ServiceVersion),
+			semconv.DeploymentEnvironmentName(cfg.Environment),
+		),
 	)
 	if err != nil {
+		if shutdownErr := exporter.Shutdown(context.Background()); shutdownErr != nil {
+			return nil, fmt.Errorf("create telemetry resource: %w; shutdown exporter: %v", err, shutdownErr)
+		}
 		return nil, fmt.Errorf("create telemetry resource: %w", err)
 	}
 
-	provider := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exporter), sdktrace.WithResource(res))
+	provider := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+	)
 	otel.SetTracerProvider(provider)
 	SetGlobalPropagation()
-	log.Info("OpenTelemetry tracing enabled", zap.String("endpoint", cfg.OTLPEndpoint))
+	log.Info(
+		"OpenTelemetry tracing enabled",
+		zap.String("endpoint", cfg.OTLPEndpoint),
+		zap.String("service_name", cfg.ServiceName),
+		zap.String("service_version", cfg.ServiceVersion),
+		zap.String("environment", cfg.Environment),
+	)
 	return &Service{provider: provider}, nil
 }
 
 func (s *Service) Shutdown(ctx context.Context) error {
-	if s.provider == nil {
+	if s == nil || s.provider == nil {
 		return nil
 	}
 	return s.provider.Shutdown(ctx)

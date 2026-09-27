@@ -147,3 +147,144 @@ func TestLoadRejectsUnsupportedAuthMode(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "AUTH_MODE")
 }
+
+func TestValidateRejectsDisabledTLSInProduction(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.App.Env = "production"
+	cfg.Auth.Mode = "jwt"
+	cfg.Postgres.SSLMode = "require"
+	cfg.HTTP.TLS.Enabled = false
+
+	err := validateProductionSecurity(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "HTTP_TLS_ENABLED")
+}
+
+func TestValidateRejectsDisabledPrometheusInProduction(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.Auth.Mode = "jwt"
+	cfg.Postgres.SSLMode = "require"
+	cfg.Prometheus.Enabled = false
+
+	err := validateProductionSecurity(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "PROMETHEUS_ENABLED")
+}
+
+func TestValidateRejectsInsecureTelemetryInProduction(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.Auth.Mode = "jwt"
+	cfg.Postgres.SSLMode = "require"
+	cfg.Telemetry.Enabled = true
+	cfg.Telemetry.OTLPEndpoint = "otel-collector:4317"
+	cfg.Telemetry.Insecure = true
+
+	err := validateProductionSecurity(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "OTEL_EXPORTER_OTLP_INSECURE")
+}
+
+func TestValidateRejectsInvalidTelemetryEndpoint(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.App.Env = "test"
+	cfg.Auth.Mode = "mock"
+	cfg.Telemetry.Enabled = true
+	cfg.Telemetry.ServiceName = "developers-cv-api"
+	cfg.Telemetry.OTLPEndpoint = "http://localhost:4317"
+
+	err := validate(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "OTEL_EXPORTER_OTLP_ENDPOINT")
+}
+
+func TestValidateAcceptsTelemetryEndpoint(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.App.Env = "test"
+	cfg.Auth.Mode = "mock"
+	cfg.Telemetry.Enabled = true
+	cfg.Telemetry.ServiceName = "developers-cv-api"
+	cfg.Telemetry.OTLPEndpoint = "localhost:4317"
+
+	err := validate(cfg)
+
+	require.NoError(t, err)
+}
+
+func TestValidateRejectsDisabledRateLimitInProduction(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.App.Env = "production"
+	cfg.Auth.Mode = "jwt"
+	cfg.Postgres.SSLMode = "require"
+	cfg.HTTP.TLS.Enabled = true
+	cfg.HTTP.TLS.CertFile = "/run/secrets/tls.crt"
+	cfg.HTTP.TLS.KeyFile = "/run/secrets/tls.key"
+	cfg.HTTP.RateLimit.Enabled = false
+
+	err := validateProductionSecurity(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "RATE_LIMIT_ENABLED")
+}
+
+func TestValidateRejectsInvalidTrustedProxy(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.HTTP.TrustedProxies = []string{"not-a-proxy"}
+
+	err := validate(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "HTTP_TRUSTED_PROXIES")
+}
+
+func productionSecurityTestConfig() Config {
+	return Config{
+		App:  AppConfig{Env: "production"},
+		Auth: AuthConfig{Mode: "mock"},
+		HTTP: HTTPConfig{
+			Port:              8080,
+			ReadTimeout:       time.Second,
+			ReadHeaderTimeout: time.Second,
+			WriteTimeout:      time.Second,
+			IdleTimeout:       time.Second,
+			ShutdownTimeout:   time.Second,
+			MaxBodyBytes:      1024,
+			TLS: TLSConfig{
+				Enabled:  true,
+				CertFile: "/run/secrets/tls.crt",
+				KeyFile:  "/run/secrets/tls.key",
+			},
+			RateLimit: RateLimitConfig{
+				Enabled: true,
+				Rate:    10,
+				Burst:   20,
+			},
+		},
+		CORS: CORSConfig{
+			AllowedOrigins:   []string{"https://example.com"},
+			AllowCredentials: true,
+		},
+		Log: LogConfig{Format: "json"},
+		Telemetry: TelemetryConfig{
+			ServiceName:    "developers-cv-api",
+			ServiceVersion: "test",
+			Environment:    "production",
+		},
+		Prometheus: PrometheusConfig{Enabled: true},
+		Postgres: PostgresConfig{
+			Host:            "postgres",
+			Port:            5432,
+			Database:        "developers_cv",
+			User:            "developers_cv",
+			Password:        "secret",
+			SSLMode:         "require",
+			MaxConns:        10,
+			MaxIdleConns:    2,
+			MaxConnLifetime: time.Hour,
+			MaxConnIdleTime: time.Minute,
+		},
+	}
+}

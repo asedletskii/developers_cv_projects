@@ -25,6 +25,14 @@ func cloneString(value *string) *string {
 	return &normalized
 }
 
+func cloneYearMonth(value *valueobjects.YearMonth) *valueobjects.YearMonth {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
 func cloneYear(value *valueobjects.Year) *valueobjects.Year {
 	if value == nil {
 		return nil
@@ -46,4 +54,11 @@ func cloneExternalURLs(values []valueobjects.ExternalURL) []valueobjects.Externa
 		return nil
 	}
 	return append([]valueobjects.ExternalURL(nil), values...)
+}
+
+func cloneSectionSettings(values []valueobjects.SectionSettings) []valueobjects.SectionSettings {
+	if values == nil {
+		return nil
+	}
+	return append([]valueobjects.SectionSettings(nil), values...)
 }

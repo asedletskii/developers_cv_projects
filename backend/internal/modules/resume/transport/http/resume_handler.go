@@ -47,8 +47,8 @@ func (h *resumeHandler) Create(c *gin.Context) {
 		return
 	}
 	var b createResumeRequest
-	if common.BindJSON(c, &b) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &b); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	cmd := commands.CreateResumeCommand{UserID: uid, Title: b.Title, Language: enums.ResumeLanguage(b.Language)}
@@ -90,8 +90,8 @@ func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
 		return
 	}
 	var body replaceResumeTitleRequest
-	if common.BindJSON(c, &body) != nil {
-		common.WriteInvalidBody(c)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
 	if err := h.replaceTitle.Handle(c.Request.Context(), commands.ReplaceResumeTitleCommand{ResumeID: id, UserID: uid, Title: body.Title}); err != nil {

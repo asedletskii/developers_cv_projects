@@ -69,10 +69,16 @@ type ContactsText struct {
 }
 
 func NewContactsText(params ContactsTextParams) (ContactsText, error) {
-	if params.Title == nil && params.Subtitle == nil {
+	title := cloneString(params.Title)
+	subtitle := cloneString(params.Subtitle)
+	if title == nil && subtitle == nil {
 		return ContactsText{}, fmt.Errorf("%w: contacts text is empty", ErrInvalidValue)
 	}
-	return ContactsText{title: cloneString(params.Title), subtitle: cloneString(params.Subtitle)}, nil
+	return ContactsText{title: title, subtitle: subtitle}, nil
+}
+
+func (c ContactsText) Clone() ContactsText {
+	return ContactsText{title: cloneString(c.title), subtitle: cloneString(c.subtitle)}
 }
 
 func (c ContactsText) Title() *string    { return cloneString(c.title) }

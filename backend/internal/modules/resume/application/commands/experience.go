@@ -2,18 +2,21 @@ package commands
 
 import (
 	"context"
+	"fmt"
+
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-	"fmt"
 )
 
-type ExperienceTechnologyInput struct {
+type ExperienceStackItemInput struct {
 	Name  string
 	Grade *enums.TechnologyGrade
 }
+
 type ExperienceInput struct {
 	ID, ResumeID      valueobjects.ID
 	Company, Position string
@@ -22,18 +25,21 @@ type ExperienceInput struct {
 	EndDate           *valueobjects.YearMonth
 	Description       *string
 	Achievements      []string
-	Technologies      []ExperienceTechnologyInput
+	Stack             []ExperienceStackItemInput
 }
+
 type CreateExperienceCommand struct {
 	ID, ResumeID valueobjects.ID
 	UserID       useridentity.ID
 	Input        ExperienceInput
 }
+
 type UpdateExperienceCommand struct {
 	ResumeID, ExperienceID valueobjects.ID
 	UserID                 useridentity.ID
 	Input                  ExperienceInput
 }
+
 type DeleteExperienceCommand struct {
 	ResumeID, ExperienceID valueobjects.ID
 	UserID                 useridentity.ID
@@ -47,6 +53,7 @@ type CreateExperienceHandler struct {
 func NewCreateExperienceHandler(r ports.CreateExperienceRepository, u UnitOfWork) *CreateExperienceHandler {
 	return &CreateExperienceHandler{r: r, u: u}
 }
+
 func (h *CreateExperienceHandler) Handle(ctx context.Context, c CreateExperienceCommand) (valueobjects.ID, error) {
 	if h == nil || h.r == nil || h.u == nil {
 		return valueobjects.ID{}, fmt.Errorf("create experience dependencies are nil")
@@ -99,9 +106,13 @@ type DeleteExperienceHandler struct {
 func NewDeleteExperienceHandler(r ports.DeleteExperienceRepository, u UnitOfWork) *DeleteExperienceHandler {
 	return &DeleteExperienceHandler{r: r, u: u}
 }
+
 func (h *DeleteExperienceHandler) Handle(ctx context.Context, c DeleteExperienceCommand) error {
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete experience dependencies are nil")
+	}
+	if err := validateDeleteCommandIDs("experience", c.ResumeID, c.ExperienceID, c.UserID); err != nil {
+		return err
 	}
 	return h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.DeleteExperience(tx, ports.DeleteExperienceRepositoryCommand{ResumeID: c.ResumeID, ExperienceID: c.ExperienceID, UserID: c.UserID})
@@ -109,9 +120,13 @@ func (h *DeleteExperienceHandler) Handle(ctx context.Context, c DeleteExperience
 }
 
 func experienceFromInput(input ExperienceInput) (*domain.Experience, error) {
-	ts := make([]domain.ExperienceTechnologyParams, len(input.Technologies))
-	for i, t := range input.Technologies {
-		ts[i] = domain.ExperienceTechnologyParams{Name: t.Name, Grade: t.Grade}
+	stack := make([]entities.Technology, len(input.Stack))
+	for i, item := range input.Stack {
+		technology, err := entities.NewTechnology(entities.TechnologyParams{Name: item.Name, Grade: item.Grade})
+		if err != nil {
+			return nil, err
+		}
+		stack[i] = technology
 	}
-	return domain.NewExperience(domain.ExperienceParams{ID: input.ID, ResumeID: input.ResumeID, Company: input.Company, Position: input.Position, Location: input.Location, StartDate: input.StartDate, EndDate: input.EndDate, Description: input.Description, Achievements: input.Achievements, Technologies: ts})
+	return domain.NewExperience(domain.ExperienceParams{ID: input.ID, ResumeID: input.ResumeID, Company: input.Company, Position: input.Position, Location: input.Location, StartDate: input.StartDate, EndDate: input.EndDate, Description: input.Description, Achievements: input.Achievements, Stack: stack})
 }

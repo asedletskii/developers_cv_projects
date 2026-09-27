@@ -3,7 +3,7 @@ package healthcheck
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"net"
 	"os"
 	"strconv"
 	"time"
@@ -12,7 +12,6 @@ import (
 const (
 	defaultHost = "127.0.0.1"
 	defaultPort = 8080
-	defaultPath = "/ready"
 	timeout     = 2 * time.Second
 )
 
@@ -22,30 +21,17 @@ func Check(ctx context.Context) error {
 		return err
 	}
 
-	url := fmt.Sprintf("http://%s:%d%s", defaultHost, port, defaultPath)
+	dialer := net.Dialer{Timeout: timeout}
+	address := net.JoinHostPort(defaultHost, strconv.Itoa(port))
 	requestCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, url, nil)
+	connection, err := dialer.DialContext(requestCtx, "tcp", address)
 	if err != nil {
-		return fmt.Errorf("create readiness request: %w", err)
+		return fmt.Errorf("connect to HTTP server: %w", err)
 	}
-
-	client := &http.Client{Timeout: timeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request readiness endpoint: %w", err)
-	}
-
-	defer func() {
-		closeErr := resp.Body.Close()
-		if closeErr != nil && err == nil {
-			err = fmt.Errorf("close readiness response body: %w", closeErr)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("readiness endpoint returned status %d", resp.StatusCode)
+	if err := connection.Close(); err != nil {
+		return fmt.Errorf("close healthcheck connection: %w", err)
 	}
 	return nil
 }

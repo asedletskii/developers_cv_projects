@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
+
+	"developers-cv/backend/internal/platform/http/requestid"
 )
 
 func Logger(log *zap.Logger) gin.HandlerFunc {
@@ -13,10 +15,14 @@ func Logger(log *zap.Logger) gin.HandlerFunc {
 		start := time.Now()
 		c.Next()
 
+		route := c.FullPath()
+		if route == "" {
+			route = "unmatched"
+		}
 		fields := []zap.Field{
-			zap.String("request_id", GetRequestID(c)),
+			zap.String("request_id", requestid.Get(c)),
 			zap.String("method", c.Request.Method),
-			zap.String("path", c.Request.URL.Path),
+			zap.String("route", route),
 			zap.Int("status", c.Writer.Status()),
 			zap.Duration("duration", time.Since(start)),
 			zap.String("client_ip", c.ClientIP()),

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -16,12 +17,13 @@ import (
 )
 
 type Application struct {
-	server      *httpserver.Server
-	telemetry   *telemetry.Service
-	logger      *zap.Logger
-	gormDB      *gorm.DB
-	once        sync.Once
-	shutdownErr error
+	server          *httpserver.Server
+	telemetry       *telemetry.Service
+	logger          *zap.Logger
+	gormDB          *gorm.DB
+	shutdownTimeout time.Duration
+	once            sync.Once
+	shutdownErr     error
 }
 
 func NewApplication(
@@ -29,12 +31,14 @@ func NewApplication(
 	telemetryService *telemetry.Service,
 	logger *zap.Logger,
 	gormDB *gorm.DB,
+	shutdownTimeout time.Duration,
 ) *Application {
 	return &Application{
-		server:    server,
-		telemetry: telemetryService,
-		logger:    logger,
-		gormDB:    gormDB,
+		server:          server,
+		telemetry:       telemetryService,
+		logger:          logger,
+		gormDB:          gormDB,
+		shutdownTimeout: shutdownTimeout,
 	}
 }
 
@@ -56,9 +60,19 @@ func (a *Application) Run(ctx context.Context) error {
 }
 
 func (a *Application) Shutdown(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	shutdownTimeout := a.shutdownTimeout
+	if shutdownTimeout <= 0 {
+		shutdownTimeout = 10 * time.Second
+	}
+	shutdownCtx, cancel := context.WithTimeout(ctx, shutdownTimeout)
+	defer cancel()
+
 	a.once.Do(func() {
-		serverErr := a.server.Shutdown(ctx)
-		telemetryErr := a.telemetry.Shutdown(ctx)
+		serverErr := a.server.Shutdown(shutdownCtx)
+		telemetryErr := a.telemetry.Shutdown(shutdownCtx)
 		var dbErr error
 		if a.gormDB != nil {
 			dbErr = database.Close(a.gormDB)

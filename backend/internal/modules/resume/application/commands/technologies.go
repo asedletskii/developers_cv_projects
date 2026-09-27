@@ -107,6 +107,16 @@ func (h *ReorderTechnologiesHandler) Handle(ctx context.Context, c ReorderTechno
 	if len(c.TechnologyIDs) == 0 {
 		return fmt.Errorf("reorder technologies ids are required: %w", domain.ErrInvalidEntity)
 	}
+	seen := make(map[valueobjects.ID]struct{}, len(c.TechnologyIDs))
+	for _, id := range c.TechnologyIDs {
+		if id.IsZero() {
+			return fmt.Errorf("reorder technologies contains zero id: %w", domain.ErrInvalidEntity)
+		}
+		if _, ok := seen[id]; ok {
+			return fmt.Errorf("reorder technologies contains duplicate id: %w", domain.ErrInvalidEntity)
+		}
+		seen[id] = struct{}{}
+	}
 	return h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.ReorderTechnologies(tx, ports.ReorderTechnologiesRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, TechnologyIDs: c.TechnologyIDs})
 	})
@@ -124,6 +134,9 @@ func NewDeleteTechnologyHandler(r ports.DeleteTechnologyRepository, u UnitOfWork
 func (h *DeleteTechnologyHandler) Handle(ctx context.Context, c DeleteTechnologyCommand) error {
 	if h == nil || h.r == nil || h.u == nil {
 		return fmt.Errorf("delete technology dependencies are nil")
+	}
+	if err := validateDeleteCommandIDs("technology", c.ResumeID, c.TechnologyID, c.UserID); err != nil {
+		return err
 	}
 	return h.u.Do(ctx, func(tx context.Context) error {
 		return h.r.DeleteTechnology(tx, ports.DeleteTechnologyRepositoryCommand{ResumeID: c.ResumeID, TechnologyID: c.TechnologyID, UserID: c.UserID})

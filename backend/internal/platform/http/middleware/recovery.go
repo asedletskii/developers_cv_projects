@@ -4,7 +4,12 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+
+	apperrors "developers-cv/backend/internal/platform/http/errors"
+
 	"go.uber.org/zap"
+
+	"developers-cv/backend/internal/platform/http/requestid"
 )
 
 func Recovery(log *zap.Logger) gin.HandlerFunc {
@@ -15,13 +20,9 @@ func Recovery(log *zap.Logger) gin.HandlerFunc {
 					"panic recovered",
 					zap.String("panic_type", fmt.Sprintf("%T", recovered)),
 					zap.Stack("stack"),
-					zap.String("request_id", GetRequestID(c)),
+					zap.String("request_id", requestid.Get(c)),
 				)
-				c.AbortWithStatusJSON(500, gin.H{"error": gin.H{
-					"code":      "INTERNAL_ERROR",
-					"message":   "Internal server error",
-					"requestId": GetRequestID(c),
-				}})
+				apperrors.WriteError(c, apperrors.Internal(fmt.Errorf("panic recovered: %v", recovered)))
 			}
 		}()
 		c.Next()

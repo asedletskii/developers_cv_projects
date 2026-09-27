@@ -67,15 +67,9 @@ func projectFromInput(input ProjectInput, id, resumeID valueobjects.ID) (*domain
 			copy := *v.Contacts.Email
 			em = &copy
 		}
-		var cs entities.Contacts
-		if v.Contacts.Phone == "" && tg == nil && em == nil {
-			cs = entities.EmptyContacts()
-		} else {
-			x, e := entities.NewContacts(entities.ContactsParams{Phone: v.Contacts.Phone, Telegram: tg, Email: em})
-			if e != nil {
-				return nil, e
-			}
-			cs = x
+		cs, e := entities.NewContacts(entities.ContactsParams{Phone: v.Contacts.Phone, Telegram: tg, Email: em})
+		if e != nil {
+			return nil, e
 		}
 		x, e := entities.NewContributor(entities.ContributorParams{Name: v.Name, Surname: v.Surname, Role: v.Role, Contacts: cs})
 		if e != nil {
@@ -154,6 +148,9 @@ func NewDeleteProjectHandler(repository ports.DeleteProjectRepository, uow UnitO
 func (h *DeleteProjectHandler) Handle(ctx context.Context, command DeleteProjectCommand) error {
 	if h == nil || h.repository == nil || h.uow == nil {
 		return fmt.Errorf("delete project handler dependencies are nil")
+	}
+	if err := validateDeleteCommandIDs("project", command.ResumeID, command.ProjectID, command.UserID); err != nil {
+		return err
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
 		return h.repository.DeleteProject(tx, ports.DeleteProjectRepositoryCommand{ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})

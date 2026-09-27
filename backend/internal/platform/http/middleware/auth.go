@@ -6,6 +6,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	apperrors "developers-cv/backend/internal/platform/http/errors"
+
 	"github.com/google/uuid"
 )
 
@@ -18,37 +21,21 @@ const userIDKey = "user_id"
 func Authentication(authenticate AuthenticateFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if authenticate == nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{
-				"code":      "INTERNAL_ERROR",
-				"message":   "Internal server error",
-				"requestId": GetRequestID(c),
-			}})
+			apperrors.WriteError(c, apperrors.Internal(errors.New("authentication function is nil")))
 			return
 		}
 
 		userID, err := authenticate(c.Request.Context(), c.Request)
 		if err != nil {
 			if errors.Is(err, ErrUnauthenticated) {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": gin.H{
-					"code":      "UNAUTHORIZED",
-					"message":   "Authentication required",
-					"requestId": GetRequestID(c),
-				}})
+				apperrors.Unauthorized(c)
 				return
 			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{
-				"code":      "INTERNAL_ERROR",
-				"message":   "Internal server error",
-				"requestId": GetRequestID(c),
-			}})
+			apperrors.WriteError(c, apperrors.Internal(err))
 			return
 		}
 		if userID == uuid.Nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{
-				"code":      "INTERNAL_ERROR",
-				"message":   "Internal server error",
-				"requestId": GetRequestID(c),
-			}})
+			apperrors.WriteError(c, apperrors.Internal(errors.New("authentication returned empty user id")))
 			return
 		}
 

@@ -5,14 +5,15 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/platform/config"
+	"developers-cv/backend/internal/platform/http/requestid"
 )
 
 func CORS(cfg config.CORSConfig) gin.HandlerFunc {
 	return cors.New(cors.Config{
 		AllowOrigins:     cfg.AllowedOrigins,
 		AllowMethods:     []string{"GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Mock-User-ID", RequestIDHeader},
-		ExposeHeaders:    []string{RequestIDHeader},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Mock-User-ID", requestid.Header},
+		ExposeHeaders:    []string{requestid.Header},
 		AllowCredentials: cfg.AllowCredentials,
 		MaxAge:           12 * 60 * 60,
 	})

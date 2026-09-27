@@ -12,12 +12,12 @@ import (
 func TestNewResumeOverviewRejectsDuplicateSections(t *testing.T) {
 	section, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: enums.SectionAbout, Enabled: true})
 	require.NoError(t, err)
-	_, err = NewResumeOverview(ResumeOverviewParams{Presentation: OverviewPresentation{Sections: []valueobjects.SectionSettings{section, section}}})
+	_, err = NewResumeOverview(ResumeOverviewParams{Sections: []valueobjects.SectionSettings{section, section}})
 	require.ErrorIs(t, err, ErrInvalidResume)
 }
 
 func TestNewResumeOverviewRejectsInvalidSection(t *testing.T) {
-	_, err := NewResumeOverview(ResumeOverviewParams{Presentation: OverviewPresentation{Sections: []valueobjects.SectionSettings{{}}}})
+	_, err := NewResumeOverview(ResumeOverviewParams{Sections: []valueobjects.SectionSettings{{}}})
 	require.ErrorIs(t, err, valueobjects.ErrInvalidValue)
 }
 
@@ -28,15 +28,17 @@ func TestResumeOverviewDeepCopiesMutableFields(t *testing.T) {
 	require.NoError(t, err)
 	section, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: enums.SectionAbout, Enabled: true})
 	require.NoError(t, err)
-	overview, err := NewResumeOverview(ResumeOverviewParams{Presentation: OverviewPresentation{Theme: &theme, Sections: []valueobjects.SectionSettings{section}}})
+	overview, err := NewResumeOverview(ResumeOverviewParams{Theme: &theme, Sections: []valueobjects.SectionSettings{section}})
 	require.NoError(t, err)
 
-	view := overview.Presentation()
-	view.Theme.Primary = nil
-	view.Sections[0] = valueobjects.SectionSettings{}
+	view := overview.Theme()
+	view.Primary = nil
+	sections := overview.Sections()
+	sections[0] = valueobjects.SectionSettings{}
 
-	again := overview.Presentation()
-	require.NotNil(t, again.Theme)
-	require.NotNil(t, again.Theme.Primary)
-	require.Equal(t, enums.SectionAbout, again.Sections[0].ID())
+	againTheme := overview.Theme()
+	againSections := overview.Sections()
+	require.NotNil(t, againTheme)
+	require.NotNil(t, againTheme.Primary)
+	require.Equal(t, enums.SectionAbout, againSections[0].ID())
 }

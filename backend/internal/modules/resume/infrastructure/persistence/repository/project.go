@@ -71,10 +71,14 @@ func (r *ProjectRepository) UpdateProject(ctx context.Context, c ports.UpdatePro
 		}
 		return err
 	}
-	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeProject{}).Where("id = ? AND resume_id = ?", c.Project.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{
+	result := tx.WithContext(ctx).Model(&gormmodel.ResumeProject{}).Where("id = ? AND resume_id = ?", c.Project.ID().UUID(), c.ResumeID.UUID()).Updates(map[string]any{
 		"name": model.Name, "description": model.Description, "role": model.Role, "link": model.Link, "git_link": model.GitLink,
-	}).Error; err != nil {
-		return err
+	})
+	if result.Error != nil {
+		return mapDBError(result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrEntityNotFound
 	}
 	if err := tx.WithContext(ctx).Where("project_id = ?", c.Project.ID().UUID()).Delete(&gormmodel.ResumeProjectScreenshot{}).Error; err != nil {
 		return err
@@ -105,6 +109,9 @@ func (r *ProjectRepository) DeleteProject(ctx context.Context, c ports.DeletePro
 }
 
 func projectDomainModel(item *domain.Project) (gormmodel.ResumeProject, error) {
+	if item == nil {
+		return gormmodel.ResumeProject{}, fmt.Errorf("project is nil")
+	}
 	return gormmodel.ResumeProject{ID: item.ID().UUID(), ResumeID: item.ResumeID().UUID(), Name: item.Name(), Description: item.Description(), Role: item.Role(), Link: externalURLString(item.Link()), GitLink: externalURLString(item.GitLink())}, nil
 }
 
@@ -191,33 +198,29 @@ func (r *ProjectRepository) mapProject(ctx context.Context, tx *gorm.DB, model g
 	}
 	contributorValues := make([]entities.Contributor, 0, len(contributors))
 	for _, contributor := range contributors {
-		contacts := entities.EmptyContacts()
-		if contributor.Phone != nil || contributor.Telegram != nil || contributor.Email != nil {
-			var telegram *valueobjects.Telegram
-			if contributor.Telegram != nil {
-				value, err := valueobjects.NewTelegram(*contributor.Telegram)
-				if err != nil {
-					return nil, err
-				}
-				telegram = &value
-			}
-			var email *valueobjects.Email
-			if contributor.Email != nil {
-				value, err := valueobjects.NewEmail(*contributor.Email)
-				if err != nil {
-					return nil, err
-				}
-				email = &value
-			}
-			phone := ""
-			if contributor.Phone != nil {
-				phone = *contributor.Phone
-			}
-			var err error
-			contacts, err = entities.NewContacts(entities.ContactsParams{Phone: phone, Telegram: telegram, Email: email})
+		var telegram *valueobjects.Telegram
+		if contributor.Telegram != nil {
+			value, err := valueobjects.NewTelegram(*contributor.Telegram)
 			if err != nil {
 				return nil, err
 			}
+			telegram = &value
+		}
+		var email *valueobjects.Email
+		if contributor.Email != nil {
+			value, err := valueobjects.NewEmail(*contributor.Email)
+			if err != nil {
+				return nil, err
+			}
+			email = &value
+		}
+		phone := ""
+		if contributor.Phone != nil {
+			phone = *contributor.Phone
+		}
+		contacts, err := entities.NewContacts(entities.ContactsParams{Phone: phone, Telegram: telegram, Email: email})
+		if err != nil {
+			return nil, err
 		}
 		item, err := entities.NewContributor(entities.ContributorParams{Name: contributor.Name, Surname: contributor.Surname, Role: contributor.Role, Contacts: contacts})
 		if err != nil {

@@ -227,6 +227,7 @@ func Initialize() (*Application, error) {
 		telemetryValue,
 		loggerValue,
 		gormDBValue,
+		configValue.HTTP.ShutdownTimeout,
 	)
 
 	return applicationValue, nil
