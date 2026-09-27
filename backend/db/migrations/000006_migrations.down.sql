@@ -94,3 +94,6 @@ ALTER TABLE resume_contacts
         OR telegram IS NOT NULL
         OR email IS NOT NULL
     );
+
+ALTER TABLE resumes
+    ADD CONSTRAINT resumes_user_language_unique UNIQUE (user_id, language);

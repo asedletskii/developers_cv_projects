@@ -117,3 +117,6 @@ ALTER TABLE resume_contacts_text
         NULLIF(BTRIM(title), '') IS NOT NULL
         OR NULLIF(BTRIM(subtitle), '') IS NOT NULL
     );
+
+ALTER TABLE resumes
+    DROP CONSTRAINT IF EXISTS resumes_user_language_unique;
