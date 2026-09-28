@@ -90,13 +90,41 @@ func TestToPublicDoesNotMutateSourceProjects(t *testing.T) {
 	require.Len(t, view.Projects[0].Contributors, 1)
 }
 
-func TestToPublicPreservesPublicContactProjectionWithoutRedaction(t *testing.T) {
+func TestToPublicRedactsEverySupportedHiddenContact(t *testing.T) {
 	phone := "+33123456789"
 	telegram := "developer"
+	email := "private@example.com"
 	view := ResumeView{
 		Contacts: &ResumeContactsView{
 			Phone:          &phone,
 			Telegram:       &telegram,
+			Email:          &email,
+			HiddenContacts: []string{"phone", "telegram", "email"},
+		},
+	}
+
+	result := toPublic(view)
+
+	require.NotNil(t, result.Contacts)
+	require.Nil(t, result.Contacts.Phone)
+	require.Nil(t, result.Contacts.Telegram)
+	require.Nil(t, result.Contacts.Email)
+	require.Equal(t, []string{"phone", "telegram", "email"}, result.Contacts.HiddenContacts)
+
+	require.Equal(t, &phone, view.Contacts.Phone)
+	require.Equal(t, &telegram, view.Contacts.Telegram)
+	require.Equal(t, &email, view.Contacts.Email)
+}
+
+func TestToPublicPreservesVisibleContactValues(t *testing.T) {
+	phone := "+33123456789"
+	telegram := "developer"
+	email := "public@example.com"
+	view := ResumeView{
+		Contacts: &ResumeContactsView{
+			Phone:          &phone,
+			Telegram:       &telegram,
+			Email:          &email,
 			HiddenContacts: []string{"email"},
 		},
 	}
@@ -106,7 +134,6 @@ func TestToPublicPreservesPublicContactProjectionWithoutRedaction(t *testing.T) 
 	require.Equal(t, &phone, result.Contacts.Phone)
 	require.Equal(t, &telegram, result.Contacts.Telegram)
 	require.Nil(t, result.Contacts.Email)
-	require.Equal(t, []string{"email"}, result.Contacts.HiddenContacts)
 }
 
 func TestPublicProjectionDoesNotContainHiddenValues(t *testing.T) {
@@ -114,7 +141,7 @@ func TestPublicProjectionDoesNotContainHiddenValues(t *testing.T) {
 		Contacts: &ResumeContactsView{
 			Phone:          stringPtr("+33123456789"),
 			Telegram:       stringPtr("developer"),
-			Email:          nil,
+			Email:          stringPtr("private@example.com"),
 			HiddenContacts: []string{"email"},
 		},
 	}

@@ -56,6 +56,11 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 	require.Equal(t, "https://github.com/example/project", *owned.Projects[0].GitLink)
 	require.Len(t, owned.Projects[0].Screenshots, 1)
 
+	publicReaderView, err := reader.GetPublic(ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
+	require.NoError(t, err)
+	require.NotNil(t, publicReaderView.Contacts)
+	require.Equal(t, "private@example.com", *publicReaderView.Contacts.Email)
+
 	publicHandler := queries.NewPublicResumeQueryHandler(reader)
 	public, err := publicHandler.Handle(ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
 	require.NoError(t, err)
