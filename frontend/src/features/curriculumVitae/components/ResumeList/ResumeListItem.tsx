@@ -1,4 +1,5 @@
 import { MouseEvent } from 'react'
+import { ResumeStatusChip } from '@features/curriculumVitae/components/ResumeStatusChip'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { LkResumeSummary } from '@features/curriculumVitae/types'
 import { ChevronRightRounded, MoreVertRounded } from '@mui/icons-material'
@@ -37,6 +38,7 @@ export const ResumeListItem = ({ userId, resume, onOpenMenu }: Props) => {
           <Typography>{resume.title}</Typography>
 
           <Chip label={resume.language.toUpperCase()} size="small" />
+          <ResumeStatusChip status={resume.status} />
         </Stack>
 
         <ChevronRightRounded sx={{ color: 'gray.light' }} />

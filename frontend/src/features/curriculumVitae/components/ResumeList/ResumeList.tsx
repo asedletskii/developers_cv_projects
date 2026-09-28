@@ -50,8 +50,11 @@ export const ResumeList = ({ userId, resumes }: Props) => {
 
       <ResumeActionsMenu
         anchor={list.menu?.anchor ?? null}
+        status={list.menu?.resume.status ?? 'draft'}
         onClose={list.closeMenu}
         onRename={list.renameFromMenu}
+        onPublish={list.publishFromMenu}
+        onUnpublish={list.unpublishFromMenu}
         onRemove={list.removeFromMenu}
       />
 

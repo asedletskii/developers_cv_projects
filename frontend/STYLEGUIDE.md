@@ -75,7 +75,7 @@ export function formatAge(dateOfBirth: string) { … }
 | Хук одного экрана                    | `screens/<Экран>/hooks/`                                                                   | `useResumeSections`                     |
 | Хук, общий для фичи                  | `features/<фича>/hooks/`                                                                   | `useOwnerResume`, `useFormList`         |
 | Хук, общий для проекта               | `shared/hooks/`                                                                            | `useCopyToClipboard`, `useScrollReveal` |
-| Чистая функция без React             | `features/<фича>/utils/<имя>/<имя>.ts` (+ `index.ts`, `<имя>.test.ts`) или `shared/utils/` | `getResumeChecklist`, `syncList`        |
+| Чистая функция без React             | `features/<фича>/utils/<имя>/<имя>.ts` (+ `index.ts`, `<имя>.test.ts`) или `shared/utils/` | `getResumeChecklist`, `getResumeFormValues`        |
 | Константы компонента                 | `constants.ts` в папке компонента                                                          | `HeroSection/constants.ts`              |
 | Константы фичи                       | `features/<фича>/constants/`                                                               | `TECHNOLOGY_SUGGESTIONS`, `API_ROUTES`  |
 | Константы проекта                    | `shared/constants/`                                                                        | `ROUTES`                                |
@@ -104,7 +104,7 @@ components/
   ResumeHeader/            шапка: hooks/useResumeHeader
   form/                    поля форм: SelectField, DateField, ColorField, TechnologyListField, …
 hooks/                     useOwnerResume, useLkProfile, useLkResumes, usePublicResume, useFormList, …
-utils/                     getResumeFormValues, saveResumeSection, syncList, getResumeChecklist, blankItems, …
+utils/                     getResumeFormValues, saveResumeSection, getResumeChecklist, blankItems, …
 screens/LkResumeEditScreen/  только экран + hooks/useResumeSections + constants.ts
 ```
 

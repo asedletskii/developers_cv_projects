@@ -1,12 +1,11 @@
 import { glassCard } from '@features/curriculumVitae/styles'
-import { LkResumeSummary } from '@features/curriculumVitae/types'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useEditResumeTitle } from './hooks'
 
 type Props = {
   userId: string
-  resume: LkResumeSummary
+  resume: { id: string; title: string; version?: number }
   onClose: () => void
 }
 

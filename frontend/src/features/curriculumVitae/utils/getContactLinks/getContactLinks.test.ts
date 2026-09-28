@@ -1,5 +1,5 @@
 import { ContactKey } from '@features/curriculumVitae/types'
-import { getContactLinks } from './getContactLinks'
+import { getContactDisplayValue, getContactHref, getContactLinks } from './getContactLinks'
 
 // Иконки не нужны: подменяем, чтобы не загружать всю библиотеку
 jest.mock('@mui/icons-material', () => ({
@@ -23,21 +23,7 @@ describe('getContactLinks', () => {
     ])
   })
 
-  it('собирает правильные href', () => {
-    const links = getContactLinks({
-      telegram: 'a_sedletskii',
-      email: 'anton@example.com',
-      phone: '+79999999999',
-    })
-
-    expect(links.map(({ href }) => href)).toEqual([
-      'https://t.me/a_sedletskii',
-      'mailto:anton@example.com',
-      'tel:+79999999999',
-    ])
-  })
-
-  it('отдаёт значение для показа: ник с @, почту и номер как есть', () => {
+  it('отдаёт значение как есть, без форматирования', () => {
     const links = getContactLinks({
       telegram: 'a_sedletskii',
       email: 'anton@example.com',
@@ -45,7 +31,7 @@ describe('getContactLinks', () => {
     })
 
     expect(links.map(({ value }) => value)).toEqual([
-      '@a_sedletskii',
+      'a_sedletskii',
       'anton@example.com',
       '+79999999999',
     ])
@@ -57,7 +43,7 @@ describe('getContactLinks', () => {
     expect(links.every(({ icon }) => !!icon)).toBe(true)
   })
 
-  it('пропускает незаполненные контакты', () => {
+  it('пропускает незаполненные и нескрытые контакты', () => {
     const links = getContactLinks({ email: 'anton@example.com' })
 
     expect(links.map(({ key }) => key)).toEqual([ContactKey.Email])
@@ -69,5 +55,33 @@ describe('getContactLinks', () => {
 
   it('без контактов возвращает пустой список', () => {
     expect(getContactLinks({})).toEqual([])
+  })
+
+  it('скрытый контакт без значения тоже попадает в список — value придёт по клику', () => {
+    const [link] = getContactLinks({}, [ContactKey.Phone])
+
+    expect(link).toMatchObject({ key: ContactKey.Phone, isHidden: true, value: undefined })
+    expect(link.icon).toBeTruthy()
+  })
+
+  it('помечает открытые контакты как нескрытые', () => {
+    const [link] = getContactLinks({ email: 'anton@example.com' }, [ContactKey.Phone])
+
+    expect(link.isHidden).toBe(false)
+  })
+})
+
+describe('getContactHref', () => {
+  it('собирает адрес по ключу контакта', () => {
+    expect(getContactHref(ContactKey.Telegram, 'a_sedletskii')).toBe('https://t.me/a_sedletskii')
+    expect(getContactHref(ContactKey.Email, 'anton@example.com')).toBe('mailto:anton@example.com')
+    expect(getContactHref(ContactKey.Phone, '+79999999999')).toBe('tel:+79999999999')
+  })
+})
+
+describe('getContactDisplayValue', () => {
+  it('у телеграма добавляет @, у остальных отдаёт значение как есть', () => {
+    expect(getContactDisplayValue(ContactKey.Telegram, 'a_sedletskii')).toBe('@a_sedletskii')
+    expect(getContactDisplayValue(ContactKey.Email, 'anton@example.com')).toBe('anton@example.com')
   })
 })

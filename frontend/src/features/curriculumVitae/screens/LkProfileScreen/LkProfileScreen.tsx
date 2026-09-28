@@ -25,7 +25,7 @@ const LkProfileScreen = () => {
         alignItems="flex-start"
       >
         <Stack sx={{ width: { xs: '100%', md: '25%' }, flexShrink: 0 }}>
-          <ProfileCard profile={profile} />
+          <ProfileCard userId={profile.userId} profile={profile} />
         </Stack>
 
         <Stack sx={{ width: '100%', flex: 1, minWidth: 0 }}>

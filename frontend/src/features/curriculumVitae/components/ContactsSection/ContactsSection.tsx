@@ -8,15 +8,16 @@ import { DRIFT } from './constants'
 import { Headline } from './Headline'
 
 type Props = {
+  resumeId: string
   contacts: Contacts
   text?: ContactsText
   hidden?: ContactKey[]
 }
 
-export const ContactsSection = ({ contacts, text, hidden = [] }: Props) => {
+export const ContactsSection = ({ resumeId, contacts, text, hidden = [] }: Props) => {
   const translate = useTranslate('CurriculumVitae.Contacts')
 
-  const links = getContactLinks(contacts)
+  const links = getContactLinks(contacts, hidden)
 
   if (!links.length) return null
 
@@ -50,7 +51,7 @@ export const ContactsSection = ({ contacts, text, hidden = [] }: Props) => {
         subtitle={text?.subtitle ?? translate('subtitle')}
       />
 
-      <Actions links={links} hidden={hidden} />
+      <Actions resumeId={resumeId} links={links} />
     </Stack>
   )
 }

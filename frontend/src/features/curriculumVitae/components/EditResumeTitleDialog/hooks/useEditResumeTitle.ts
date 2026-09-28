@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { updateLkResumeTitle } from '@features/curriculumVitae/store/lk'
-import { LkResumeSummary } from '@features/curriculumVitae/types'
 import { useAppDispatch } from '@shared/store'
 
 type Params = {
   userId: string
-  resume: LkResumeSummary
+  resume: { id: string; title: string; version?: number }
   onClose: () => void
 }
 
@@ -21,7 +20,9 @@ export const useEditResumeTitle = ({ userId, resume, onClose }: Params) => {
     setHasError(false)
 
     try {
-      await dispatch(updateLkResumeTitle({ userId, resumeId: resume.id, title })).unwrap()
+      await dispatch(
+        updateLkResumeTitle({ userId, resumeId: resume.id, version: resume.version ?? 0, title }),
+      ).unwrap()
       onClose()
     } catch {
       setHasError(true)

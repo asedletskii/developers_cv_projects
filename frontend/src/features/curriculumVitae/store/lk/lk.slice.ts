@@ -2,7 +2,14 @@ import { LkSliceReducers, LkSliceState } from '@features/curriculumVitae/types'
 import { createSlice, WithSlice } from '@reduxjs/toolkit'
 import { rootReducer } from '@shared/store'
 import { getLkInitialState } from './lk.state'
-import { deleteLkResume, getLkProfile, getLkResumes, updateLkResumeTitle } from './lk.thunks'
+import {
+  changeLkResumeStatus,
+  deleteLkResume,
+  getLkProfile,
+  getLkResumes,
+  updateLkProfile,
+  updateLkResumeTitle,
+} from './lk.thunks'
 
 export const lkSlice = createSlice<LkSliceState, LkSliceReducers, 'lk', any>({
   name: 'lk',
@@ -57,12 +64,26 @@ export const lkSlice = createSlice<LkSliceState, LkSliceReducers, 'lk', any>({
         state.resumesError = null
       })
 
+      .addCase(updateLkProfile.fulfilled, (state, { payload }) => {
+        state.profile = payload
+      })
+
       .addCase(deleteLkResume.fulfilled, (state, { payload }) => {
         if (state.resumes) state.resumes = state.resumes.filter((r) => r.id !== payload)
       })
       .addCase(updateLkResumeTitle.fulfilled, (state, { payload }) => {
         const resume = state.resumes?.find((r) => r.id === payload.id)
-        if (resume) resume.title = payload.title
+        if (resume) {
+          resume.title = payload.title
+          resume.version = payload.version
+        }
+      })
+      .addCase(changeLkResumeStatus.fulfilled, (state, { payload }) => {
+        const resume = state.resumes?.find((r) => r.id === payload.id)
+        if (resume) {
+          resume.status = payload.status
+          resume.version = payload.version
+        }
       })
   },
 })

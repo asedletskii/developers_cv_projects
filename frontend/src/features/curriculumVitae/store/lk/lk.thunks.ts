@@ -1,9 +1,11 @@
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
 import {
   CurriculumVitaeError,
+  LkLocalizedProfile,
   LkProfile,
   LkResumeSummary,
   ResumeLanguage,
+  ResumeStatus,
 } from '@features/curriculumVitae/types'
 import { parseApiError } from '@features/curriculumVitae/utils'
 import { createAsyncThunk } from '@reduxjs/toolkit'
@@ -32,20 +34,66 @@ export const getLkResumes = createAsyncThunk<LkResumeSummary[], string, ThunkCon
   },
 )
 
+type UpdateLkProfileArg = {
+  userId: string
+  ru: LkLocalizedProfile
+  en: LkLocalizedProfile
+  photoPath?: string
+}
+
+/** Ответ `PUT` — `204` без тела, поэтому в стор кладём то же, что отправили. */
+export const updateLkProfile = createAsyncThunk<LkProfile, UpdateLkProfileArg, ThunkConfig>(
+  'updateLkProfile',
+  async ({ userId, ru, en, photoPath }, { rejectWithValue }) => {
+    try {
+      await curriculumVitaeApi.updateProfile(userId, { ru, en, photoPath })
+      return { userId, ru, en, photoPath }
+    } catch (e) {
+      return rejectWithValue(parseApiError(e))
+    }
+  },
+)
+
 type UpdateLkResumeTitleArg = {
   userId: string
   resumeId: string
+  version: number
   title: string
 }
 
+/** Ответ `PUT` — `204` без тела, новой версии бэк не отдаёт. Раз запрос прошёл, версия
+ *  выросла ровно на 1 — обновляем её локально, иначе следующее переименование подряд без
+ *  перезагрузки списка упёрлось бы в `412` со старой версией. */
 export const updateLkResumeTitle = createAsyncThunk<
-  Pick<LkResumeSummary, 'id' | 'title'>,
+  Pick<LkResumeSummary, 'id' | 'title' | 'version'>,
   UpdateLkResumeTitleArg,
   ThunkConfig
->('updateLkResumeTitle', async ({ userId, resumeId, title }, { rejectWithValue }) => {
+>('updateLkResumeTitle', async ({ userId, resumeId, version, title }, { rejectWithValue }) => {
   try {
-    await curriculumVitaeApi.updateTitle(userId, resumeId, title)
-    return { id: resumeId, title }
+    await curriculumVitaeApi.updateTitle(userId, resumeId, version, title)
+    return { id: resumeId, title, version: version + 1 }
+  } catch (e) {
+    return rejectWithValue(parseApiError(e))
+  }
+})
+
+type ChangeLkResumeStatusArg = {
+  userId: string
+  resumeId: string
+  version: number
+  status: ResumeStatus
+}
+
+/** Тот же приём, что у переименования: `PUT` отвечает `204` без тела, поэтому версию после
+ *  успешного перехода увеличиваем локально сами. */
+export const changeLkResumeStatus = createAsyncThunk<
+  Pick<LkResumeSummary, 'id' | 'status' | 'version'>,
+  ChangeLkResumeStatusArg,
+  ThunkConfig
+>('changeLkResumeStatus', async ({ userId, resumeId, version, status }, { rejectWithValue }) => {
+  try {
+    await curriculumVitaeApi.changeStatus(userId, resumeId, version, status)
+    return { id: resumeId, status, version: version + 1 }
   } catch (e) {
     return rejectWithValue(parseApiError(e))
   }

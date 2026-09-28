@@ -43,6 +43,8 @@ export const sharedDict = {
       copyFailed: 'Не удалось скопировать',
       cannotGetPersonData: 'Не удалось загрузить резюме',
       cannotGetProject: 'Не удалось загрузить проект',
+      revealFailed: 'Не удалось показать контакт',
+      statusChangeFailed: 'Не удалось изменить статус резюме',
     },
   },
   en: {
@@ -89,6 +91,8 @@ export const sharedDict = {
       copyFailed: "Couldn't copy",
       cannotGetPersonData: "Couldn't load the résumé",
       cannotGetProject: "Couldn't load the project",
+      revealFailed: "Couldn't reveal the contact",
+      statusChangeFailed: "Couldn't change the résumé status",
     },
   },
 } as const
