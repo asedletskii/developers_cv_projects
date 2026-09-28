@@ -14,6 +14,7 @@ type Resume struct {
 	userID       useridentity.ID
 	title        string
 	language     enums.ResumeLanguage
+	status       enums.ResumeStatus
 	version      int64
 	overview     *ResumeOverview
 	profile      *Profile
@@ -41,6 +42,7 @@ type ResumeSnapshot struct {
 	UserID       useridentity.ID
 	Title        string
 	Language     enums.ResumeLanguage
+	Status       enums.ResumeStatus
 	Version      int64
 	Overview     *ResumeOverview
 	Profile      *Profile
@@ -76,7 +78,7 @@ func NewResume(params ResumeParams) (*Resume, error) {
 	if version < 1 {
 		return nil, fmt.Errorf("%w: resume version must be positive", ErrInvalidResume)
 	}
-	return &Resume{id: params.ID, userID: params.UserID, title: title, language: params.Language, version: version}, nil
+	return &Resume{id: params.ID, userID: params.UserID, title: title, language: params.Language, status: enums.ResumeStatusDraft, version: version}, nil
 }
 
 func ReconstructResume(snapshot ResumeSnapshot) (*Resume, error) {
@@ -87,6 +89,10 @@ func ReconstructResume(snapshot ResumeSnapshot) (*Resume, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !snapshot.Status.IsValid() {
+		return nil, fmt.Errorf("%w: invalid resume status", ErrInvalidResume)
+	}
+	resume.status = snapshot.Status
 	if err := resume.validateOwnedState(snapshot); err != nil {
 		return nil, err
 	}
@@ -184,6 +190,32 @@ func (r *Resume) UserID() useridentity.ID        { return r.userID }
 func (r *Resume) Title() string                  { return r.title }
 func (r *Resume) Language() enums.ResumeLanguage { return r.language }
 func (r *Resume) Version() int64                 { return r.version }
+func (r *Resume) Status() enums.ResumeStatus     { return r.status }
+
+func (r *Resume) Publish() error {
+	if r == nil {
+		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
+	}
+	if r.status == enums.ResumeStatusOpened {
+		return fmt.Errorf("%w: resume is already opened", ErrInvalidResumeStatusTransition)
+	}
+	if r.status != enums.ResumeStatusDraft && r.status != enums.ResumeStatusClosed {
+		return fmt.Errorf("%w: unsupported current status %q", ErrInvalidResumeStatusTransition, r.status)
+	}
+	r.status = enums.ResumeStatusOpened
+	return nil
+}
+
+func (r *Resume) Close() error {
+	if r == nil {
+		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
+	}
+	if r.status != enums.ResumeStatusOpened {
+		return fmt.Errorf("%w: cannot close resume with status %q", ErrInvalidResumeStatusTransition, r.status)
+	}
+	r.status = enums.ResumeStatusClosed
+	return nil
+}
 
 func (r *Resume) ReplaceTitle(title string) error {
 	if r == nil {
@@ -199,7 +231,7 @@ func (r *Resume) ReplaceTitle(title string) error {
 
 func (r *Resume) Snapshot() ResumeSnapshot {
 	return ResumeSnapshot{
-		ID: r.id, UserID: r.userID, Title: r.title, Language: r.language, Version: r.version,
+		ID: r.id, UserID: r.userID, Title: r.title, Language: r.language, Status: r.status, Version: r.version,
 		Overview: r.overview, Profile: r.profile, Contacts: r.contacts, Skills: r.skills,
 		Languages: r.languages, Technologies: r.technologies,
 		Experiences: append([]*Experience(nil), r.experiences...), Educations: append([]*Education(nil), r.educations...),

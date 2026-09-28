@@ -238,3 +238,20 @@ func (v SoftSkill) IsValid() bool {
 		return false
 	}
 }
+
+type ResumeStatus string
+
+const (
+	ResumeStatusDraft  ResumeStatus = "draft"
+	ResumeStatusOpened ResumeStatus = "opened"
+	ResumeStatusClosed ResumeStatus = "closed"
+)
+
+func (v ResumeStatus) IsValid() bool {
+	switch v {
+	case ResumeStatusDraft, ResumeStatusOpened, ResumeStatusClosed:
+		return true
+	default:
+		return false
+	}
+}

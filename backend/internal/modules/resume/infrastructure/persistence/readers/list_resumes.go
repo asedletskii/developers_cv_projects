@@ -32,7 +32,7 @@ func (r *ListResumesReader) ListResumes(ctx context.Context, query queries.ListR
 
 	items := make([]queries.ResumeListItem, 0, len(models))
 	for _, model := range models {
-		items = append(items, queries.ResumeListItem{ID: model.ID.String(), Title: model.Title, Language: model.Language})
+		items = append(items, queries.ResumeListItem{ID: model.ID.String(), Title: model.Title, Language: model.Language, Status: model.Status, Version: model.Version})
 	}
 	return items, nil
 }

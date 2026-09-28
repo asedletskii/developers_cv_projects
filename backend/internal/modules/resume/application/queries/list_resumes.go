@@ -37,4 +37,6 @@ type ResumeListItem struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
 	Language string `json:"language"`
+	Status   string `json:"status"`
+	Version  int64  `json:"version"`
 }

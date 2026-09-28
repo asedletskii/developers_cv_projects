@@ -47,7 +47,7 @@ func TestHandlerReturnsResumeVersion(t *testing.T) {
 	getHandler := queries.NewGetResumeQueryHandler(stubOwnedResumeReader{
 		view: queries.ResumeView{ID: resumeID.String(), Title: "CV", Version: int64Ptr(42)},
 	})
-	handler := newResumeHandler(nil, getHandler, nil, nil, nil)
+	handler := newResumeHandler(nil, getHandler, nil, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -67,7 +67,7 @@ func TestHandlerReturnsResumeVersion(t *testing.T) {
 func TestHandlerRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	handler := newResumeHandler(nil, nil, nil, nil, queries.NewListResumesQueryHandler(&stubListReader{}))
+	handler := newResumeHandler(nil, nil, nil, nil, nil, queries.NewListResumesQueryHandler(&stubListReader{}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, middleware.ErrUnauthenticated
@@ -88,10 +88,10 @@ func TestHandlerReturnsCurrentUsersResumes(t *testing.T) {
 	userID := uuid.New()
 	reader := &stubListReader{
 		items: []queries.ResumeListItem{
-			{ID: "resume-a", Title: "Senior Go Developer"},
+			{ID: "resume-a", Title: "Senior Go Developer", Version: 3},
 		},
 	}
-	handler := newResumeHandler(nil, nil, nil, nil, queries.NewListResumesQueryHandler(reader))
+	handler := newResumeHandler(nil, nil, nil, nil, nil, queries.NewListResumesQueryHandler(reader))
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -107,6 +107,7 @@ func TestHandlerReturnsCurrentUsersResumes(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), `"resume-a"`)
 	require.Contains(t, w.Body.String(), `"Senior Go Developer"`)
+	require.Contains(t, w.Body.String(), `"version":3`)
 	require.Equal(t, userID, reader.userID.UUID())
 }
 
@@ -158,7 +159,7 @@ func TestHandlerReplacesResumeTitle(t *testing.T) {
 	resume := newStubResume(t, resumeID, userID, 4)
 	repository := &stubResumeRepository{resume: resume}
 	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
+	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -181,7 +182,7 @@ func TestHandlerRejectsLanguageInResumeTitleReplacement(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	replaceHandler := commands.NewReplaceResumeTitleHandler(&stubResumeRepository{}, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
+	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -206,7 +207,7 @@ func TestHandlerMapsResumeTitleConcurrencyConflictToPreconditionFailed(t *testin
 	resume := newStubResume(t, resumeID, userID, 2)
 	repository := &stubResumeRepository{resume: resume}
 	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
+	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -232,7 +233,7 @@ func TestHandlerReturnsBadRequestForInvalidResumeTitle(t *testing.T) {
 	resume := newStubResume(t, resumeID, userID, 1)
 	repository := &stubResumeRepository{resume: resume}
 	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
+	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -251,4 +252,49 @@ func TestHandlerReturnsBadRequestForInvalidResumeTitle(t *testing.T) {
 
 func int64Ptr(value int64) *int64 {
 	return &value
+}
+
+func TestHandlerChangesResumeStatusAndReturnsNoContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	resumeID := uuid.New()
+	resume := newStubResume(t, resumeID, userID, 4)
+	repository := &stubResumeRepository{resume: resume}
+	statusHandler := commands.NewChangeResumeStatusHandler(repository, stubResumeUnitOfWork{})
+	handler := newResumeHandler(nil, nil, nil, nil, statusHandler, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
+	engine.PUT("/api/v1/lk/resume/:resumeId/status", handler.ChangeStatus)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resumeID.String()+"/status", bytes.NewBufferString(`{"status":"opened","version":4}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Empty(t, w.Body.String())
+	require.Equal(t, enums.ResumeStatusOpened, repository.saved.Status())
+}
+
+func TestHandlerRejectsInvalidResumeStatusTransition(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	resumeID := uuid.New()
+	resume := newStubResume(t, resumeID, userID, 4)
+	statusHandler := commands.NewChangeResumeStatusHandler(&stubResumeRepository{resume: resume}, stubResumeUnitOfWork{})
+	handler := newResumeHandler(nil, nil, nil, nil, statusHandler, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
+	engine.PUT("/api/v1/lk/resume/:resumeId/status", handler.ChangeStatus)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resumeID.String()+"/status", bytes.NewBufferString(`{"status":"closed","version":4}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusConflict, w.Code)
 }

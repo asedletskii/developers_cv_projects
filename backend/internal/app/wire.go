@@ -47,6 +47,7 @@ var resumeReadSet = wire.NewSet(
 var resumeCommandSet = wire.NewSet(
 	resumecommands.NewCreateResumeHandler,
 	resumecommands.NewReplaceResumeTitleHandler,
+	resumecommands.NewChangeResumeStatusHandler,
 	resumecommands.NewReplaceOverviewHandler,
 	resumecommands.NewReplaceProfileHandler,
 	resumecommands.NewDeleteResumeHandler,

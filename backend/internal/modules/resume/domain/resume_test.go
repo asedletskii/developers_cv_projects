@@ -78,6 +78,7 @@ func TestReconstructResumeAllowsAbsentOptionalChildren(t *testing.T) {
 		UserID:   useridentity.NewID(),
 		Title:    "Backend",
 		Language: enums.ResumeLanguageEN,
+		Status:   enums.ResumeStatusDraft,
 		Version:  1,
 	})
 	require.NoError(t, err)
@@ -101,7 +102,7 @@ func TestReconstructResumeRejectsForeignOwnedChildren(t *testing.T) {
 		PhotoPath: photoPath, DateOfBirth: dob, Location: "Paris",
 	})
 	require.NoError(t, err)
-	_, err = ReconstructResume(ResumeSnapshot{ID: resumeID, UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN, Version: 1, Profile: profile})
+	_, err = ReconstructResume(ResumeSnapshot{ID: resumeID, UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN, Status: enums.ResumeStatusDraft, Version: 1, Profile: profile})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 }
 
@@ -152,4 +153,36 @@ func TestResumeReplaceTitleTrimsAndValidates(t *testing.T) {
 
 	err = resume.ReplaceTitle("   ")
 	require.ErrorIs(t, err, ErrInvalidResume)
+}
+
+func TestNewResumeStartsAsDraft(t *testing.T) {
+	resume, err := NewResume(ResumeParams{
+		UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN,
+	})
+	require.NoError(t, err)
+	require.Equal(t, enums.ResumeStatusDraft, resume.Status())
+}
+
+func TestResumeStatusTransitions(t *testing.T) {
+	resume, err := NewResume(ResumeParams{
+		UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, resume.Publish())
+	require.Equal(t, enums.ResumeStatusOpened, resume.Status())
+	require.ErrorIs(t, resume.Publish(), ErrInvalidResumeStatusTransition)
+	require.NoError(t, resume.Close())
+	require.Equal(t, enums.ResumeStatusClosed, resume.Status())
+	require.NoError(t, resume.Publish())
+	require.Equal(t, enums.ResumeStatusOpened, resume.Status())
+}
+
+func TestResumeCannotCloseDraft(t *testing.T) {
+	resume, err := NewResume(ResumeParams{
+		UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN,
+	})
+	require.NoError(t, err)
+	require.ErrorIs(t, resume.Close(), ErrInvalidResumeStatusTransition)
+	require.Equal(t, enums.ResumeStatusDraft, resume.Status())
 }

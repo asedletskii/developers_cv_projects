@@ -111,6 +111,7 @@ func TestToPublicRedactsEverySupportedHiddenContact(t *testing.T) {
 	require.Nil(t, result.Contacts.Email)
 	require.Equal(t, []string{"phone", "telegram", "email"}, result.Contacts.HiddenContacts)
 
+	// Redaction must not mutate the source view.
 	require.Equal(t, &phone, view.Contacts.Phone)
 	require.Equal(t, &telegram, view.Contacts.Telegram)
 	require.Equal(t, &email, view.Contacts.Email)
@@ -199,3 +200,12 @@ func TestPublicResumeJSONUsesCanonicalNestedShape(t *testing.T) {
 	require.NotContains(t, object, "hardSkills")
 	require.NotContains(t, object, "softSkills")
 }
+
+func TestToPublicOmitsResumeStatus(t *testing.T) {
+	view := ResumeView{Status: "opened", Version: int64Ptr(3)}
+	public := toPublic(view)
+	require.Empty(t, public.Status)
+	require.Nil(t, public.Version)
+}
+
+func int64Ptr(value int64) *int64 { return &value }

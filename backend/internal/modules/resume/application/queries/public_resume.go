@@ -43,6 +43,7 @@ func (h *PublicResumeQueryHandler) Handle(ctx context.Context, query PublicResum
 func toPublic(view ResumeView) ResumeView {
 	result := view
 	result.Version = nil
+	result.Status = ""
 	if view.Contacts != nil {
 		contacts := *view.Contacts
 		contacts.HiddenContacts = append([]string(nil), view.Contacts.HiddenContacts...)

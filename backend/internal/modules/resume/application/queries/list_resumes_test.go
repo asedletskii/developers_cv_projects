@@ -21,7 +21,7 @@ func (s *stubListResumesReader) ListResumes(_ context.Context, query ListResumes
 }
 
 func TestListResumesUsesUserID(t *testing.T) {
-	reader := &stubListResumesReader{items: []ResumeListItem{{ID: "resume-a", Title: "Senior Go Developer"}}}
+	reader := &stubListResumesReader{items: []ResumeListItem{{ID: "resume-a", Title: "Senior Go Developer", Status: "draft", Version: 3}}}
 	h := NewListResumesQueryHandler(reader)
 	userID := useridentity.NewID()
 
