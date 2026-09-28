@@ -1,3 +1,5 @@
+import { CreateLinkPrompt } from '@features/curriculumVitae/components/CreateLinkPrompt'
+import { useResumeLinks } from '@features/curriculumVitae/hooks'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Resume, ResumeEditorTab } from '@features/curriculumVitae/types'
 import { LinearProgress, Stack, Typography } from '@mui/material'
@@ -8,32 +10,44 @@ import { useResumeChecklist } from './hooks'
 
 type Props = {
   view: Resume
+  linksState: ReturnType<typeof useResumeLinks>
 
   /** Открыть вкладку раздела «Редактирование» */
   onOpenTab: (tab: ResumeEditorTab) => void
 }
 
-/** «Главная» резюме: насколько оно заполнено и что осталось сделать. */
-export const MainTab = ({ view, onOpenTab }: Props) => {
+/** «Главная» резюме: насколько оно заполнено, что осталось сделать, и призыв создать ссылку,
+ *  если её ни одной ещё нет — без ссылки резюме нечем поделиться. */
+export const MainTab = ({ view, linksState, onOpenTab }: Props) => {
   const translate = useTranslate('Lk.Main')
   const { items, percent } = useResumeChecklist(view)
 
   return (
-    <Stack spacing={3} sx={{ p: { xs: 2, sm: 3 }, ...glassCard }}>
-      <Stack spacing={1}>
-        <Typography variant="h6">{translate('completeness', { percent })}</Typography>
+    <Stack spacing={2}>
+      {!linksState.isLoading && !linksState.hasLoadError && linksState.links.length === 0 && (
+        <CreateLinkPrompt onCreate={linksState.create} />
+      )}
 
-        <LinearProgress variant="determinate" value={percent} sx={{ height: 8, borderRadius: 4 }} />
+      <Stack spacing={3} sx={{ p: { xs: 2, sm: 3 }, ...glassCard }}>
+        <Stack spacing={1}>
+          <Typography variant="h6">{translate('completeness', { percent })}</Typography>
 
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {translate('updated', { time: dayjs(view.updatedAt).fromNow() })}
-        </Typography>
-      </Stack>
+          <LinearProgress
+            variant="determinate"
+            value={percent}
+            sx={{ height: 8, borderRadius: 4 }}
+          />
 
-      <Stack spacing={0.5}>
-        {items.map(([tab, isDone]) => (
-          <ChecklistItem key={tab} tab={tab} isDone={isDone} onFill={() => onOpenTab(tab)} />
-        ))}
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            {translate('updated', { time: dayjs(view.updatedAt).fromNow() })}
+          </Typography>
+        </Stack>
+
+        <Stack spacing={0.5}>
+          {items.map(([tab, isDone]) => (
+            <ChecklistItem key={tab} tab={tab} isDone={isDone} onFill={() => onOpenTab(tab)} />
+          ))}
+        </Stack>
       </Stack>
     </Stack>
   )

@@ -6,7 +6,6 @@ type Params = {
   onClose: () => void
 }
 
-/** Состояние диалога с именем ссылки: одно и для создания, и для переименования. */
 export const useLinkNameDialog = ({ initialName = '', onSave, onClose }: Params) => {
   const [name, setName] = useState(initialName)
 
