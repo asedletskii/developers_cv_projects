@@ -43,7 +43,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil),
+		userhttp.NewHandler(nil, nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil),
+		userhttp.NewHandler(nil, nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil),
+		userhttp.NewHandler(nil, nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
@@ -152,7 +152,7 @@ func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
 		health.NewService(),
 		nil,
 		handler,
-		userhttp.NewHandler(nil),
+		userhttp.NewHandler(nil, nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
@@ -171,11 +171,12 @@ type routerGetProfileReader struct{}
 
 func (routerGetProfileReader) GetProfile(_ context.Context, query userqueries.GetProfileQuery) (userqueries.Profile, error) {
 	return userqueries.Profile{
-		ID:      query.UserID.String(),
-		Name:    "Anton",
-		Surname: "User",
+		ID: query.UserID.String(),
+		RU: userqueries.LocalizedProfile{Name: stringPtr("Anton"), Surname: stringPtr("User")},
 	}, nil
 }
+
+func stringPtr(value string) *string { return &value }
 
 func TestRouterRegistersProfileRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -195,7 +196,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{})),
+		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{}), nil),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return userID, nil
 		},
@@ -227,7 +228,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil),
+		userhttp.NewHandler(nil, nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -282,7 +283,7 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil),
+		userhttp.NewHandler(nil, nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -317,6 +318,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 		method string
 		path   string
 	}{
+		{method: http.MethodPut, path: "/api/v1/lk/profile"},
 		{method: http.MethodGet, path: "/api/v1/lk/resumes"},
 		{method: http.MethodPut, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/overview"},
 		{method: http.MethodPut, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/profile"},
@@ -339,7 +341,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 				health.NewService(),
 				nil,
 				resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-				userhttp.NewHandler(nil),
+				userhttp.NewHandler(nil, nil),
 				func(context.Context, *http.Request) (uuid.UUID, error) {
 					return uuid.Nil, middleware.ErrUnauthenticated
 				},
@@ -386,7 +388,7 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 				health.NewService(),
 				nil,
 				resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-				userhttp.NewHandler(nil),
+				userhttp.NewHandler(nil, nil),
 				fakeAuthenticate,
 			)
 			require.NoError(t, err)
@@ -426,7 +428,7 @@ func TestRouterReadinessReturnsUnavailableWhenDependencyFails(t *testing.T) {
 		health.NewService(routerHealthChecker{name: "postgres", err: context.DeadlineExceeded}),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil),
+		userhttp.NewHandler(nil, nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -453,7 +455,7 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 		health.NewService(routerHealthChecker{name: "postgres"}),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil),
+		userhttp.NewHandler(nil, nil),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)

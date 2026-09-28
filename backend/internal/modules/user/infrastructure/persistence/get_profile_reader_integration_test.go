@@ -106,7 +106,7 @@ func applyProfileMigrations(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	for _, migration := range []string{"000001_users.up.sql", "000002_user_profiles.up.sql"} {
+	for _, migration := range []string{"000001_users.up.sql", "000002_user_profiles.up.sql", "000011_user_profile_localizations.up.sql"} {
 		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", migration))
 		require.NoError(t, err)
 		_, err = conn.Exec(ctx, string(content))
@@ -132,10 +132,9 @@ func insertProfile(t *testing.T, ctx context.Context, dsn string, userID uuid.UU
 	conn, err := pgx.ConnectConfig(ctx, config)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	_, err = conn.Exec(ctx, `
-		INSERT INTO user_profiles (user_id, name, surname, position, location)
-		VALUES ($1, $2, $3, $4, $5)
-	`, userID, name, surname, position, location)
+	_, err = conn.Exec(ctx, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID)
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO user_profile_localizations (user_id, language, name, surname, position, location) VALUES ($1, 'ru', $2, $3, $4, $5)`, userID, name, surname, position, location)
 	require.NoError(t, err)
 }
 
@@ -166,9 +165,9 @@ func TestPostgresGetProfileReaderReturnsSeededDemoProfiles(t *testing.T) {
 		UserID: mustUserID(t, "10000000-0000-0000-0000-000000000001"),
 	})
 	require.NoError(t, err)
-	require.Equal(t, "Антон", profile.Name)
-	require.Equal(t, "Профиль", profile.Surname)
-	require.Equal(t, "Profile Owner", *profile.Position)
+	require.Equal(t, "Антон", *profile.RU.Name)
+	require.Equal(t, "Профиль", *profile.RU.Surname)
+	require.Equal(t, "Profile Owner", *profile.RU.Position)
 }
 
 func mustUserID(t *testing.T, value string) valueobjects.ID {

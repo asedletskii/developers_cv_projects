@@ -7,27 +7,28 @@ import (
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 )
 
-type GetProfileQuery struct {
-	UserID valueobjects.ID
-}
+type GetProfileQuery struct{ UserID valueobjects.ID }
 
-type Profile struct {
-	ID         string  `json:"userId"`
-	Name       string  `json:"name"`
-	Surname    string  `json:"surname"`
+type LocalizedProfile struct {
+	Name       *string `json:"name,omitempty"`
+	Surname    *string `json:"surname,omitempty"`
 	Patronymic *string `json:"patronymic,omitempty"`
 	Position   *string `json:"position,omitempty"`
 	Location   *string `json:"location,omitempty"`
-	PhotoPath  *string `json:"photoPath,omitempty"`
+}
+
+type Profile struct {
+	ID        string           `json:"userId"`
+	RU        LocalizedProfile `json:"ru"`
+	EN        LocalizedProfile `json:"en"`
+	PhotoPath *string          `json:"photoPath,omitempty"`
 }
 
 type GetProfileReader interface {
 	GetProfile(ctx context.Context, query GetProfileQuery) (Profile, error)
 }
 
-type GetProfileHandler struct {
-	reader GetProfileReader
-}
+type GetProfileHandler struct{ reader GetProfileReader }
 
 func NewGetProfileHandler(reader GetProfileReader) *GetProfileHandler {
 	return &GetProfileHandler{reader: reader}

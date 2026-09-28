@@ -24,9 +24,11 @@ import (
 	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
 	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
+	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
+	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/database"
@@ -71,6 +73,7 @@ func Initialize() (*Application, error) {
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
 	userReaderValue := userreaders.NewUserReader(gormDBValue)
 	getProfileReaderValue := newGetProfileReader(gormDBValue)
+	profileRepositoryValue := userrepository.NewProfileRepository(gormDBValue)
 	mockAuthenticatorValue := userauth.NewMockAuthenticator(userReaderValue)
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
@@ -107,7 +110,8 @@ func Initialize() (*Application, error) {
 	contactViewHandlerValue := publichandler.NewContactViewHandler(contactViewQueryHandlerValue)
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
-	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
+	replaceUserProfileHandlerValue := usercommands.NewReplaceProfileHandler(profileRepositoryValue, unitOfWorkValue)
+	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue, replaceUserProfileHandlerValue)
 	resumeHandlerDependencies := http.HandlerDependencies{
 		ListResumes:        listResumesHandlerValue,
 		CreateResume:       createResumeHandlerValue,
