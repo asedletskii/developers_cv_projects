@@ -31,7 +31,7 @@ func (r *ResumeRepository) Create(ctx context.Context, resume *domain.Resume) er
 	if resume == nil {
 		return fmt.Errorf("resume is nil")
 	}
-	m := gormmodel.Resume{ID: resume.ID().UUID(), UserID: resume.UserID().UUID(), Title: resume.Title(), Language: string(resume.Language()), Version: resume.Version(), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	m := gormmodel.Resume{ID: resume.ID().UUID(), UserID: resume.UserID().UUID(), Title: resume.Title(), Language: string(resume.Language()), Status: string(resume.Status()), Version: resume.Version(), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
 	if err := tx.WithContext(ctx).Create(&m).Error; err != nil {
 		return fmt.Errorf("create resume: %w", mapDBError(err))
 	}
@@ -122,7 +122,7 @@ func (r *ResumeRepository) Save(ctx context.Context, resume *domain.Resume) erro
 	if err != nil {
 		return fmt.Errorf("save resume: %w", err)
 	}
-	result := tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ? AND version = ?", resume.ID().UUID(), resume.UserID().UUID(), resume.Version()).Updates(map[string]any{"title": resume.Title(), "language": string(resume.Language()), "version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC()})
+	result := tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ? AND version = ?", resume.ID().UUID(), resume.UserID().UUID(), resume.Version()).Updates(map[string]any{"title": resume.Title(), "language": string(resume.Language()), "status": string(resume.Status()), "version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC()})
 	if result.Error != nil {
 		return fmt.Errorf("save resume: %w", mapDBError(result.Error))
 	}
@@ -426,13 +426,13 @@ func (r *ResumeRepository) loadResume(ctx context.Context, resumeID valueobjects
 		if err != nil {
 			return nil, err
 		}
-		resume, err := domain.ReconstructResume(domain.ResumeSnapshot{ID: id, UserID: uid, Title: m.Title, Language: enums.ResumeLanguage(m.Language), Version: m.Version, Overview: o, Profile: profile, Contacts: contacts, Skills: skills, Languages: languages, Technologies: technologies, Experiences: experiences, Educations: educations, Courses: courses, Activities: activities, Projects: projects})
+		resume, err := domain.ReconstructResume(domain.ResumeSnapshot{ID: id, UserID: uid, Title: m.Title, Language: enums.ResumeLanguage(m.Language), Status: enums.ResumeStatus(m.Status), Version: m.Version, Overview: o, Profile: profile, Contacts: contacts, Skills: skills, Languages: languages, Technologies: technologies, Experiences: experiences, Educations: educations, Courses: courses, Activities: activities, Projects: projects})
 		if err != nil {
 			return nil, err
 		}
 		return resume, nil
 	}
-	return domain.ReconstructResume(domain.ResumeSnapshot{ID: id, UserID: uid, Title: m.Title, Language: enums.ResumeLanguage(m.Language), Version: m.Version, Profile: profile, Contacts: contacts, Skills: skills, Languages: languages, Technologies: technologies, Experiences: experiences, Educations: educations, Courses: courses, Activities: activities, Projects: projects})
+	return domain.ReconstructResume(domain.ResumeSnapshot{ID: id, UserID: uid, Title: m.Title, Language: enums.ResumeLanguage(m.Language), Status: enums.ResumeStatus(m.Status), Version: m.Version, Profile: profile, Contacts: contacts, Skills: skills, Languages: languages, Technologies: technologies, Experiences: experiences, Educations: educations, Courses: courses, Activities: activities, Projects: projects})
 }
 
 func contactsModels(c *domain.Contacts) (gormmodel.ResumeContacts, []gormmodel.ResumeContactHidden, *gormmodel.ResumeContactsText, error) {

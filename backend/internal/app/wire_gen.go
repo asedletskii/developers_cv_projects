@@ -77,6 +77,7 @@ func Initialize() (*Application, error) {
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	getResumeQueryHandlerValue := queries.NewGetResumeQueryHandler(resumeReaderValue)
 	replaceResumeTitleHandlerValue := resumecommands.NewReplaceResumeTitleHandler(resumeRepositoryValue, unitOfWorkValue)
+	changeResumeStatusHandlerValue := resumecommands.NewChangeResumeStatusHandler(resumeRepositoryValue, unitOfWorkValue)
 	replaceOverviewHandlerValue := resumecommands.NewReplaceOverviewHandler(resumeRepositoryValue, unitOfWorkValue)
 	replaceProfileHandlerValue := resumecommands.NewReplaceProfileHandler(resumeRepositoryValue, unitOfWorkValue)
 	deleteResumeHandlerValue := resumecommands.NewDeleteResumeHandler(resumeRepositoryValue, unitOfWorkValue)
@@ -112,6 +113,7 @@ func Initialize() (*Application, error) {
 		CreateResume:       createResumeHandlerValue,
 		GetResume:          getResumeQueryHandlerValue,
 		ReplaceResumeTitle: replaceResumeTitleHandlerValue,
+		ChangeResumeStatus: changeResumeStatusHandlerValue,
 		DeleteResume:       deleteResumeHandlerValue,
 		ReplaceOverview:    replaceOverviewHandlerValue,
 		ReplaceProfile:     replaceProfileHandlerValue,

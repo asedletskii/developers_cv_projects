@@ -64,6 +64,56 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand)
 	return resumeID, nil
 }
 
+type ChangeResumeStatusCommand struct {
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Status   enums.ResumeStatus
+	Version  int64
+}
+
+type ChangeResumeStatusHandler struct {
+	repository ports.ResumeRepository
+	uow        UnitOfWork
+}
+
+func NewChangeResumeStatusHandler(repository ports.ResumeRepository, uow UnitOfWork) *ChangeResumeStatusHandler {
+	return &ChangeResumeStatusHandler{repository: repository, uow: uow}
+}
+
+func (h *ChangeResumeStatusHandler) Handle(ctx context.Context, c ChangeResumeStatusCommand) error {
+	if h == nil || h.repository == nil || h.uow == nil {
+		return fmt.Errorf("change resume status handler dependencies are nil")
+	}
+	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
+		return fmt.Errorf("invalid change resume status command")
+	}
+	if !c.Status.IsValid() {
+		return fmt.Errorf("%w: invalid target status %q", domain.ErrInvalidResume, c.Status)
+	}
+	if c.Status == enums.ResumeStatusDraft {
+		return fmt.Errorf("%w: target status %q is not allowed", domain.ErrInvalidResumeStatusTransition, c.Status)
+	}
+	return h.uow.Do(ctx, func(tx context.Context) error {
+		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
+		if err != nil {
+			return err
+		}
+		if resume.Version() != c.Version {
+			return domain.ErrConcurrencyConflict
+		}
+		switch c.Status {
+		case enums.ResumeStatusOpened:
+			err = resume.Publish()
+		case enums.ResumeStatusClosed:
+			err = resume.Close()
+		}
+		if err != nil {
+			return err
+		}
+		return h.repository.Save(tx, resume)
+	})
+}
+
 type ReplaceResumeTitleHandler struct {
 	repository ports.ResumeRepository
 	uow        UnitOfWork

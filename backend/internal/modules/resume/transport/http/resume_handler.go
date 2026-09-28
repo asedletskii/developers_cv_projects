@@ -19,11 +19,12 @@ type resumeHandler struct {
 	get          *queries.GetResumeQueryHandler
 	replaceTitle *commands.ReplaceResumeTitleHandler
 	delete       *commands.DeleteResumeHandler
+	changeStatus *commands.ChangeResumeStatusHandler
 	list         *queries.ListResumesQueryHandler
 }
 
-func newResumeHandler(c *commands.CreateResumeHandler, g *queries.GetResumeQueryHandler, r *commands.ReplaceResumeTitleHandler, d *commands.DeleteResumeHandler, l *queries.ListResumesQueryHandler) *resumeHandler {
-	return &resumeHandler{create: c, get: g, replaceTitle: r, delete: d, list: l}
+func newResumeHandler(c *commands.CreateResumeHandler, g *queries.GetResumeQueryHandler, r *commands.ReplaceResumeTitleHandler, d *commands.DeleteResumeHandler, s *commands.ChangeResumeStatusHandler, l *queries.ListResumesQueryHandler) *resumeHandler {
+	return &resumeHandler{create: c, get: g, replaceTitle: r, delete: d, changeStatus: s, list: l}
 }
 
 func (h *resumeHandler) List(c *gin.Context) {
@@ -101,6 +102,47 @@ func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
 	if err := h.replaceTitle.Handle(c.Request.Context(), commands.ReplaceResumeTitleCommand{ResumeID: id, UserID: uid, Version: body.Version, Title: body.Title}); err != nil {
 		if errors.Is(err, domain.ErrConcurrencyConflict) {
 			c.Status(http.StatusPreconditionFailed)
+			return
+		}
+		common.WriteCommandError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+type changeResumeStatusRequest struct {
+	Status  string `json:"status"`
+	Version int64  `json:"version"`
+}
+
+func (h *resumeHandler) ChangeStatus(c *gin.Context) {
+	uid, ok := common.RequireUserID(c)
+	if !ok {
+		return
+	}
+	id, ok := common.ParseResumeID(c)
+	if !ok {
+		return
+	}
+	var body changeResumeStatusRequest
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
+		return
+	}
+	if body.Version < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+		return
+	}
+	err := h.changeStatus.Handle(c.Request.Context(), commands.ChangeResumeStatusCommand{
+		ResumeID: id, UserID: uid, Status: enums.ResumeStatus(body.Status), Version: body.Version,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidResumeStatusTransition) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
 		common.WriteCommandError(c, err)

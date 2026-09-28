@@ -42,6 +42,7 @@ type HandlerDependencies struct {
 	GetResume          *queries.GetResumeQueryHandler
 	ReplaceResumeTitle *commands.ReplaceResumeTitleHandler
 	DeleteResume       *commands.DeleteResumeHandler
+	ChangeResumeStatus *commands.ChangeResumeStatusHandler
 	ReplaceOverview    *commands.ReplaceOverviewHandler
 	ReplaceProfile     *commands.ReplaceProfileHandler
 	ReplaceContacts    *commands.ReplaceContactsHandler
@@ -62,7 +63,7 @@ type HandlerDependencies struct {
 
 func NewHandler(deps HandlerDependencies) *Handler {
 	return &Handler{
-		resume:       newResumeHandler(deps.CreateResume, deps.GetResume, deps.ReplaceResumeTitle, deps.DeleteResume, deps.ListResumes),
+		resume:       newResumeHandler(deps.CreateResume, deps.GetResume, deps.ReplaceResumeTitle, deps.DeleteResume, deps.ChangeResumeStatus, deps.ListResumes),
 		overview:     deps.Overview,
 		profile:      deps.Profile,
 		contacts:     deps.Contacts,
@@ -85,6 +86,7 @@ func (h *Handler) ViewContact(c *gin.Context)           { h.contactView.Handle(c
 func (h *Handler) CreateResume(c *gin.Context)          { h.resume.Create(c) }
 func (h *Handler) GetResume(c *gin.Context)             { h.resume.Get(c) }
 func (h *Handler) ReplaceResumeTitle(c *gin.Context)    { h.resume.ReplaceTitle(c) }
+func (h *Handler) ChangeResumeStatus(c *gin.Context)    { h.resume.ChangeStatus(c) }
 func (h *Handler) ReplaceResumeOverview(c *gin.Context) { h.overview.Replace(c) }
 func (h *Handler) DeleteResume(c *gin.Context)          { h.resume.Delete(c) }
 func (h *Handler) ReplaceResumeProfile(c *gin.Context)  { h.profile.Replace(c) }

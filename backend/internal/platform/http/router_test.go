@@ -237,6 +237,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		"POST /api/v1/lk/resume":                       {},
 		"GET /api/v1/lk/resume/:resumeId":              {},
 		"PUT /api/v1/lk/resume/:resumeId":              {},
+		"PUT /api/v1/lk/resume/:resumeId/status":       {},
 		"PUT /api/v1/lk/resume/:resumeId/overview":     {},
 		"DELETE /api/v1/lk/resume/:resumeId":           {},
 		"PUT /api/v1/lk/resume/:resumeId/profile":      {},

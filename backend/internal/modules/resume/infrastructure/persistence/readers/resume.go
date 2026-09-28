@@ -62,7 +62,7 @@ func (r *ResumeReader) GetPublic(ctx context.Context, query queries.PublicResume
 
 func (r *ResumeReader) loadView(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, metadata queries.ResumeMetadataView) (queries.ResumeView, error) {
 	view := queries.ResumeView{
-		ID: metadata.ID, Title: metadata.Title, Language: metadata.Language,
+		ID: metadata.ID, Title: metadata.Title, Language: metadata.Language, Status: metadata.Status,
 		CreatedAt: metadata.CreatedAt, UpdatedAt: metadata.UpdatedAt, Version: int64Ptr(metadata.Version),
 		Languages: make([]queries.LanguageView, 0), Technologies: make([]queries.TechnologyView, 0),
 		Experiences: make([]queries.ExperienceView, 0), Educations: make([]queries.EducationView, 0),
@@ -117,8 +117,11 @@ func (r *ResumeReader) loadMetadata(ctx context.Context, db *gorm.DB, resumeID u
 		}
 		return queries.ResumeMetadataView{}, fmt.Errorf("get resume metadata: %w", err)
 	}
+	if userID == nil && model.Status != string(enums.ResumeStatusOpened) {
+		return queries.ResumeMetadataView{}, queries.ErrResumeNotFound
+	}
 	return queries.ResumeMetadataView{
-		ID: model.ID.String(), Title: model.Title, Language: model.Language,
+		ID: model.ID.String(), Title: model.Title, Language: model.Language, Status: model.Status,
 		CreatedAt: model.CreatedAt, UpdatedAt: model.UpdatedAt, Version: model.Version,
 	}, nil
 }
@@ -474,6 +477,9 @@ func (r *ResumeReader) GetContactForView(ctx context.Context, query queries.Cont
 			return queries.ContactView{}, queries.ErrResumeNotFound
 		}
 		return queries.ContactView{}, fmt.Errorf("get resume for contact view: %w", err)
+	}
+	if resume.Status != string(enums.ResumeStatusOpened) {
+		return queries.ContactView{}, queries.ErrResumeNotFound
 	}
 
 	var model gormmodel.ResumeContacts

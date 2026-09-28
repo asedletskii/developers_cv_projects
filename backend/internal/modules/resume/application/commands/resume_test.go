@@ -153,3 +153,68 @@ func TestReplaceResumeTitleHandlerPropagatesRepositoryError(t *testing.T) {
 
 	require.ErrorIs(t, err, repositoryErr)
 }
+
+func TestChangeResumeStatusHandlerPublishesDraft(t *testing.T) {
+	resume := newTestResume(t, "CV", 4)
+	repository := &fakeResumeRepository{resume: resume}
+	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+
+	err := handler.Handle(context.Background(), ChangeResumeStatusCommand{
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Status: enums.ResumeStatusOpened,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, enums.ResumeStatusOpened, resume.Status())
+	require.True(t, repository.called)
+}
+
+func TestChangeResumeStatusHandlerSupportsCloseAndReopen(t *testing.T) {
+	resume := newTestResume(t, "CV", 4)
+	require.NoError(t, resume.Publish())
+	repository := &fakeResumeRepository{resume: resume}
+	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+
+	require.NoError(t, handler.Handle(context.Background(), ChangeResumeStatusCommand{
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Status: enums.ResumeStatusClosed,
+	}))
+	require.Equal(t, enums.ResumeStatusClosed, resume.Status())
+
+	resume = newTestResume(t, "CV", 5)
+	require.NoError(t, resume.Publish())
+	repository = &fakeResumeRepository{resume: resume}
+	handler = NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+	require.NoError(t, handler.Handle(context.Background(), ChangeResumeStatusCommand{
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 5, Status: enums.ResumeStatusClosed,
+	}))
+	require.NoError(t, handler.Handle(context.Background(), ChangeResumeStatusCommand{
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 5, Status: enums.ResumeStatusOpened,
+	}))
+	require.Equal(t, enums.ResumeStatusOpened, resume.Status())
+}
+
+func TestChangeResumeStatusHandlerRejectsDraftTarget(t *testing.T) {
+	resume := newTestResume(t, "CV", 1)
+	repository := &fakeResumeRepository{resume: resume}
+	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+
+	err := handler.Handle(context.Background(), ChangeResumeStatusCommand{
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 1, Status: enums.ResumeStatusDraft,
+	})
+
+	require.ErrorIs(t, err, domain.ErrInvalidResumeStatusTransition)
+	require.False(t, repository.called)
+}
+
+func TestChangeResumeStatusHandlerRejectsStaleVersion(t *testing.T) {
+	resume := newTestResume(t, "CV", 5)
+	repository := &fakeResumeRepository{resume: resume}
+	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+
+	err := handler.Handle(context.Background(), ChangeResumeStatusCommand{
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Status: enums.ResumeStatusOpened,
+	})
+
+	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
+	require.False(t, repository.called)
+	require.Equal(t, enums.ResumeStatusDraft, resume.Status())
+}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
@@ -43,6 +44,7 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 		Screenshots: []valueobjects.ExternalURL{screenshot},
 	}}))
 
+	require.NoError(t, fixture.resume.Publish())
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Save(tx, fixture.resume)
 	}))
@@ -50,6 +52,7 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 	reader := readers.NewResumeReader(fixture.gorm)
 	owned, err := reader.GetOwned(ctx, queries.GetResumeQuery{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
 	require.NoError(t, err)
+	require.Equal(t, "opened", owned.Status)
 	require.NotNil(t, owned.Version)
 	require.Equal(t, "private@example.com", *owned.Contacts.Email)
 	require.Equal(t, "Lead Developer", *owned.Projects[0].Role)
@@ -58,6 +61,7 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 
 	publicReaderView, err := reader.GetPublic(ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
 	require.NoError(t, err)
+	require.Equal(t, "opened", publicReaderView.Status)
 	require.NotNil(t, publicReaderView.Contacts)
 	require.Equal(t, "private@example.com", *publicReaderView.Contacts.Email)
 
@@ -92,6 +96,7 @@ func TestPostgresContactViewReturnsOnlyHiddenContact(t *testing.T) {
 		Contacts:       contacts,
 		HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
 	}))
+	require.NoError(t, fixture.resume.Publish())
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Save(tx, fixture.resume)
 	}))
@@ -110,4 +115,31 @@ func TestPostgresContactViewReturnsOnlyHiddenContact(t *testing.T) {
 		Contact:  enums.ContactKeyPhone,
 	})
 	require.ErrorIs(t, err, queries.ErrContactNotHidden)
+}
+
+func TestPostgresPublicResumeRequiresOpenedStatus(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	reader := readers.NewResumeReader(fixture.gorm)
+
+	_, err := reader.GetPublic(fixture.ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
+	require.ErrorIs(t, err, queries.ErrResumeNotFound)
+
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+	require.NoError(t, fixture.resume.Publish())
+	require.NoError(t, fixture.uow.Do(fixture.ctx, func(tx context.Context) error {
+		return resumeRepo.Save(tx, fixture.resume)
+	}))
+
+	_, err = reader.GetPublic(fixture.ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
+	require.NoError(t, err)
+
+	opened, err := resumeRepo.Get(fixture.ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.NoError(t, opened.Close())
+	require.NoError(t, fixture.uow.Do(fixture.ctx, func(tx context.Context) error {
+		return resumeRepo.Save(tx, opened)
+	}))
+
+	_, err = reader.GetPublic(fixture.ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
+	require.ErrorIs(t, err, queries.ErrResumeNotFound)
 }
