@@ -2,9 +2,9 @@ package commands
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/ports"
 	"fmt"
 
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
@@ -13,6 +13,7 @@ import (
 )
 
 type ProjectInput struct {
+	ID           valueobjects.ID
 	Name         string
 	Description  *string
 	Role         *string
@@ -22,21 +23,28 @@ type ProjectInput struct {
 	Stack        []ProjectTechnologyInput
 	Contributors []ProjectContributorInput
 }
+
+type ProjectsInput struct {
+	Items []ProjectInput
+}
+
 type ProjectTechnologyInput struct {
 	Name  string
 	Grade *enums.TechnologyGrade
 }
+
 type ProjectContributorInput struct {
 	Name, Surname, Role string
 	Contacts            ProjectContactsInput
 }
+
 type ProjectContactsInput struct {
 	Phone    string
 	Telegram *valueobjects.Telegram
 	Email    *valueobjects.Email
 }
 
-func projectFromInput(input ProjectInput, id, resumeID valueobjects.ID) (*domain.Project, error) {
+func projectInputToDomain(input ProjectInput) (domain.ProjectParams, error) {
 	screenshots := append([]valueobjects.ExternalURL(nil), input.Screenshots...)
 	var link, gitLink *valueobjects.ExternalURL
 	if input.Link != nil {
@@ -47,112 +55,100 @@ func projectFromInput(input ProjectInput, id, resumeID valueobjects.ID) (*domain
 		copy := *input.GitLink
 		gitLink = &copy
 	}
+
 	stack := make([]entities.Technology, 0, len(input.Stack))
-	for _, v := range input.Stack {
-		x, e := entities.NewTechnology(entities.TechnologyParams{Name: v.Name, Grade: v.Grade})
-		if e != nil {
-			return nil, e
+	for _, item := range input.Stack {
+		technology, err := entities.NewTechnology(entities.TechnologyParams{Name: item.Name, Grade: item.Grade})
+		if err != nil {
+			return domain.ProjectParams{}, err
 		}
-		stack = append(stack, x)
+		stack = append(stack, technology)
 	}
+
 	contributors := make([]entities.Contributor, 0, len(input.Contributors))
-	for _, v := range input.Contributors {
-		var tg *valueobjects.Telegram
-		if v.Contacts.Telegram != nil {
-			copy := *v.Contacts.Telegram
-			tg = &copy
+	for _, item := range input.Contributors {
+		var telegram *valueobjects.Telegram
+		if item.Contacts.Telegram != nil {
+			copy := *item.Contacts.Telegram
+			telegram = &copy
 		}
-		var em *valueobjects.Email
-		if v.Contacts.Email != nil {
-			copy := *v.Contacts.Email
-			em = &copy
+		var email *valueobjects.Email
+		if item.Contacts.Email != nil {
+			copy := *item.Contacts.Email
+			email = &copy
 		}
-		cs, e := entities.NewContacts(entities.ContactsParams{Phone: v.Contacts.Phone, Telegram: tg, Email: em})
-		if e != nil {
-			return nil, e
+		contacts, err := entities.NewContacts(entities.ContactsParams{
+			Phone: item.Contacts.Phone, Telegram: telegram, Email: email,
+		})
+		if err != nil {
+			return domain.ProjectParams{}, err
 		}
-		x, e := entities.NewContributor(entities.ContributorParams{Name: v.Name, Surname: v.Surname, Role: v.Role, Contacts: cs})
-		if e != nil {
-			return nil, e
+		contributor, err := entities.NewContributor(entities.ContributorParams{
+			Name: item.Name, Surname: item.Surname, Role: item.Role, Contacts: contacts,
+		})
+		if err != nil {
+			return domain.ProjectParams{}, err
 		}
-		contributors = append(contributors, x)
+		contributors = append(contributors, contributor)
 	}
-	return domain.NewProject(domain.ProjectParams{ID: id, ResumeID: resumeID, Name: input.Name, Description: input.Description, Role: input.Role, Screenshots: screenshots, Link: link, GitLink: gitLink, Stack: stack, Contributors: contributors})
+
+	return domain.ProjectParams{
+		ID: input.ID, Name: input.Name, Description: input.Description, Role: input.Role,
+		Screenshots: screenshots, Link: link, GitLink: gitLink,
+		Stack: stack, Contributors: contributors,
+	}, nil
 }
 
-type CreateProjectCommand struct {
-	ID, ResumeID valueobjects.ID
-	UserID       useridentity.ID
-	Input        ProjectInput
-}
-type UpdateProjectCommand struct {
-	ResumeID, ProjectID valueobjects.ID
-	UserID              useridentity.ID
-	Input               ProjectInput
-}
-type DeleteProjectCommand struct {
-	ResumeID, ProjectID valueobjects.ID
-	UserID              useridentity.ID
+func (i ProjectsInput) toDomain() ([]domain.ProjectParams, error) {
+	out := make([]domain.ProjectParams, 0, len(i.Items))
+	for _, item := range i.Items {
+		params, err := projectInputToDomain(item)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, params)
+	}
+	return out, nil
 }
 
-type CreateProjectHandler struct {
-	repository ports.CreateProjectRepository
+type ReplaceProjectsCommand struct {
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Version  int64
+	Input    ProjectsInput
+}
+
+type ReplaceProjectsHandler struct {
+	repository ports.ResumeRepository
 	uow        UnitOfWork
 }
 
-func NewCreateProjectHandler(repository ports.CreateProjectRepository, uow UnitOfWork) *CreateProjectHandler {
-	return &CreateProjectHandler{repository: repository, uow: uow}
+func NewReplaceProjectsHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceProjectsHandler {
+	return &ReplaceProjectsHandler{repository: repository, uow: uow}
 }
 
-func (h *CreateProjectHandler) Handle(ctx context.Context, command CreateProjectCommand) (valueobjects.ID, error) {
-	if command.ID.IsZero() {
-		command.ID = valueobjects.NewID()
-	}
-	project, err := projectFromInput(command.Input, command.ID, command.ResumeID)
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	return command.ID, h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.CreateProject(tx, ports.CreateProjectRepositoryCommand{Project: project, ResumeID: command.ResumeID, UserID: command.UserID})
-	})
-}
-
-type UpdateProjectHandler struct {
-	repository ports.UpdateProjectRepository
-	uow        UnitOfWork
-}
-
-func NewUpdateProjectHandler(repository ports.UpdateProjectRepository, uow UnitOfWork) *UpdateProjectHandler {
-	return &UpdateProjectHandler{repository: repository, uow: uow}
-}
-
-func (h *UpdateProjectHandler) Handle(ctx context.Context, command UpdateProjectCommand) error {
-	project, err := projectFromInput(command.Input, command.ProjectID, command.ResumeID)
-	if err != nil {
-		return err
-	}
-	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.UpdateProject(tx, ports.UpdateProjectRepositoryCommand{Project: project, ResumeID: command.ResumeID, UserID: command.UserID})
-	})
-}
-
-type DeleteProjectHandler struct {
-	repository ports.DeleteProjectRepository
-	uow        UnitOfWork
-}
-
-func NewDeleteProjectHandler(repository ports.DeleteProjectRepository, uow UnitOfWork) *DeleteProjectHandler {
-	return &DeleteProjectHandler{repository: repository, uow: uow}
-}
-
-func (h *DeleteProjectHandler) Handle(ctx context.Context, command DeleteProjectCommand) error {
+func (h *ReplaceProjectsHandler) Handle(ctx context.Context, c ReplaceProjectsCommand) error {
 	if h == nil || h.repository == nil || h.uow == nil {
-		return fmt.Errorf("delete project handler dependencies are nil")
+		return fmt.Errorf("replace projects handler dependencies are nil")
 	}
-	if err := validateDeleteCommandIDs("project", command.ResumeID, command.ProjectID, command.UserID); err != nil {
+	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
+		return fmt.Errorf("invalid replace projects command")
+	}
+	params, err := c.Input.toDomain()
+	if err != nil {
 		return err
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.DeleteProject(tx, ports.DeleteProjectRepositoryCommand{ResumeID: command.ResumeID, ProjectID: command.ProjectID, UserID: command.UserID})
+		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
+		if err != nil {
+			return err
+		}
+		if resume.Version() != c.Version {
+			return domain.ErrConcurrencyConflict
+		}
+		if err := resume.ReplaceProjects(params); err != nil {
+			return err
+		}
+		return h.repository.Save(tx, resume)
 	})
 }

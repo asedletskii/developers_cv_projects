@@ -15,7 +15,7 @@ type publicResumeReaderStub struct {
 	err  error
 }
 
-func (s publicResumeReaderStub) GetPublic(context.Context, valueobjects.ID) (ResumeView, error) {
+func (s publicResumeReaderStub) GetPublic(context.Context, PublicResumeQuery) (ResumeView, error) {
 	if s.err != nil {
 		return ResumeView{}, s.err
 	}
@@ -55,6 +55,7 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, view.ID, result.ID)
+	require.Nil(t, result.Version)
 	require.Equal(t, view.Title, result.Title)
 	require.Equal(t, view.Profile, result.Profile)
 	require.Equal(t, view.Contacts, result.Contacts)
@@ -177,6 +178,7 @@ func TestPublicResumeJSONUsesCanonicalNestedShape(t *testing.T) {
 	var object map[string]any
 	require.NoError(t, json.Unmarshal(payload, &object))
 	require.Contains(t, object, "overview")
+	require.NotContains(t, object, "version")
 	require.Contains(t, object, "experiences")
 	require.Contains(t, object, "educations")
 	require.NotContains(t, object, "name")

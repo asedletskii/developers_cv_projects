@@ -1,146 +1,93 @@
 package courses
 
 import (
-	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/transport/http/common"
 )
 
 type Handler struct {
-	create *commands.CreateCourseHandler
-	list   *queries.ListCoursesQueryHandler
-	get    *queries.GetCourseQueryHandler
-	update *commands.UpdateCourseHandler
-	delete *commands.DeleteCourseHandler
+	replace *commands.ReplaceCoursesHandler
 }
 
-func NewHandler(create *commands.CreateCourseHandler, list *queries.ListCoursesQueryHandler, get *queries.GetCourseQueryHandler, update *commands.UpdateCourseHandler, delete *commands.DeleteCourseHandler) *Handler {
-	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
-}
+func NewHandler(replace *commands.ReplaceCoursesHandler) *Handler { return &Handler{replace: replace} }
 
 type courseRequest struct {
+	ID              string  `json:"id,omitempty"`
 	Name            string  `json:"name"`
 	Organization    string  `json:"organization"`
 	EndDate         string  `json:"endDate"`
 	Hours           *int    `json:"hours,omitempty"`
 	CertificateLink *string `json:"certificateLink,omitempty"`
 }
+type coursesRequest struct {
+	Version int64           `json:"version"`
+	Items   []courseRequest `json:"items"`
+}
 
-func (h *Handler) Create(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	var body courseRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	input, err := courseInput(body)
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	id, err := h.create.Handle(c.Request.Context(), commands.CreateCourseCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: input})
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
-}
-func (h *Handler) List(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	items, err := h.list.Handle(c.Request.Context(), queries.ListCoursesQuery{ResumeID: rid, UserID: uid})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, items)
-}
-func (h *Handler) Get(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c)
-	if !ok {
-		return
-	}
-	item, err := h.get.Handle(c.Request.Context(), queries.GetCourseQuery{ResumeID: rid, CourseID: id, UserID: uid})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, item)
-}
-func (h *Handler) Update(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c)
-	if !ok {
-		return
-	}
-	var body courseRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	input, err := courseInput(body)
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	if err := h.update.Handle(c.Request.Context(), commands.UpdateCourseCommand{ResumeID: rid, CourseID: id, UserID: uid, Input: input}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-func (h *Handler) Delete(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c)
-	if !ok {
-		return
-	}
-	if err := h.delete.Handle(c.Request.Context(), commands.DeleteCourseCommand{ResumeID: rid, CourseID: id, UserID: uid}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-func courseInput(body courseRequest) (commands.CourseInput, error) {
-	end, err := valueobjects.ParseYearMonth(body.EndDate)
-	if err != nil {
-		return commands.CourseInput{}, err
-	}
-	var link *valueobjects.ExternalURL
-	if body.CertificateLink != nil {
-		v, err := valueobjects.NewExternalURL(*body.CertificateLink)
-		if err != nil {
-			return commands.CourseInput{}, err
+func (r coursesRequest) input() (commands.CoursesInput, error) {
+	out := make([]commands.CourseInput, 0, len(r.Items))
+	for _, x := range r.Items {
+		var id valueobjects.ID
+		if x.ID != "" {
+			v, e := valueobjects.ParseID(x.ID)
+			if e != nil {
+				return commands.CoursesInput{}, e
+			}
+			id = v
 		}
-		link = &v
+		end, e := valueobjects.ParseYearMonth(x.EndDate)
+		if e != nil {
+			return commands.CoursesInput{}, e
+		}
+		var link *valueobjects.ExternalURL
+		if x.CertificateLink != nil {
+			v, e := valueobjects.NewExternalURL(*x.CertificateLink)
+			if e != nil {
+				return commands.CoursesInput{}, e
+			}
+			link = &v
+		}
+		out = append(out, commands.CourseInput{ID: id, Name: x.Name, Organization: x.Organization, EndDate: end, Hours: x.Hours, CertificateLink: link})
 	}
-	return commands.CourseInput{Name: body.Name, Organization: body.Organization, EndDate: end, Hours: body.Hours, CertificateLink: link}, nil
+	return commands.CoursesInput{Items: out}, nil
 }
-func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
+func (h *Handler) Replace(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
 	if !ok {
-		return uid, valueobjects.ID{}, false
+		return
 	}
 	rid, ok := common.ParseResumeID(c)
-	return uid, rid, ok
-}
-func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID, bool) {
-	uid, rid, ok := ids(c)
 	if !ok {
-		return uid, rid, valueobjects.ID{}, false
+		return
 	}
-	id, err := valueobjects.ParseID(c.Param("courseId"))
+	var body coursesRequest
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
+		return
+	}
+	if body.Version < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+		return
+	}
+	input, err := body.input()
 	if err != nil {
-		common.WriteInvalidBody(c)
-		return uid, rid, valueobjects.ID{}, false
+		common.WriteCommandError(c, err)
+		return
 	}
-	return uid, rid, id, true
+	if err := h.replace.Handle(c.Request.Context(), commands.ReplaceCoursesCommand{ResumeID: rid, UserID: uid, Version: body.Version, Input: input}); err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
+		common.WriteCommandError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

@@ -6,7 +6,6 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -18,7 +17,7 @@ type ExperienceStackItemInput struct {
 }
 
 type ExperienceInput struct {
-	ID, ResumeID      valueobjects.ID
+	ID                valueobjects.ID
 	Company, Position string
 	Location          *string
 	StartDate         valueobjects.YearMonth
@@ -28,105 +27,54 @@ type ExperienceInput struct {
 	Stack             []ExperienceStackItemInput
 }
 
-type CreateExperienceCommand struct {
-	ID, ResumeID valueobjects.ID
-	UserID       useridentity.ID
-	Input        ExperienceInput
-}
+type ExperiencesInput struct{ Items []ExperienceInput }
 
-type UpdateExperienceCommand struct {
-	ResumeID, ExperienceID valueobjects.ID
-	UserID                 useridentity.ID
-	Input                  ExperienceInput
-}
-
-type DeleteExperienceCommand struct {
-	ResumeID, ExperienceID valueobjects.ID
-	UserID                 useridentity.ID
-}
-
-type CreateExperienceHandler struct {
-	r ports.CreateExperienceRepository
-	u UnitOfWork
-}
-
-func NewCreateExperienceHandler(r ports.CreateExperienceRepository, u UnitOfWork) *CreateExperienceHandler {
-	return &CreateExperienceHandler{r: r, u: u}
-}
-
-func (h *CreateExperienceHandler) Handle(ctx context.Context, c CreateExperienceCommand) (valueobjects.ID, error) {
-	if h == nil || h.r == nil || h.u == nil {
-		return valueobjects.ID{}, fmt.Errorf("create experience dependencies are nil")
+func (i ExperienceInput) toDomain(resumeID valueobjects.ID) domain.ExperienceParams {
+	stack := make([]domain.ExperienceStackParams, 0, len(i.Stack))
+	for _, item := range i.Stack {
+		stack = append(stack, domain.ExperienceStackParams{Name: item.Name, Grade: item.Grade})
 	}
-	if c.ID.IsZero() {
-		c.ID = valueobjects.NewID()
-	}
-	c.Input.ID, c.Input.ResumeID = c.ID, c.ResumeID
-	a, err := experienceFromInput(c.Input)
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateExperience(tx, ports.CreateExperienceRepositoryCommand{Experience: a, ResumeID: c.ResumeID, UserID: c.UserID})
-	})
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	return a.ID(), nil
+	return domain.ExperienceParams{ID: i.ID, ResumeID: resumeID, Company: i.Company, Position: i.Position, Location: i.Location, StartDate: i.StartDate, EndDate: i.EndDate, Description: i.Description, Achievements: append([]string(nil), i.Achievements...), Stack: stack}
 }
 
-type UpdateExperienceHandler struct {
-	u   ports.UpdateExperienceRepository
-	uow UnitOfWork
+type ReplaceExperiencesCommand struct {
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Version  int64
+	Input    ExperiencesInput
 }
 
-func NewUpdateExperienceHandler(u ports.UpdateExperienceRepository, uow UnitOfWork) *UpdateExperienceHandler {
-	return &UpdateExperienceHandler{u: u, uow: uow}
+type ReplaceExperiencesHandler struct {
+	repository ports.ResumeRepository
+	uow        UnitOfWork
 }
 
-func (h *UpdateExperienceHandler) Handle(ctx context.Context, c UpdateExperienceCommand) error {
-	if h == nil || h.u == nil || h.uow == nil {
-		return fmt.Errorf("update experience dependencies are nil")
+func NewReplaceExperiencesHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceExperiencesHandler {
+	return &ReplaceExperiencesHandler{repository: repository, uow: uow}
+}
+
+func (h *ReplaceExperiencesHandler) Handle(ctx context.Context, c ReplaceExperiencesCommand) error {
+	if h == nil || h.repository == nil || h.uow == nil {
+		return fmt.Errorf("replace experiences handler dependencies are nil")
 	}
-	c.Input.ID, c.Input.ResumeID = c.ExperienceID, c.ResumeID
-	entity, err := experienceFromInput(c.Input)
-	if err != nil {
-		return err
+	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
+		return fmt.Errorf("invalid replace experiences command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.u.UpdateExperience(tx, ports.UpdateExperienceRepositoryCommand{Experience: entity, ResumeID: c.ResumeID, UserID: c.UserID})
-	})
-}
-
-type DeleteExperienceHandler struct {
-	r ports.DeleteExperienceRepository
-	u UnitOfWork
-}
-
-func NewDeleteExperienceHandler(r ports.DeleteExperienceRepository, u UnitOfWork) *DeleteExperienceHandler {
-	return &DeleteExperienceHandler{r: r, u: u}
-}
-
-func (h *DeleteExperienceHandler) Handle(ctx context.Context, c DeleteExperienceCommand) error {
-	if h == nil || h.r == nil || h.u == nil {
-		return fmt.Errorf("delete experience dependencies are nil")
-	}
-	if err := validateDeleteCommandIDs("experience", c.ResumeID, c.ExperienceID, c.UserID); err != nil {
-		return err
-	}
-	return h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.DeleteExperience(tx, ports.DeleteExperienceRepositoryCommand{ResumeID: c.ResumeID, ExperienceID: c.ExperienceID, UserID: c.UserID})
-	})
-}
-
-func experienceFromInput(input ExperienceInput) (*domain.Experience, error) {
-	stack := make([]entities.Technology, len(input.Stack))
-	for i, item := range input.Stack {
-		technology, err := entities.NewTechnology(entities.TechnologyParams{Name: item.Name, Grade: item.Grade})
+		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
 		if err != nil {
-			return nil, err
+			return err
 		}
-		stack[i] = technology
-	}
-	return domain.NewExperience(domain.ExperienceParams{ID: input.ID, ResumeID: input.ResumeID, Company: input.Company, Position: input.Position, Location: input.Location, StartDate: input.StartDate, EndDate: input.EndDate, Description: input.Description, Achievements: input.Achievements, Stack: stack})
+		if resume.Version() != c.Version {
+			return domain.ErrConcurrencyConflict
+		}
+		params := make([]domain.ExperienceParams, 0, len(c.Input.Items))
+		for _, input := range c.Input.Items {
+			params = append(params, input.toDomain(c.ResumeID))
+		}
+		if err := resume.ReplaceExperiences(params); err != nil {
+			return err
+		}
+		return h.repository.Save(tx, resume)
+	})
 }

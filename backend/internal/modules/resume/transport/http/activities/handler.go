@@ -1,31 +1,28 @@
 package activities
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
-	create *commands.CreateActivityHandler
-	list   *queries.ListActivitiesQueryHandler
-	get    *queries.GetActivityQueryHandler
-	update *commands.UpdateActivityHandler
-	delete *commands.DeleteActivityHandler
+	replace *commands.ReplaceActivitiesHandler
 }
 
-func NewHandler(create *commands.CreateActivityHandler, list *queries.ListActivitiesQueryHandler, get *queries.GetActivityQueryHandler, update *commands.UpdateActivityHandler, delete *commands.DeleteActivityHandler) *Handler {
-	return &Handler{create: create, list: list, get: get, update: update, delete: delete}
+func NewHandler(replace *commands.ReplaceActivitiesHandler) *Handler {
+	return &Handler{replace: replace}
 }
 
 type activityRequest struct {
+	ID          string  `json:"id,omitempty"`
 	Type        string  `json:"type"`
 	Title       string  `json:"title"`
 	Description *string `json:"description,omitempty"`
@@ -33,120 +30,73 @@ type activityRequest struct {
 	Link        *string `json:"link,omitempty"`
 }
 
-func (h *Handler) Create(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	var body activityRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	input, err := activityInput(body)
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	id, err := h.create.Handle(c.Request.Context(), commands.CreateActivityCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: input})
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
+type activitiesRequest struct {
+	Version int64             `json:"version"`
+	Items   []activityRequest `json:"items"`
 }
-func (h *Handler) List(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	items, err := h.list.Handle(c.Request.Context(), queries.ListActivitiesQuery{ResumeID: rid, UserID: uid})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, items)
-}
-func (h *Handler) Get(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c)
-	if !ok {
-		return
-	}
-	item, err := h.get.Handle(c.Request.Context(), queries.GetActivityQuery{ResumeID: rid, ActivityID: id, UserID: uid})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, item)
-}
-func (h *Handler) Update(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c)
-	if !ok {
-		return
-	}
-	var body activityRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	input, err := activityInput(body)
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	if err := h.update.Handle(c.Request.Context(), commands.UpdateActivityCommand{ResumeID: rid, ActivityID: id, UserID: uid, Input: input}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-func (h *Handler) Delete(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c)
-	if !ok {
-		return
-	}
-	if err := h.delete.Handle(c.Request.Context(), commands.DeleteActivityCommand{ResumeID: rid, ActivityID: id, UserID: uid}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-func activityInput(body activityRequest) (commands.ActivityInput, error) {
-	var date *valueobjects.YearMonth
-	if body.Date != nil {
-		v, err := valueobjects.ParseYearMonth(*body.Date)
-		if err != nil {
-			return commands.ActivityInput{}, err
+
+func (r activitiesRequest) input() (commands.ActivitiesInput, error) {
+	out := make([]commands.ActivityInput, 0, len(r.Items))
+	for _, x := range r.Items {
+		var id valueobjects.ID
+		if x.ID != "" {
+			v, err := valueobjects.ParseID(x.ID)
+			if err != nil {
+				return commands.ActivitiesInput{}, err
+			}
+			id = v
 		}
-		date = &v
-	}
-	var link *valueobjects.ExternalURL
-	if body.Link != nil {
-		v, err := valueobjects.NewExternalURL(*body.Link)
-		if err != nil {
-			return commands.ActivityInput{}, err
+		var date *valueobjects.YearMonth
+		if x.Date != nil {
+			v, err := valueobjects.ParseYearMonth(*x.Date)
+			if err != nil {
+				return commands.ActivitiesInput{}, err
+			}
+			date = &v
 		}
-		link = &v
+		var link *valueobjects.ExternalURL
+		if x.Link != nil {
+			v, err := valueobjects.NewExternalURL(*x.Link)
+			if err != nil {
+				return commands.ActivitiesInput{}, err
+			}
+			link = &v
+		}
+		out = append(out, commands.ActivityInput{ID: id, Type: enums.ActivityType(x.Type), Title: x.Title, Description: x.Description, Date: date, Link: link})
 	}
-	return commands.ActivityInput{Type: enums.ActivityType(body.Type), Title: body.Title, Description: body.Description, Date: date, Link: link}, nil
+	return commands.ActivitiesInput{Items: out}, nil
 }
-func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
+
+func (h *Handler) Replace(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
 	if !ok {
-		return uid, valueobjects.ID{}, false
+		return
 	}
 	rid, ok := common.ParseResumeID(c)
-	return uid, rid, ok
-}
-func itemIDs(c *gin.Context) (useridentity.ID, valueobjects.ID, valueobjects.ID, bool) {
-	uid, rid, ok := ids(c)
 	if !ok {
-		return uid, rid, valueobjects.ID{}, false
+		return
 	}
-	id, err := valueobjects.ParseID(c.Param("activityId"))
+	var body activitiesRequest
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
+		return
+	}
+	if body.Version < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+		return
+	}
+	input, err := body.input()
 	if err != nil {
-		common.WriteInvalidBody(c)
-		return uid, rid, valueobjects.ID{}, false
+		common.WriteCommandError(c, err)
+		return
 	}
-	return uid, rid, id, true
+	if err := h.replace.Handle(c.Request.Context(), commands.ReplaceActivitiesCommand{ResumeID: rid, UserID: uid, Version: body.Version, Input: input}); err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
+		common.WriteCommandError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

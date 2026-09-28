@@ -12,6 +12,10 @@ type PublicResumeQuery struct {
 	ID valueobjects.ID
 }
 
+type PublicResumeReader interface {
+	GetPublic(context.Context, PublicResumeQuery) (ResumeView, error)
+}
+
 type PublicResumeQueryHandler struct {
 	reader PublicResumeReader
 }
@@ -28,7 +32,7 @@ func (h *PublicResumeQueryHandler) Handle(ctx context.Context, query PublicResum
 		return ResumeView{}, fmt.Errorf("invalid resume id")
 	}
 
-	view, err := h.reader.GetPublic(ctx, query.ID)
+	view, err := h.reader.GetPublic(ctx, query)
 	if err != nil {
 		return ResumeView{}, err
 	}
@@ -38,6 +42,7 @@ func (h *PublicResumeQueryHandler) Handle(ctx context.Context, query PublicResum
 
 func toPublic(view ResumeView) ResumeView {
 	result := view
+	result.Version = nil
 	if view.Contacts != nil {
 		contacts := *view.Contacts
 		contacts.HiddenContacts = append([]string(nil), view.Contacts.HiddenContacts...)

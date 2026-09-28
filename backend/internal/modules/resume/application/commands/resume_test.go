@@ -9,126 +9,116 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type fakeCreateResumeRepository struct {
-	called bool
-	resume *domain.Resume
-}
-
-func (r *fakeCreateResumeRepository) CreateResume(_ context.Context, cmd ports.CreateResumeRepositoryCommand) error {
-	r.called = true
-	r.resume = cmd.Resume
-	return nil
-}
-
-type fakeCreateOverviewRepository struct {
+type fakeResumeRepository struct {
 	called   bool
-	resumeID valueobjects.ID
-	userID   useridentity.ID
+	resume   *domain.Resume
+	saved    *domain.Resume
+	expected int64
+	err      error
 }
 
-func (r *fakeCreateOverviewRepository) CreateOverview(_ context.Context, cmd ports.CreateOverviewRepositoryCommand) error {
+func (r *fakeResumeRepository) Get(_ context.Context, _ ports.GetResumeParams) (*domain.Resume, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.resume == nil {
+		return nil, errors.New("resume is nil")
+	}
+	return r.resume, nil
+}
+
+func (r *fakeResumeRepository) Save(_ context.Context, resume *domain.Resume) error {
 	r.called = true
-	r.resumeID = cmd.ResumeID
-	r.userID = cmd.UserID
-	return nil
-}
-
-func TestCreateResumeHandlerCreatesResumeWithTitleAndLanguage(t *testing.T) {
-	resumeRepository := &fakeCreateResumeRepository{}
-	overviewRepository := &fakeCreateOverviewRepository{}
-	uow := &fakeResumeUnitOfWork{}
-	handler := NewCreateResumeHandler(resumeRepository, overviewRepository, uow)
-	userID := useridentity.NewID()
-
-	resumeID, err := handler.Handle(context.Background(), CreateResumeCommand{
-		UserID:   userID,
-		Title:    "  Senior Go Developer  ",
-		Language: "en",
-	})
-
-	require.NoError(t, err)
-	require.False(t, resumeID.IsZero())
-	require.True(t, uow.called)
-	require.True(t, resumeRepository.called)
-	require.True(t, overviewRepository.called)
-	require.Equal(t, resumeID, resumeRepository.resume.ID())
-	require.Equal(t, userID, resumeRepository.resume.UserID())
-	require.Equal(t, "Senior Go Developer", resumeRepository.resume.Title())
-	require.Equal(t, "en", string(resumeRepository.resume.Language()))
-	require.Equal(t, resumeID, overviewRepository.resumeID)
-	require.Equal(t, userID, overviewRepository.userID)
-}
-
-type fakeReplaceResumeTitleRepository struct {
-	called bool
-	cmd    ports.ReplaceResumeTitleRepositoryCommand
-	err    error
-}
-
-func (r *fakeReplaceResumeTitleRepository) ReplaceResumeTitle(_ context.Context, cmd ports.ReplaceResumeTitleRepositoryCommand) error {
-	r.called = true
-	r.cmd = cmd
+	r.saved = resume
+	r.expected = resume.Version()
 	return r.err
 }
 
-type fakeResumeUnitOfWork struct {
-	called bool
+func (r *fakeResumeRepository) Create(_ context.Context, resume *domain.Resume) error {
+	r.called = true
+	r.resume = resume
+	return r.err
 }
 
-func (u *fakeResumeUnitOfWork) Do(ctx context.Context, fn func(context.Context) error) error {
-	u.called = true
-	return fn(ctx)
+func (r *fakeResumeRepository) Delete(_ context.Context, _ ports.DeleteResumeParams) error {
+	r.called = true
+	return r.err
 }
 
-func TestReplaceResumeTitleHandlerReplacesOnlyTitle(t *testing.T) {
-	repository := &fakeReplaceResumeTitleRepository{}
-	uow := &fakeResumeUnitOfWork{}
+func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
+	repository := &fakeResumeRepository{}
+	uow := &fakeCommandUnitOfWork{}
+	handler := NewCreateResumeHandler(repository, uow)
+	userID := useridentity.NewID()
+
+	resumeID, err := handler.Handle(context.Background(), CreateResumeCommand{UserID: userID, Title: "  Senior Go Developer  ", Language: enums.ResumeLanguage("en")})
+	require.NoError(t, err)
+	require.False(t, resumeID.IsZero())
+	require.True(t, uow.called)
+	require.True(t, repository.called)
+	require.Equal(t, resumeID, repository.resume.ID())
+	require.Equal(t, userID, repository.resume.UserID())
+	require.Equal(t, "Senior Go Developer", repository.resume.Title())
+	require.Equal(t, "en", string(repository.resume.Language()))
+	require.NotNil(t, repository.resume.Overview())
+}
+
+func newTestResume(t *testing.T, title string, version int64) *domain.Resume {
+	t.Helper()
+	resume, err := domain.NewResume(domain.ResumeParams{
+		ID: valueobjects.NewID(), UserID: useridentity.NewID(), Title: title,
+		Language: enums.ResumeLanguage("en"), Version: version,
+	})
+	require.NoError(t, err)
+	return resume
+}
+
+func TestReplaceResumeTitleHandlerReplacesTitleThroughAggregate(t *testing.T) {
+	resume := newTestResume(t, "Old title", 4)
+	repository := &fakeResumeRepository{resume: resume}
+	uow := &fakeCommandUnitOfWork{}
 	handler := NewReplaceResumeTitleHandler(repository, uow)
 
-	resumeID := valueobjects.NewID()
-	userID := useridentity.NewID()
 	err := handler.Handle(context.Background(), ReplaceResumeTitleCommand{
-		ResumeID: resumeID,
-		UserID:   userID,
-		Title:    "Senior Go Developer",
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Title: "  Senior Go Developer  ",
 	})
 
 	require.NoError(t, err)
 	require.True(t, uow.called)
 	require.True(t, repository.called)
-	require.Equal(t, resumeID, repository.cmd.ResumeID)
-	require.Equal(t, userID, repository.cmd.UserID)
-	require.Equal(t, "Senior Go Developer", repository.cmd.Title)
+	require.Same(t, resume, repository.saved)
+	require.Equal(t, int64(4), repository.expected)
+	require.Equal(t, "Senior Go Developer", resume.Title())
 }
 
-func TestReplaceResumeTitleHandlerTrimsTitle(t *testing.T) {
-	repository := &fakeReplaceResumeTitleRepository{}
-	uow := &fakeResumeUnitOfWork{}
-	handler := NewReplaceResumeTitleHandler(repository, uow)
+func TestReplaceResumeTitleHandlerRejectsStaleVersion(t *testing.T) {
+	resume := newTestResume(t, "Old title", 5)
+	repository := &fakeResumeRepository{resume: resume}
+	handler := NewReplaceResumeTitleHandler(repository, &fakeCommandUnitOfWork{})
 
 	err := handler.Handle(context.Background(), ReplaceResumeTitleCommand{
-		ResumeID: valueobjects.NewID(),
-		UserID:   useridentity.NewID(),
-		Title:    "  Senior Go Developer  ",
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Title: "New title",
 	})
 
-	require.NoError(t, err)
-	require.Equal(t, "Senior Go Developer", repository.cmd.Title)
+	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
+	require.False(t, repository.called)
+	require.Equal(t, "Old title", resume.Title())
 }
 
-func TestReplaceResumeTitleHandlerRejectsInvalidIdentity(t *testing.T) {
-	repository := &fakeReplaceResumeTitleRepository{}
-	uow := &fakeResumeUnitOfWork{}
-	handler := NewReplaceResumeTitleHandler(repository, uow)
-	userID := useridentity.NewID()
+func TestReplaceResumeTitleHandlerRejectsInvalidIdentityOrVersion(t *testing.T) {
+	resume := newTestResume(t, "Old title", 1)
+	repository := &fakeResumeRepository{resume: resume}
+	handler := NewReplaceResumeTitleHandler(repository, &fakeCommandUnitOfWork{})
 
 	tests := []ReplaceResumeTitleCommand{
-		{UserID: userID, Title: "Senior Go Developer"},
-		{ResumeID: valueobjects.NewID(), Title: "Senior Go Developer"},
+		{UserID: resume.UserID(), Version: 1, Title: "New"},
+		{ResumeID: resume.ID(), Version: 1, Title: "New"},
+		{ResumeID: resume.ID(), UserID: resume.UserID(), Title: "New"},
 	}
 
 	for _, command := range tests {
@@ -139,31 +129,26 @@ func TestReplaceResumeTitleHandlerRejectsInvalidIdentity(t *testing.T) {
 }
 
 func TestReplaceResumeTitleHandlerRejectsInvalidTitle(t *testing.T) {
-	repository := &fakeReplaceResumeTitleRepository{}
-	uow := &fakeResumeUnitOfWork{}
-	handler := NewReplaceResumeTitleHandler(repository, uow)
+	resume := newTestResume(t, "Old title", 1)
+	repository := &fakeResumeRepository{resume: resume}
+	handler := NewReplaceResumeTitleHandler(repository, &fakeCommandUnitOfWork{})
 
 	err := handler.Handle(context.Background(), ReplaceResumeTitleCommand{
-		ResumeID: valueobjects.NewID(),
-		UserID:   useridentity.NewID(),
-		Title:    "   ",
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 1, Title: "   ",
 	})
 
-	require.Error(t, err)
 	require.ErrorIs(t, err, domain.ErrInvalidResume)
 	require.False(t, repository.called)
 }
 
 func TestReplaceResumeTitleHandlerPropagatesRepositoryError(t *testing.T) {
 	repositoryErr := errors.New("repository failure")
-	repository := &fakeReplaceResumeTitleRepository{err: repositoryErr}
-	uow := &fakeResumeUnitOfWork{}
-	handler := NewReplaceResumeTitleHandler(repository, uow)
+	resume := newTestResume(t, "Old title", 1)
+	repository := &fakeResumeRepository{resume: resume, err: repositoryErr}
+	handler := NewReplaceResumeTitleHandler(repository, &fakeCommandUnitOfWork{})
 
 	err := handler.Handle(context.Background(), ReplaceResumeTitleCommand{
-		ResumeID: valueobjects.NewID(),
-		UserID:   useridentity.NewID(),
-		Title:    "Senior Go Developer",
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 1, Title: "New title",
 	})
 
 	require.ErrorIs(t, err, repositoryErr)

@@ -61,10 +61,12 @@ func newPhase6PostgresFixture(t *testing.T) *phase6PostgresFixture {
 	owner := useridentity.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	resume := newTestResume(t, owner)
+	overview := domain.ResumeOverviewParams{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{}), Sections: []valueobjects.SectionSettings{}}
+	require.NoError(t, resume.ReplaceOverview(overview))
 	uow := database.NewUnitOfWork(gormDB)
 	resumeRepo := repository.NewResumeRepository(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
+		return resumeRepo.Create(tx, resume)
 	}))
 
 	return &phase6PostgresFixture{ctx: ctx, dsn: dsn, gorm: gormDB, owner: owner, resume: resume, uow: uow}
@@ -91,12 +93,10 @@ func phase6Technology(t *testing.T, name string) entities.Technology {
 	return technology
 }
 
-func TestPostgresOverviewRepositoryCRUD(t *testing.T) {
+func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	fixture := newPhase6PostgresFixture(t)
 	ctx := fixture.ctx
-	resumeID := fixture.resume.ID()
-	owner := fixture.owner
-	overviewRepo := repository.NewOverviewRepository(fixture.gorm)
+	resume := fixture.resume
 
 	primary, err := valueobjects.NewColor("#112233")
 	require.NoError(t, err)
@@ -110,219 +110,121 @@ func TestPostgresOverviewRepositoryCRUD(t *testing.T) {
 	require.NoError(t, err)
 	link, err := valueobjects.NewExternalURL("https://example.com/cv.pdf")
 	require.NoError(t, err)
-	overview, err := domain.NewResumeOverview(domain.ResumeOverviewParams{
+	overview := domain.ResumeOverviewParams{
 		Theme:        &theme,
 		Greeting:     valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
 		Availability: &availability,
 		ResumeLink:   &link,
 		Sections:     []valueobjects.SectionSettings{section},
-	})
-	require.NoError(t, err)
+	}
+	require.NoError(t, resume.ReplaceOverview(overview))
+
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return overviewRepo.CreateOverview(tx, ports.CreateOverviewRepositoryCommand{ResumeID: resumeID, UserID: owner, Overview: overview})
+		return resumeRepo.Save(tx, resume)
 	}))
 
-	loaded, err := overviewRepo.GetOverview(ctx, ports.GetOverviewRepositoryCommand{ResumeID: resumeID, UserID: owner})
+	loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 	require.NoError(t, err)
-	require.Equal(t, "Hello", loaded.Greeting().First())
-	require.Equal(t, "#112233", loaded.Theme().Primary.String())
-	require.Len(t, loaded.Sections(), 1)
-	require.Equal(t, enums.SectionAbout, loaded.Sections()[0].ID())
+	require.NotNil(t, loaded.Overview())
+	require.Equal(t, "Hello", loaded.Overview().Greeting().First())
+	require.Equal(t, "#112233", loaded.Overview().Theme().Primary.String())
+	require.Len(t, loaded.Overview().Sections(), 1)
+	require.Equal(t, enums.SectionAbout, loaded.Overview().Sections()[0].ID())
+	require.Equal(t, int64(2), loaded.Version())
+
+	stale, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), stale.Version())
 
 	updatedSection, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: enums.SectionProjects, Enabled: true, Collapsed: true})
 	require.NoError(t, err)
 	updatedAvailability, err := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: enums.AvailabilityStatusBusy, Note: stringPtr("Not available")})
 	require.NoError(t, err)
-	updatedOverview, err := domain.NewResumeOverview(domain.ResumeOverviewParams{
+	updatedOverview := domain.ResumeOverviewParams{
 		Greeting:     valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Updated", Second: "I build", SecondHighlight: "systems", Third: ""}),
 		Availability: &updatedAvailability,
 		Sections:     []valueobjects.SectionSettings{updatedSection},
-	})
-	require.NoError(t, err)
+	}
+	require.NoError(t, loaded.ReplaceOverview(updatedOverview))
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return overviewRepo.UpdateOverview(tx, ports.UpdateOverviewRepositoryCommand{ResumeID: resumeID, UserID: owner, Overview: updatedOverview})
+		return resumeRepo.Save(tx, loaded)
 	}))
 
-	loaded, err = overviewRepo.GetOverview(ctx, ports.GetOverviewRepositoryCommand{ResumeID: resumeID, UserID: owner})
+	loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 	require.NoError(t, err)
-	require.Equal(t, "Updated", loaded.Greeting().First())
-	require.Nil(t, loaded.Theme())
-	require.Nil(t, loaded.ResumeLink())
-	require.Equal(t, enums.AvailabilityStatusBusy, loaded.Availability().Status())
-	require.Len(t, loaded.Sections(), 1)
-	require.Equal(t, enums.SectionProjects, loaded.Sections()[0].ID())
-	require.True(t, loaded.Sections()[0].Collapsed())
+	require.Equal(t, int64(3), loaded.Version())
+	require.Equal(t, "Updated", loaded.Overview().Greeting().First())
+	require.Nil(t, loaded.Overview().Theme())
+	require.Nil(t, loaded.Overview().ResumeLink())
+	require.Equal(t, enums.AvailabilityStatusBusy, loaded.Overview().Availability().Status())
+	require.Len(t, loaded.Overview().Sections(), 1)
+	require.Equal(t, enums.SectionProjects, loaded.Overview().Sections()[0].ID())
+	require.True(t, loaded.Overview().Sections()[0].Collapsed())
+
+	require.ErrorIs(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.Save(tx, stale)
+	}), domain.ErrConcurrencyConflict)
 }
 
-func TestPostgresNestedRepositoriesCRUD(t *testing.T) {
+func TestPostgresResumeAggregateContactsReplacement(t *testing.T) {
 	fixture := newPhase6PostgresFixture(t)
 	ctx := fixture.ctx
-	resumeID := fixture.resume.ID()
-	owner := fixture.owner
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
 
-	experienceRepo := repository.NewExperiencesRepository(fixture.gorm)
-	experience, err := domain.NewExperience(domain.ExperienceParams{
-		ID:           valueobjects.NewID(),
-		ResumeID:     resumeID,
-		Company:      "Acme",
-		Position:     "Go Developer",
-		Location:     stringPtr("Paris"),
-		StartDate:    phase6YearMonth(t, "2024-01"),
-		Description:  stringPtr("Initial description"),
-		Achievements: []string{"Built API"},
-		Stack:        []entities.Technology{phase6Technology(t, "Go")},
-	})
+	email, err := valueobjects.NewEmail("first@example.com")
 	require.NoError(t, err)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return experienceRepo.CreateExperience(tx, ports.CreateExperienceRepositoryCommand{Experience: experience, ResumeID: resumeID, UserID: owner})
+	contactEntity, err := entities.NewContacts(entities.ContactsParams{Phone: "+33123456789", Email: &email})
+	require.NoError(t, err)
+	title := "Contacts"
+	contactsText, err := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: &title})
+	require.NoError(t, err)
+	require.NoError(t, fixture.resume.ReplaceContacts(domain.ContactsParams{
+		Contacts:       contactEntity,
+		HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+		Text:           &contactsText,
 	}))
-	loadedExperience, err := experienceRepo.GetExperience(ctx, ports.GetExperienceRepositoryCommand{ResumeID: resumeID, ExperienceID: experience.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "Acme", loadedExperience.Company())
-	require.Equal(t, []string{"Built API"}, loadedExperience.Achievements())
-	require.Len(t, loadedExperience.Stack(), 1)
-	updatedExperience, err := domain.NewExperience(domain.ExperienceParams{
-		ID:           experience.ID(),
-		ResumeID:     resumeID,
-		Company:      "Acme Updated",
-		Position:     "Staff Go Developer",
-		Location:     stringPtr("Berlin"),
-		StartDate:    phase6YearMonth(t, "2023-02"),
-		Achievements: []string{"Built API", "Led migration"},
-		Stack:        []entities.Technology{phase6Technology(t, "Go"), phase6Technology(t, "PostgreSQL")},
-	})
-	require.NoError(t, err)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return experienceRepo.UpdateExperience(tx, ports.UpdateExperienceRepositoryCommand{Experience: updatedExperience, ResumeID: resumeID, UserID: owner})
-	}))
-	loadedExperience, err = experienceRepo.GetExperience(ctx, ports.GetExperienceRepositoryCommand{ResumeID: resumeID, ExperienceID: experience.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "Acme Updated", loadedExperience.Company())
-	require.Len(t, loadedExperience.Achievements(), 2)
-	require.Len(t, loadedExperience.Stack(), 2)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return experienceRepo.DeleteExperience(tx, ports.DeleteExperienceRepositoryCommand{ResumeID: resumeID, ExperienceID: experience.ID(), UserID: owner})
-	}))
-	_, err = experienceRepo.GetExperience(ctx, ports.GetExperienceRepositoryCommand{ResumeID: resumeID, ExperienceID: experience.ID(), UserID: owner})
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	firstID := fixture.resume.Contacts().ID()
 
-	educationRepo := repository.NewEducationRepository(fixture.gorm)
-	education, err := domain.NewEducation(domain.EducationParams{
-		ID:          valueobjects.NewID(),
-		ResumeID:    resumeID,
-		Location:    "Paris",
-		University:  "University",
-		Grade:       enums.EducationLevelMaster,
-		ProgramName: "Computer Science",
-		Faculty:     "Engineering",
-		Course:      intPtr(2),
-		EndDate:     ptrYear(phase6Year(t, "2025")),
-	})
-	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return educationRepo.CreateEducation(tx, ports.CreateEducationRepositoryCommand{Education: education, ResumeID: resumeID, UserID: owner})
+		return resumeRepo.Save(tx, fixture.resume)
 	}))
-	loadedEducation, err := educationRepo.GetEducation(ctx, ports.GetEducationRepositoryCommand{ResumeID: resumeID, EducationID: education.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "University", loadedEducation.University())
-	updatedEducation, err := domain.NewEducation(domain.EducationParams{
-		ID:          education.ID(),
-		ResumeID:    resumeID,
-		Location:    "Berlin",
-		University:  "Updated University",
-		Grade:       enums.EducationLevelBachelor,
-		ProgramName: "Software Engineering",
-		Faculty:     "Computer Science",
-		EndDate:     ptrYear(phase6Year(t, "2026")),
-	})
-	require.NoError(t, err)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return educationRepo.UpdateEducation(tx, ports.UpdateEducationRepositoryCommand{Education: updatedEducation, ResumeID: resumeID, UserID: owner})
-	}))
-	loadedEducation, err = educationRepo.GetEducation(ctx, ports.GetEducationRepositoryCommand{ResumeID: resumeID, EducationID: education.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "Updated University", loadedEducation.University())
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return educationRepo.DeleteEducation(tx, ports.DeleteEducationRepositoryCommand{ResumeID: resumeID, EducationID: education.ID(), UserID: owner})
-	}))
-	_, err = educationRepo.GetEducation(ctx, ports.GetEducationRepositoryCommand{ResumeID: resumeID, EducationID: education.ID(), UserID: owner})
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
-	courseRepo := repository.NewCourseRepository(fixture.gorm)
-	course, err := domain.NewCourse(domain.CourseParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "Go Architecture", Organization: "Academy", EndDate: phase6YearMonth(t, "2025-01"), Hours: intPtr(40)})
+	loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
 	require.NoError(t, err)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return courseRepo.CreateCourse(tx, ports.CreateCourseRepositoryCommand{Course: course, ResumeID: resumeID, UserID: owner})
-	}))
-	loadedCourse, err := courseRepo.GetCourse(ctx, ports.GetCourseRepositoryCommand{ResumeID: resumeID, CourseID: course.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "Go Architecture", loadedCourse.Name())
-	updatedCourse, err := domain.NewCourse(domain.CourseParams{ID: course.ID(), ResumeID: resumeID, Name: "Advanced Go", Organization: "Academy 2", EndDate: phase6YearMonth(t, "2026-01"), Hours: intPtr(60)})
-	require.NoError(t, err)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return courseRepo.UpdateCourse(tx, ports.UpdateCourseRepositoryCommand{Course: updatedCourse, ResumeID: resumeID, UserID: owner})
-	}))
-	loadedCourse, err = courseRepo.GetCourse(ctx, ports.GetCourseRepositoryCommand{ResumeID: resumeID, CourseID: course.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "Advanced Go", loadedCourse.Name())
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return courseRepo.DeleteCourse(tx, ports.DeleteCourseRepositoryCommand{ResumeID: resumeID, CourseID: course.ID(), UserID: owner})
-	}))
-	_, err = courseRepo.GetCourse(ctx, ports.GetCourseRepositoryCommand{ResumeID: resumeID, CourseID: course.ID(), UserID: owner})
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.Equal(t, int64(2), loaded.Version())
+	require.NotNil(t, loaded.Contacts())
+	require.Equal(t, firstID, loaded.Contacts().ID())
+	require.Equal(t, "+33123456789", *loaded.Contacts().Contacts().Phone())
+	require.Equal(t, []enums.ContactKey{enums.ContactKeyEmail}, loaded.Contacts().HiddenContacts())
+	require.Equal(t, "Contacts", *loaded.Contacts().Text().Title())
 
-	activityRepo := repository.NewActivityRepository(fixture.gorm)
-	activity, err := domain.NewActivity(domain.ActivityParams{ID: valueobjects.NewID(), ResumeID: resumeID, Type: enums.ActivityTypeOpenSource, Title: "Open source", Description: stringPtr("Initial")})
+	stale, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
 	require.NoError(t, err)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return activityRepo.CreateActivity(tx, ports.CreateActivityRepositoryCommand{Activity: activity, ResumeID: resumeID, UserID: owner})
-	}))
-	loadedActivity, err := activityRepo.GetActivity(ctx, ports.GetActivityRepositoryCommand{ResumeID: resumeID, ActivityID: activity.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "Open source", loadedActivity.Title())
-	updatedActivity, err := domain.NewActivity(domain.ActivityParams{ID: activity.ID(), ResumeID: resumeID, Type: enums.ActivityTypeMentoring, Title: "Mentoring", Description: stringPtr("Updated")})
-	require.NoError(t, err)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return activityRepo.UpdateActivity(tx, ports.UpdateActivityRepositoryCommand{Activity: updatedActivity, ResumeID: resumeID, UserID: owner})
-	}))
-	loadedActivity, err = activityRepo.GetActivity(ctx, ports.GetActivityRepositoryCommand{ResumeID: resumeID, ActivityID: activity.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "Mentoring", loadedActivity.Title())
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return activityRepo.DeleteActivity(tx, ports.DeleteActivityRepositoryCommand{ResumeID: resumeID, ActivityID: activity.ID(), UserID: owner})
-	}))
-	_, err = activityRepo.GetActivity(ctx, ports.GetActivityRepositoryCommand{ResumeID: resumeID, ActivityID: activity.ID(), UserID: owner})
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.Equal(t, int64(2), stale.Version())
 
-	projectRepo := repository.NewProjectRepository(fixture.gorm)
-	screenshot, err := valueobjects.NewExternalURL("https://example.com/one.png")
+	updatedEmail, err := valueobjects.NewEmail("second@example.com")
 	require.NoError(t, err)
-	project, err := domain.NewProject(domain.ProjectParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "CV", Role: stringPtr("Developer"), Screenshots: []valueobjects.ExternalURL{screenshot}, Stack: []entities.Technology{phase6Technology(t, "Go")}})
+	updatedEntity, err := entities.NewContacts(entities.ContactsParams{Email: &updatedEmail})
 	require.NoError(t, err)
+	require.NoError(t, loaded.ReplaceContacts(domain.ContactsParams{Contacts: updatedEntity}))
+	require.Equal(t, firstID, loaded.Contacts().ID())
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return projectRepo.CreateProject(tx, ports.CreateProjectRepositoryCommand{Project: project, ResumeID: resumeID, UserID: owner})
+		return resumeRepo.Save(tx, loaded)
 	}))
-	loadedProject, err := projectRepo.GetProject(ctx, ports.GetProjectRepositoryCommand{ResumeID: resumeID, ProjectID: project.ID(), UserID: owner})
+
+	loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
 	require.NoError(t, err)
-	require.Equal(t, "CV", loadedProject.Name())
-	require.Len(t, loadedProject.Screenshots(), 1)
-	require.Len(t, loadedProject.Stack(), 1)
-	updatedProject, err := domain.NewProject(domain.ProjectParams{ID: project.ID(), ResumeID: resumeID, Name: "CV Updated", Role: stringPtr("Architect"), Stack: []entities.Technology{phase6Technology(t, "PostgreSQL")}})
-	require.NoError(t, err)
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return projectRepo.UpdateProject(tx, ports.UpdateProjectRepositoryCommand{Project: updatedProject, ResumeID: resumeID, UserID: owner})
-	}))
-	loadedProject, err = projectRepo.GetProject(ctx, ports.GetProjectRepositoryCommand{ResumeID: resumeID, ProjectID: project.ID(), UserID: owner})
-	require.NoError(t, err)
-	require.Equal(t, "CV Updated", loadedProject.Name())
-	require.Len(t, loadedProject.Screenshots(), 0)
-	require.Len(t, loadedProject.Stack(), 1)
-	require.Equal(t, "PostgreSQL", loadedProject.Stack()[0].Name())
-	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return projectRepo.DeleteProject(tx, ports.DeleteProjectRepositoryCommand{ResumeID: resumeID, ProjectID: project.ID(), UserID: owner})
-	}))
-	_, err = projectRepo.GetProject(ctx, ports.GetProjectRepositoryCommand{ResumeID: resumeID, ProjectID: project.ID(), UserID: owner})
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.Equal(t, int64(3), loaded.Version())
+	require.Equal(t, firstID, loaded.Contacts().ID())
+	require.Nil(t, loaded.Contacts().Contacts().Phone())
+	require.Equal(t, "second@example.com", loaded.Contacts().Contacts().Email().String())
+	require.Empty(t, loaded.Contacts().HiddenContacts())
+	require.Nil(t, loaded.Contacts().Text())
+
+	require.ErrorIs(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.Save(tx, stale)
+	}), domain.ErrConcurrencyConflict)
 }
 
 func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
@@ -351,8 +253,6 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 		query string
 		args  []any
 	}{
-		{`INSERT INTO resume_overviews (resume_id,greeting_first,greeting_second,greeting_highlight,greeting_third) VALUES ($1,'a','b','c','d')`, []any{resumeID.UUID()}},
-		{`INSERT INTO resume_overview_sections (resume_id,section_id,position,enabled,collapsed) VALUES ($1,'about',0,true,false)`, []any{resumeID.UUID()}},
 		{`INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','https://example.com/photo','1998-01-01','Paris',false)`, []any{profileID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_profile_work_formats (profile_id,value,position) VALUES ($1,'remote',0)`, []any{profileID.UUID()}},
 		{`INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, []any{contactsID.UUID(), resumeID.UUID()}},
@@ -382,7 +282,7 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 
 	resumeRepo := repository.NewResumeRepository(fixture.gorm)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.DeleteResume(tx, ports.DeleteResumeRepositoryCommand{ResumeID: resumeID, UserID: fixture.owner})
+		return resumeRepo.Delete(tx, ports.DeleteResumeParams{ResumeID: resumeID, UserID: fixture.owner})
 	}))
 
 	tables := []string{
@@ -406,35 +306,26 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	owner := fixture.owner
 	gormDB := fixture.gorm
 	resumeRepo := repository.NewResumeRepository(gormDB)
-	languagesRepo := repository.NewLanguagesRepository(gormDB)
 
 	secondResume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: owner, Title: "Second resume", Language: enums.ResumeLanguageEN})
 	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: secondResume})
+		return resumeRepo.Create(tx, secondResume)
 	}))
 	duplicateLanguageResume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: owner, Title: "Duplicate language", Language: enums.ResumeLanguageRU})
 	require.NoError(t, err)
-	err = fixture.uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: duplicateLanguageResume})
-	})
-	require.ErrorIs(t, err, domain.ErrDuplicateEntity)
-
-	language, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: valueobjects.NewID(), Language: enums.SpokenLanguageEN, Position: 0})
-	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return languagesRepo.CreateLanguage(tx, ports.CreateLanguageRepositoryCommand{Language: language, ResumeID: resumeID, UserID: owner})
+		return resumeRepo.Create(tx, duplicateLanguageResume)
 	}))
-	duplicateLanguage, err := domain.NewResumeLanguageEntry(domain.ResumeLanguageEntryParams{ID: valueobjects.NewID(), Language: enums.SpokenLanguageEN, Position: 1})
-	require.NoError(t, err)
-	err = fixture.uow.Do(ctx, func(tx context.Context) error {
-		return languagesRepo.CreateLanguage(tx, ports.CreateLanguageRepositoryCommand{Language: duplicateLanguage, ResumeID: resumeID, UserID: owner})
-	})
-	require.ErrorIs(t, err, domain.ErrDuplicateEntity)
 
 	conn, err := pgx.Connect(ctx, fixture.dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	_, err = conn.Exec(ctx, `INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',0,'B2')`, resumeID.UUID())
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',1,'C1')`, resumeID.UUID())
+	require.Error(t, err, "duplicate resume language must violate UNIQUE(resume_id, language)")
 
 	checks := []struct {
 		name  string
@@ -453,7 +344,7 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 		},
 		{
 			name:  "external URL without host",
-			query: `INSERT INTO resume_overviews (resume_id,greeting_first,greeting_second,greeting_highlight,greeting_third,resume_link) VALUES ($1,'a','b','c','d','https:///missing-host')`,
+			query: `UPDATE resume_overviews SET resume_link = 'https:///missing-host' WHERE resume_id = $1`,
 			args:  []any{resumeID.UUID()},
 		},
 	}
@@ -466,3 +357,202 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 func stringPtr(value string) *string                     { return &value }
 func intPtr(value int) *int                              { return &value }
 func ptrYear(value valueobjects.Year) *valueobjects.Year { return &value }
+
+func experienceStackParams(item *domain.Experience) []domain.ExperienceStackParams {
+	stack := item.Stack()
+	out := make([]domain.ExperienceStackParams, 0, len(stack))
+	for _, technology := range stack {
+		out = append(out, domain.ExperienceStackParams{Name: technology.Name(), Grade: technology.Grade()})
+	}
+	return out
+}
+
+func TestPostgresExperiencesAggregateReplacement(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	ctx := fixture.ctx
+	resume := fixture.resume
+
+	require.NoError(t, resume.ReplaceExperiences([]domain.ExperienceParams{
+		{Company: "Acme", Position: "Go Developer", StartDate: phase6YearMonth(t, "2024-01"), Achievements: []string{"Built API"}, Stack: []domain.ExperienceStackParams{{Name: "Go"}}},
+		{Company: "Beta", Position: "Staff Engineer", StartDate: phase6YearMonth(t, "2023-01"), Achievements: []string{"Led migration"}, Stack: []domain.ExperienceStackParams{{Name: "PostgreSQL"}}},
+	}))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return repository.NewResumeRepository(fixture.gorm).Save(tx, resume)
+	}))
+
+	loaded, err := repository.NewResumeRepository(fixture.gorm).Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Len(t, loaded.Experiences(), 2)
+	firstID := loaded.Experiences()[0].ID()
+	secondID := loaded.Experiences()[1].ID()
+	require.NotEqual(t, firstID, secondID)
+	require.Len(t, loaded.Experiences()[0].Achievements(), 1)
+	require.Len(t, loaded.Experiences()[0].Stack(), 1)
+
+	updated := loaded.Experiences()[1]
+	require.NoError(t, loaded.ReplaceExperiences([]domain.ExperienceParams{{
+		ID: updated.ID(), ResumeID: loaded.ID(), Company: "Beta Updated", Position: "Principal Engineer",
+		StartDate: updated.StartDate(), Achievements: []string{"Led migration", "Reduced latency"},
+		Stack: []domain.ExperienceStackParams{{Name: "Go"}, {Name: "PostgreSQL"}},
+	}}))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return repository.NewResumeRepository(fixture.gorm).Save(tx, loaded)
+	}))
+
+	loaded, err = repository.NewResumeRepository(fixture.gorm).Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Len(t, loaded.Experiences(), 1)
+	require.Equal(t, secondID, loaded.Experiences()[0].ID())
+	require.Equal(t, "Beta Updated", loaded.Experiences()[0].Company())
+	require.Len(t, loaded.Experiences()[0].Achievements(), 2)
+	require.Len(t, loaded.Experiences()[0].Stack(), 2)
+}
+
+func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	ctx := fixture.ctx
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+
+	t.Run("experiences", func(t *testing.T) {
+		resume := fixture.resume
+		require.NoError(t, resume.ReplaceExperiences([]domain.ExperienceParams{
+			{Company: "First", Position: "Engineer", StartDate: phase6YearMonth(t, "2024-01")},
+			{Company: "Second", Position: "Lead", StartDate: phase6YearMonth(t, "2023-01")},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
+		loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		firstID, secondID := loaded.Experiences()[0].ID(), loaded.Experiences()[1].ID()
+
+		require.NoError(t, loaded.ReplaceExperiences([]domain.ExperienceParams{
+			{ID: secondID, Company: "Second", Position: "Lead", StartDate: phase6YearMonth(t, "2023-01")},
+			{ID: firstID, Company: "First", Position: "Engineer", StartDate: phase6YearMonth(t, "2024-01")},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
+		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Experiences()[0].ID(), loaded.Experiences()[1].ID()})
+	})
+
+	t.Run("educations", func(t *testing.T) {
+		resume, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		resumeVersion := resume.Version()
+		require.NoError(t, resume.ReplaceEducations([]domain.EducationParams{
+			{Location: "Paris", University: "First University", Grade: enums.EducationLevelBachelor, ProgramName: "Computer Science", Faculty: "Engineering"},
+			{Location: "Lyon", University: "Second University", Grade: enums.EducationLevelMaster, ProgramName: "Software Engineering", Faculty: "Engineering"},
+		}))
+		require.Equal(t, resumeVersion, resume.Version())
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
+		loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		firstID, secondID := loaded.Educations()[0].ID(), loaded.Educations()[1].ID()
+
+		require.NoError(t, loaded.ReplaceEducations([]domain.EducationParams{
+			{ID: secondID, Location: "Lyon", University: "Second University", Grade: enums.EducationLevelMaster, ProgramName: "Software Engineering", Faculty: "Engineering"},
+			{ID: firstID, Location: "Paris", University: "First University", Grade: enums.EducationLevelBachelor, ProgramName: "Computer Science", Faculty: "Engineering"},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
+		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Educations()[0].ID(), loaded.Educations()[1].ID()})
+	})
+
+	t.Run("courses", func(t *testing.T) {
+		resume, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		require.NoError(t, resume.ReplaceCourses([]domain.CourseParams{
+			{Name: "First Course", Organization: "Academy", EndDate: phase6YearMonth(t, "2024-01")},
+			{Name: "Second Course", Organization: "Academy", EndDate: phase6YearMonth(t, "2025-01")},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
+		loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		firstID, secondID := loaded.Courses()[0].ID(), loaded.Courses()[1].ID()
+
+		require.NoError(t, loaded.ReplaceCourses([]domain.CourseParams{
+			{ID: secondID, Name: "Second Course", Organization: "Academy", EndDate: phase6YearMonth(t, "2025-01")},
+			{ID: firstID, Name: "First Course", Organization: "Academy", EndDate: phase6YearMonth(t, "2024-01")},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
+		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Courses()[0].ID(), loaded.Courses()[1].ID()})
+	})
+
+	t.Run("activities", func(t *testing.T) {
+		resume, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		require.NoError(t, resume.ReplaceActivities([]domain.ActivityParams{
+			{Type: enums.ActivityTypeOpenSource, Title: "First Activity"},
+			{Type: enums.ActivityTypeSpeaker, Title: "Second Activity"},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
+		loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		firstID, secondID := loaded.Activities()[0].ID(), loaded.Activities()[1].ID()
+
+		require.NoError(t, loaded.ReplaceActivities([]domain.ActivityParams{
+			{ID: secondID, Type: enums.ActivityTypeSpeaker, Title: "Second Activity"},
+			{ID: firstID, Type: enums.ActivityTypeOpenSource, Title: "First Activity"},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
+		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Activities()[0].ID(), loaded.Activities()[1].ID()})
+	})
+
+	t.Run("technologies", func(t *testing.T) {
+		resume, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		require.NoError(t, resume.ReplaceTechnologies(domain.ResumeTechnologiesParams{Entries: []domain.ResumeTechnologyEntryParams{
+			{Name: "Go", Position: 0},
+			{Name: "PostgreSQL", Position: 1},
+		}}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
+		loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		entries := loaded.Technologies().Entries()
+		firstID, secondID := entries[0].ID(), entries[1].ID()
+		collectionID := loaded.Technologies().ID()
+
+		require.NoError(t, loaded.ReplaceTechnologies(domain.ResumeTechnologiesParams{ID: collectionID, Entries: []domain.ResumeTechnologyEntryParams{
+			{ID: secondID, Name: "PostgreSQL", Position: 0},
+			{ID: firstID, Name: "Go", Position: 1},
+		}}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
+		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		entries = loaded.Technologies().Entries()
+		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{entries[0].ID(), entries[1].ID()})
+	})
+
+	t.Run("projects", func(t *testing.T) {
+		resume, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		firstScreenshot, err := valueobjects.NewExternalURL("https://example.com/first.png")
+		require.NoError(t, err)
+		secondScreenshot, err := valueobjects.NewExternalURL("https://example.com/second.png")
+		require.NoError(t, err)
+		require.NoError(t, resume.ReplaceProjects([]domain.ProjectParams{
+			{Name: "First Project", Screenshots: []valueobjects.ExternalURL{firstScreenshot}, Stack: []entities.Technology{phase6Technology(t, "Go")}},
+			{Name: "Second Project", Screenshots: []valueobjects.ExternalURL{secondScreenshot}, Stack: []entities.Technology{phase6Technology(t, "PostgreSQL")}},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
+		loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		firstID, secondID := loaded.Projects()[0].ID(), loaded.Projects()[1].ID()
+
+		require.NoError(t, loaded.ReplaceProjects([]domain.ProjectParams{
+			{ID: secondID, Name: "Second Project", Screenshots: loaded.Projects()[1].Screenshots(), Stack: loaded.Projects()[1].Stack()},
+			{ID: firstID, Name: "First Project", Screenshots: loaded.Projects()[0].Screenshots(), Stack: loaded.Projects()[0].Stack()},
+		}))
+		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
+		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
+		require.NoError(t, err)
+		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Projects()[0].ID(), loaded.Projects()[1].ID()})
+		require.Len(t, loaded.Projects()[0].Screenshots(), 1)
+		require.Len(t, loaded.Projects()[0].Stack(), 1)
+		require.Equal(t, "PostgreSQL", loaded.Projects()[0].Stack()[0].Name())
+	})
+}

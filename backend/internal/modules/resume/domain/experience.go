@@ -5,8 +5,14 @@ import (
 	"strings"
 
 	"developers-cv/backend/internal/modules/resume/domain/entities"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
+
+type ExperienceStackParams struct {
+	Name  string
+	Grade *enums.TechnologyGrade
+}
 
 type ExperienceParams struct {
 	ID, ResumeID      valueobjects.ID
@@ -16,7 +22,7 @@ type ExperienceParams struct {
 	EndDate           *valueobjects.YearMonth
 	Description       *string
 	Achievements      []string
-	Stack             []entities.Technology
+	Stack             []ExperienceStackParams
 }
 
 type Experience struct {
@@ -41,7 +47,14 @@ func NewExperience(params ExperienceParams) (*Experience, error) {
 	if params.EndDate != nil && params.EndDate.Before(params.StartDate) {
 		return nil, fmt.Errorf("%w: experience end date precedes start date", ErrInvalidEntity)
 	}
-	stack := append([]entities.Technology(nil), params.Stack...)
+	stack := make([]entities.Technology, 0, len(params.Stack))
+	for _, item := range params.Stack {
+		technology, err := entities.NewTechnology(entities.TechnologyParams{Name: item.Name, Grade: item.Grade})
+		if err != nil {
+			return nil, err
+		}
+		stack = append(stack, technology)
+	}
 	achievements := make([]string, len(params.Achievements))
 	for i, achievement := range params.Achievements {
 		value := strings.TrimSpace(achievement)

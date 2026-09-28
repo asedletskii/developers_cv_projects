@@ -1,166 +1,93 @@
 package technologies
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
-	create  *commands.CreateTechnologyHandler
-	get     *queries.GetTechnologyQueryHandler
-	list    *queries.ListTechnologiesQueryHandler
-	update  *commands.UpdateTechnologyHandler
-	reorder *commands.ReorderTechnologiesHandler
-	delete  *commands.DeleteTechnologyHandler
+	replace *commands.ReplaceTechnologiesHandler
 }
 
-func NewHandler(create *commands.CreateTechnologyHandler, list *queries.ListTechnologiesQueryHandler, get *queries.GetTechnologyQueryHandler, update *commands.UpdateTechnologyHandler, reorder *commands.ReorderTechnologiesHandler, delete *commands.DeleteTechnologyHandler) *Handler {
-	return &Handler{create: create, list: list, get: get, update: update, reorder: reorder, delete: delete}
+func NewHandler(replace *commands.ReplaceTechnologiesHandler) *Handler {
+	return &Handler{replace: replace}
+}
+
+type technologiesRequest struct {
+	Version int64               `json:"version"`
+	Items   []technologyRequest `json:"items"`
 }
 
 type technologyRequest struct {
-	Name  string  `json:"name"`
-	Grade *string `json:"grade,omitempty"`
+	ID       string  `json:"id,omitempty"`
+	Name     string  `json:"name"`
+	Grade    *string `json:"grade,omitempty"`
+	Position int     `json:"position"`
 }
 
-type reorderTechnologiesRequest struct {
-	IDs []string `json:"ids"`
-}
-
-func (h *Handler) Create(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	var body technologyRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	id, err := h.create.Handle(c.Request.Context(), commands.CreateTechnologyCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: techInput(body)})
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
-}
-
-func (h *Handler) List(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	xs, err := h.list.Handle(c.Request.Context(), queries.ListTechnologiesQuery{ResumeID: rid, UserID: uid})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, xs)
-}
-
-func (h *Handler) Get(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c, "technologyId")
-	if !ok {
-		return
-	}
-	x, err := h.get.Handle(c.Request.Context(), queries.GetTechnologyQuery{ResumeID: rid, TechnologyID: id, UserID: uid})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, x)
-}
-
-func (h *Handler) Update(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c, "technologyId")
-	if !ok {
-		return
-	}
-	var body technologyRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	if err := h.update.Handle(c.Request.Context(), commands.UpdateTechnologyCommand{ResumeID: rid, TechnologyID: id, UserID: uid, Input: techInput(body)}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (h *Handler) Reorder(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	var body reorderTechnologiesRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	ids := make([]valueobjects.ID, len(body.IDs))
-	for i, raw := range body.IDs {
-		id, err := valueobjects.ParseID(raw)
-		if err != nil {
-			common.WriteInvalidBody(c)
-			return
+func (r technologiesRequest) input() (commands.TechnologiesInput, error) {
+	items := make([]commands.TechnologyInput, 0, len(r.Items))
+	for _, item := range r.Items {
+		var id valueobjects.ID
+		if item.ID != "" {
+			parsed, err := valueobjects.ParseID(item.ID)
+			if err != nil {
+				return commands.TechnologiesInput{}, err
+			}
+			id = parsed
 		}
-		ids[i] = id
+		var grade *enums.TechnologyGrade
+		if item.Grade != nil {
+			value := enums.TechnologyGrade(*item.Grade)
+			grade = &value
+		}
+		items = append(items, commands.TechnologyInput{
+			ID: id, Name: item.Name, Grade: grade, Position: item.Position,
+		})
 	}
-	if err := h.reorder.Handle(c.Request.Context(), commands.ReorderTechnologiesCommand{ResumeID: rid, UserID: uid, TechnologyIDs: ids}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
+	return commands.TechnologiesInput{Entries: items}, nil
 }
 
-func (h *Handler) Delete(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c, "technologyId")
-	if !ok {
-		return
-	}
-	if err := h.delete.Handle(c.Request.Context(), commands.DeleteTechnologyCommand{ResumeID: rid, TechnologyID: id, UserID: uid}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func techInput(body technologyRequest) commands.TechnologyInput {
-	input := commands.TechnologyInput{ID: valueobjects.NewID(), Name: body.Name}
-	if body.Grade != nil {
-		grade := enums.TechnologyGrade(*body.Grade)
-		input.Grade = &grade
-	}
-	return input
-}
-
-func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
+func (h *Handler) Replace(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
 	if !ok {
-		return useridentity.ID{}, valueobjects.ID{}, false
+		return
 	}
 	rid, ok := common.ParseResumeID(c)
-	return uid, rid, ok
-}
-
-func itemIDs(c *gin.Context, name string) (useridentity.ID, valueobjects.ID, valueobjects.ID, bool) {
-	uid, rid, ok := ids(c)
 	if !ok {
-		return uid, rid, valueobjects.ID{}, false
+		return
 	}
-	id, err := valueobjects.ParseID(c.Param(name))
+	var body technologiesRequest
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
+		return
+	}
+	if body.Version < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+		return
+	}
+	input, err := body.input()
 	if err != nil {
-		common.WriteInvalidBody(c)
-		return uid, rid, valueobjects.ID{}, false
+		common.WriteCommandError(c, err)
+		return
 	}
-	return uid, rid, id, true
+	if err := h.replace.Handle(c.Request.Context(), commands.ReplaceTechnologiesCommand{
+		ResumeID: rid, UserID: uid, Version: body.Version, Input: input,
+	}); err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
+		common.WriteCommandError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

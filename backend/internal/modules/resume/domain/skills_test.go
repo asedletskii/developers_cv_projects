@@ -1,11 +1,10 @@
-package domain_test
+package domain
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
@@ -14,7 +13,7 @@ func TestSkillsKeepsHardAndSoftSkillTypesSeparate(t *testing.T) {
 	hard := []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}
 	soft := []enums.SoftSkill{enums.SoftSkillCommunication, enums.SoftSkillTeamwork}
 
-	skills, err := domain.NewSkills(domain.SkillsParams{
+	skills, err := NewSkills(SkillsParams{
 		ID:       valueobjects.NewID(),
 		ResumeID: valueobjects.NewID(),
 		Hard:     hard,
@@ -26,17 +25,17 @@ func TestSkillsKeepsHardAndSoftSkillTypesSeparate(t *testing.T) {
 }
 
 func TestSkillsRejectsDuplicatesWithinEachCategory(t *testing.T) {
-	_, err := domain.NewSkills(domain.SkillsParams{
+	_, err := NewSkills(SkillsParams{
 		ID:       valueobjects.NewID(),
 		ResumeID: valueobjects.NewID(),
 		Hard:     []enums.HardSkill{enums.HardSkillTesting, enums.HardSkillTesting},
 	})
-	require.ErrorIs(t, err, domain.ErrInvalidEntity)
+	require.ErrorIs(t, err, ErrInvalidEntity)
 
-	_, err = domain.NewSkills(domain.SkillsParams{
+	_, err = NewSkills(SkillsParams{
 		ID:       valueobjects.NewID(),
 		ResumeID: valueobjects.NewID(),
 		Soft:     []enums.SoftSkill{enums.SoftSkillTeamwork, enums.SoftSkillTeamwork},
 	})
-	require.ErrorIs(t, err, domain.ErrInvalidEntity)
+	require.ErrorIs(t, err, ErrInvalidEntity)
 }

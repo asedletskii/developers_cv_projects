@@ -77,7 +77,8 @@ func (h *resumeHandler) Get(c *gin.Context) {
 }
 
 type replaceResumeTitleRequest struct {
-	Title string `json:"title"`
+	Version int64  `json:"version"`
+	Title   string `json:"title"`
 }
 
 func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
@@ -94,7 +95,7 @@ func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	if err := h.replaceTitle.Handle(c.Request.Context(), commands.ReplaceResumeTitleCommand{ResumeID: id, UserID: uid, Title: body.Title}); err != nil {
+	if err := h.replaceTitle.Handle(c.Request.Context(), commands.ReplaceResumeTitleCommand{ResumeID: id, UserID: uid, Version: body.Version, Title: body.Title}); err != nil {
 		common.WriteCommandError(c, err)
 		return
 	}
