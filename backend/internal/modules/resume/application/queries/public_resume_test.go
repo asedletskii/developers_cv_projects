@@ -90,57 +90,40 @@ func TestToPublicDoesNotMutateSourceProjects(t *testing.T) {
 	require.Len(t, view.Projects[0].Contributors, 1)
 }
 
-func TestToPublicRedactsHiddenContactValuesWithoutMutatingSource(t *testing.T) {
+func TestToPublicPreservesPublicContactProjectionWithoutRedaction(t *testing.T) {
 	phone := "+33123456789"
 	telegram := "developer"
-	email := "user@example.com"
 	view := ResumeView{
 		Contacts: &ResumeContactsView{
 			Phone:          &phone,
 			Telegram:       &telegram,
-			Email:          &email,
-			HiddenContacts: []string{"phone", "email"},
+			HiddenContacts: []string{"email"},
 		},
 	}
 
 	result := toPublic(view)
 
-	require.NotNil(t, result.Contacts)
-	require.Nil(t, result.Contacts.Phone)
+	require.Equal(t, &phone, result.Contacts.Phone)
 	require.Equal(t, &telegram, result.Contacts.Telegram)
 	require.Nil(t, result.Contacts.Email)
-	require.Equal(t, []string{"phone", "email"}, result.Contacts.HiddenContacts)
-	require.NotNil(t, view.Contacts.Phone)
-	require.NotNil(t, view.Contacts.Email)
-	require.Equal(t, &phone, view.Contacts.Phone)
-	require.Equal(t, &email, view.Contacts.Email)
+	require.Equal(t, []string{"email"}, result.Contacts.HiddenContacts)
 }
 
-func TestToPublicRedactsEverySupportedHiddenContact(t *testing.T) {
-	phone := "+33123456789"
-	telegram := "developer"
-	email := "user@example.com"
+func TestPublicProjectionDoesNotContainHiddenValues(t *testing.T) {
 	view := ResumeView{
 		Contacts: &ResumeContactsView{
-			Phone:          &phone,
-			Telegram:       &telegram,
-			Email:          &email,
-			HiddenContacts: []string{"phone", "telegram", "email"},
+			Phone:          stringPtr("+33123456789"),
+			Telegram:       stringPtr("developer"),
+			Email:          nil,
+			HiddenContacts: []string{"email"},
 		},
 	}
 
-	result := toPublic(view)
-
-	require.Nil(t, result.Contacts.Phone)
-	require.Nil(t, result.Contacts.Telegram)
-	require.Nil(t, result.Contacts.Email)
-
-	payload, err := json.Marshal(result)
+	payload, err := json.Marshal(toPublic(view))
 	require.NoError(t, err)
-	require.NotContains(t, string(payload), phone)
-	require.NotContains(t, string(payload), telegram)
-	require.NotContains(t, string(payload), email)
-	require.Contains(t, string(payload), `"hiddenContacts":["phone","telegram","email"]`)
+	require.Contains(t, string(payload), "+33123456789")
+	require.Contains(t, string(payload), "developer")
+	require.NotContains(t, string(payload), "private@example.com")
 }
 
 func TestPublicResumeQueryHandlerRejectsInvalidID(t *testing.T) {

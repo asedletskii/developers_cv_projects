@@ -55,21 +55,21 @@ func TestContactsClonePreservesContactsText(t *testing.T) {
 	require.Equal(t, "Contacts", *aggregate.Text().Title())
 }
 
-func TestContactsAllowsHiddenContactThatIsNotPresent(t *testing.T) {
+func TestContactsRejectsHiddenContactThatIsNotPresent(t *testing.T) {
 	email, err := valueobjects.NewEmail("person@example.com")
 	require.NoError(t, err)
 	contacts, err := entities.NewContacts(entities.ContactsParams{Email: &email})
 	require.NoError(t, err)
 
-	aggregate, err := NewContacts(ContactsParams{
+	_, err = NewContacts(ContactsParams{
 		ID:             valueobjects.NewID(),
 		ResumeID:       valueobjects.NewID(),
 		Contacts:       contacts,
 		HiddenContacts: []enums.ContactKey{enums.ContactKeyPhone},
 	})
 
-	require.NoError(t, err)
-	require.Equal(t, []enums.ContactKey{enums.ContactKeyPhone}, aggregate.HiddenContacts())
+	require.ErrorIs(t, err, ErrResumeInvariant)
+	require.ErrorContains(t, err, "hidden contact is not filled")
 }
 
 func TestContactsRejectsEmptyContactSet(t *testing.T) {

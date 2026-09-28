@@ -46,7 +46,15 @@ func TestContactsValidationAndReplacement(t *testing.T) {
 	contacts, err := NewContacts(ContactsParams{ID: id, ResumeID: resumeID, Contacts: contactsEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyPhone}})
 	require.NoError(t, err)
 
-	err = contacts.Replace(ContactsParams{Contacts: contactsEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}})
+	email, err := valueobjects.NewEmail("person@example.com")
+	require.NoError(t, err)
+	replacementEntity, err := entities.NewContacts(entities.ContactsParams{
+		Phone: "+33123456789",
+		Email: &email,
+	})
+	require.NoError(t, err)
+
+	err = contacts.Replace(ContactsParams{Contacts: replacementEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}})
 	require.NoError(t, err)
 	require.Equal(t, id, contacts.ID())
 	require.Equal(t, resumeID, contacts.ResumeID())

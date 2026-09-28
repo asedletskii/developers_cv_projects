@@ -73,3 +73,36 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 	_, err = reader.GetOwned(ctx, queries.GetResumeQuery{ResumeID: fixture.resume.ID(), UserID: foreign})
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
 }
+
+func TestPostgresContactViewReturnsOnlyHiddenContact(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	ctx := fixture.ctx
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+
+	email, err := valueobjects.NewEmail("private@example.com")
+	require.NoError(t, err)
+	contacts, err := entities.NewContacts(entities.ContactsParams{Phone: "+33123456789", Email: &email})
+	require.NoError(t, err)
+	require.NoError(t, fixture.resume.ReplaceContacts(domain.ContactsParams{
+		Contacts:       contacts,
+		HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+	}))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.Save(tx, fixture.resume)
+	}))
+
+	reader := readers.NewResumeReader(fixture.gorm)
+	view, err := reader.GetContactForView(ctx, queries.ContactViewQuery{
+		ResumeID: fixture.resume.ID(),
+		Contact:  enums.ContactKeyEmail,
+	})
+	require.NoError(t, err)
+	require.Equal(t, enums.ContactKeyEmail, view.Contact)
+	require.Equal(t, "private@example.com", view.Value)
+
+	_, err = reader.GetContactForView(ctx, queries.ContactViewQuery{
+		ResumeID: fixture.resume.ID(),
+		Contact:  enums.ContactKeyPhone,
+	})
+	require.ErrorIs(t, err, queries.ErrContactNotHidden)
+}

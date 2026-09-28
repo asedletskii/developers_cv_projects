@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 )
 
@@ -37,7 +38,7 @@ func (r *ResumeReader) GetOwned(ctx context.Context, query queries.GetResumeQuer
 	if err != nil {
 		return queries.ResumeView{}, err
 	}
-	return r.loadView(ctx, db, query.ResumeID.UUID(), metadata)
+	return r.loadView(ctx, db, query.ResumeID.UUID(), metadata, false)
 }
 
 func (r *ResumeReader) GetPublic(ctx context.Context, query queries.PublicResumeQuery) (queries.ResumeView, error) {
@@ -56,10 +57,10 @@ func (r *ResumeReader) GetPublic(ctx context.Context, query queries.PublicResume
 	if err != nil {
 		return queries.ResumeView{}, err
 	}
-	return r.loadView(ctx, db, query.ID.UUID(), metadata)
+	return r.loadView(ctx, db, query.ID.UUID(), metadata, true)
 }
 
-func (r *ResumeReader) loadView(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, metadata queries.ResumeMetadataView) (queries.ResumeView, error) {
+func (r *ResumeReader) loadView(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, metadata queries.ResumeMetadataView, public bool) (queries.ResumeView, error) {
 	view := queries.ResumeView{
 		ID: metadata.ID, Title: metadata.Title, Language: metadata.Language,
 		CreatedAt: metadata.CreatedAt, UpdatedAt: metadata.UpdatedAt, Version: int64Ptr(metadata.Version),
@@ -74,8 +75,14 @@ func (r *ResumeReader) loadView(ctx context.Context, db *gorm.DB, resumeID uuid.
 	if err := r.loadProfile(ctx, db, resumeID, &view); err != nil {
 		return queries.ResumeView{}, err
 	}
-	if err := r.loadContacts(ctx, db, resumeID, &view); err != nil {
-		return queries.ResumeView{}, err
+	var contactsErr error
+	if public {
+		contactsErr = r.loadPublicContacts(ctx, db, resumeID, &view)
+	} else {
+		contactsErr = r.loadPrivateContacts(ctx, db, resumeID, &view)
+	}
+	if contactsErr != nil {
+		return queries.ResumeView{}, contactsErr
 	}
 	if err := r.loadSkills(ctx, db, resumeID, &view); err != nil {
 		return queries.ResumeView{}, err
@@ -181,7 +188,7 @@ func (r *ResumeReader) loadProfile(ctx context.Context, db *gorm.DB, resumeID uu
 	return nil
 }
 
-func (r *ResumeReader) loadContacts(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, view *queries.ResumeView) error {
+func (r *ResumeReader) loadPrivateContacts(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, view *queries.ResumeView) error {
 	var model gormmodel.ResumeContacts
 	if err := db.WithContext(ctx).Where("resume_id = ?", resumeID).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -189,22 +196,97 @@ func (r *ResumeReader) loadContacts(ctx context.Context, db *gorm.DB, resumeID u
 		}
 		return fmt.Errorf("get resume contacts: %w", err)
 	}
+
 	var hidden []gormmodel.ResumeContactHidden
 	if err := db.WithContext(ctx).Where("contacts_id = ?", model.ID).Order("position").Find(&hidden).Error; err != nil {
 		return fmt.Errorf("get hidden contacts: %w", err)
 	}
+
 	hiddenContacts := make([]string, 0, len(hidden))
 	for _, item := range hidden {
 		hiddenContacts = append(hiddenContacts, item.Value)
 	}
-	result := queries.ResumeContactsView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Phone: model.Phone, Telegram: model.Telegram, Email: model.Email, HiddenContacts: hiddenContacts}
+
+	result := queries.ResumeContactsView{
+		ID:             model.ID.String(),
+		ResumeID:       model.ResumeID.String(),
+		Phone:          model.Phone,
+		Telegram:       model.Telegram,
+		Email:          model.Email,
+		HiddenContacts: hiddenContacts,
+	}
+	if err := r.loadContactsText(ctx, db, model.ID, &result); err != nil {
+		return err
+	}
+	view.Contacts = &result
+	return nil
+}
+
+func (r *ResumeReader) loadPublicContacts(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, view *queries.ResumeView) error {
+	var model gormmodel.ResumeContacts
+	if err := db.WithContext(ctx).Select("id", "resume_id").Where("resume_id = ?", resumeID).First(&model).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return fmt.Errorf("get public resume contacts: %w", err)
+	}
+
+	var hidden []gormmodel.ResumeContactHidden
+	if err := db.WithContext(ctx).Where("contacts_id = ?", model.ID).Order("position").Find(&hidden).Error; err != nil {
+		return fmt.Errorf("get public hidden contacts: %w", err)
+	}
+
+	hiddenSet := make(map[string]struct{}, len(hidden))
+	hiddenContacts := make([]string, 0, len(hidden))
+	for _, item := range hidden {
+		hiddenSet[item.Value] = struct{}{}
+		hiddenContacts = append(hiddenContacts, item.Value)
+	}
+
+	columns := make([]string, 0, 3)
+	if _, ok := hiddenSet["phone"]; !ok {
+		columns = append(columns, "phone")
+	}
+	if _, ok := hiddenSet["telegram"]; !ok {
+		columns = append(columns, "telegram")
+	}
+	if _, ok := hiddenSet["email"]; !ok {
+		columns = append(columns, "email")
+	}
+
+	publicModel := gormmodel.ResumeContacts{ID: model.ID, ResumeID: model.ResumeID}
+	if len(columns) > 0 {
+		selectColumns := append([]string{"id", "resume_id"}, columns...)
+		if err := db.WithContext(ctx).Model(&gormmodel.ResumeContacts{}).
+			Select(selectColumns).
+			Where("id = ? AND resume_id = ?", model.ID, resumeID).
+			First(&publicModel).Error; err != nil {
+			return fmt.Errorf("get public contact values: %w", err)
+		}
+	}
+
+	result := queries.ResumeContactsView{
+		ID:             publicModel.ID.String(),
+		ResumeID:       publicModel.ResumeID.String(),
+		Phone:          publicModel.Phone,
+		Telegram:       publicModel.Telegram,
+		Email:          publicModel.Email,
+		HiddenContacts: hiddenContacts,
+	}
+	if err := r.loadContactsText(ctx, db, model.ID, &result); err != nil {
+		return err
+	}
+	view.Contacts = &result
+	return nil
+}
+
+func (r *ResumeReader) loadContactsText(ctx context.Context, db *gorm.DB, contactsID uuid.UUID, result *queries.ResumeContactsView) error {
 	var text gormmodel.ResumeContactsText
-	if err := db.WithContext(ctx).Where("contacts_id = ?", model.ID).First(&text).Error; err == nil {
+	if err := db.WithContext(ctx).Where("contacts_id = ?", contactsID).First(&text).Error; err == nil {
 		result.ContactsText = &queries.ResumeContactsTextView{Title: text.Title, Subtitle: text.Subtitle}
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return fmt.Errorf("get contacts text: %w", err)
 	}
-	view.Contacts = &result
 	return nil
 }
 
@@ -436,4 +518,60 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func (r *ResumeReader) GetContactForView(ctx context.Context, query queries.ContactViewQuery) (queries.ContactView, error) {
+	if r == nil {
+		return queries.ContactView{}, fmt.Errorf("get contact for view: reader is nil")
+	}
+	if query.ResumeID.IsZero() || !query.Contact.IsValid() {
+		return queries.ContactView{}, fmt.Errorf("get contact for view: invalid query")
+	}
+	db, err := resolveDB(ctx, r.db, "get contact for view")
+	if err != nil {
+		return queries.ContactView{}, err
+	}
+
+	var resume gormmodel.Resume
+	if err := db.WithContext(ctx).Where("id = ?", query.ResumeID.UUID()).First(&resume).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return queries.ContactView{}, queries.ErrResumeNotFound
+		}
+		return queries.ContactView{}, fmt.Errorf("get resume for contact view: %w", err)
+	}
+
+	var model gormmodel.ResumeContacts
+	if err := db.WithContext(ctx).
+		Where("resume_id = ?", query.ResumeID.UUID()).
+		First(&model).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return queries.ContactView{}, queries.ErrContactNotFound
+		}
+		return queries.ContactView{}, fmt.Errorf("get contact for view: %w", err)
+	}
+
+	var hidden gormmodel.ResumeContactHidden
+	if err := db.WithContext(ctx).
+		Where("contacts_id = ? AND value = ?", model.ID, string(query.Contact)).
+		First(&hidden).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return queries.ContactView{}, queries.ErrContactNotHidden
+		}
+		return queries.ContactView{}, fmt.Errorf("get hidden contact for view: %w", err)
+	}
+
+	var value *string
+	switch query.Contact {
+	case enums.ContactKeyPhone:
+		value = model.Phone
+	case enums.ContactKeyTelegram:
+		value = model.Telegram
+	case enums.ContactKeyEmail:
+		value = model.Email
+	}
+	if value == nil || *value == "" {
+		return queries.ContactView{}, queries.ErrContactNotFound
+	}
+
+	return queries.ContactView{Contact: query.Contact, Value: *value}, nil
 }

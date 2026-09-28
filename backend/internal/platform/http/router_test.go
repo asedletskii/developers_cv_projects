@@ -250,6 +250,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		"PUT /api/v1/lk/resume/:resumeId/activities":   {},
 		"PUT /api/v1/lk/resume/:resumeId/projects":     {},
 		"GET /api/v1/cv/:resumeId":                     {},
+		"POST /api/v1/cv/:resumeId/contact-views":      {},
 	}
 
 	actual := make(map[string]struct{})

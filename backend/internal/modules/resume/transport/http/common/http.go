@@ -89,6 +89,14 @@ func WriteResumeNotFound(c *gin.Context) {
 	apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
 }
 
+func WriteContactNotFound(c *gin.Context) {
+	apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Contact not found"))
+}
+
+func WriteContactNotHidden(c *gin.Context) {
+	apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Contact is not hidden"))
+}
+
 func BindJSON(c *gin.Context, target any) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
