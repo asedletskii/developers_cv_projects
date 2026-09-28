@@ -69,6 +69,11 @@ func NewResumeLanguages(p ResumeLanguagesParams) (*ResumeLanguages, error) {
 		seenPositions[e.position] = struct{}{}
 		out = append(out, e)
 	}
+	for position := range seenPositions {
+		if position < 0 || position >= len(out) {
+			return nil, fmt.Errorf("%w: language positions must be contiguous", ErrInvalidEntity)
+		}
+	}
 	return &ResumeLanguages{id: p.ID, resumeID: p.ResumeID, entries: out}, nil
 }
 func (l *ResumeLanguageEntry) Replace(params ResumeLanguageEntryParams) error {

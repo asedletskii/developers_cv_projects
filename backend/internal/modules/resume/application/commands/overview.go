@@ -2,12 +2,13 @@ package commands
 
 import (
 	"context"
+	"fmt"
+
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-	"fmt"
 )
 
 type GreetingInput struct{ First, Second, SecondHighlight, Third string }
@@ -33,67 +34,70 @@ func (i OverviewInput) toDomain() (domain.ResumeOverviewParams, error) {
 	g := valueobjects.NewGreeting(valueobjects.GreetingParams{First: i.Greeting.First, Second: i.Greeting.Second, SecondHighlight: i.Greeting.SecondHighlight, Third: i.Greeting.Third})
 	var theme *valueobjects.ThemeSettings
 	if i.Theme != nil {
-		var a, b *valueobjects.Color
-		if i.Theme.Primary != nil {
-			a = cloneColor(i.Theme.Primary)
-		}
-		if i.Theme.Secondary != nil {
-			b = cloneColor(i.Theme.Secondary)
-		}
-		v, e := valueobjects.NewThemeSettings(valueobjects.ThemeSettingsParams{Primary: a, Secondary: b})
-		if e != nil {
-			return domain.ResumeOverviewParams{}, e
+		v, err := valueobjects.NewThemeSettings(valueobjects.ThemeSettingsParams{Primary: cloneColor(i.Theme.Primary), Secondary: cloneColor(i.Theme.Secondary)})
+		if err != nil {
+			return domain.ResumeOverviewParams{}, err
 		}
 		theme = &v
 	}
 	var av *valueobjects.Availability
 	if i.Availability != nil {
-		v, e := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: i.Availability.Status, From: i.Availability.From, Note: i.Availability.Note})
-		if e != nil {
-			return domain.ResumeOverviewParams{}, e
+		v, err := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: i.Availability.Status, From: i.Availability.From, Note: i.Availability.Note})
+		if err != nil {
+			return domain.ResumeOverviewParams{}, err
 		}
 		av = &v
 	}
-	link := cloneExternalURL(i.ResumeLink)
 	sections := make([]valueobjects.SectionSettings, len(i.Sections))
 	for n, v := range i.Sections {
-		x, e := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed})
-		if e != nil {
-			return domain.ResumeOverviewParams{}, e
+		x, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed})
+		if err != nil {
+			return domain.ResumeOverviewParams{}, err
 		}
 		sections[n] = x
 	}
-	return domain.ResumeOverviewParams{Theme: theme, Greeting: g, Availability: av, ResumeLink: link, Sections: sections}, nil
+	return domain.ResumeOverviewParams{Theme: theme, Greeting: g, Availability: av, ResumeLink: cloneExternalURL(i.ResumeLink), Sections: sections}, nil
 }
 
-type UpdateOverviewCommand struct {
+type ReplaceOverviewCommand struct {
 	ResumeID valueobjects.ID
 	UserID   useridentity.ID
+	Version  int64
 	Input    OverviewInput
 }
 
-type UpdateOverviewHandler struct {
-	updater ports.UpdateOverviewRepository
-	uow     UnitOfWork
+type ReplaceOverviewHandler struct {
+	repository ports.ResumeRepository
+	uow        UnitOfWork
 }
 
-func NewUpdateOverviewHandler(u ports.UpdateOverviewRepository, tx UnitOfWork) *UpdateOverviewHandler {
-	return &UpdateOverviewHandler{updater: u, uow: tx}
+func NewReplaceOverviewHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceOverviewHandler {
+	return &ReplaceOverviewHandler{repository: repository, uow: uow}
 }
-func (h *UpdateOverviewHandler) Handle(ctx context.Context, c UpdateOverviewCommand) error {
-	if h == nil || h.updater == nil || h.uow == nil {
-		return fmt.Errorf("update overview handler dependencies are nil")
+
+func (h *ReplaceOverviewHandler) Handle(ctx context.Context, c ReplaceOverviewCommand) error {
+	if h == nil || h.repository == nil || h.uow == nil {
+		return fmt.Errorf("replace overview handler dependencies are nil")
 	}
-	p, e := c.Input.toDomain()
-	if e != nil {
-		return e
+	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
+		return fmt.Errorf("invalid replace overview command")
 	}
-	o, e := domain.NewResumeOverview(p)
-	if e != nil {
-		return e
+	input, err := c.Input.toDomain()
+	if err != nil {
+		return err
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.updater.UpdateOverview(tx, ports.UpdateOverviewRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, Overview: o})
+		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
+		if err != nil {
+			return err
+		}
+		if resume.Version() != c.Version {
+			return domain.ErrConcurrencyConflict
+		}
+		if err := resume.ReplaceOverview(input); err != nil {
+			return err
+		}
+		return h.repository.Save(tx, resume)
 	})
 }
 

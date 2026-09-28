@@ -12,6 +12,10 @@ type PublicResumeQuery struct {
 	ID valueobjects.ID
 }
 
+type PublicResumeReader interface {
+	GetPublic(context.Context, PublicResumeQuery) (ResumeView, error)
+}
+
 type PublicResumeQueryHandler struct {
 	reader PublicResumeReader
 }
@@ -28,7 +32,7 @@ func (h *PublicResumeQueryHandler) Handle(ctx context.Context, query PublicResum
 		return ResumeView{}, fmt.Errorf("invalid resume id")
 	}
 
-	view, err := h.reader.GetPublic(ctx, query.ID)
+	view, err := h.reader.GetPublic(ctx, query)
 	if err != nil {
 		return ResumeView{}, err
 	}
@@ -38,6 +42,7 @@ func (h *PublicResumeQueryHandler) Handle(ctx context.Context, query PublicResum
 
 func toPublic(view ResumeView) ResumeView {
 	result := view
+	result.Version = nil
 	if view.Contacts != nil {
 		contacts := *view.Contacts
 		contacts.HiddenContacts = append([]string(nil), view.Contacts.HiddenContacts...)
@@ -45,16 +50,7 @@ func toPublic(view ResumeView) ResumeView {
 		contacts.Phone = cloneStringPointer(view.Contacts.Phone)
 		contacts.Telegram = cloneStringPointer(view.Contacts.Telegram)
 		contacts.Email = cloneStringPointer(view.Contacts.Email)
-		for _, key := range contacts.HiddenContacts {
-			switch enums.ContactKey(key) {
-			case enums.ContactKeyPhone:
-				contacts.Phone = nil
-			case enums.ContactKeyTelegram:
-				contacts.Telegram = nil
-			case enums.ContactKeyEmail:
-				contacts.Email = nil
-			}
-		}
+		redactHiddenContacts(&contacts)
 		result.Contacts = &contacts
 	}
 	result.Projects = make([]ProjectView, len(view.Projects))
@@ -68,6 +64,23 @@ func toPublic(view ResumeView) ResumeView {
 	}
 
 	return result
+}
+
+func redactHiddenContacts(contacts *ResumeContactsView) {
+	if contacts == nil {
+		return
+	}
+
+	for _, key := range contacts.HiddenContacts {
+		switch enums.ContactKey(key) {
+		case enums.ContactKeyPhone:
+			contacts.Phone = nil
+		case enums.ContactKeyTelegram:
+			contacts.Telegram = nil
+		case enums.ContactKeyEmail:
+			contacts.Email = nil
+		}
+	}
 }
 
 func clonePublicContactsText(value *ResumeContactsTextView) *ResumeContactsTextView {

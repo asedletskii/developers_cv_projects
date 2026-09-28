@@ -39,6 +39,9 @@ func NewContacts(params ContactsParams) (*Contacts, error) {
 		if _, ok := seen[key]; ok {
 			return nil, fmt.Errorf("%w: duplicate hidden contact", ErrInvalidResume)
 		}
+		if !params.Contacts.Has(key) {
+			return nil, fmt.Errorf("%w: hidden contact is not filled", ErrResumeInvariant)
+		}
 		seen[key] = struct{}{}
 	}
 	return &Contacts{id: params.ID, resumeID: params.ResumeID, contacts: params.Contacts, hiddenContacts: append([]enums.ContactKey(nil), params.HiddenContacts...), text: cloneContactsText(params.Text)}, nil

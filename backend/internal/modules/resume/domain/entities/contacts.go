@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
 
@@ -38,6 +39,19 @@ func NewContacts(params ContactsParams) (Contacts, error) {
 
 func (c Contacts) HasAny() bool {
 	return c.phone != nil || c.telegram != nil || c.email != nil
+}
+
+func (c Contacts) Has(key enums.ContactKey) bool {
+	switch key {
+	case enums.ContactKeyPhone:
+		return c.phone != nil
+	case enums.ContactKeyTelegram:
+		return c.telegram != nil
+	case enums.ContactKeyEmail:
+		return c.email != nil
+	default:
+		return false
+	}
 }
 
 func (c Contacts) Phone() *string                   { return cloneString(c.phone) }

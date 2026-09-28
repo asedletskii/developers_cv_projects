@@ -1,12 +1,15 @@
 package http
 
 import (
+	"errors"
+	"net/http"
+
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -77,7 +80,8 @@ func (h *resumeHandler) Get(c *gin.Context) {
 }
 
 type replaceResumeTitleRequest struct {
-	Title string `json:"title"`
+	Version int64  `json:"version"`
+	Title   string `json:"title"`
 }
 
 func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
@@ -94,7 +98,11 @@ func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	if err := h.replaceTitle.Handle(c.Request.Context(), commands.ReplaceResumeTitleCommand{ResumeID: id, UserID: uid, Title: body.Title}); err != nil {
+	if err := h.replaceTitle.Handle(c.Request.Context(), commands.ReplaceResumeTitleCommand{ResumeID: id, UserID: uid, Version: body.Version, Title: body.Title}); err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
 		common.WriteCommandError(c, err)
 		return
 	}

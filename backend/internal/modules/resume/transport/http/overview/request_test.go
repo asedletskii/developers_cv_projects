@@ -13,6 +13,7 @@ import (
 
 func TestOverviewRequestAcceptsRootFields(t *testing.T) {
 	command, err := (overviewRequest{
+		Version:  7,
 		Theme:    &themeRequest{Primary: stringPtr("#E8785A")},
 		Greeting: greetingRequest{First: "A", Second: "B", SecondHighlight: "C", Third: "D"},
 		Availability: &availabilityRequest{
@@ -25,6 +26,7 @@ func TestOverviewRequestAcceptsRootFields(t *testing.T) {
 	}).ToCommand(useridentity.NewID(), valueobjects.NewID())
 
 	require.NoError(t, err)
+	require.Equal(t, int64(7), command.Version)
 	require.NotNil(t, command.Input.Theme)
 	require.NotNil(t, command.Input.Availability)
 	require.NotNil(t, command.Input.ResumeLink)
@@ -45,6 +47,7 @@ func TestOverviewRequestRejectsRelativeResumePath(t *testing.T) {
 
 func TestOverviewRequestJSONUsesRootFields(t *testing.T) {
 	payload := []byte(`{
+		"version":7,
 		"theme":{"primary":"#E8785A"},
 		"greeting":{"first":"A","second":"B","secondHighlight":"C","third":"D"},
 		"availability":{"status":"open"},

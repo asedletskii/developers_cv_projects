@@ -12,7 +12,7 @@ import (
 
 type stubResumeReader struct{ view ResumeView }
 
-func (s stubResumeReader) GetOwned(context.Context, valueobjects.ID, useridentity.ID) (ResumeView, error) {
+func (s stubResumeReader) GetOwned(context.Context, GetResumeQuery) (ResumeView, error) {
 	return s.view, nil
 }
 
@@ -47,6 +47,6 @@ func TestGetResumeQueryHandlerPropagatesReaderError(t *testing.T) {
 
 type resumeReaderErrorStub struct{ err error }
 
-func (s resumeReaderErrorStub) GetOwned(context.Context, valueobjects.ID, useridentity.ID) (ResumeView, error) {
+func (s resumeReaderErrorStub) GetOwned(context.Context, GetResumeQuery) (ResumeView, error) {
 	return ResumeView{}, s.err
 }

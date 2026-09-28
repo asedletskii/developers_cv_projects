@@ -1,166 +1,93 @@
 package languages
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
-	create  *commands.CreateLanguageHandler
-	get     *queries.GetLanguageQueryHandler
-	list    *queries.ListLanguagesQueryHandler
-	update  *commands.UpdateLanguageHandler
-	reorder *commands.ReorderLanguagesHandler
-	delete  *commands.DeleteLanguageHandler
+	replace *commands.ReplaceLanguagesHandler
 }
 
-func NewHandler(create *commands.CreateLanguageHandler, list *queries.ListLanguagesQueryHandler, get *queries.GetLanguageQueryHandler, update *commands.UpdateLanguageHandler, reorder *commands.ReorderLanguagesHandler, delete *commands.DeleteLanguageHandler) *Handler {
-	return &Handler{create: create, list: list, get: get, update: update, reorder: reorder, delete: delete}
+func NewHandler(replace *commands.ReplaceLanguagesHandler) *Handler {
+	return &Handler{replace: replace}
+}
+
+type languagesRequest struct {
+	Version int64             `json:"version"`
+	Items   []languageRequest `json:"items"`
 }
 
 type languageRequest struct {
+	ID       string  `json:"id,omitempty"`
 	Language string  `json:"language"`
 	Grade    *string `json:"grade,omitempty"`
+	Position int     `json:"position"`
 }
 
-type reorderLanguagesRequest struct {
-	IDs []string `json:"ids"`
-}
-
-func (h *Handler) Create(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	var body languageRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	id, err := h.create.Handle(c.Request.Context(), commands.CreateLanguageCommand{ID: valueobjects.NewID(), ResumeID: rid, UserID: uid, Input: langInput(body)})
-	if err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
-}
-
-func (h *Handler) List(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	xs, err := h.list.Handle(c.Request.Context(), queries.ListLanguagesQuery{ResumeID: rid, UserID: uid})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, xs)
-}
-
-func (h *Handler) Get(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c, "languageId")
-	if !ok {
-		return
-	}
-	x, err := h.get.Handle(c.Request.Context(), queries.GetLanguageQuery{ResumeID: rid, LanguageID: id, UserID: uid})
-	if err != nil {
-		common.WriteQueryError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, x)
-}
-
-func (h *Handler) Update(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c, "languageId")
-	if !ok {
-		return
-	}
-	var body languageRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	if err := h.update.Handle(c.Request.Context(), commands.UpdateLanguageCommand{ResumeID: rid, LanguageID: id, UserID: uid, Input: langInput(body)}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (h *Handler) Reorder(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	var body reorderLanguagesRequest
-	if err := common.BindJSON(c, &body); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	ids := make([]valueobjects.ID, len(body.IDs))
-	for i, raw := range body.IDs {
-		id, err := valueobjects.ParseID(raw)
-		if err != nil {
-			common.WriteInvalidBody(c)
-			return
+func (r languagesRequest) input() (commands.LanguagesInput, error) {
+	items := make([]commands.LanguageInput, 0, len(r.Items))
+	for _, item := range r.Items {
+		var id valueobjects.ID
+		if item.ID != "" {
+			parsed, err := valueobjects.ParseID(item.ID)
+			if err != nil {
+				return commands.LanguagesInput{}, err
+			}
+			id = parsed
 		}
-		ids[i] = id
+		var grade *enums.LanguageGrade
+		if item.Grade != nil {
+			value := enums.LanguageGrade(*item.Grade)
+			grade = &value
+		}
+		items = append(items, commands.LanguageInput{
+			ID: id, Language: enums.SpokenLanguage(item.Language), Grade: grade, Position: item.Position,
+		})
 	}
-	if err := h.reorder.Handle(c.Request.Context(), commands.ReorderLanguagesCommand{ResumeID: rid, UserID: uid, LanguageIDs: ids}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
+	return commands.LanguagesInput{Entries: items}, nil
 }
 
-func (h *Handler) Delete(c *gin.Context) {
-	uid, rid, id, ok := itemIDs(c, "languageId")
-	if !ok {
-		return
-	}
-	if err := h.delete.Handle(c.Request.Context(), commands.DeleteLanguageCommand{ResumeID: rid, LanguageID: id, UserID: uid}); err != nil {
-		common.WriteCommandError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func langInput(body languageRequest) commands.LanguageInput {
-	input := commands.LanguageInput{ID: valueobjects.NewID(), Language: enums.SpokenLanguage(body.Language)}
-	if body.Grade != nil {
-		grade := enums.LanguageGrade(*body.Grade)
-		input.Grade = &grade
-	}
-	return input
-}
-
-func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
+func (h *Handler) Replace(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
 	if !ok {
-		return useridentity.ID{}, valueobjects.ID{}, false
+		return
 	}
 	rid, ok := common.ParseResumeID(c)
-	return uid, rid, ok
-}
-
-func itemIDs(c *gin.Context, name string) (useridentity.ID, valueobjects.ID, valueobjects.ID, bool) {
-	uid, rid, ok := ids(c)
 	if !ok {
-		return uid, rid, valueobjects.ID{}, false
+		return
 	}
-	id, err := valueobjects.ParseID(c.Param(name))
+	var body languagesRequest
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
+		return
+	}
+	if body.Version < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+		return
+	}
+	input, err := body.input()
 	if err != nil {
-		common.WriteInvalidBody(c)
-		return uid, rid, valueobjects.ID{}, false
+		common.WriteCommandError(c, err)
+		return
 	}
-	return uid, rid, id, true
+	if err := h.replace.Handle(c.Request.Context(), commands.ReplaceLanguagesCommand{
+		ResumeID: rid, UserID: uid, Version: body.Version, Input: input,
+	}); err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
+		common.WriteCommandError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

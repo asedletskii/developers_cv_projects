@@ -1,101 +1,88 @@
 package skills
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
-	create *commands.CreateSkillsHandler
-	get    *queries.GetSkillsQueryHandler
-	update *commands.UpdateSkillsHandler
+	replace *commands.ReplaceSkillsHandler
 }
 
-func NewHandler(create *commands.CreateSkillsHandler, get *queries.GetSkillsQueryHandler, update *commands.UpdateSkillsHandler) *Handler {
-	return &Handler{create: create, get: get, update: update}
+func NewHandler(replace *commands.ReplaceSkillsHandler) *Handler {
+	return &Handler{replace: replace}
 }
 
 type skillsRequest struct {
+	Version    int64    `json:"version"`
+	ID         string   `json:"id,omitempty"`
 	HardSkills []string `json:"hardSkills"`
 	SoftSkills []string `json:"softSkills"`
 }
 
-func (h *Handler) Create(c *gin.Context) {
-	uid, rid, ok := ids(c)
+func (r skillsRequest) input() (commands.SkillsInput, error) {
+	var id valueobjects.ID
+	if r.ID != "" {
+		parsed, err := valueobjects.ParseID(r.ID)
+		if err != nil {
+			return commands.SkillsInput{}, err
+		}
+		id = parsed
+	}
+	hard := make([]enums.HardSkill, len(r.HardSkills))
+	for i, value := range r.HardSkills {
+		hard[i] = enums.HardSkill(value)
+	}
+	soft := make([]enums.SoftSkill, len(r.SoftSkills))
+	for i, value := range r.SoftSkills {
+		soft[i] = enums.SoftSkill(value)
+	}
+	return commands.SkillsInput{ID: id, Hard: hard, Soft: soft}, nil
+}
+
+func (h *Handler) Replace(c *gin.Context) {
+	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
 	}
-	var b skillsRequest
-	if err := common.BindJSON(c, &b); err != nil {
+	rid, ok := common.ParseResumeID(c)
+	if !ok {
+		return
+	}
+	var body skillsRequest
+	if err := common.BindJSON(c, &body); err != nil {
 		common.WriteBindError(c, err)
 		return
 	}
-	id := valueobjects.NewID()
-	_, e := h.create.Handle(c.Request.Context(), commands.CreateSkillsCommand{ID: id, ResumeID: rid, UserID: uid, Hard: toHardSkills(b.HardSkills), Soft: toSoftSkills(b.SoftSkills)})
-	if e != nil {
-		common.WriteCommandError(c, e)
+	if body.Version < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
 		return
 	}
-	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
-}
-func (h *Handler) Get(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
+	input, err := body.input()
+	if err != nil {
+		common.WriteCommandError(c, err)
 		return
 	}
-	a, e := h.get.Handle(c.Request.Context(), queries.GetSkillsQuery{ResumeID: rid, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusOK, a)
-}
-func (h *Handler) Update(c *gin.Context) {
-	uid, rid, ok := ids(c)
-	if !ok {
-		return
-	}
-	var b skillsRequest
-	if err := common.BindJSON(c, &b); err != nil {
-		common.WriteBindError(c, err)
-		return
-	}
-	if e := h.update.Handle(c.Request.Context(), commands.UpdateSkillsCommand{ResumeID: rid, UserID: uid, Hard: toHardSkills(b.HardSkills), Soft: toSoftSkills(b.SoftSkills)}); e != nil {
-		common.WriteCommandError(c, e)
+	if err := h.replace.Handle(c.Request.Context(), commands.ReplaceSkillsCommand{
+		ResumeID: rid,
+		UserID:   uid,
+		Version:  body.Version,
+		Input:    input,
+	}); err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-
-func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return uid, valueobjects.ID{}, false
-	}
-	rid, ok := common.ParseResumeID(c)
-	return uid, rid, ok
-}
-
-func toHardSkills(values []string) []enums.HardSkill {
-	out := make([]enums.HardSkill, len(values))
-	for i, value := range values {
-		out[i] = enums.HardSkill(value)
-	}
-	return out
-}
-
-func toSoftSkills(values []string) []enums.SoftSkill {
-	out := make([]enums.SoftSkill, len(values))
-	for i, value := range values {
-		out[i] = enums.SoftSkill(value)
-	}
-	return out
 }

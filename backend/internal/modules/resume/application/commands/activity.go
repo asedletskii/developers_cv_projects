@@ -2,108 +2,68 @@ package commands
 
 import (
 	"context"
+	"fmt"
+
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-	"fmt"
 )
 
 type ActivityInput struct {
-	ID, ResumeID valueobjects.ID
-	Type         enums.ActivityType
-	Title        string
-	Description  *string
-	Date         *valueobjects.YearMonth
-	Link         *valueobjects.ExternalURL
-}
-type CreateActivityCommand struct {
-	ID, ResumeID valueobjects.ID
-	UserID       useridentity.ID
-	Input        ActivityInput
-}
-type UpdateActivityCommand struct {
-	ResumeID, ActivityID valueobjects.ID
-	UserID               useridentity.ID
-	Input                ActivityInput
-}
-type DeleteActivityCommand struct {
-	ResumeID, ActivityID valueobjects.ID
-	UserID               useridentity.ID
+	ID          valueobjects.ID
+	Type        enums.ActivityType
+	Title       string
+	Description *string
+	Date        *valueobjects.YearMonth
+	Link        *valueobjects.ExternalURL
 }
 
-type CreateActivityHandler struct {
-	r ports.CreateActivityRepository
-	u UnitOfWork
+type ActivitiesInput struct{ Items []ActivityInput }
+
+func (i ActivitiesInput) toDomain() []domain.ActivityParams {
+	out := make([]domain.ActivityParams, 0, len(i.Items))
+	for _, x := range i.Items {
+		out = append(out, domain.ActivityParams{ID: x.ID, Type: x.Type, Title: x.Title, Description: x.Description, Date: x.Date, Link: x.Link})
+	}
+	return out
 }
 
-func NewCreateActivityHandler(r ports.CreateActivityRepository, u UnitOfWork) *CreateActivityHandler {
-	return &CreateActivityHandler{r: r, u: u}
-}
-func (h *CreateActivityHandler) Handle(ctx context.Context, c CreateActivityCommand) (valueobjects.ID, error) {
-	if h == nil || h.r == nil || h.u == nil {
-		return valueobjects.ID{}, fmt.Errorf("create activity dependencies are nil")
-	}
-	if c.ID.IsZero() {
-		c.ID = valueobjects.NewID()
-	}
-	c.Input.ID, c.Input.ResumeID = c.ID, c.ResumeID
-	a, err := activityFromInput(c.Input)
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateActivity(tx, ports.CreateActivityRepositoryCommand{Activity: a, ResumeID: c.ResumeID, UserID: c.UserID})
-	})
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	return a.ID(), nil
+type ReplaceActivitiesCommand struct {
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Version  int64
+	Input    ActivitiesInput
 }
 
-type UpdateActivityHandler struct {
-	u   ports.UpdateActivityRepository
-	uow UnitOfWork
+type ReplaceActivitiesHandler struct {
+	repository ports.ResumeRepository
+	uow        UnitOfWork
 }
 
-func NewUpdateActivityHandler(u ports.UpdateActivityRepository, uow UnitOfWork) *UpdateActivityHandler {
-	return &UpdateActivityHandler{u: u, uow: uow}
+func NewReplaceActivitiesHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceActivitiesHandler {
+	return &ReplaceActivitiesHandler{repository: repository, uow: uow}
 }
 
-func (h *UpdateActivityHandler) Handle(ctx context.Context, c UpdateActivityCommand) error {
-	if h == nil || h.u == nil || h.uow == nil {
-		return fmt.Errorf("update activity dependencies are nil")
+func (h *ReplaceActivitiesHandler) Handle(ctx context.Context, c ReplaceActivitiesCommand) error {
+	if h == nil || h.repository == nil || h.uow == nil {
+		return fmt.Errorf("replace activities handler dependencies are nil")
 	}
-	c.Input.ID, c.Input.ResumeID = c.ActivityID, c.ResumeID
-	entity, err := activityFromInput(c.Input)
-	if err != nil {
-		return err
+	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
+		return fmt.Errorf("invalid replace activities command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.u.UpdateActivity(tx, ports.UpdateActivityRepositoryCommand{Activity: entity, ResumeID: c.ResumeID, UserID: c.UserID})
+		r, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
+		if err != nil {
+			return err
+		}
+		if r.Version() != c.Version {
+			return domain.ErrConcurrencyConflict
+		}
+		if err := r.ReplaceActivities(c.Input.toDomain()); err != nil {
+			return err
+		}
+		return h.repository.Save(tx, r)
 	})
-}
-
-type DeleteActivityHandler struct {
-	r ports.DeleteActivityRepository
-	u UnitOfWork
-}
-
-func NewDeleteActivityHandler(r ports.DeleteActivityRepository, u UnitOfWork) *DeleteActivityHandler {
-	return &DeleteActivityHandler{r: r, u: u}
-}
-func (h *DeleteActivityHandler) Handle(ctx context.Context, c DeleteActivityCommand) error {
-	if h == nil || h.r == nil || h.u == nil {
-		return fmt.Errorf("delete activity dependencies are nil")
-	}
-	if err := validateDeleteCommandIDs("activity", c.ResumeID, c.ActivityID, c.UserID); err != nil {
-		return err
-	}
-	return h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.DeleteActivity(tx, ports.DeleteActivityRepositoryCommand{ResumeID: c.ResumeID, ActivityID: c.ActivityID, UserID: c.UserID})
-	})
-}
-func activityFromInput(input ActivityInput) (*domain.Activity, error) {
-	return domain.NewActivity(domain.ActivityParams{ID: input.ID, ResumeID: input.ResumeID, Type: input.Type, Title: input.Title, Description: input.Description, Date: input.Date, Link: input.Link})
 }

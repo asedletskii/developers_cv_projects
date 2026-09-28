@@ -21,8 +21,8 @@ type readerStub struct {
 	publicCalls int
 }
 
-func (s *readerStub) GetPublic(_ context.Context, resumeID valueobjects.ID) (queries.ResumeView, error) {
-	s.publicID = resumeID
+func (s *readerStub) GetPublic(_ context.Context, query queries.PublicResumeQuery) (queries.ResumeView, error) {
+	s.publicID = query.ID
 	s.publicCalls++
 	if s.err != nil {
 		return queries.ResumeView{}, s.err

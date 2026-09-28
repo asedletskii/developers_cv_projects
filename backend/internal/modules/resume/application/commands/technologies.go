@@ -12,133 +12,60 @@ import (
 )
 
 type TechnologyInput struct {
-	ID    valueobjects.ID
-	Name  string
-	Grade *enums.TechnologyGrade
+	ID       valueobjects.ID
+	Name     string
+	Grade    *enums.TechnologyGrade
+	Position int
 }
 
-type CreateTechnologyCommand struct {
-	ID, ResumeID valueobjects.ID
-	UserID       useridentity.ID
-	Input        TechnologyInput
+type TechnologiesInput struct {
+	Entries []TechnologyInput
 }
 
-type UpdateTechnologyCommand struct {
-	ResumeID, TechnologyID valueobjects.ID
-	UserID                 useridentity.ID
-	Input                  TechnologyInput
-}
-
-type ReorderTechnologiesCommand struct {
-	ResumeID      valueobjects.ID
-	UserID        useridentity.ID
-	TechnologyIDs []valueobjects.ID
-}
-
-type DeleteTechnologyCommand struct {
-	ResumeID, TechnologyID valueobjects.ID
-	UserID                 useridentity.ID
-}
-
-type CreateTechnologyHandler struct {
-	r ports.CreateTechnologyRepository
-	u UnitOfWork
-}
-
-func NewCreateTechnologyHandler(r ports.CreateTechnologyRepository, u UnitOfWork) *CreateTechnologyHandler {
-	return &CreateTechnologyHandler{r: r, u: u}
-}
-
-func (h *CreateTechnologyHandler) Handle(ctx context.Context, c CreateTechnologyCommand) (valueobjects.ID, error) {
-	if h == nil || h.r == nil || h.u == nil {
-		return valueobjects.ID{}, fmt.Errorf("create technology dependencies are nil")
+func (i TechnologiesInput) toDomain() domain.ResumeTechnologiesParams {
+	entries := make([]domain.ResumeTechnologyEntryParams, 0, len(i.Entries))
+	for _, entry := range i.Entries {
+		entries = append(entries, domain.ResumeTechnologyEntryParams{
+			ID: entry.ID, Name: entry.Name, Grade: entry.Grade, Position: entry.Position,
+		})
 	}
-	if c.ID.IsZero() {
-		c.ID = valueobjects.NewID()
-	}
-	c.Input.ID = c.ID
-	a, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: c.Input.ID, Name: c.Input.Name, Grade: c.Input.Grade, Position: 0})
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	if err := h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateTechnology(tx, ports.CreateTechnologyRepositoryCommand{Technology: a, ResumeID: c.ResumeID, UserID: c.UserID})
-	}); err != nil {
-		return valueobjects.ID{}, err
-	}
-	return a.ID(), nil
+	return domain.ResumeTechnologiesParams{Entries: entries}
 }
 
-type UpdateTechnologyHandler struct {
-	u   ports.UpdateTechnologyRepository
-	uow UnitOfWork
+type ReplaceTechnologiesCommand struct {
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Version  int64
+	Input    TechnologiesInput
 }
 
-func NewUpdateTechnologyHandler(u ports.UpdateTechnologyRepository, uow UnitOfWork) *UpdateTechnologyHandler {
-	return &UpdateTechnologyHandler{u: u, uow: uow}
+type ReplaceTechnologiesHandler struct {
+	repository ports.ResumeRepository
+	uow        UnitOfWork
 }
 
-func (h *UpdateTechnologyHandler) Handle(ctx context.Context, c UpdateTechnologyCommand) error {
-	if h == nil || h.u == nil || h.uow == nil {
-		return fmt.Errorf("update technology dependencies are nil")
+func NewReplaceTechnologiesHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceTechnologiesHandler {
+	return &ReplaceTechnologiesHandler{repository: repository, uow: uow}
+}
+
+func (h *ReplaceTechnologiesHandler) Handle(ctx context.Context, c ReplaceTechnologiesCommand) error {
+	if h == nil || h.repository == nil || h.uow == nil {
+		return fmt.Errorf("replace technologies handler dependencies are nil")
 	}
-	entity, err := domain.NewResumeTechnologyEntry(domain.ResumeTechnologyEntryParams{ID: c.TechnologyID, Name: c.Input.Name, Grade: c.Input.Grade, Position: 0})
-	if err != nil {
-		return err
+	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
+		return fmt.Errorf("invalid replace technologies command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.u.UpdateTechnology(tx, ports.UpdateTechnologyRepositoryCommand{Technology: entity, ResumeID: c.ResumeID, UserID: c.UserID})
-	})
-}
-
-type ReorderTechnologiesHandler struct {
-	r ports.ReorderTechnologiesRepository
-	u UnitOfWork
-}
-
-func NewReorderTechnologiesHandler(r ports.ReorderTechnologiesRepository, u UnitOfWork) *ReorderTechnologiesHandler {
-	return &ReorderTechnologiesHandler{r: r, u: u}
-}
-
-func (h *ReorderTechnologiesHandler) Handle(ctx context.Context, c ReorderTechnologiesCommand) error {
-	if h == nil || h.r == nil || h.u == nil {
-		return fmt.Errorf("reorder technologies dependencies are nil")
-	}
-	if len(c.TechnologyIDs) == 0 {
-		return fmt.Errorf("reorder technologies ids are required: %w", domain.ErrInvalidEntity)
-	}
-	seen := make(map[valueobjects.ID]struct{}, len(c.TechnologyIDs))
-	for _, id := range c.TechnologyIDs {
-		if id.IsZero() {
-			return fmt.Errorf("reorder technologies contains zero id: %w", domain.ErrInvalidEntity)
+		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
+		if err != nil {
+			return err
 		}
-		if _, ok := seen[id]; ok {
-			return fmt.Errorf("reorder technologies contains duplicate id: %w", domain.ErrInvalidEntity)
+		if resume.Version() != c.Version {
+			return domain.ErrConcurrencyConflict
 		}
-		seen[id] = struct{}{}
-	}
-	return h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.ReorderTechnologies(tx, ports.ReorderTechnologiesRepositoryCommand{ResumeID: c.ResumeID, UserID: c.UserID, TechnologyIDs: c.TechnologyIDs})
-	})
-}
-
-type DeleteTechnologyHandler struct {
-	r ports.DeleteTechnologyRepository
-	u UnitOfWork
-}
-
-func NewDeleteTechnologyHandler(r ports.DeleteTechnologyRepository, u UnitOfWork) *DeleteTechnologyHandler {
-	return &DeleteTechnologyHandler{r: r, u: u}
-}
-
-func (h *DeleteTechnologyHandler) Handle(ctx context.Context, c DeleteTechnologyCommand) error {
-	if h == nil || h.r == nil || h.u == nil {
-		return fmt.Errorf("delete technology dependencies are nil")
-	}
-	if err := validateDeleteCommandIDs("technology", c.ResumeID, c.TechnologyID, c.UserID); err != nil {
-		return err
-	}
-	return h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.DeleteTechnology(tx, ports.DeleteTechnologyRepositoryCommand{ResumeID: c.ResumeID, TechnologyID: c.TechnologyID, UserID: c.UserID})
+		if err := resume.ReplaceTechnologies(c.Input.toDomain()); err != nil {
+			return err
+		}
+		return h.repository.Save(tx, resume)
 	})
 }

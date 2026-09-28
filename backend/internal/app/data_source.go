@@ -23,18 +23,6 @@ func newListResumesReader(db *gorm.DB) resumequeries.ListResumesReader {
 	return resumereaders.NewListResumesReader(db)
 }
 
-func newResumeMetadataReader(db *gorm.DB) resumequeries.ResumeMetadataReader {
-	return resumereaders.NewResumeMetadataReader(db)
-}
-
-func newResumeOverviewReader(db *gorm.DB) *resumereaders.OverviewReader {
-	return resumereaders.NewOverviewReader(db)
-}
-
-func newResumeReader(deps resumereaders.ResumeReaderDependencies) *resumereaders.ResumeReader {
-	return resumereaders.NewResumeReader(deps)
-}
-
 func newGetProfileReader(db *gorm.DB) userqueries.GetProfileReader {
 	return userreaders.NewGetProfileReader(db)
 }

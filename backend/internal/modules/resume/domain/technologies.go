@@ -66,6 +66,11 @@ func NewResumeTechnologies(p ResumeTechnologiesParams) (*ResumeTechnologies, err
 		seenPositions[e.position] = struct{}{}
 		out = append(out, e)
 	}
+	for position := range seenPositions {
+		if position < 0 || position >= len(out) {
+			return nil, fmt.Errorf("%w: technology positions must be contiguous", ErrInvalidEntity)
+		}
+	}
 	return &ResumeTechnologies{id: p.ID, resumeID: p.ResumeID, entries: out}, nil
 }
 func (t *ResumeTechnologyEntry) Replace(params ResumeTechnologyEntryParams) error {

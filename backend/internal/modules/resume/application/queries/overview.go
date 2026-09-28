@@ -1,42 +1,5 @@
 package queries
 
-import (
-	"context"
-	"fmt"
-
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-)
-
-type GetOverviewQuery struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
-}
-
-type OverviewReader interface {
-	GetOverview(context.Context, GetOverviewQuery) (ResumeOverviewView, error)
-}
-
-type OverviewSource interface {
-	ReadOverview(context.Context, valueobjects.ID) (ResumeOverviewView, error)
-}
-
-type GetOverviewQueryHandler struct{ reader OverviewReader }
-
-func NewGetOverviewQueryHandler(r OverviewReader) *GetOverviewQueryHandler {
-	return &GetOverviewQueryHandler{reader: r}
-}
-
-func (h *GetOverviewQueryHandler) Handle(ctx context.Context, q GetOverviewQuery) (ResumeOverviewView, error) {
-	if h == nil || h.reader == nil {
-		return ResumeOverviewView{}, fmt.Errorf("get overview query handler dependencies are nil")
-	}
-	if q.ResumeID.IsZero() || q.UserID.IsZero() {
-		return ResumeOverviewView{}, fmt.Errorf("invalid get overview query")
-	}
-	return h.reader.GetOverview(ctx, q)
-}
-
 type ResumeOverviewView struct {
 	Theme        *OverviewThemeSettings    `json:"theme,omitempty"`
 	Greeting     OverviewGreeting          `json:"greeting"`

@@ -15,7 +15,7 @@ type publicResumeReaderStub struct {
 	err  error
 }
 
-func (s publicResumeReaderStub) GetPublic(context.Context, valueobjects.ID) (ResumeView, error) {
+func (s publicResumeReaderStub) GetPublic(context.Context, PublicResumeQuery) (ResumeView, error) {
 	if s.err != nil {
 		return ResumeView{}, s.err
 	}
@@ -55,6 +55,7 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, view.ID, result.ID)
+	require.Nil(t, result.Version)
 	require.Equal(t, view.Title, result.Title)
 	require.Equal(t, view.Profile, result.Profile)
 	require.Equal(t, view.Contacts, result.Contacts)
@@ -89,36 +90,10 @@ func TestToPublicDoesNotMutateSourceProjects(t *testing.T) {
 	require.Len(t, view.Projects[0].Contributors, 1)
 }
 
-func TestToPublicRedactsHiddenContactValuesWithoutMutatingSource(t *testing.T) {
-	phone := "+33123456789"
-	telegram := "developer"
-	email := "user@example.com"
-	view := ResumeView{
-		Contacts: &ResumeContactsView{
-			Phone:          &phone,
-			Telegram:       &telegram,
-			Email:          &email,
-			HiddenContacts: []string{"phone", "email"},
-		},
-	}
-
-	result := toPublic(view)
-
-	require.NotNil(t, result.Contacts)
-	require.Nil(t, result.Contacts.Phone)
-	require.Equal(t, &telegram, result.Contacts.Telegram)
-	require.Nil(t, result.Contacts.Email)
-	require.Equal(t, []string{"phone", "email"}, result.Contacts.HiddenContacts)
-	require.NotNil(t, view.Contacts.Phone)
-	require.NotNil(t, view.Contacts.Email)
-	require.Equal(t, &phone, view.Contacts.Phone)
-	require.Equal(t, &email, view.Contacts.Email)
-}
-
 func TestToPublicRedactsEverySupportedHiddenContact(t *testing.T) {
 	phone := "+33123456789"
 	telegram := "developer"
-	email := "user@example.com"
+	email := "private@example.com"
 	view := ResumeView{
 		Contacts: &ResumeContactsView{
 			Phone:          &phone,
@@ -130,16 +105,52 @@ func TestToPublicRedactsEverySupportedHiddenContact(t *testing.T) {
 
 	result := toPublic(view)
 
+	require.NotNil(t, result.Contacts)
 	require.Nil(t, result.Contacts.Phone)
 	require.Nil(t, result.Contacts.Telegram)
 	require.Nil(t, result.Contacts.Email)
+	require.Equal(t, []string{"phone", "telegram", "email"}, result.Contacts.HiddenContacts)
 
-	payload, err := json.Marshal(result)
+	require.Equal(t, &phone, view.Contacts.Phone)
+	require.Equal(t, &telegram, view.Contacts.Telegram)
+	require.Equal(t, &email, view.Contacts.Email)
+}
+
+func TestToPublicPreservesVisibleContactValues(t *testing.T) {
+	phone := "+33123456789"
+	telegram := "developer"
+	email := "public@example.com"
+	view := ResumeView{
+		Contacts: &ResumeContactsView{
+			Phone:          &phone,
+			Telegram:       &telegram,
+			Email:          &email,
+			HiddenContacts: []string{"email"},
+		},
+	}
+
+	result := toPublic(view)
+
+	require.Equal(t, &phone, result.Contacts.Phone)
+	require.Equal(t, &telegram, result.Contacts.Telegram)
+	require.Nil(t, result.Contacts.Email)
+}
+
+func TestPublicProjectionDoesNotContainHiddenValues(t *testing.T) {
+	view := ResumeView{
+		Contacts: &ResumeContactsView{
+			Phone:          stringPtr("+33123456789"),
+			Telegram:       stringPtr("developer"),
+			Email:          stringPtr("private@example.com"),
+			HiddenContacts: []string{"email"},
+		},
+	}
+
+	payload, err := json.Marshal(toPublic(view))
 	require.NoError(t, err)
-	require.NotContains(t, string(payload), phone)
-	require.NotContains(t, string(payload), telegram)
-	require.NotContains(t, string(payload), email)
-	require.Contains(t, string(payload), `"hiddenContacts":["phone","telegram","email"]`)
+	require.Contains(t, string(payload), "+33123456789")
+	require.Contains(t, string(payload), "developer")
+	require.NotContains(t, string(payload), "private@example.com")
 }
 
 func TestPublicResumeQueryHandlerRejectsInvalidID(t *testing.T) {
@@ -177,6 +188,7 @@ func TestPublicResumeJSONUsesCanonicalNestedShape(t *testing.T) {
 	var object map[string]any
 	require.NoError(t, json.Unmarshal(payload, &object))
 	require.Contains(t, object, "overview")
+	require.NotContains(t, object, "version")
 	require.Contains(t, object, "experiences")
 	require.Contains(t, object, "educations")
 	require.NotContains(t, object, "name")

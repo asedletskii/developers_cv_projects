@@ -1,39 +1,23 @@
 package overview
 
 import (
-	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/transport/http/common"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/transport/http/common"
 )
 
 type Handler struct {
-	get    *queries.GetOverviewQueryHandler
-	update *commands.UpdateOverviewHandler
+	replace *commands.ReplaceOverviewHandler
 }
 
-func NewHandler(g *queries.GetOverviewQueryHandler, u *commands.UpdateOverviewHandler) *Handler {
-	return &Handler{get: g, update: u}
-}
-func (h *Handler) Get(c *gin.Context) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return
-	}
-	id, ok := common.ParseResumeID(c)
-	if !ok {
-		return
-	}
-	v, e := h.get.Handle(c.Request.Context(), queries.GetOverviewQuery{ResumeID: id, UserID: uid})
-	if e != nil {
-		common.WriteQueryError(c, e)
-		return
-	}
-	c.JSON(http.StatusOK, v)
-}
-func (h *Handler) Update(c *gin.Context) {
+func NewHandler(replace *commands.ReplaceOverviewHandler) *Handler { return &Handler{replace: replace} }
+
+func (h *Handler) Replace(c *gin.Context) {
 	uid, ok := common.RequireUserID(c)
 	if !ok {
 		return
@@ -47,13 +31,21 @@ func (h *Handler) Update(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	cmd, e := body.ToCommand(uid, id)
-	if e != nil {
-		common.WriteCommandError(c, e)
+	if body.Version < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
 		return
 	}
-	if e = h.update.Handle(c.Request.Context(), cmd); e != nil {
-		common.WriteCommandError(c, e)
+	cmd, err := body.ToCommand(uid, id)
+	if err != nil {
+		common.WriteCommandError(c, err)
+		return
+	}
+	if err = h.replace.Handle(c.Request.Context(), cmd); err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)

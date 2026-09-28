@@ -46,59 +46,122 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	insertResumeTestUser(t, ctx, dsn, owner)
 	resumeRepo := repository.NewResumeRepository(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
+
 	resume := newTestResume(t, owner)
+	require.NoError(t, resume.ReplaceOverview(domain.ResumeOverviewParams{
+		Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
+	}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
+		return resumeRepo.Create(tx, resume)
 	}))
 
 	photo, err := valueobjects.NewExternalURL("https://example.com/assets/profile.svg")
 	require.NoError(t, err)
 	date, err := valueobjects.NewDate(time.Date(1998, time.April, 12, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
-	profile, err := domain.NewProfile(domain.ProfileParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Name: "John", Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: date, Location: "Paris", WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote}})
+	start, err := valueobjects.NewYearMonth(time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
-
 	email, err := valueobjects.NewEmail("rollback@example.com")
 	require.NoError(t, err)
 	contactEntity, err := entities.NewContacts(entities.ContactsParams{Email: &email})
 	require.NoError(t, err)
-	contacts, err := domain.NewContacts(domain.ContactsParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Contacts: contactEntity, HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}})
-	require.NoError(t, err)
-
-	skills, err := domain.NewSkills(domain.SkillsParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Hard: []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}, Soft: []enums.SoftSkill{enums.SoftSkillCommunication}})
-	require.NoError(t, err)
-
-	start, err := valueobjects.NewYearMonth(time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC))
-	require.NoError(t, err)
-	experience, err := domain.NewExperience(domain.ExperienceParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Company: "Example", Position: "Developer", StartDate: start, Achievements: []string{"Built things"}, Stack: []entities.Technology{mustTechnology(t, "Go")}})
-	require.NoError(t, err)
-
-	project, err := domain.NewProject(domain.ProjectParams{ID: valueobjects.NewID(), ResumeID: resume.ID(), Name: "Rollback project", Screenshots: []valueobjects.ExternalURL{photo}})
-	require.NoError(t, err)
-
-	profileRepo := repository.NewProfileRepository(gormDB)
-	contactsRepo := repository.NewContactsRepository(gormDB)
-	skillsRepo := repository.NewSkillsRepository(gormDB)
-	experienceRepo := repository.NewExperiencesRepository(gormDB)
-	projectRepo := repository.NewProjectRepository(gormDB)
 
 	rollbackErr := errors.New("force rollback after aggregate writes")
 	err = uow.Do(ctx, func(tx context.Context) error {
-		if err := profileRepo.CreateProfile(tx, ports.CreateResumeProfileRepositoryCommand{Profile: profile, UserID: owner}); err != nil {
+		if err := resume.ReplaceProfile(domain.ProfileParams{
+			Name:        "John",
+			Surname:     "Doe",
+			Position:    "Developer",
+			PhotoPath:   photo,
+			DateOfBirth: date,
+			Location:    "Paris",
+			WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote},
+		}); err != nil {
 			return err
 		}
-		if err := contactsRepo.CreateContacts(tx, ports.CreateResumeContactsRepositoryCommand{Contacts: contacts, UserID: owner}); err != nil {
+		if err := resume.ReplaceSkills(domain.SkillsParams{
+			Hard: []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting},
+			Soft: []enums.SoftSkill{enums.SoftSkillCommunication},
+		}); err != nil {
 			return err
 		}
-		if err := skillsRepo.CreateSkills(tx, ports.CreateSkillsRepositoryCommand{Skills: skills, UserID: owner}); err != nil {
+		if err := resume.ReplaceExperiences([]domain.ExperienceParams{{
+			Company:      "Example",
+			Position:     "Developer",
+			StartDate:    start,
+			Achievements: []string{"Built things"},
+			Stack:        []domain.ExperienceStackParams{{Name: "Go"}},
+		}}); err != nil {
 			return err
 		}
-		if err := experienceRepo.CreateExperience(tx, ports.CreateExperienceRepositoryCommand{Experience: experience, ResumeID: resume.ID(), UserID: owner}); err != nil {
+		if err := resume.ReplaceProjects([]domain.ProjectParams{{
+			Name:        "Rollback project",
+			Screenshots: []valueobjects.ExternalURL{photo},
+		}}); err != nil {
 			return err
 		}
-		if err := projectRepo.CreateProject(tx, ports.CreateProjectRepositoryCommand{Project: project, ResumeID: resume.ID(), UserID: owner}); err != nil {
+		if err := resume.ReplaceContacts(domain.ContactsParams{
+			Contacts:       contactEntity,
+			HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+		}); err != nil {
 			return err
 		}
+
+		if err := resumeRepo.Save(tx, resume); err != nil {
+			return err
+		}
+
+		reloaded, err := resumeRepo.Get(tx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: owner})
+		if err != nil {
+			return err
+		}
+		if reloaded.Profile() == nil || reloaded.Skills() == nil || len(reloaded.Experiences()) != 1 || len(reloaded.Projects()) != 1 || reloaded.Contacts() == nil {
+			return errors.New("aggregate children were not persisted inside transaction")
+		}
+
+		updatedProfile := reloaded.Profile()
+		if err := reloaded.ReplaceProfile(domain.ProfileParams{
+			ID:          updatedProfile.ID(),
+			Name:        "Jane",
+			Surname:     updatedProfile.Surname(),
+			Patronymic:  updatedProfile.Patronymic(),
+			Position:    "Senior Developer",
+			PhotoPath:   updatedProfile.PhotoPath(),
+			DateOfBirth: updatedProfile.DateOfBirth(),
+			Location:    updatedProfile.Location(),
+			Relocation:  updatedProfile.Relocation(),
+			WorkFormats: []enums.WorkFormat{enums.WorkFormatOffice, enums.WorkFormatHybrid},
+		}); err != nil {
+			return err
+		}
+		if err := reloaded.ReplaceContacts(domain.ContactsParams{
+			ID:             reloaded.Contacts().ID(),
+			Contacts:       contactEntity,
+			HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+		}); err != nil {
+			return err
+		}
+		if err := reloaded.ReplaceExperiences([]domain.ExperienceParams{{
+			ID:           reloaded.Experiences()[0].ID(),
+			Company:      "Example",
+			Position:     "Senior Developer",
+			StartDate:    reloaded.Experiences()[0].StartDate(),
+			Achievements: reloaded.Experiences()[0].Achievements(),
+			Stack:        experienceStackParams(reloaded.Experiences()[0]),
+		}}); err != nil {
+			return err
+		}
+		if err := reloaded.ReplaceProjects([]domain.ProjectParams{{
+			ID:          reloaded.Projects()[0].ID(),
+			Name:        reloaded.Projects()[0].Name(),
+			Screenshots: reloaded.Projects()[0].Screenshots(),
+		}}); err != nil {
+			return err
+		}
+		if err := resumeRepo.Save(tx, reloaded); err != nil {
+			return err
+		}
+
 		return rollbackErr
 	})
 	require.ErrorIs(t, err, rollbackErr)
@@ -107,143 +170,39 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	for _, check := range []struct {
-		table string
-		id    valueobjects.ID
-	}{
-		{"resume_profiles", profile.ID()},
-		{"resume_contacts", contacts.ID()},
-		{"resume_skills", skills.ID()},
-		{"resume_experiences", experience.ID()},
-		{"resume_projects", project.ID()},
+	var version int64
+	require.NoError(t, conn.QueryRow(ctx, "SELECT version FROM resumes WHERE id = $1", resume.ID().UUID()).Scan(&version))
+	require.Equal(t, int64(1), version, "rollback must restore the aggregate version")
+
+	for _, table := range []string{
+		"resume_profiles",
+		"resume_skills",
+		"resume_experiences",
+		"resume_projects",
+		"resume_contacts",
 	} {
 		var count int
-		require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM "+check.table+" WHERE id = $1", check.id.UUID()).Scan(&count))
-		require.Zero(t, count, check.table+" must rollback with the surrounding transaction")
+		require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM "+table+" WHERE resume_id = $1", resume.ID().UUID()).Scan(&count))
+		require.Zero(t, count, table+" must rollback with the surrounding transaction")
 	}
 
-	var childCounts struct{ profile, hidden, hard, soft, achievements, stack, screenshots int }
+	var childCounts struct{ profile, contacts, contactHidden, contactText, hard, soft, achievements, stack, screenshots int }
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_profile_work_formats").Scan(&childCounts.profile))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contact_hidden").Scan(&childCounts.hidden))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contacts").Scan(&childCounts.contacts))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contact_hidden").Scan(&childCounts.contactHidden))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contacts_text").Scan(&childCounts.contactText))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&childCounts.hard))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&childCounts.soft))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_achievements").Scan(&childCounts.achievements))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_stack").Scan(&childCounts.stack))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_project_screenshots").Scan(&childCounts.screenshots))
 	require.Zero(t, childCounts.profile)
-	require.Zero(t, childCounts.hidden)
+	require.Zero(t, childCounts.contacts)
+	require.Zero(t, childCounts.contactHidden)
+	require.Zero(t, childCounts.contactText)
 	require.Zero(t, childCounts.hard)
 	require.Zero(t, childCounts.soft)
 	require.Zero(t, childCounts.achievements)
 	require.Zero(t, childCounts.stack)
 	require.Zero(t, childCounts.screenshots)
-}
-
-func TestPostgresUpdateProfileReplacesWorkFormatsWithExistingProfileID(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration test")
-	}
-
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyMigrations(t, ctx, dsn)
-
-	gormDB, err := database.NewGORM(dsn)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
-
-	owner := useridentity.NewID()
-	insertResumeTestUser(t, ctx, dsn, owner)
-	resumeRepo := repository.NewResumeRepository(gormDB)
-	uow := database.NewUnitOfWork(gormDB)
-	resume := newTestResume(t, owner)
-	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.CreateResume(tx, ports.CreateResumeRepositoryCommand{Resume: resume})
-	}))
-
-	photo, err := valueobjects.NewExternalURL("https://example.com/assets/profile.svg")
-	require.NoError(t, err)
-	date, err := valueobjects.NewDate(time.Date(1998, time.April, 12, 0, 0, 0, 0, time.UTC))
-	require.NoError(t, err)
-	profile, err := domain.NewProfile(domain.ProfileParams{
-		ID:          valueobjects.NewID(),
-		ResumeID:    resume.ID(),
-		Name:        "John",
-		Surname:     "Doe",
-		Position:    "Developer",
-		PhotoPath:   photo,
-		DateOfBirth: date,
-		Location:    "Paris",
-		WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote},
-	})
-	require.NoError(t, err)
-
-	profileRepo := repository.NewProfileRepository(gormDB)
-	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return profileRepo.CreateProfile(tx, ports.CreateResumeProfileRepositoryCommand{Profile: profile, UserID: owner})
-	}))
-
-	updated, err := domain.NewProfile(domain.ProfileParams{
-		ID:          valueobjects.NewID(),
-		ResumeID:    resume.ID(),
-		Name:        "Jane",
-		Surname:     "Doe",
-		Position:    "Senior Developer",
-		PhotoPath:   photo,
-		DateOfBirth: date,
-		Location:    "Paris",
-		WorkFormats: []enums.WorkFormat{enums.WorkFormatOffice, enums.WorkFormatHybrid},
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		return profileRepo.UpdateProfile(tx, ports.UpdateResumeProfileRepositoryCommand{Profile: updated, UserID: owner})
-	}))
-
-	conn, err := pgx.Connect(ctx, dsn)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-
-	var profileID string
-	require.NoError(t, conn.QueryRow(ctx, "SELECT id::text FROM resume_profiles WHERE resume_id = $1", resume.ID().UUID()).Scan(&profileID))
-	require.Equal(t, profile.ID().String(), profileID)
-
-	rows, err := conn.Query(ctx, "SELECT profile_id::text, value, position FROM resume_profile_work_formats WHERE profile_id = $1 ORDER BY position", profile.ID().UUID())
-	require.NoError(t, err)
-	t.Cleanup(func() { rows.Close() })
-
-	var formats []struct {
-		ProfileID string
-		Value     string
-		Position  int
-	}
-	for rows.Next() {
-		var format struct {
-			ProfileID string
-			Value     string
-			Position  int
-		}
-		require.NoError(t, rows.Scan(&format.ProfileID, &format.Value, &format.Position))
-		formats = append(formats, format)
-	}
-	require.NoError(t, rows.Err())
-	require.Len(t, formats, 2)
-	require.Equal(t, profile.ID().String(), formats[0].ProfileID)
-	require.Equal(t, "office", formats[0].Value)
-	require.Equal(t, 0, formats[0].Position)
-	require.Equal(t, profile.ID().String(), formats[1].ProfileID)
-	require.Equal(t, "hybrid", formats[1].Value)
-	require.Equal(t, 1, formats[1].Position)
-}
-
-func mustTechnology(t *testing.T, name string) entities.Technology {
-	t.Helper()
-	technology, err := entities.NewTechnology(entities.TechnologyParams{Name: name})
-	require.NoError(t, err)
-	return technology
 }

@@ -11,7 +11,7 @@ import (
 )
 
 type EducationInput struct {
-	ID, ResumeID         valueobjects.ID
+	ID                   valueobjects.ID
 	Location, University string
 	Grade                enums.EducationLevel
 	ProgramName, Faculty string
@@ -19,92 +19,48 @@ type EducationInput struct {
 	Course               *int
 	EndDate              *valueobjects.Year
 }
-type CreateEducationCommand struct {
-	ID, ResumeID valueobjects.ID
-	UserID       useridentity.ID
-	Input        EducationInput
-}
-type UpdateEducationCommand struct {
-	ResumeID, EducationID valueobjects.ID
-	UserID                useridentity.ID
-	Input                 EducationInput
-}
-type DeleteEducationCommand struct {
-	ResumeID, EducationID valueobjects.ID
-	UserID                useridentity.ID
+type EducationsInput struct{ Items []EducationInput }
+
+func (i EducationsInput) toDomain() []domain.EducationParams {
+	out := make([]domain.EducationParams, 0, len(i.Items))
+	for _, x := range i.Items {
+		out = append(out, domain.EducationParams{ID: x.ID, Location: x.Location, University: x.University, Grade: x.Grade, ProgramName: x.ProgramName, ProfileName: x.ProfileName, Faculty: x.Faculty, Course: x.Course, EndDate: x.EndDate})
+	}
+	return out
 }
 
-type CreateEducationHandler struct {
-	r ports.CreateEducationRepository
-	u UnitOfWork
+type ReplaceEducationsCommand struct {
+	ResumeID valueobjects.ID
+	UserID   useridentity.ID
+	Version  int64
+	Input    EducationsInput
+}
+type ReplaceEducationsHandler struct {
+	repository ports.ResumeRepository
+	uow        UnitOfWork
 }
 
-func NewCreateEducationHandler(r ports.CreateEducationRepository, u UnitOfWork) *CreateEducationHandler {
-	return &CreateEducationHandler{r: r, u: u}
+func NewReplaceEducationsHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceEducationsHandler {
+	return &ReplaceEducationsHandler{repository: repository, uow: uow}
 }
-func (h *CreateEducationHandler) Handle(ctx context.Context, c CreateEducationCommand) (valueobjects.ID, error) {
-	if h == nil || h.r == nil || h.u == nil {
-		return valueobjects.ID{}, fmt.Errorf("create education dependencies are nil")
+func (h *ReplaceEducationsHandler) Handle(ctx context.Context, c ReplaceEducationsCommand) error {
+	if h == nil || h.repository == nil || h.uow == nil {
+		return fmt.Errorf("replace educations handler dependencies are nil")
 	}
-	if c.ID.IsZero() {
-		c.ID = valueobjects.NewID()
-	}
-	c.Input.ID, c.Input.ResumeID = c.ID, c.ResumeID
-	a, err := educationFromInput(c.Input)
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	err = h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.CreateEducation(tx, ports.CreateEducationRepositoryCommand{Education: a, ResumeID: c.ResumeID, UserID: c.UserID})
-	})
-	if err != nil {
-		return valueobjects.ID{}, err
-	}
-	return a.ID(), nil
-}
-
-type UpdateEducationHandler struct {
-	u   ports.UpdateEducationRepository
-	uow UnitOfWork
-}
-
-func NewUpdateEducationHandler(u ports.UpdateEducationRepository, uow UnitOfWork) *UpdateEducationHandler {
-	return &UpdateEducationHandler{u: u, uow: uow}
-}
-
-func (h *UpdateEducationHandler) Handle(ctx context.Context, c UpdateEducationCommand) error {
-	if h == nil || h.u == nil || h.uow == nil {
-		return fmt.Errorf("update education dependencies are nil")
-	}
-	c.Input.ID, c.Input.ResumeID = c.EducationID, c.ResumeID
-	entity, err := educationFromInput(c.Input)
-	if err != nil {
-		return err
+	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
+		return fmt.Errorf("invalid replace educations command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.u.UpdateEducation(tx, ports.UpdateEducationRepositoryCommand{Education: entity, ResumeID: c.ResumeID, UserID: c.UserID})
+		r, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
+		if err != nil {
+			return err
+		}
+		if r.Version() != c.Version {
+			return domain.ErrConcurrencyConflict
+		}
+		if err := r.ReplaceEducations(c.Input.toDomain()); err != nil {
+			return err
+		}
+		return h.repository.Save(tx, r)
 	})
-}
-
-type DeleteEducationHandler struct {
-	r ports.DeleteEducationRepository
-	u UnitOfWork
-}
-
-func NewDeleteEducationHandler(r ports.DeleteEducationRepository, u UnitOfWork) *DeleteEducationHandler {
-	return &DeleteEducationHandler{r: r, u: u}
-}
-func (h *DeleteEducationHandler) Handle(ctx context.Context, c DeleteEducationCommand) error {
-	if h == nil || h.r == nil || h.u == nil {
-		return fmt.Errorf("delete education dependencies are nil")
-	}
-	if err := validateDeleteCommandIDs("education", c.ResumeID, c.EducationID, c.UserID); err != nil {
-		return err
-	}
-	return h.u.Do(ctx, func(tx context.Context) error {
-		return h.r.DeleteEducation(tx, ports.DeleteEducationRepositoryCommand{ResumeID: c.ResumeID, EducationID: c.EducationID, UserID: c.UserID})
-	})
-}
-func educationFromInput(input EducationInput) (*domain.Education, error) {
-	return domain.NewEducation(domain.EducationParams{ID: input.ID, ResumeID: input.ResumeID, Location: input.Location, University: input.University, Grade: input.Grade, ProgramName: input.ProgramName, ProfileName: input.ProfileName, Faculty: input.Faculty, Course: input.Course, EndDate: input.EndDate})
 }

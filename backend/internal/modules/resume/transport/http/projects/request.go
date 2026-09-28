@@ -25,6 +25,7 @@ type contactsRequest struct {
 }
 
 type projectRequest struct {
+	ID           string               `json:"id,omitempty"`
 	Name         string               `json:"name"`
 	Description  *string              `json:"description,omitempty"`
 	Role         *string              `json:"role,omitempty"`
@@ -35,7 +36,21 @@ type projectRequest struct {
 	Contributors []contributorRequest `json:"contributors"`
 }
 
+type replaceProjectsRequest struct {
+	Version int64            `json:"version"`
+	Items   []projectRequest `json:"items"`
+}
+
 func projectInput(body projectRequest) (commands.ProjectInput, error) {
+	var id valueobjects.ID
+	if body.ID != "" {
+		parsed, err := valueobjects.ParseID(body.ID)
+		if err != nil {
+			return commands.ProjectInput{}, err
+		}
+		id = parsed
+	}
+
 	screenshots := make([]valueobjects.ExternalURL, len(body.Screenshots))
 	for i, value := range body.Screenshots {
 		url, err := valueobjects.NewExternalURL(value)
@@ -92,25 +107,14 @@ func projectInput(body projectRequest) (commands.ProjectInput, error) {
 			email = &parsed
 		}
 		contributors[i] = commands.ProjectContributorInput{
-			Name:    value.Name,
-			Surname: value.Surname,
-			Role:    value.Role,
-			Contacts: commands.ProjectContactsInput{
-				Phone:    value.Contacts.Phone,
-				Telegram: telegram,
-				Email:    email,
-			},
+			Name: value.Name, Surname: value.Surname, Role: value.Role,
+			Contacts: commands.ProjectContactsInput{Phone: value.Contacts.Phone, Telegram: telegram, Email: email},
 		}
 	}
 
 	return commands.ProjectInput{
-		Name:         body.Name,
-		Description:  body.Description,
-		Role:         body.Role,
-		Screenshots:  screenshots,
-		Link:         link,
-		GitLink:      gitLink,
-		Stack:        stack,
-		Contributors: contributors,
+		ID: id, Name: body.Name, Description: body.Description, Role: body.Role,
+		Screenshots: screenshots, Link: link, GitLink: gitLink,
+		Stack: stack, Contributors: contributors,
 	}, nil
 }

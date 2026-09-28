@@ -14,12 +14,8 @@ type GetResumeQuery struct {
 	UserID   useridentity.ID
 }
 
-type OwnedResumeReader interface {
-	GetOwned(context.Context, valueobjects.ID, useridentity.ID) (ResumeView, error)
-}
-
-type PublicResumeReader interface {
-	GetPublic(context.Context, valueobjects.ID) (ResumeView, error)
+type ResumeReader interface {
+	GetOwned(context.Context, GetResumeQuery) (ResumeView, error)
 }
 
 type ResumeView struct {
@@ -28,6 +24,7 @@ type ResumeView struct {
 	Language     string              `json:"language"`
 	CreatedAt    time.Time           `json:"createdAt"`
 	UpdatedAt    time.Time           `json:"updatedAt"`
+	Version      *int64              `json:"version,omitempty"`
 	Overview     ResumeOverviewView  `json:"overview"`
 	Profile      *ResumeProfileView  `json:"profile,omitempty"`
 	Contacts     *ResumeContactsView `json:"contacts,omitempty"`
@@ -41,12 +38,11 @@ type ResumeView struct {
 	Projects     []ProjectView       `json:"projects"`
 }
 
-type GetResumeQueryHandler struct{ reader OwnedResumeReader }
+type GetResumeQueryHandler struct{ reader ResumeReader }
 
-func NewGetResumeQueryHandler(reader OwnedResumeReader) *GetResumeQueryHandler {
+func NewGetResumeQueryHandler(reader ResumeReader) *GetResumeQueryHandler {
 	return &GetResumeQueryHandler{reader: reader}
 }
-
 func (h *GetResumeQueryHandler) Handle(ctx context.Context, q GetResumeQuery) (ResumeView, error) {
 	if h == nil || h.reader == nil {
 		return ResumeView{}, fmt.Errorf("get resume query handler dependencies are nil")
@@ -54,5 +50,5 @@ func (h *GetResumeQueryHandler) Handle(ctx context.Context, q GetResumeQuery) (R
 	if q.ResumeID.IsZero() || q.UserID.IsZero() {
 		return ResumeView{}, fmt.Errorf("invalid get resume query")
 	}
-	return h.reader.GetOwned(ctx, q.ResumeID, q.UserID)
+	return h.reader.GetOwned(ctx, q)
 }

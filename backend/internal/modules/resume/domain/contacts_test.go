@@ -1,11 +1,10 @@
-package domain_test
+package domain
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
@@ -16,7 +15,7 @@ func TestContactsRejectsDuplicateHiddenFields(t *testing.T) {
 	require.NoError(t, err)
 	c, err := entities.NewContacts(entities.ContactsParams{Telegram: &tg})
 	require.NoError(t, err)
-	_, err = domain.NewContacts(domain.ContactsParams{ID: valueobjects.NewID(), ResumeID: valueobjects.NewID(), Contacts: c, HiddenContacts: []enums.ContactKey{enums.ContactKeyTelegram, enums.ContactKeyTelegram}})
+	_, err = NewContacts(ContactsParams{ID: valueobjects.NewID(), ResumeID: valueobjects.NewID(), Contacts: c, HiddenContacts: []enums.ContactKey{enums.ContactKeyTelegram, enums.ContactKeyTelegram}})
 	require.Error(t, err)
 }
 
@@ -25,7 +24,7 @@ func TestContactsKeepsOwnedStateSeparateFromPresentation(t *testing.T) {
 	require.NoError(t, err)
 	c, err := entities.NewContacts(entities.ContactsParams{Email: &email})
 	require.NoError(t, err)
-	aggregate, err := domain.NewContacts(domain.ContactsParams{ID: valueobjects.NewID(), ResumeID: valueobjects.NewID(), Contacts: c})
+	aggregate, err := NewContacts(ContactsParams{ID: valueobjects.NewID(), ResumeID: valueobjects.NewID(), Contacts: c})
 	require.NoError(t, err)
 	require.Equal(t, "person@example.com", aggregate.Contacts().Email().String())
 }
@@ -41,7 +40,7 @@ func TestContactsClonePreservesContactsText(t *testing.T) {
 	text, err := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: &title})
 	require.NoError(t, err)
 
-	aggregate, err := domain.NewContacts(domain.ContactsParams{
+	aggregate, err := NewContacts(ContactsParams{
 		ID:       valueobjects.NewID(),
 		ResumeID: valueobjects.NewID(),
 		Contacts: func() entities.Contacts {
@@ -56,28 +55,28 @@ func TestContactsClonePreservesContactsText(t *testing.T) {
 	require.Equal(t, "Contacts", *aggregate.Text().Title())
 }
 
-func TestContactsAllowsHiddenContactThatIsNotPresent(t *testing.T) {
+func TestContactsRejectsHiddenContactThatIsNotPresent(t *testing.T) {
 	email, err := valueobjects.NewEmail("person@example.com")
 	require.NoError(t, err)
 	contacts, err := entities.NewContacts(entities.ContactsParams{Email: &email})
 	require.NoError(t, err)
 
-	aggregate, err := domain.NewContacts(domain.ContactsParams{
+	_, err = NewContacts(ContactsParams{
 		ID:             valueobjects.NewID(),
 		ResumeID:       valueobjects.NewID(),
 		Contacts:       contacts,
 		HiddenContacts: []enums.ContactKey{enums.ContactKeyPhone},
 	})
 
-	require.NoError(t, err)
-	require.Equal(t, []enums.ContactKey{enums.ContactKeyPhone}, aggregate.HiddenContacts())
+	require.ErrorIs(t, err, ErrResumeInvariant)
+	require.ErrorContains(t, err, "hidden contact is not filled")
 }
 
 func TestContactsRejectsEmptyContactSet(t *testing.T) {
-	_, err := domain.NewContacts(domain.ContactsParams{
+	_, err := NewContacts(ContactsParams{
 		ID:       valueobjects.NewID(),
 		ResumeID: valueobjects.NewID(),
 	})
 
-	require.ErrorIs(t, err, domain.ErrInvalidResume)
+	require.ErrorIs(t, err, ErrInvalidResume)
 }

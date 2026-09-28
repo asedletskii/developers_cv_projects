@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume/domain/entities"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 )
@@ -31,14 +30,11 @@ func TestNewExperienceTrimsValuesAndBuildsChildren(t *testing.T) {
 	start, err := valueobjects.ParseYearMonth("2024-01")
 	require.NoError(t, err)
 	grade := enums.TechnologyGradeSenior
-	technology, err := entities.NewTechnology(entities.TechnologyParams{Name: " Go ", Grade: &grade})
-	require.NoError(t, err)
-
 	item, err := NewExperience(ExperienceParams{
 		ID: id, ResumeID: resumeID, Company: " Acme ", Position: " Developer ",
 		StartDate:    start,
 		Achievements: []string{" shipped v2 ", "reduced latency"},
-		Stack:        []entities.Technology{technology},
+		Stack:        []ExperienceStackParams{{Name: " Go ", Grade: &grade}},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "Acme", item.Company())

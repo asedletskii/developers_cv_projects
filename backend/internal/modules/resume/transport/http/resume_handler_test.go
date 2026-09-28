@@ -14,6 +14,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/domain/enums"
+	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
 	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -26,6 +29,39 @@ type stubListReader struct {
 func (r *stubListReader) ListResumes(_ context.Context, query queries.ListResumesQuery) ([]queries.ResumeListItem, error) {
 	r.userID = query.UserID
 	return r.items, nil
+}
+
+type stubOwnedResumeReader struct {
+	view queries.ResumeView
+}
+
+func (r stubOwnedResumeReader) GetOwned(context.Context, queries.GetResumeQuery) (queries.ResumeView, error) {
+	return r.view, nil
+}
+
+func TestHandlerReturnsResumeVersion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID := uuid.New()
+	getHandler := queries.NewGetResumeQueryHandler(stubOwnedResumeReader{
+		view: queries.ResumeView{ID: resumeID.String(), Title: "CV", Version: int64Ptr(42)},
+	})
+	handler := newResumeHandler(nil, getHandler, nil, nil, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.GET("/api/v1/lk/resume/:resumeId", handler.Get)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/resume/"+resumeID.String(), nil)
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"version":42`)
 }
 
 func TestHandlerRequiresAuthentication(t *testing.T) {
@@ -74,12 +110,24 @@ func TestHandlerReturnsCurrentUsersResumes(t *testing.T) {
 	require.Equal(t, userID, reader.userID.UUID())
 }
 
-type stubReplaceResumeTitleRepository struct {
-	cmd ports.ReplaceResumeTitleRepositoryCommand
+type stubResumeRepository struct {
+	resume  *domain.Resume
+	saved   *domain.Resume
+	version int64
 }
 
-func (r *stubReplaceResumeTitleRepository) ReplaceResumeTitle(_ context.Context, cmd ports.ReplaceResumeTitleRepositoryCommand) error {
-	r.cmd = cmd
+func (r *stubResumeRepository) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
+	return r.resume, nil
+}
+
+func (r *stubResumeRepository) Save(_ context.Context, resume *domain.Resume) error {
+	r.saved = resume
+	r.version = resume.Version()
+	return nil
+}
+
+func (r *stubResumeRepository) Create(context.Context, *domain.Resume) error { return nil }
+func (r *stubResumeRepository) Delete(context.Context, ports.DeleteResumeParams) error {
 	return nil
 }
 
@@ -89,12 +137,26 @@ func (stubResumeUnitOfWork) Do(ctx context.Context, fn func(context.Context) err
 	return fn(ctx)
 }
 
+func newStubResume(t *testing.T, resumeID uuid.UUID, userID uuid.UUID, version int64) *domain.Resume {
+	t.Helper()
+	id, err := valueobjects.IDFromUUID(resumeID)
+	require.NoError(t, err)
+	uid, err := useridentity.IDFromUUID(userID)
+	require.NoError(t, err)
+	resume, err := domain.NewResume(domain.ResumeParams{
+		ID: id, UserID: uid, Title: "Old title", Language: enums.ResumeLanguageEN, Version: version,
+	})
+	require.NoError(t, err)
+	return resume
+}
+
 func TestHandlerReplacesResumeTitle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	userID := uuid.New()
 	resumeID := uuid.New()
-	repository := &stubReplaceResumeTitleRepository{}
+	resume := newStubResume(t, resumeID, userID, 4)
+	repository := &stubResumeRepository{resume: resume}
 	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
 	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
 
@@ -104,22 +166,21 @@ func TestHandlerReplacesResumeTitle(t *testing.T) {
 	}))
 	engine.PUT("/api/v1/lk/resume/:resumeId", handler.ReplaceTitle)
 
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resumeID.String(), bytes.NewBufferString(`{"title":"Senior Go Developer"}`))
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resumeID.String(), bytes.NewBufferString(`{"version":4,"title":"Senior Go Developer"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusNoContent, w.Code)
-	require.Equal(t, resumeID, repository.cmd.ResumeID.UUID())
-	require.Equal(t, userID, repository.cmd.UserID.UUID())
-	require.Equal(t, "Senior Go Developer", repository.cmd.Title)
+	require.Equal(t, "Senior Go Developer", repository.saved.Title())
+	require.Equal(t, int64(4), repository.version)
 }
 
 func TestHandlerRejectsLanguageInResumeTitleReplacement(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	replaceHandler := commands.NewReplaceResumeTitleHandler(&stubReplaceResumeTitleRepository{}, stubResumeUnitOfWork{})
+	replaceHandler := commands.NewReplaceResumeTitleHandler(&stubResumeRepository{}, stubResumeUnitOfWork{})
 	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
 
 	engine := gin.New()
@@ -128,7 +189,7 @@ func TestHandlerRejectsLanguageInResumeTitleReplacement(t *testing.T) {
 	}))
 	engine.PUT("/api/v1/lk/resume/:resumeId", handler.ReplaceTitle)
 
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+uuid.New().String(), bytes.NewBufferString(`{"title":"Senior Go Developer","language":"en"}`))
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+uuid.New().String(), bytes.NewBufferString(`{"version":1,"title":"Senior Go Developer","language":"en"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -137,23 +198,57 @@ func TestHandlerRejectsLanguageInResumeTitleReplacement(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestHandlerReturnsBadRequestForInvalidResumeTitle(t *testing.T) {
+func TestHandlerMapsResumeTitleConcurrencyConflictToPreconditionFailed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	replaceHandler := commands.NewReplaceResumeTitleHandler(&stubReplaceResumeTitleRepository{}, stubResumeUnitOfWork{})
+	userID := uuid.New()
+	resumeID := uuid.New()
+	resume := newStubResume(t, resumeID, userID, 2)
+	repository := &stubResumeRepository{resume: resume}
+	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
 	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
-		return uuid.New(), nil
+		return userID, nil
 	}))
 	engine.PUT("/api/v1/lk/resume/:resumeId", handler.ReplaceTitle)
 
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+uuid.New().String(), bytes.NewBufferString(`{"title":"   "}`))
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resumeID.String(), bytes.NewBufferString(`{"version":1,"title":"New title"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusPreconditionFailed, w.Code)
+	require.Nil(t, repository.saved)
+}
+
+func TestHandlerReturnsBadRequestForInvalidResumeTitle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID := uuid.New()
+	resume := newStubResume(t, resumeID, userID, 1)
+	repository := &stubResumeRepository{resume: resume}
+	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
+	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.PUT("/api/v1/lk/resume/:resumeId", handler.ReplaceTitle)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resumeID.String(), bytes.NewBufferString(`{"version":1,"title":"   "}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func int64Ptr(value int64) *int64 {
+	return &value
 }
