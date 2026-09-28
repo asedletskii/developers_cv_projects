@@ -19,12 +19,9 @@ FROM user_profiles;
 ALTER TABLE user_profiles
     DROP CONSTRAINT user_profiles_name_check,
     DROP CONSTRAINT user_profiles_surname_check,
-    DROP CONSTRAINT user_profiles_photo_path_check,
     DROP COLUMN name,
     DROP COLUMN surname,
     DROP COLUMN patronymic,
     DROP COLUMN position,
     DROP COLUMN location;
 
-ALTER TABLE user_profiles
-    ADD CONSTRAINT user_profiles_photo_path_check CHECK (photo_path IS NULL OR photo_path ~ '^/[^/].*$');

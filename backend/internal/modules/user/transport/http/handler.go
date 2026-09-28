@@ -1,8 +1,6 @@
 package http
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/user/application/commands"
@@ -12,11 +10,7 @@ import (
 
 type Handler struct{ profile *profilehandler.Handler }
 
-type profileReplacer interface {
-	Handle(context.Context, commands.ReplaceProfileCommand) error
-}
-
-func NewHandler(getProfile *queries.GetProfileHandler, replaceProfile profileReplacer) *Handler {
+func NewHandler(getProfile *queries.GetProfileHandler, replaceProfile *commands.ReplaceProfileHandler) *Handler {
 	return &Handler{profile: profilehandler.NewHandler(getProfile, replaceProfile)}
 }
 

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,7 +33,7 @@ func (r *ProfileRepository) ReplaceProfile(ctx context.Context, profile *domain.
 	now := time.Now().UTC()
 	model := gormmodel.UserProfile{UserID: profile.UserID.UUID(), PhotoPath: profile.PhotoPath, CreatedAt: now, UpdatedAt: now}
 	if err := db.WithContext(ctx).Where("user_id = ?", profile.UserID.UUID()).First(&model).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("replace profile: load profile: %w", err)
 		}
 		if err := db.WithContext(ctx).Create(&model).Error; err != nil {
@@ -49,11 +50,14 @@ func (r *ProfileRepository) ReplaceProfile(ctx context.Context, profile *domain.
 	}
 
 	rows := make([]gormmodel.UserProfileLocalization, 0, 2)
-	for language, localized := range map[string]domain.LocalizedProfile{"ru": profile.RU, "en": profile.EN} {
+	for language, localized := range map[domain.ProfileLanguage]domain.LocalizedProfile{
+		domain.ProfileLanguageRU: profile.RU,
+		domain.ProfileLanguageEN: profile.EN,
+	} {
 		if localizedEmpty(localized) {
 			continue
 		}
-		rows = append(rows, gormmodel.UserProfileLocalization{UserID: profile.UserID.UUID(), Language: language, Name: localized.Name, Surname: localized.Surname, Patronymic: localized.Patronymic, Position: localized.Position, Location: localized.Location})
+		rows = append(rows, gormmodel.UserProfileLocalization{UserID: profile.UserID.UUID(), Language: string(language), Name: localized.Name, Surname: localized.Surname, Patronymic: localized.Patronymic, Position: localized.Position, Location: localized.Location})
 	}
 	if len(rows) > 0 {
 		if err := db.WithContext(ctx).Create(&rows).Error; err != nil {

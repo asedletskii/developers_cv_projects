@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
+	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
 )
@@ -41,9 +42,9 @@ func (r *GetProfileReader) GetProfile(ctx context.Context, query queries.GetProf
 	for _, localization := range localizations {
 		localized := queries.LocalizedProfile{Name: localization.Name, Surname: localization.Surname, Patronymic: localization.Patronymic, Position: localization.Position, Location: localization.Location}
 		switch localization.Language {
-		case "ru":
+		case string(domain.ProfileLanguageRU):
 			result.RU = localized
-		case "en":
+		case string(domain.ProfileLanguageEN):
 			result.EN = localized
 		}
 	}

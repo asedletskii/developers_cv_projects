@@ -121,7 +121,7 @@ func TestReplaceReturnsNoContent(t *testing.T) {
 	userID := uuid.New()
 	replace := &stubReplaceProfileHandler{}
 	engine := newTestEngineWithProfile(userID, nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
-	body := []byte(`{"ru":{"name":"Дмитрий","surname":"Костерин","patronymic":"Александрович","position":"Backend Developer","location":"Томск"},"en":{"name":"Dmitry","surname":"Kosterin","patronymic":"Alexandrovich","position":"Backend Developer","location":"Tomsk"},"photoPath":"/profiles/dmitry.svg"}`)
+	body := []byte(`{"ru":{"name":"Дмитрий","surname":"Костерин","patronymic":"Александрович","position":"Backend Developer","location":"Томск"},"en":{"name":"Dmitry","surname":"Kosterin","patronymic":"Alexandrovich","position":"Backend Developer","location":"Tomsk"},"photoPath":"https://example.com/profiles/dmitry.svg"}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/profile", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -139,11 +139,59 @@ func TestReplaceReturnsNoContent(t *testing.T) {
 	require.Equal(t, "Alexandrovich", *replace.command.EN.Patronymic)
 	require.Equal(t, "Backend Developer", *replace.command.EN.Position)
 	require.Equal(t, "Tomsk", *replace.command.EN.Location)
-	require.Equal(t, "/profiles/dmitry.svg", *replace.command.PhotoPath)
+	require.Equal(t, "https://example.com/profiles/dmitry.svg", *replace.command.PhotoPath)
 }
 
 func newTestEngineWithProfile(userID uuid.UUID, authErr error, handler *Handler, replace *stubReplaceProfileHandler) *gin.Engine {
 	engine := newTestEngine(userID, authErr, handler)
 	engine.PUT("/api/v1/lk/profile", handler.Replace)
 	return engine
+}
+
+func TestReplaceRejectsEmptyNameBeforeCommand(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	replace := &stubReplaceProfileHandler{}
+	engine := newTestEngineWithProfile(userID, nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
+	body := []byte(`{"ru":{"name":"   ","surname":"Костерин"}}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/profile", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "BAD_REQUEST")
+	require.False(t, replace.called)
+}
+
+func TestReplaceRejectsEmptySurnameBeforeCommand(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	replace := &stubReplaceProfileHandler{}
+	engine := newTestEngineWithProfile(userID, nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
+	body := []byte(`{"en":{"name":"Dmitry","surname":"\t"}}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/profile", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "BAD_REQUEST")
+	require.False(t, replace.called)
+}
+
+func TestReplaceRejectsInvalidPhotoPathBeforeCommand(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	replace := &stubReplaceProfileHandler{}
+	engine := newTestEngineWithProfile(userID, nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
+	body := []byte(`{"ru":{"name":"Дмитрий","surname":"Костерин"},"photoPath":"/profiles/dmitry.svg"}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/profile", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "BAD_REQUEST")
+	require.False(t, replace.called)
 }

@@ -9,6 +9,7 @@ import (
 
 	"developers-cv/backend/internal/modules/user/application/commands"
 	"developers-cv/backend/internal/modules/user/application/queries"
+	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
@@ -82,6 +83,23 @@ func (h *Handler) Replace(c *gin.Context) {
 		return
 	}
 
+	if err := validateLocalizedProfile(body.RU, domain.ProfileLanguageRU); err != nil {
+		apperrors.WriteError(c, err)
+		return
+	}
+	if err := validateLocalizedProfile(body.EN, domain.ProfileLanguageEN); err != nil {
+		apperrors.WriteError(c, err)
+		return
+	}
+	if err := domain.ValidatePhotoPath(body.PhotoPath); err != nil {
+		if errors.Is(err, domain.ErrInvalidProfile) {
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
+			return
+		}
+		apperrors.WriteError(c, err)
+		return
+	}
+
 	err = h.replace.Handle(c.Request.Context(), commands.ReplaceProfileCommand{
 		UserID:    identity,
 		RU:        commands.LocalizedProfileInput{Name: body.RU.Name, Surname: body.RU.Surname, Patronymic: body.RU.Patronymic, Position: body.RU.Position, Location: body.RU.Location},
@@ -89,8 +107,26 @@ func (h *Handler) Replace(c *gin.Context) {
 		PhotoPath: body.PhotoPath,
 	})
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidProfile) {
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
+			return
+		}
 		apperrors.WriteError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func validateLocalizedProfile(profile localizedProfileRequest, language domain.ProfileLanguage) error {
+	localized := domain.LocalizedProfile{
+		Name: profile.Name, Surname: profile.Surname, Patronymic: profile.Patronymic,
+		Position: profile.Position, Location: profile.Location,
+	}
+	if err := domain.ValidateLocalizedProfile(localized, language); err != nil {
+		if errors.Is(err, domain.ErrInvalidProfile) {
+			return apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error())
+		}
+		return err
+	}
+	return nil
 }
