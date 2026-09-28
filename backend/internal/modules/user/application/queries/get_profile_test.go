@@ -24,10 +24,7 @@ func (f *fakeGetProfileReader) GetProfile(_ context.Context, query GetProfileQue
 func TestGetProfileHandlerReturnsProfile(t *testing.T) {
 	userID := valueobjects.NewID()
 	reader := &fakeGetProfileReader{profile: Profile{
-		ID:       userID.String(),
-		Name:     "Антон",
-		Surname:  "Седлецкий",
-		Position: stringPtr("Frontend"),
+		ID: userID.String(), RU: LocalizedProfile{Name: stringPtr("Антон"), Surname: stringPtr("Седлецкий"), Position: stringPtr("Frontend")},
 	}}
 	handler := NewGetProfileHandler(reader)
 

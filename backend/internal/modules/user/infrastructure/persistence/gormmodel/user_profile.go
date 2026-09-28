@@ -7,17 +7,22 @@ import (
 )
 
 type UserProfile struct {
+	UserID    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	PhotoPath *string
+	CreatedAt time.Time `gorm:"not null"`
+	UpdatedAt time.Time `gorm:"not null"`
+}
+
+func (UserProfile) TableName() string { return "user_profiles" }
+
+type UserProfileLocalization struct {
 	UserID     uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Name       string    `gorm:"not null"`
-	Surname    string    `gorm:"not null"`
+	Language   string    `gorm:"primaryKey"`
+	Name       *string
+	Surname    *string
 	Patronymic *string
 	Position   *string
 	Location   *string
-	PhotoPath  *string
-	CreatedAt  time.Time `gorm:"not null"`
-	UpdatedAt  time.Time `gorm:"not null"`
 }
 
-func (UserProfile) TableName() string {
-	return "user_profiles"
-}
+func (UserProfileLocalization) TableName() string { return "user_profile_localizations" }

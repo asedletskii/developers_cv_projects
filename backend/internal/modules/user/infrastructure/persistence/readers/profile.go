@@ -32,5 +32,20 @@ func (r *GetProfileReader) GetProfile(ctx context.Context, query queries.GetProf
 		}
 		return queries.Profile{}, fmt.Errorf("get profile: %w", err)
 	}
-	return queries.Profile{ID: model.UserID.String(), Name: model.Name, Surname: model.Surname, Patronymic: model.Patronymic, Position: model.Position, Location: model.Location, PhotoPath: model.PhotoPath}, nil
+
+	var localizations []gormmodel.UserProfileLocalization
+	if err := db.Where("user_id = ?", query.UserID.UUID()).Find(&localizations).Error; err != nil {
+		return queries.Profile{}, fmt.Errorf("get profile: load localizations: %w", err)
+	}
+	result := queries.Profile{ID: model.UserID.String(), PhotoPath: model.PhotoPath}
+	for _, localization := range localizations {
+		localized := queries.LocalizedProfile{Name: localization.Name, Surname: localization.Surname, Patronymic: localization.Patronymic, Position: localization.Position, Location: localization.Location}
+		switch localization.Language {
+		case "ru":
+			result.RU = localized
+		case "en":
+			result.EN = localized
+		}
+	}
+	return result, nil
 }

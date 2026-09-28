@@ -23,6 +23,7 @@ import (
 	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
 	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
+	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
@@ -107,6 +108,7 @@ func Initialize() (*Application, error) {
 		userauth.NewMockAuthenticator,
 		newAuthenticate,
 		userqueries.NewGetProfileHandler,
+		usercommands.NewReplaceProfileHandler,
 		userhttp.NewHandler,
 
 		httpserver.NewRouter,
