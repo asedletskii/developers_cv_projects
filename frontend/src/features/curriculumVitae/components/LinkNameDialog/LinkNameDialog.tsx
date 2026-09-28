@@ -10,7 +10,6 @@ type Props = {
   onClose: () => void
 }
 
-/** Имя ссылки: один диалог и для создания, и для переименования. */
 export const LinkNameDialog = ({ title, initialName, onSave, onClose }: Props) => {
   const translate = useTranslate('Lk.Links')
   const { name, setName, canSave, save, handleKeyDown } = useLinkNameDialog({

@@ -45,6 +45,7 @@ export const sharedDict = {
       cannotGetProject: 'Не удалось загрузить проект',
       revealFailed: 'Не удалось показать контакт',
       statusChangeFailed: 'Не удалось изменить статус резюме',
+      linkActionFailed: 'Не удалось сохранить ссылку',
     },
   },
   en: {
@@ -93,6 +94,7 @@ export const sharedDict = {
       cannotGetProject: "Couldn't load the project",
       revealFailed: "Couldn't reveal the contact",
       statusChangeFailed: "Couldn't change the résumé status",
+      linkActionFailed: "Couldn't save the link",
     },
   },
 } as const

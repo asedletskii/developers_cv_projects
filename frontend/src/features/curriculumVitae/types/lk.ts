@@ -38,6 +38,22 @@ export type LkProfile = {
   photoPath?: string
 }
 
+/** Статус ссылки: `active` — открывается, `inactive` — отключена (без удаления, можно включить
+ *  обратно). `version` — оптимистическая блокировка для `PUT /lk/link/:id/status`. */
+export const LINK_STATUSES = ['active', 'inactive'] as const
+export type LinkStatus = (typeof LINK_STATUSES)[number]
+
+/** Именованная ссылка на резюме — свой UUID, а не резюме с меткой, чтобы адресат не мог её
+ *  подменить, а бэк по нему считал просмотры отдельно от публичного адреса. */
+export type ResumeLink = {
+  id: string
+  name: string
+  status: LinkStatus
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
 /** Секции, у которых на резюме ровно одна запись — сохраняются целиком через `PUT` */
 export type SingletonSection = 'overview' | 'profile' | 'contacts' | 'skills'
 

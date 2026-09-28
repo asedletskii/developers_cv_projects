@@ -1,23 +1,19 @@
 import { MouseEvent } from 'react'
 import { ContentCopyRounded, MoreVertRounded, OpenInNewRounded } from '@mui/icons-material'
-import { Button, IconButton, Stack, Typography } from '@mui/material'
+import { Button, Chip, IconButton, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
 type Props = {
   name: string
   url: string
+  isActive: boolean
   isCopied: boolean
   onCopy: () => void
-
-  /** Публичная ссылка открывается по клику; именованные бэк пока не разрешает в резюме */
-  isPublic?: boolean
-
-  /** Меню действий (переименовать, удалить) — только у именованных ссылок */
-  onOpenMenu?: (e: MouseEvent<HTMLElement>) => void
+  onOpenMenu: (e: MouseEvent<HTMLElement>) => void
 }
 
-/** Одна строка списка ссылок: название, адрес и действия. */
-export const LinkRow = ({ name, url, isCopied, onCopy, isPublic, onOpenMenu }: Props) => {
+/** Неактивная ссылка не открывается — приглушаем строку и убираем кнопку «Открыть». */
+export const LinkRow = ({ name, url, isActive, isCopied, onCopy, onOpenMenu }: Props) => {
   const translate = useTranslate('Lk.Links')
 
   return (
@@ -25,14 +21,24 @@ export const LinkRow = ({ name, url, isCopied, onCopy, isPublic, onOpenMenu }: P
       direction="row"
       alignItems="center"
       spacing={1}
-      sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 2 }}
+      sx={{
+        p: 1.5,
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 2,
+        opacity: isActive ? 1 : 0.6,
+      }}
     >
-      <Stack sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 600 }}>{name}</Typography>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1, minWidth: 0 }}>
+        <Stack sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 600 }}>{name}</Typography>
 
-        <Typography variant="body2" noWrap sx={{ color: 'text.secondary' }}>
-          {url}
-        </Typography>
+          <Typography variant="body2" noWrap sx={{ color: 'text.secondary' }}>
+            {url}
+          </Typography>
+        </Stack>
+
+        {!isActive && <Chip size="small" label={translate('inactive')} />}
       </Stack>
 
       <Button
@@ -44,7 +50,7 @@ export const LinkRow = ({ name, url, isCopied, onCopy, isPublic, onOpenMenu }: P
         {translate(isCopied ? 'copied' : 'copy')}
       </Button>
 
-      {isPublic && (
+      {isActive && (
         <IconButton
           size="small"
           component="a"
@@ -57,11 +63,9 @@ export const LinkRow = ({ name, url, isCopied, onCopy, isPublic, onOpenMenu }: P
         </IconButton>
       )}
 
-      {onOpenMenu && (
-        <IconButton size="small" aria-label={translate('actions')} onClick={onOpenMenu}>
-          <MoreVertRounded fontSize="small" />
-        </IconButton>
-      )}
+      <IconButton size="small" aria-label={translate('actions')} onClick={onOpenMenu}>
+        <MoreVertRounded fontSize="small" />
+      </IconButton>
     </Stack>
   )
 }

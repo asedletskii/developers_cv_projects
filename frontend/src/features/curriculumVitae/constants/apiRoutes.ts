@@ -5,8 +5,9 @@ export const API_ROUTES = {
   lkCreateResume: '/lk/resume',
   lkResume: '/lk/resume/:resumeId',
   lkResumeStatus: '/lk/resume/:resumeId/status',
-  /** Любая секция (синглтон или список) сохраняется целиком одним `PUT` на этот адрес */
   lkSection: '/lk/resume/:resumeId/:section',
-  /** Значение скрытого контакта — бэк отдаёт его только по явному запросу, не в самом резюме */
   contactViews: '/cv/:resumeId/contact-views',
+  lkLinks: '/lk/link',
+  lkLink: '/lk/link/:linkId',
+  lkLinkStatus: '/lk/link/:linkId/status',
 } as const

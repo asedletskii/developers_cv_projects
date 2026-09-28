@@ -4,7 +4,7 @@ import { LinksTab } from '@features/curriculumVitae/components/LinksTab'
 import { MainTab } from '@features/curriculumVitae/components/MainTab'
 import { ResumeEditor } from '@features/curriculumVitae/components/ResumeEditor'
 import { ResumeHeader } from '@features/curriculumVitae/components/ResumeHeader'
-import { useOwnerResume } from '@features/curriculumVitae/hooks'
+import { useOwnerResume, useResumeLinks } from '@features/curriculumVitae/hooks'
 import { LinearProgress, Stack, Tab, Tabs } from '@mui/material'
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -24,6 +24,7 @@ const LkResumeEditScreen = () => {
   const translateSections = useTranslate('Lk.Sections')
   const { view, error, setError, reload } = useOwnerResume(userId, cvId)
   const { section, changeSection, openEditTab, isDirtyRef } = useResumeSections()
+  const linksState = useResumeLinks(userId, view?.id)
 
   if (error) return <LoadFailure error={error} />
   if (!view || !userId) return <LinearProgress />
@@ -44,13 +45,15 @@ const LkResumeEditScreen = () => {
           ))}
         </Tabs>
 
-        {section === 'main' && <MainTab view={view} onOpenTab={openEditTab} />}
+        {section === 'main' && (
+          <MainTab view={view} linksState={linksState} onOpenTab={openEditTab} />
+        )}
 
         {section === 'edit' && (
           <ResumeEditor userId={userId} view={view} onSaved={reload} isDirtyRef={isDirtyRef} />
         )}
 
-        {section === 'links' && <LinksTab resumeId={view.id} />}
+        {section === 'links' && <LinksTab linksState={linksState} />}
 
         {section === 'analytics' && <AnalyticsTab />}
       </Stack>

@@ -1,21 +1,19 @@
 import { MouseEvent, useState } from 'react'
+import { useResumeLinks } from '@features/curriculumVitae/hooks'
+import { ResumeLink } from '@features/curriculumVitae/types'
 import { getResumeLinkUrl } from '@features/curriculumVitae/utils'
 import { useCopyToClipboard, useTranslate } from '@shared/hooks'
-import { ResumeLink, useResumeLinks } from './useResumeLinks'
 
 type Dialog = { mode: 'create' } | { mode: 'rename'; link: ResumeLink }
 type Menu = { anchor: HTMLElement; link: ResumeLink }
 
-/** Логика вкладки «Ссылки»: список ссылок, диалог имени, меню действий и копирование. */
-export const useLinksTab = (resumeId: string) => {
+export const useLinksTab = (linksState: ReturnType<typeof useResumeLinks>) => {
   const translate = useTranslate('Lk.Links')
-  const { links, create, rename, remove } = useResumeLinks(resumeId)
+  const { links, isLoading, hasLoadError, create, rename, remove, changeStatus } = linksState
   const { copiedKey, copy } = useCopyToClipboard()
 
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [menu, setMenu] = useState<Menu | null>(null)
-
-  const publicUrl = getResumeLinkUrl(resumeId)
 
   const openCreate = () => setDialog({ mode: 'create' })
   const closeDialog = () => setDialog(null)
@@ -41,9 +39,18 @@ export const useLinksTab = (resumeId: string) => {
     setMenu(null)
   }
 
+  const toggleStatusFromMenu = () => {
+    if (menu) {
+      const { id, version, status } = menu.link
+      changeStatus(id, version, status === 'active' ? 'inactive' : 'active')
+    }
+    setMenu(null)
+  }
+
   return {
     links,
-    publicUrl,
+    isLoading,
+    hasLoadError,
     getLinkUrl: (link: ResumeLink) => getResumeLinkUrl(link.id),
     copiedKey,
     copy,
@@ -56,5 +63,6 @@ export const useLinksTab = (resumeId: string) => {
     closeMenu,
     renameFromMenu,
     removeFromMenu,
+    toggleStatusFromMenu,
   }
 }

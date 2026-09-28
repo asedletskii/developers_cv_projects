@@ -1,12 +1,14 @@
 import { API_ROUTES } from '@features/curriculumVitae/constants'
 import {
   ContactKey,
+  LinkStatus,
   ListSection,
   LkLocalizedProfile,
   LkProfile,
   LkResumeSummary,
   Resume,
   ResumeLanguage,
+  ResumeLink,
   ResumeStatus,
   SingletonSection,
 } from '@features/curriculumVitae/types'
@@ -111,6 +113,55 @@ class CurriculumVitaeApi {
       { contact },
     )
     return response.data.value
+  }
+
+  async getResumeLinks(
+    userId: string,
+    resumeId: string,
+    signal?: AbortSignal,
+  ): Promise<ResumeLink[]> {
+    const response = await api.get<ResumeLink[]>(API_ROUTES.lkLinks, {
+      signal,
+      params: { resumeId },
+      headers: ownerHeaders(userId),
+    })
+    return response.data
+  }
+
+  async createResumeLink(userId: string, resumeId: string, name: string): Promise<string> {
+    const response = await api.post<{ id: string }>(
+      API_ROUTES.lkLinks,
+      { resumeId, name },
+      { headers: ownerHeaders(userId) },
+    )
+    return response.data.id
+  }
+
+  async renameResumeLink(userId: string, linkId: string, name: string): Promise<void> {
+    await api.put(
+      generatePath(API_ROUTES.lkLink, { linkId }),
+      { name },
+      { headers: ownerHeaders(userId) },
+    )
+  }
+
+  async deleteResumeLink(userId: string, linkId: string): Promise<void> {
+    await api.delete(generatePath(API_ROUTES.lkLink, { linkId }), {
+      headers: ownerHeaders(userId),
+    })
+  }
+
+  async changeLinkStatus(
+    userId: string,
+    linkId: string,
+    version: number,
+    status: LinkStatus,
+  ): Promise<void> {
+    await api.put(
+      generatePath(API_ROUTES.lkLinkStatus, { linkId }),
+      { version, status },
+      { headers: ownerHeaders(userId) },
+    )
   }
 }
 
