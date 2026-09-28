@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +41,7 @@ func (h *Handler) Replace(c *gin.Context) {
 		return
 	}
 	if err = h.replace.Handle(c.Request.Context(), cmd); err != nil {
-		if err == domain.ErrConcurrencyConflict {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
 			c.Status(http.StatusPreconditionFailed)
 			return
 		}

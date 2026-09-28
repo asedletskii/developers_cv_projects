@@ -582,6 +582,9 @@ func (r *Resume) Technologies() *ResumeTechnologies {
 }
 
 func (r *Resume) Experiences() []*Experience {
+	if r == nil {
+		return nil
+	}
 	return append([]*Experience(nil), r.experiences...)
 }
 

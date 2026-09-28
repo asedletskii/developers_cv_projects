@@ -41,6 +41,31 @@ func (uowStub) Do(_ context.Context, fn func(context.Context) error) error {
 	return fn(context.Background())
 }
 
+func TestReplaceExperiencesMapsConcurrencyConflictToPreconditionFailed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	uid := useridentity.NewID()
+	resume, err := domain.NewResume(domain.ResumeParams{
+		ID: valueobjects.NewID(), UserID: uid, Title: "Resume", Language: enums.ResumeLanguageEN, Version: 2,
+	})
+	require.NoError(t, err)
+	repo := &aggregateRepositoryStub{resume: resume}
+	handler := NewHandler(commands.NewReplaceExperiencesHandler(repo, uowStub{}))
+
+	engine := gin.New()
+	engine.PUT("/api/v1/lk/resume/:resumeId/experiences", func(c *gin.Context) {
+		c.Set("user_id", uid.UUID())
+		handler.Replace(c)
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resume.ID().String()+"/experiences", strings.NewReader(`{"version":1,"items":[]}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusPreconditionFailed, w.Code)
+	require.False(t, repo.saved)
+}
+
 func TestReplaceExperiencesBindsFullSnapshot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	uid := useridentity.NewID()

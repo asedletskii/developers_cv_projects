@@ -1,11 +1,13 @@
 package experiences
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
@@ -54,19 +56,23 @@ func (h *Handler) Replace(c *gin.Context) {
 		common.WriteInvalidBody(c)
 		return
 	}
-	items, err := experienceInputs(body.Items, rid)
+	items, err := experienceInputs(body.Items)
 	if err != nil {
 		common.WriteCommandError(c, err)
 		return
 	}
 	if err := h.replace.Handle(c.Request.Context(), commands.ReplaceExperiencesCommand{ResumeID: rid, UserID: uid, Version: body.Version, Input: commands.ExperiencesInput{Items: items}}); err != nil {
+		if errors.Is(err, domain.ErrConcurrencyConflict) {
+			c.Status(http.StatusPreconditionFailed)
+			return
+		}
 		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
 }
 
-func experienceInputs(values []experienceRequest, resumeID valueobjects.ID) ([]commands.ExperienceInput, error) {
+func experienceInputs(values []experienceRequest) ([]commands.ExperienceInput, error) {
 	out := make([]commands.ExperienceInput, 0, len(values))
 	for _, body := range values {
 		var id valueobjects.ID

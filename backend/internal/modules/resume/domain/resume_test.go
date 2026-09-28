@@ -33,6 +33,12 @@ func TestNewResumeRequiresValidLanguage(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestResumeExperiencesReturnsNilForNilReceiver(t *testing.T) {
+	var resume *Resume
+
+	require.Nil(t, resume.Experiences())
+}
+
 func TestResumeReplaceTitleKeepsLanguageImmutable(t *testing.T) {
 	params := validResumeParams()
 	resume, err := NewResume(params)

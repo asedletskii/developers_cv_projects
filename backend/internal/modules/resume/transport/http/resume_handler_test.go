@@ -198,6 +198,32 @@ func TestHandlerRejectsLanguageInResumeTitleReplacement(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestHandlerMapsResumeTitleConcurrencyConflictToPreconditionFailed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID := uuid.New()
+	resume := newStubResume(t, resumeID, userID, 2)
+	repository := &stubResumeRepository{resume: resume}
+	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
+	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.PUT("/api/v1/lk/resume/:resumeId", handler.ReplaceTitle)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resumeID.String(), bytes.NewBufferString(`{"version":1,"title":"New title"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusPreconditionFailed, w.Code)
+	require.Nil(t, repository.saved)
+}
+
 func TestHandlerReturnsBadRequestForInvalidResumeTitle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
