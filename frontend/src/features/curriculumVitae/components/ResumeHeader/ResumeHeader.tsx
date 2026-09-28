@@ -1,4 +1,5 @@
 import { EditResumeTitleDialog } from '@features/curriculumVitae/components/EditResumeTitleDialog'
+import { ResumeStatusChip } from '@features/curriculumVitae/components/ResumeStatusChip'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { CurriculumVitaeError, Resume } from '@features/curriculumVitae/types'
 import {
@@ -6,6 +7,8 @@ import {
   DeleteOutlineRounded,
   EditRounded,
   MoreVertRounded,
+  PublicOffRounded,
+  PublicRounded,
   VisibilityOutlined,
 } from '@mui/icons-material'
 import {
@@ -37,7 +40,13 @@ type Props = {
 export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
   const translate = useTranslate('Lk.Edit')
   const translateResume = useTranslate('Lk.Resume')
-  const header = useResumeHeader({ userId, resumeId: view.id, onRenamed: onReload, onError })
+  const header = useResumeHeader({
+    userId,
+    resumeId: view.id,
+    version: view.version,
+    onRenamed: onReload,
+    onError,
+  })
 
   return (
     <>
@@ -56,6 +65,7 @@ export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
         </Typography>
 
         <Chip label={view.language.toUpperCase()} size="small" />
+        {view.status && <ResumeStatusChip status={view.status} />}
 
         <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
           <Button
@@ -87,6 +97,22 @@ export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
           </ListItemIcon>
           {translate('renameTitle')}
         </MenuItem>
+
+        {view.status === 'opened' ? (
+          <MenuItem onClick={() => header.changeStatus('closed')}>
+            <ListItemIcon>
+              <PublicOffRounded fontSize="small" />
+            </ListItemIcon>
+            {translate('unpublish')}
+          </MenuItem>
+        ) : (
+          <MenuItem onClick={() => header.changeStatus('opened')}>
+            <ListItemIcon>
+              <PublicRounded fontSize="small" />
+            </ListItemIcon>
+            {translate('publish')}
+          </MenuItem>
+        )}
 
         <Divider />
 

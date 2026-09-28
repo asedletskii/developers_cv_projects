@@ -37,6 +37,10 @@ export const SectionPreview = ({ section, highlight }: Props) => {
               sx={{
                 maxHeight: 360,
                 overflow: 'auto',
+                // Свой стек отрисовки: без этого декоративные абсолютно спозиционированные
+                // элементы внутри (например, кольцо вокруг аватара) могут прорисоваться поверх
+                // диалогов и другого UI за пределами этого блока
+                isolation: 'isolate',
                 p: 2,
                 ...glassCard,
                 ...(highlight && {

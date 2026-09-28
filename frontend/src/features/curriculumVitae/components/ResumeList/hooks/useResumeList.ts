@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { deleteLkResume } from '@features/curriculumVitae/store/lk'
+import { changeLkResumeStatus, deleteLkResume } from '@features/curriculumVitae/store/lk'
 import { LkResumeSummary } from '@features/curriculumVitae/types'
 import { useTranslate } from '@shared/hooks'
 import { useAppDispatch } from '@shared/store'
+import { ToastType } from '@shared/types'
+import { showToast } from '@shared/utils'
 
 type Menu = { anchor: HTMLElement; resume: LkResumeSummary }
 
@@ -29,11 +31,27 @@ export const useResumeList = (userId: string) => {
     closeMenu()
   }
 
+  const changeStatusFromMenu = async (status: 'opened' | 'closed') => {
+    const { resume } = menu ?? {}
+    closeMenu()
+    if (!resume) return
+
+    try {
+      await dispatch(
+        changeLkResumeStatus({ userId, resumeId: resume.id, version: resume.version, status }),
+      ).unwrap()
+    } catch {
+      showToast({ messageKey: 'statusChangeFailed', type: ToastType.Error })
+    }
+  }
+
   return {
     menu,
     openMenu: (anchor: HTMLElement, resume: LkResumeSummary) => setMenu({ anchor, resume }),
     closeMenu,
     renameFromMenu,
+    publishFromMenu: () => changeStatusFromMenu('opened'),
+    unpublishFromMenu: () => changeStatusFromMenu('closed'),
     removeFromMenu,
     editingResume,
     closeEditing: () => setEditingResume(null),

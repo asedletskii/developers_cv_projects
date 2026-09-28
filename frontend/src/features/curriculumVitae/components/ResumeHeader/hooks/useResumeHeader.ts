@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
-import { CurriculumVitaeError } from '@features/curriculumVitae/types'
+import { CurriculumVitaeError, ResumeStatus } from '@features/curriculumVitae/types'
 import { parseApiError } from '@features/curriculumVitae/utils'
 import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
@@ -9,14 +9,15 @@ import { generatePath, useNavigate } from 'react-router'
 type Params = {
   userId: string
   resumeId: string
+  version?: number
 
-  /** Название изменено — экран перечитывает резюме */
+  /** Название или статус изменены — экран перечитывает резюме */
   onRenamed: () => void
   onError: (error: CurriculumVitaeError) => void
 }
 
-/** Действия над резюме в шапке: меню, переименование и удаление с переходом к списку. */
-export const useResumeHeader = ({ userId, resumeId, onRenamed, onError }: Params) => {
+/** Действия над резюме в шапке: меню, переименование, публикация и удаление с переходом к списку. */
+export const useResumeHeader = ({ userId, resumeId, version, onRenamed, onError }: Params) => {
   const translate = useTranslate('Lk.Edit')
   const navigate = useNavigate()
 
@@ -35,6 +36,18 @@ export const useResumeHeader = ({ userId, resumeId, onRenamed, onError }: Params
     onRenamed()
   }
 
+  const changeStatus = async (status: Extract<ResumeStatus, 'opened' | 'closed'>) => {
+    closeMenu()
+
+    try {
+      // Для владельческих данных `version` всегда есть по факту, см. комментарий у `Resume.version`
+      await curriculumVitaeApi.changeStatus(userId, resumeId, version ?? 0, status)
+      onRenamed()
+    } catch (e) {
+      onError(parseApiError(e))
+    }
+  }
+
   const remove = async () => {
     closeMenu()
     if (!window.confirm(translate('deleteConfirm'))) return
@@ -47,5 +60,14 @@ export const useResumeHeader = ({ userId, resumeId, onRenamed, onError }: Params
     }
   }
 
-  return { menuAnchor, setMenuAnchor, closeMenu, isRenaming, startRename, finishRename, remove }
+  return {
+    menuAnchor,
+    setMenuAnchor,
+    closeMenu,
+    isRenaming,
+    startRename,
+    finishRename,
+    changeStatus,
+    remove,
+  }
 }

@@ -11,6 +11,7 @@ import { TechStackSlider } from '@features/curriculumVitae/components/TechStackS
 import { EMPTY_CONTACTS, EMPTY_PROFILE, EMPTY_SKILLS } from '@features/curriculumVitae/constants'
 import { Resume, SectionId, SectionSettings } from '@features/curriculumVitae/types'
 import { withPinnedAbout } from '@features/curriculumVitae/utils/withPinnedAbout'
+import { DEFAULT_SECTIONS } from './defaultSections'
 
 type SectionDefinition = {
   /** Есть ли что показывать: пустые секции не рендерятся, даже если включены */
@@ -94,10 +95,13 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
   [SectionId.Contacts]: {
     isCollapsible: false,
     inNav: true,
+    // Скрытый контакт не приходит значением (его прячет бэк), но секцию всё равно показываем —
+    // просто с кнопкой «показать» вместо готовой ссылки
     hasContent: ({ contacts = EMPTY_CONTACTS }) =>
-      !!(contacts.phone || contacts.telegram || contacts.email),
-    render: ({ contacts = EMPTY_CONTACTS }) => (
+      !!(contacts.phone || contacts.telegram || contacts.email || contacts.hiddenContacts.length),
+    render: ({ id, contacts = EMPTY_CONTACTS }) => (
       <ContactsSection
+        resumeId={id}
         contacts={contacts}
         text={contacts.contactsText}
         hidden={contacts.hiddenContacts}
@@ -105,11 +109,6 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
     ),
   },
 }
-
-/** Порядок по умолчанию, если API не прислал настройки секций */
-export const DEFAULT_SECTIONS: SectionSettings[] = (
-  Object.keys(SECTION_DEFINITIONS) as SectionId[]
-).map((id) => ({ id, enabled: true }))
 
 /** Секции в порядке из настроек: включённые, известные и с данными */
 export const getVisibleSections = (resume: Resume): SectionSettings[] =>

@@ -1,5 +1,9 @@
 import { ContactKey } from '@features/curriculumVitae/types'
-import { ContactLink } from '@features/curriculumVitae/utils'
+import {
+  ContactLink,
+  getContactDisplayValue,
+  getContactHref,
+} from '@features/curriculumVitae/utils'
 import { ContentCopyRounded } from '@mui/icons-material'
 import { Button, IconButton, Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
@@ -7,14 +11,28 @@ import { CONTACT_BUTTON_SX } from './constants'
 import { useContactButton } from './hooks'
 
 type Props = {
+  resumeId: string
   link: ContactLink
-  isHidden: boolean
 }
 
-export const ContactButton = ({ link, isHidden }: Props) => {
+export const ContactButton = ({ resumeId, link }: Props) => {
   const translate = useTranslate('CurriculumVitae.Contacts')
-  const { key, href, icon, value } = link
-  const { isRevealed, reveal, copy } = useContactButton(value, isHidden)
+  const { key, icon, isHidden } = link
+  const { value, isRevealing, reveal, copy } = useContactButton(resumeId, link)
+
+  if (!value) {
+    return (
+      <Button
+        onClick={reveal}
+        disabled={isRevealing}
+        startIcon={icon}
+        size="large"
+        sx={CONTACT_BUTTON_SX}
+      >
+        {translate(`Reveal.${key}`)}
+      </Button>
+    )
+  }
 
   return (
     <Stack
@@ -23,25 +41,19 @@ export const ContactButton = ({ link, isHidden }: Props) => {
       spacing={0.75}
       sx={{ width: { xs: '100%', sm: 'auto' } }}
     >
-      {isRevealed ? (
-        <Button
-          component="a"
-          href={href}
-          target={key === ContactKey.Telegram ? '_blank' : undefined}
-          rel="noopener noreferrer"
-          startIcon={icon}
-          size="large"
-          sx={CONTACT_BUTTON_SX}
-        >
-          {isHidden ? value : translate(key)}
-        </Button>
-      ) : (
-        <Button onClick={reveal} startIcon={icon} size="large" sx={CONTACT_BUTTON_SX}>
-          {translate(`Reveal.${key}`)}
-        </Button>
-      )}
+      <Button
+        component="a"
+        href={getContactHref(key, value)}
+        target={key === ContactKey.Telegram ? '_blank' : undefined}
+        rel="noopener noreferrer"
+        startIcon={icon}
+        size="large"
+        sx={CONTACT_BUTTON_SX}
+      >
+        {isHidden ? getContactDisplayValue(key, value) : translate(key)}
+      </Button>
 
-      {isHidden && isRevealed && (
+      {isHidden && (
         <IconButton
           onClick={copy}
           aria-label={translate('copy')}

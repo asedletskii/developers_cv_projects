@@ -47,6 +47,17 @@ export const lkDict = {
 
       Profile: {
         title: 'Личный кабинет',
+        edit: 'Изменить профиль',
+        editProfile: 'Профиль',
+        photoPath: 'Фото',
+        name: 'Имя',
+        surname: 'Фамилия',
+        patronymic: 'Отчество',
+        position: 'Должность',
+        location: 'Город',
+        cancel: 'Отмена',
+        save: 'Сохранить',
+        saveError: 'Не удалось сохранить профиль',
       },
 
       Resumes: {
@@ -64,6 +75,14 @@ export const lkDict = {
         titleLabel: 'Название',
         languageLabel: 'Язык резюме',
         createError: 'Не удалось создать резюме',
+        publish: 'Опубликовать',
+        unpublish: 'Снять с публикации',
+
+        Status: {
+          draft: 'Черновик',
+          opened: 'Опубликовано',
+          closed: 'Скрыто',
+        },
       },
 
       Resume: {
@@ -83,6 +102,8 @@ export const lkDict = {
         reset: 'Сбросить',
         actions: 'Действия',
         renameTitle: 'Изменить название',
+        publish: 'Опубликовать',
+        unpublish: 'Снять с публикации',
         deleteResume: 'Удалить резюме',
         deleteConfirm: 'Удалить резюме безвозвратно?',
         add: 'Добавить',
@@ -143,6 +164,7 @@ export const lkDict = {
         },
 
         About: {
+          fillFromProfile: 'Как в профиле',
           photoPath: 'Ссылка на фото',
           name: 'Имя',
           surname: 'Фамилия',
@@ -279,6 +301,17 @@ export const lkDict = {
 
       Profile: {
         title: 'Personal account',
+        edit: 'Edit profile',
+        editProfile: 'Profile',
+        photoPath: 'Photo',
+        name: 'Name',
+        surname: 'Surname',
+        patronymic: 'Patronymic',
+        position: 'Position',
+        location: 'City',
+        cancel: 'Cancel',
+        save: 'Save',
+        saveError: "Couldn't save the profile",
       },
 
       Resumes: {
@@ -296,6 +329,14 @@ export const lkDict = {
         titleLabel: 'Title',
         languageLabel: 'Résumé language',
         createError: "Couldn't create the résumé",
+        publish: 'Publish',
+        unpublish: 'Unpublish',
+
+        Status: {
+          draft: 'Draft',
+          opened: 'Published',
+          closed: 'Hidden',
+        },
       },
 
       Resume: {
@@ -315,6 +356,8 @@ export const lkDict = {
         reset: 'Reset',
         actions: 'Actions',
         renameTitle: 'Edit title',
+        publish: 'Publish',
+        unpublish: 'Unpublish',
         deleteResume: 'Delete résumé',
         deleteConfirm: 'Delete the résumé permanently?',
         add: 'Add',
@@ -375,6 +418,7 @@ export const lkDict = {
         },
 
         About: {
+          fillFromProfile: 'Copy from profile',
           photoPath: 'Photo link',
           name: 'First name',
           surname: 'Last name',

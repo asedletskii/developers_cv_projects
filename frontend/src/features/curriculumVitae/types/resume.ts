@@ -13,7 +13,7 @@ import {
   ThemeSettings,
 } from './curriculumVitae'
 import { ContactKey, HardSkill, LanguageGrade, LanguageType, SoftSkill, WorkFormat } from './enums'
-import { LkResumeSummary } from './lk'
+import { LkResumeSummary, ResumeStatus } from './lk'
 
 /** Запись списка — у записей с бэкенда есть `id`, у только что добавленных в форме его ещё нет */
 type Item<T> = T & { id?: string }
@@ -55,9 +55,15 @@ export type ResumeTechnologyItem = Item<Technology>
  * (`GET /lk/resume/:id`), и для форм редактора. `profile`, `contacts`, `skills` у нового
  * резюме отсутствуют — читаем их через `EMPTY_*` из `constants/emptyResume.ts`.
  */
-export type Resume = LkResumeSummary & {
+export type Resume = Omit<LkResumeSummary, 'version' | 'status'> & {
   createdAt?: string
   updatedAt?: string
+  /** Версия всего резюме для оптимистической блокировки: каждый `PUT` любой секции требует
+   *  текущую версию и сверяет её на бэке — несовпадение = `412`, кто-то уже сохранил своё.
+   *  Публичный ответ (`GET /cv/:id`) её не отдаёт — отсюда `?`. */
+  version?: number
+  /** Черновик/опубликовано/снято с публикации — тоже только в кабинете, публично не отдаётся */
+  status?: ResumeStatus
   overview: ResumeOverview
   profile?: ResumeProfile
   contacts?: ResumeContacts

@@ -1,5 +1,5 @@
 import { EMPTY_CONTACTS, EMPTY_PROFILE, EMPTY_SKILLS } from '@features/curriculumVitae/constants'
-import { DEFAULT_SECTIONS } from '@features/curriculumVitae/sections'
+import { DEFAULT_SECTIONS } from '@features/curriculumVitae/sections/defaultSections'
 import { Resume } from '@features/curriculumVitae/types'
 import { withPinnedAbout } from '@features/curriculumVitae/utils/withPinnedAbout'
 
