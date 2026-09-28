@@ -50,16 +50,7 @@ func toPublic(view ResumeView) ResumeView {
 		contacts.Phone = cloneStringPointer(view.Contacts.Phone)
 		contacts.Telegram = cloneStringPointer(view.Contacts.Telegram)
 		contacts.Email = cloneStringPointer(view.Contacts.Email)
-		for _, key := range contacts.HiddenContacts {
-			switch enums.ContactKey(key) {
-			case enums.ContactKeyPhone:
-				contacts.Phone = nil
-			case enums.ContactKeyTelegram:
-				contacts.Telegram = nil
-			case enums.ContactKeyEmail:
-				contacts.Email = nil
-			}
-		}
+		redactHiddenContacts(&contacts)
 		result.Contacts = &contacts
 	}
 	result.Projects = make([]ProjectView, len(view.Projects))
@@ -73,6 +64,23 @@ func toPublic(view ResumeView) ResumeView {
 	}
 
 	return result
+}
+
+func redactHiddenContacts(contacts *ResumeContactsView) {
+	if contacts == nil {
+		return
+	}
+
+	for _, key := range contacts.HiddenContacts {
+		switch enums.ContactKey(key) {
+		case enums.ContactKeyPhone:
+			contacts.Phone = nil
+		case enums.ContactKeyTelegram:
+			contacts.Telegram = nil
+		case enums.ContactKeyEmail:
+			contacts.Email = nil
+		}
+	}
 }
 
 func clonePublicContactsText(value *ResumeContactsTextView) *ResumeContactsTextView {

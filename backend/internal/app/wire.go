@@ -41,6 +41,7 @@ var resumeReadSet = wire.NewSet(
 	newGetProfileReader,
 	wire.Bind(new(resumequeries.ResumeReader), new(*resumereaders.ResumeReader)),
 	wire.Bind(new(resumequeries.PublicResumeReader), new(*resumereaders.ResumeReader)),
+	wire.Bind(new(resumequeries.ContactViewReader), new(*resumereaders.ResumeReader)),
 )
 
 var resumeCommandSet = wire.NewSet(
@@ -74,6 +75,7 @@ var resumeHTTPSet = wire.NewSet(
 	profilehandler.NewHandler,
 	resumehttp.NewHandler,
 	publichandler.NewHandler,
+	publichandler.NewContactViewHandler,
 	wire.Struct(new(resumehttp.HandlerDependencies), "*"),
 )
 
@@ -97,6 +99,7 @@ func Initialize() (*Application, error) {
 		resumequeries.NewPublicResumeQueryHandler,
 		resumequeries.NewListResumesQueryHandler,
 		resumequeries.NewGetResumeQueryHandler,
+		resumequeries.NewContactViewQueryHandler,
 
 		userreaders.NewUserReader,
 		wire.Bind(new(userqueries.UserReader), new(*userreaders.UserReader)),

@@ -101,7 +101,9 @@ func Initialize() (*Application, error) {
 	profileHandlerValue := profilehandler.NewHandler(replaceProfileHandlerValue)
 	contactsHandlerValue := contactshandler.NewHandler(replaceContactsHandlerValue)
 	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(resumeReaderValue)
+	contactViewQueryHandlerValue := queries.NewContactViewQueryHandler(resumeReaderValue)
 	publicHandlerValue := publichandler.NewHandler(publicResumeQueryHandlerValue)
+	contactViewHandlerValue := publichandler.NewContactViewHandler(contactViewQueryHandlerValue)
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue)
@@ -126,6 +128,7 @@ func Initialize() (*Application, error) {
 		Activities:         activitiesHandlerValue,
 		Projects:           projectsHandlerValue,
 		Public:             publicHandlerValue,
+		ContactView:        contactViewHandlerValue,
 	}
 	resumeHandlerValue := http.NewHandler(resumeHandlerDependencies)
 
