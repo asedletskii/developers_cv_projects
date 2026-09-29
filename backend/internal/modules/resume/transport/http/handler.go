@@ -14,7 +14,6 @@ import (
 	overviewhandler "developers-cv/backend/internal/modules/resume/transport/http/overview"
 	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
 	projectshandler "developers-cv/backend/internal/modules/resume/transport/http/projects"
-	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
 	skillshandler "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologieshandler "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 )
@@ -32,8 +31,6 @@ type Handler struct {
 	courses      *courseshandler.Handler
 	activities   *activitieshandler.Handler
 	projects     *projectshandler.Handler
-	public       *publichandler.Handler
-	contactView  *publichandler.ContactViewHandler
 }
 
 type HandlerDependencies struct {
@@ -57,8 +54,6 @@ type HandlerDependencies struct {
 	Courses            *courseshandler.Handler
 	Activities         *activitieshandler.Handler
 	Projects           *projectshandler.Handler
-	Public             *publichandler.Handler
-	ContactView        *publichandler.ContactViewHandler
 }
 
 func NewHandler(deps HandlerDependencies) *Handler {
@@ -75,14 +70,10 @@ func NewHandler(deps HandlerDependencies) *Handler {
 		courses:      deps.Courses,
 		activities:   deps.Activities,
 		projects:     deps.Projects,
-		public:       deps.Public,
-		contactView:  deps.ContactView,
 	}
 }
 
 func (h *Handler) ListResumes(c *gin.Context)           { h.resume.List(c) }
-func (h *Handler) GetPublicResume(c *gin.Context)       { h.public.Handle(c) }
-func (h *Handler) ViewContact(c *gin.Context)           { h.contactView.Handle(c) }
 func (h *Handler) CreateResume(c *gin.Context)          { h.resume.Create(c) }
 func (h *Handler) GetResume(c *gin.Context)             { h.resume.Get(c) }
 func (h *Handler) ReplaceResumeTitle(c *gin.Context)    { h.resume.ReplaceTitle(c) }

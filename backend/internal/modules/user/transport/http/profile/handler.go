@@ -93,7 +93,7 @@ func (h *Handler) Replace(c *gin.Context) {
 	}
 	if err := domain.ValidatePhotoPath(body.PhotoPath); err != nil {
 		if errors.Is(err, domain.ErrInvalidProfile) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid profile"))
 			return
 		}
 		apperrors.WriteError(c, err)
@@ -108,7 +108,7 @@ func (h *Handler) Replace(c *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidProfile) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid profile"))
 			return
 		}
 		apperrors.WriteError(c, err)
@@ -124,7 +124,7 @@ func validateLocalizedProfile(profile localizedProfileRequest, language domain.P
 	}
 	if err := domain.ValidateLocalizedProfile(localized, language); err != nil {
 		if errors.Is(err, domain.ErrInvalidProfile) {
-			return apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error())
+			return apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid profile")
 		}
 		return err
 	}

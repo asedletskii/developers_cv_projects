@@ -142,7 +142,7 @@ func (h *resumeHandler) ChangeStatus(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidResumeStatusTransition) {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Invalid resume status transition"))
 			return
 		}
 		common.WriteCommandError(c, err)

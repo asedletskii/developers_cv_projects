@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
+	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
@@ -29,6 +30,7 @@ func NewRouter(
 	metrics *telemetry.Metrics,
 	resumeHandler *resumehttp.Handler,
 	userHandler *userhttp.Handler,
+	resumeLinkHandler *resumelinkhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
 ) (*Router, error) {
 	if cfg.App.Env == "production" {
@@ -57,7 +59,7 @@ func NewRouter(
 	}
 
 	router := &Router{engine: engine, health: healthService, metrics: metrics}
-	router.registerRoutes(resumeHandler, userHandler, authenticate)
+	router.registerRoutes(resumeHandler, userHandler, resumeLinkHandler, authenticate)
 	return router, nil
 }
 
@@ -65,7 +67,7 @@ func (r *Router) Handler() http.Handler {
 	return r.engine
 }
 
-func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, userHandler *userhttp.Handler, authenticate middleware.AuthenticateFunc) {
+func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, userHandler *userhttp.Handler, resumeLinkHandler *resumelinkhttp.Handler, authenticate middleware.AuthenticateFunc) {
 	engine := r.engine
 	engine.GET("/health", r.healthHandler)
 	engine.GET("/ready", r.readyHandler)
@@ -78,6 +80,7 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, userHandler *
 	lk.Use(middleware.Authentication(authenticate))
 	userhttp.RegisterRoutes(userHandler, lk)
 	resumehttp.RegisterRoutes(resumeHandler, api, lk)
+	resumelinkhttp.RegisterRoutes(resumeLinkHandler, api, lk)
 	engine.NoRoute(func(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})

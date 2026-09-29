@@ -97,6 +97,7 @@ func TestWriteErrorContract(t *testing.T) {
 		{name: "unauthorized", code: CodeUnauthorized, status: http.StatusUnauthorized, message: "Authentication required"},
 		{name: "not found", code: CodeNotFound, status: http.StatusNotFound, message: "Resource not found"},
 		{name: "conflict", code: CodeConflict, status: http.StatusConflict, message: "Resource already exists"},
+		{name: "precondition failed", code: CodePreconditionFailed, status: http.StatusPreconditionFailed, message: "Precondition failed"},
 		{name: "request too large", code: CodeRequestTooLarge, status: http.StatusRequestEntityTooLarge, message: "Request body too large"},
 		{name: "too many requests", code: CodeTooMany, status: http.StatusTooManyRequests, message: "Too many requests"},
 		{name: "internal", code: CodeInternal, status: http.StatusInternalServerError, message: "Internal server error"},
