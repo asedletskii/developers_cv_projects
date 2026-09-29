@@ -20,9 +20,16 @@ import (
 	overviewhandler "developers-cv/backend/internal/modules/resume/transport/http/overview"
 	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
 	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
-	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
 	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
+	resumelinkcommands "developers-cv/backend/internal/modules/resume_link/application/commands"
+	resumelinkports "developers-cv/backend/internal/modules/resume_link/application/ports"
+	resumelinkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
+	resumelinkanalytics "developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
+	resumelinkreaders "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
+	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
+	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
+	resumelinkpublichandler "developers-cv/backend/internal/modules/resume_link/transport/http/public"
 	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
@@ -63,6 +70,29 @@ var resumeCommandSet = wire.NewSet(
 	wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
 )
 
+var resumeLinkReadSet = wire.NewSet(
+	resumelinkreaders.NewResumeLinkReader,
+	resumelinkqueries.NewPublicResumeLinkQueryHandler,
+	resumelinkqueries.NewGetResumeLinkStatisticsQueryHandler,
+	wire.Bind(new(resumelinkqueries.ResumeLinkReader), new(*resumelinkreaders.ResumeLinkReader)),
+	wire.Bind(new(resumelinkqueries.ResumeLinkPublicReader), new(*resumelinkreaders.ResumeLinkReader)),
+	wire.Bind(new(resumelinkqueries.ResumeLinkStatisticsReader), new(*resumelinkreaders.ResumeLinkReader)),
+	wire.Bind(new(resumelinkqueries.ResumeOwnershipReader), new(*resumereaders.ResumeReader)),
+	wire.Bind(new(resumelinkqueries.ResumePublicQuery), new(*resumequeries.PublicResumeQueryHandler)),
+)
+
+var resumeLinkAnalyticsSet = wire.NewSet(
+	resumelinkanalytics.NewRecorder,
+	wire.Bind(new(resumelinkports.LinkEventRecorder), new(*resumelinkanalytics.Recorder)),
+)
+
+var resumeLinkCommandSet = wire.NewSet(
+	resumelinkcommands.NewCreateResumeLinkHandler,
+	resumelinkcommands.NewDeleteResumeLinkHandler,
+	resumelinkcommands.NewReplaceStatusResumeLinkHandler,
+	wire.Bind(new(resumelinkcommands.UnitOfWork), new(*database.UnitOfWork)),
+)
+
 var resumeHTTPSet = wire.NewSet(
 	activitieshttp.NewHandler,
 	contactshandler.NewHandler,
@@ -76,9 +106,14 @@ var resumeHTTPSet = wire.NewSet(
 	overviewhandler.NewHandler,
 	profilehandler.NewHandler,
 	resumehttp.NewHandler,
-	publichandler.NewHandler,
-	publichandler.NewContactViewHandler,
 	wire.Struct(new(resumehttp.HandlerDependencies), "*"),
+)
+
+var resumeLinkHTTPSet = wire.NewSet(
+	resumelinkpublichandler.NewHandler,
+	resumelinkpublichandler.NewContactViewHandler,
+	resumelinkhttp.NewHandler,
+	wire.Struct(new(resumelinkhttp.HandlerDependencies), "*"),
 )
 
 func Initialize() (*Application, error) {
@@ -93,10 +128,17 @@ func Initialize() (*Application, error) {
 		database.NewUnitOfWork,
 		resumerepository.NewResumeRepository,
 		wire.Bind(new(resumeports.ResumeRepository), new(*resumerepository.ResumeRepository)),
+		resumelinkrepository.NewResumeLinkRepository,
+		wire.Bind(new(resumelinkports.ResumeLinkRepository), new(*resumelinkrepository.ResumeLinkRepository)),
+		wire.Bind(new(resumelinkports.ResumeOwnershipReader), new(*resumereaders.ResumeReader)),
 
 		resumeReadSet,
 		resumeCommandSet,
+		resumeLinkReadSet,
+		resumeLinkCommandSet,
+		resumeLinkAnalyticsSet,
 		resumeHTTPSet,
+		resumeLinkHTTPSet,
 
 		resumequeries.NewPublicResumeQueryHandler,
 		resumequeries.NewListResumesQueryHandler,

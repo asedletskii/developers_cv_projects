@@ -20,6 +20,4 @@ func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup)
 	lk.PUT("/resume/:resumeId/courses", handler.ReplaceCourses)
 	lk.PUT("/resume/:resumeId/activities", handler.ReplaceActivities)
 	lk.PUT("/resume/:resumeId/projects", handler.ReplaceProjects)
-	api.GET("/cv/:resumeId", handler.GetPublicResume)
-	api.POST("/cv/:resumeId/contact-views", handler.ViewContact)
 }

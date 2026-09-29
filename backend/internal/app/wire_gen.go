@@ -21,9 +21,15 @@ import (
 	overviewhandler "developers-cv/backend/internal/modules/resume/transport/http/overview"
 	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
 	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
-	publichandler "developers-cv/backend/internal/modules/resume/transport/http/public"
 	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
 	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
+	resumelinkcommands "developers-cv/backend/internal/modules/resume_link/application/commands"
+	resumelinkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
+	resumelinkanalytics "developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
+	resumelinkreaders "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
+	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
+	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
+	resumelinkpublichandler "developers-cv/backend/internal/modules/resume_link/transport/http/public"
 	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
@@ -71,6 +77,9 @@ func Initialize() (*Application, error) {
 	listResumesReaderValue := newListResumesReader(gormDBValue)
 	resumeReaderValue := resumereaders.NewResumeReader(gormDBValue)
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
+	resumeLinkRepositoryValue := resumelinkrepository.NewResumeLinkRepository(gormDBValue)
+	resumeLinkEventRecorderValue := resumelinkanalytics.NewRecorder(resumeLinkRepositoryValue, loggerValue)
+	resumeLinkReaderValue := resumelinkreaders.NewResumeLinkReader(gormDBValue)
 	userReaderValue := userreaders.NewUserReader(gormDBValue)
 	getProfileReaderValue := newGetProfileReader(gormDBValue)
 	profileRepositoryValue := userrepository.NewProfileRepository(gormDBValue)
@@ -78,6 +87,10 @@ func Initialize() (*Application, error) {
 	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
+	createResumeLinkHandlerValue := resumelinkcommands.NewCreateResumeLinkHandler(resumeLinkRepositoryValue, resumeReaderValue, unitOfWorkValue)
+	listResumeLinksHandlerValue := resumelinkqueries.NewListResumeLinksQueryHandler(resumeLinkReaderValue, resumeReaderValue)
+	deleteResumeLinkHandlerValue := resumelinkcommands.NewDeleteResumeLinkHandler(resumeLinkRepositoryValue, resumeReaderValue, unitOfWorkValue)
+	replaceStatusResumeLinkHandlerValue := resumelinkcommands.NewReplaceStatusResumeLinkHandler(resumeLinkRepositoryValue, resumeReaderValue, unitOfWorkValue)
 	getResumeQueryHandlerValue := queries.NewGetResumeQueryHandler(resumeReaderValue)
 	replaceResumeTitleHandlerValue := resumecommands.NewReplaceResumeTitleHandler(resumeRepositoryValue, unitOfWorkValue)
 	changeResumeStatusHandlerValue := resumecommands.NewChangeResumeStatusHandler(resumeRepositoryValue, unitOfWorkValue)
@@ -105,9 +118,11 @@ func Initialize() (*Application, error) {
 	profileHandlerValue := profilehandler.NewHandler(replaceProfileHandlerValue)
 	contactsHandlerValue := contactshandler.NewHandler(replaceContactsHandlerValue)
 	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(resumeReaderValue)
+	publicResumeLinkQueryHandlerValue := resumelinkqueries.NewPublicResumeLinkQueryHandler(resumeLinkReaderValue, publicResumeQueryHandlerValue, resumeLinkEventRecorderValue)
+	resumeLinkStatisticsQueryHandlerValue := resumelinkqueries.NewGetResumeLinkStatisticsQueryHandler(resumeLinkReaderValue, resumeReaderValue, resumeLinkReaderValue)
 	contactViewQueryHandlerValue := queries.NewContactViewQueryHandler(resumeReaderValue)
-	publicHandlerValue := publichandler.NewHandler(publicResumeQueryHandlerValue)
-	contactViewHandlerValue := publichandler.NewContactViewHandler(contactViewQueryHandlerValue)
+	contactViewThroughLinkQueryHandlerValue := resumelinkqueries.NewContactViewThroughLinkQueryHandler(resumeLinkReaderValue, contactViewQueryHandlerValue, resumeLinkEventRecorderValue)
+	contactViewHandlerValue := resumelinkpublichandler.NewContactViewHandler(contactViewThroughLinkQueryHandlerValue)
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	replaceUserProfileHandlerValue := usercommands.NewReplaceProfileHandler(profileRepositoryValue, unitOfWorkValue)
@@ -133,10 +148,17 @@ func Initialize() (*Application, error) {
 		Courses:            coursesHandlerValue,
 		Activities:         activitiesHandlerValue,
 		Projects:           projectsHandlerValue,
-		Public:             publicHandlerValue,
-		ContactView:        contactViewHandlerValue,
 	}
 	resumeHandlerValue := http.NewHandler(resumeHandlerDependencies)
+	resumeLinkHandlerValue := resumelinkhttp.NewHandler(resumelinkhttp.HandlerDependencies{
+		Create:      createResumeLinkHandlerValue,
+		List:        listResumeLinksHandlerValue,
+		Delete:      deleteResumeLinkHandlerValue,
+		Public:      resumelinkpublichandler.NewHandler(publicResumeLinkQueryHandlerValue),
+		ContactView: contactViewHandlerValue,
+		Statistics:  resumeLinkStatisticsQueryHandlerValue,
+		Lifecycle:   replaceStatusResumeLinkHandlerValue,
+	})
 
 	routerValue, err := httpserver.NewRouter(
 		configValue,
@@ -145,6 +167,7 @@ func Initialize() (*Application, error) {
 		metricsValue,
 		resumeHandlerValue,
 		userHandlerValue,
+		resumeLinkHandlerValue,
 		authenticateValue,
 	)
 	if err != nil {
