@@ -76,3 +76,26 @@ func TestResumeLinkStateTransitions(t *testing.T) {
 	require.NoError(t, link.Activate())
 	require.True(t, link.IsActive())
 }
+
+func TestNewResumeLinkAcceptsMaximumNameLength(t *testing.T) {
+	params := validResumeLinkParams()
+	params.Name = string([]rune{'ж'})
+	params.Name += string(make([]rune, MaxResumeLinkNameLength-1))
+	runes := []rune(params.Name)
+	for i := range runes {
+		runes[i] = 'ж'
+	}
+	params.Name = string(runes)
+
+	link, err := NewResumeLink(params)
+	require.NoError(t, err)
+	require.Len(t, []rune(link.Name()), MaxResumeLinkNameLength)
+}
+
+func TestNewResumeLinkRejectsNameLongerThanMaximum(t *testing.T) {
+	params := validResumeLinkParams()
+	params.Name = string(make([]rune, MaxResumeLinkNameLength+1))
+
+	_, err := NewResumeLink(params)
+	require.ErrorIs(t, err, ErrInvalidResumeLinkName)
+}

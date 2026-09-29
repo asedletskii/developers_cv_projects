@@ -592,42 +592,36 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	currentUser = userA
 
 	publicAHH := getPublic(linkAHH)
-	require.Equal(t, http.StatusOK, publicAHH.Code)
-	require.Contains(t, publicAHH.Body.String(), `"title":"Resume A"`)
-
 	publicATelegram := getPublic(linkATelegram)
-	require.Equal(t, http.StatusOK, publicATelegram.Code)
-	require.Contains(t, publicATelegram.Body.String(), `"title":"Resume A"`)
-
 	publicAGitHub := getPublic(linkAGitHub)
-	require.Equal(t, http.StatusOK, publicAGitHub.Code)
-	require.Contains(t, publicAGitHub.Body.String(), `"title":"Resume B"`)
-
 	publicBHH := getPublic(linkBHH)
-	require.Equal(t, http.StatusOK, publicBHH.Code)
+	require.Contains(t, publicAHH.Body.String(), `"title":"Resume A"`)
+	require.Contains(t, publicATelegram.Body.String(), `"title":"Resume A"`)
+	require.Contains(t, publicAGitHub.Body.String(), `"title":"Resume B"`)
 	require.Contains(t, publicBHH.Body.String(), `"title":"Resume C"`)
 
+	require.Equal(t, http.StatusOK, getPublic(linkAHH).Code) // HH: 3 views
 	require.Equal(t, http.StatusOK, getPublic(linkAHH).Code)
-	require.Equal(t, http.StatusOK, getPublic(linkAHH).Code)
-	require.Equal(t, http.StatusOK, getPublic(linkATelegram).Code)
+	require.Equal(t, http.StatusOK, getPublic(linkATelegram).Code) // Telegram: 2 views
 	require.Equal(t, http.StatusOK, postContact(linkAHH).Code)
 	require.Equal(t, http.StatusOK, postContact(linkAGitHub).Code)
-
 	for _, item := range []struct {
-		user uuid.UUID
 		id   uuid.UUID
 		body string
 	}{
-		{userA, linkAHH, `{"views":3,"contactViews":1}`},
-		{userA, linkATelegram, `{"views":2,"contactViews":0}`},
-		{userA, linkAGitHub, `{"views":1,"contactViews":1}`},
-		{userB, linkBHH, `{"views":1,"contactViews":0}`},
+		{linkAHH, `{"views":3,"contactViews":1}`},
+		{linkATelegram, `{"views":2,"contactViews":0}`},
+		{linkAGitHub, `{"views":1,"contactViews":1}`},
 	} {
-		currentUser = item.user
 		response := getStatistics(item.id)
 		require.Equal(t, http.StatusOK, response.Code)
 		require.JSONEq(t, item.body, response.Body.String())
 	}
+
+	currentUser = userB
+	response := getStatistics(linkBHH)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.JSONEq(t, `{"views":1,"contactViews":0}`, response.Body.String())
 	currentUser = userA
 
 	currentUser = userB
@@ -637,7 +631,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, getStatistics(linkAHH).Code)
 	currentUser = userA
 
-	response := do(http.MethodPut, "/api/v1/lk/resume/"+resumeA.String()+"/status", `{"status":"closed","version":1}`)
+	response = do(http.MethodPut, "/api/v1/lk/resume/"+resumeA.String()+"/status", `{"status":"closed","version":1}`)
 	require.Equal(t, http.StatusNoContent, response.Code)
 	require.Equal(t, http.StatusNotFound, getPublic(linkAHH).Code)
 	require.Equal(t, http.StatusNotFound, getPublic(linkATelegram).Code)
@@ -682,7 +676,10 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	currentUser = userA
 	require.Equal(t, http.StatusNotFound, getPublic(linkAHH).Code)
 	require.Equal(t, http.StatusNotFound, getPublic(linkATelegram).Code)
-	require.Equal(t, http.StatusOK, getPublic(linkAGitHub).Code)
+
+	response = getPublic(linkAGitHub)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), `"title":"Resume B"`)
 
 	require.Equal(t, http.StatusNotFound, do(http.MethodGet, "/api/v1/cv/"+resumeB.String(), "").Code)
 }

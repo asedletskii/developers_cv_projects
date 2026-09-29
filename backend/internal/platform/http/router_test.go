@@ -449,3 +449,36 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 	require.Contains(t, response.Body.String(), `"status":"ready"`)
 	require.Contains(t, response.Body.String(), `"postgres":"ok"`)
 }
+
+func TestRouterRateLimitCoversPublicResumeLinkRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{
+			RateLimit: config.RateLimitConfig{Enabled: true, Rate: 1, Burst: 1},
+		},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
+		fakeAuthenticate,
+	)
+	require.NoError(t, err)
+
+	path := "/api/v1/cv/10000000-0000-0000-0000-000000000001"
+	first := httptest.NewRecorder()
+	router.Handler().ServeHTTP(first, httptest.NewRequest(http.MethodGet, path, nil))
+	second := httptest.NewRecorder()
+	router.Handler().ServeHTTP(second, httptest.NewRequest(http.MethodGet, path, nil))
+
+	require.NotEqual(t, http.StatusTooManyRequests, first.Code)
+	require.Equal(t, http.StatusTooManyRequests, second.Code)
+	require.Contains(t, second.Body.String(), "TOO_MANY_REQUESTS")
+}

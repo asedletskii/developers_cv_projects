@@ -149,6 +149,24 @@ func TestCreateHandlerMapsUnexpectedError(t *testing.T) {
 	require.Contains(t, w.Body.String(), `"code":"INTERNAL_ERROR"`)
 }
 
+func TestCreateHandlerMapsLimitExceeded(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userID := uuid.New()
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	RegisterRoutes(newTestHandler(domain.ErrResumeLinkLimitExceeded), engine.Group("/api/v1"), engine.Group("/api/v1/lk"))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+uuid.New().String()+`","name":"HH"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusConflict, w.Code)
+	require.Contains(t, w.Body.String(), "Resume link limit exceeded")
+}
+
 func TestCreateHandlerMapsDuplicate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()

@@ -252,3 +252,21 @@ func TestDeleteHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 
 	require.Equal(t, http.StatusNotFound, w.Code)
 }
+
+func TestReplaceStatusHandlerReturnsPreconditionFailedEnvelope(t *testing.T) {
+	resumeID := resumevalueobjects.NewID()
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 4})
+	require.NoError(t, err)
+	repo := &lifecycleRepositoryStub{link: link}
+	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, lifecycleOwnershipStub{}, lifecycleUnitOfWork{})})
+	engine := newAuthenticatedEngine(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/link/"+link.ID().String()+"/status", strings.NewReader(`{"status":"inactive","version":3}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusPreconditionFailed, w.Code)
+	require.JSONEq(t, `{"error":{"code":"PRECONDITION_FAILED","message":"Resume link was modified","requestId":""}}`, w.Body.String())
+	require.False(t, repo.replaced)
+}

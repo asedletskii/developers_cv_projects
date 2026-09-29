@@ -15,6 +15,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/public"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
+	jsonhttp "developers-cv/backend/internal/platform/http/json"
 	"developers-cv/backend/internal/platform/http/middleware"
 	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -70,7 +71,7 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	var body createRequest
-	if err := bindJSON(c, &body); err != nil {
+	if err := jsonhttp.BindJSON(c, &body); err != nil {
 		writeBindError(c, err)
 		return
 	}
@@ -200,7 +201,7 @@ func (h *Handler) ReplaceStatus(c *gin.Context) {
 		return
 	}
 	var body replaceStatusRequest
-	if err := bindJSON(c, &body); err != nil {
+	if err := jsonhttp.BindJSON(c, &body); err != nil {
 		writeBindError(c, err)
 		return
 	}
@@ -223,7 +224,7 @@ func (h *Handler) ReplaceStatus(c *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			c.Status(http.StatusPreconditionFailed)
+			apperrors.WriteError(c, apperrors.New(apperrors.CodePreconditionFailed, http.StatusPreconditionFailed, "Resume link was modified"))
 			return
 		}
 		if errors.Is(err, domain.ErrEntityNotFound) || errors.Is(err, resumequeries.ErrResumeNotFound) {
@@ -291,10 +292,6 @@ func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup)
 	lk.PUT("/link/:linkId/status", handler.ReplaceStatus)
 }
 
-func bindJSON(c *gin.Context, target any) error {
-	return jsonBinder(c, target)
-}
-
 func writeBindError(c *gin.Context, err error) {
 	if err == nil {
 		return
@@ -311,8 +308,16 @@ func writeCreateError(c *gin.Context, err error) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume link already exists"))
 		return
 	}
-	if errors.Is(err, domain.ErrInvalidResumeLink) || errors.Is(err, domain.ErrInvalidResumeLinkName) {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, err.Error()))
+	if errors.Is(err, domain.ErrResumeLinkLimitExceeded) {
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume link limit exceeded"))
+		return
+	}
+	if errors.Is(err, domain.ErrInvalidResumeLinkName) {
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link name"))
+		return
+	}
+	if errors.Is(err, domain.ErrInvalidResumeLink) {
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume link"))
 		return
 	}
 	apperrors.WriteError(c, apperrors.Internal(err))

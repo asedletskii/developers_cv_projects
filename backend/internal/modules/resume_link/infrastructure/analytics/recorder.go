@@ -36,7 +36,7 @@ func (r *Recorder) Record(ctx context.Context, event *domain.ResumeLinkEvent) er
 				zap.Error(err),
 			)
 		}
-		return err
+		return fmt.Errorf("record resume link analytics event: %w", err)
 	}
 	return nil
 }

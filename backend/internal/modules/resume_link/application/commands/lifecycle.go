@@ -48,6 +48,10 @@ func (h *ReplaceStatusResumeLinkHandler) Handle(ctx context.Context, c ReplaceSt
 			return domain.ErrConcurrencyConflict
 		}
 
+		if link.IsActive() == c.Active {
+			return nil
+		}
+
 		if c.Active {
 			err = link.Activate()
 		} else {

@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
+	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
@@ -34,6 +37,24 @@ func (r *ResumeLinkRepository) Create(ctx context.Context, link *domain.ResumeLi
 	if err != nil {
 		return fmt.Errorf("create resume link: %w", err)
 	}
+	var lockedResume struct {
+		ID uuid.UUID `gorm:"column:id"`
+	}
+	if err := tx.WithContext(ctx).Table("resumes").Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id = ?", link.ResumeID().UUID()).First(&lockedResume).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return resumedomain.ErrEntityNotFound
+		}
+		return fmt.Errorf("create resume link: lock resume: %w", err)
+	}
+
+	var count int64
+	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLink{}).Where("resume_id = ?", link.ResumeID().UUID()).Count(&count).Error; err != nil {
+		return fmt.Errorf("create resume link: count links: %w", err)
+	}
+	if count >= domain.MaxResumeLinksPerResume {
+		return domain.ErrResumeLinkLimitExceeded
+	}
+
 	now := time.Now().UTC()
 	model := gormmodel.ResumeLink{
 		ID: link.ID().UUID(), ResumeID: link.ResumeID().UUID(), Name: link.Name(),

@@ -16,6 +16,9 @@ type ResumeLinkParams struct {
 }
 
 const (
+	MaxResumeLinkNameLength = 128
+	MaxResumeLinksPerResume = 50
+
 	ResumeLinkStatusActive   = "active"
 	ResumeLinkStatusInactive = "inactive"
 )
@@ -35,6 +38,9 @@ func NewResumeLink(params ResumeLinkParams) (*ResumeLink, error) {
 	}
 	if name == "" {
 		return nil, fmt.Errorf("%w: name is empty", ErrInvalidResumeLinkName)
+	}
+	if len([]rune(name)) > MaxResumeLinkNameLength {
+		return nil, fmt.Errorf("%w: name exceeds %d characters", ErrInvalidResumeLinkName, MaxResumeLinkNameLength)
 	}
 
 	version := params.Version

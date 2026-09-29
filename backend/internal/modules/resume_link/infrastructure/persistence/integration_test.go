@@ -4,10 +4,12 @@ package persistence_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +26,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
@@ -77,9 +80,11 @@ func insertUserAndResume(t *testing.T, ctx context.Context, dsn string, userID u
 	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, userID.UUID())
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID.UUID(), userID.UUID(), "Test Resume", "ru", "draft", 1)
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Test', 'Resume', '', '')`, resumeID.UUID())
 	require.NoError(t, err)
 }
 
@@ -393,4 +398,135 @@ func TestReplaceStatusResumeLinkIntegration(t *testing.T) {
 	var eventCountAfter int
 	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, linkID).Scan(&eventCountAfter))
 	require.Equal(t, eventCount, eventCountAfter)
+}
+
+func TestResumeLinkPersistenceEnforcesDatabaseNameLength(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	ctx, dsn, _, _, _ := newDatabase(t)
+	owner := uservalueobjects.NewID()
+	resumeID := resumevalueobjects.NewID()
+	insertUserAndResume(t, ctx, dsn, owner, resumeID)
+
+	conn, err := pgx.Connect(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	validName := strings.Repeat("ж", domain.MaxResumeLinkNameLength)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name) VALUES ($1, $2, $3)`, uuid.New(), resumeID.UUID(), validName)
+	require.NoError(t, err)
+
+	tooLongName := strings.Repeat("ж", domain.MaxResumeLinkNameLength+1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name) VALUES ($1, $2, $3)`, uuid.New(), resumeID.UUID(), tooLongName)
+	require.Error(t, err, "database must reject names longer than the domain limit")
+}
+
+func TestResumeLinkPersistenceEnforcesUniqueNameWithinResume(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	ctx, dsn, gormDB, repo, _ := newDatabase(t)
+	owner := uservalueobjects.NewID()
+	resumeID := resumevalueobjects.NewID()
+	insertUserAndResume(t, ctx, dsn, owner, resumeID)
+
+	first, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
+	require.NoError(t, err)
+	second, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
+	require.NoError(t, err)
+	uow := database.NewUnitOfWork(gormDB)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, first) }))
+	err = uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, second) })
+	require.ErrorIs(t, err, domain.ErrDuplicateResumeLink)
+
+	otherResumeID := resumevalueobjects.NewID()
+	insertUserAndResume(t, ctx, dsn, owner, otherResumeID)
+	otherResumeLink, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: otherResumeID, Name: "HH"})
+	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, otherResumeLink) }))
+}
+
+func TestReplaceStatusResumeLinkNoOpPreservesVersionAndUpdatedAt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	ctx, dsn, gormDB, repo, _ := newDatabase(t)
+	owner := uservalueobjects.NewID()
+	resumeID := resumevalueobjects.NewID()
+	insertUserAndResume(t, ctx, dsn, owner, resumeID)
+
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 3})
+	require.NoError(t, err)
+	uow := database.NewUnitOfWork(gormDB)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) }))
+
+	var before time.Time
+	require.NoError(t, gormDB.Raw(`SELECT updated_at FROM resume_links WHERE id = ?`, link.ID().UUID()).Scan(&before).Error)
+
+	time.Sleep(10 * time.Millisecond)
+	handler := commands.NewReplaceStatusResumeLinkHandler(repo, resumereaders.NewResumeReader(gormDB), uow)
+	ownerValue := owner
+	require.NoError(t, handler.Handle(ctx, commands.ReplaceStatusResumeLinkCommand{
+		UserID:  ownerValue,
+		LinkID:  link.ID(),
+		Active:  true,
+		Version: 3,
+	}))
+
+	var row struct {
+		Status    string
+		Version   int64
+		UpdatedAt time.Time
+	}
+	require.NoError(t, gormDB.Raw(`SELECT status, version, updated_at FROM resume_links WHERE id = ?`, link.ID().UUID()).Scan(&row).Error)
+	status, version, after := row.Status, row.Version, row.UpdatedAt
+	require.Equal(t, domain.ResumeLinkStatusActive, status)
+	require.Equal(t, int64(3), version)
+	require.Equal(t, before, after)
+}
+
+func TestResumeLinkPersistenceEnforcesMaximumLinksConcurrently(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	ctx, dsn, gormDB, repo, _ := newDatabase(t)
+	owner := uservalueobjects.NewID()
+	resumeID := resumevalueobjects.NewID()
+	insertUserAndResume(t, ctx, dsn, owner, resumeID)
+
+	const attempts = 55
+	errs := make(chan error, attempts)
+	var wg sync.WaitGroup
+	for i := 0; i < attempts; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: fmt.Sprintf("link-%d", i)})
+			if err != nil {
+				errs <- err
+				return
+			}
+			uow := database.NewUnitOfWork(gormDB)
+			errs <- uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) })
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+
+	var success, limited int
+	for err := range errs {
+		if err == nil {
+			success++
+			continue
+		}
+		require.ErrorIs(t, err, domain.ErrResumeLinkLimitExceeded)
+		limited++
+	}
+	require.Equal(t, domain.MaxResumeLinksPerResume, success)
+	require.Equal(t, attempts-domain.MaxResumeLinksPerResume, limited)
+
+	var count int64
+	require.NoError(t, gormDB.Model(&gormmodel.ResumeLink{}).Where("resume_id = ?", resumeID.UUID()).Count(&count).Error)
+	require.Equal(t, int64(domain.MaxResumeLinksPerResume), count)
 }

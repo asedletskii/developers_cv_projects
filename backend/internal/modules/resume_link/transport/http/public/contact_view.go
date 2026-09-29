@@ -1,11 +1,8 @@
 package public
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +13,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
+	jsonhttp "developers-cv/backend/internal/platform/http/json"
 )
 
 type contactViewQuery interface {
@@ -47,7 +45,7 @@ func (h *ContactViewHandler) Handle(c *gin.Context) {
 	}
 
 	var body contactViewRequest
-	if err := bindJSON(c, &body); err != nil {
+	if err := jsonhttp.BindJSON(c, &body); err != nil {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid request body"))
 		return
 	}
@@ -81,24 +79,4 @@ func (h *ContactViewHandler) Handle(c *gin.Context) {
 
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, view)
-}
-
-func bindJSON(c *gin.Context, target any) error {
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		return err
-	}
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		if err == nil {
-			return io.ErrUnexpectedEOF
-		}
-		return err
-	}
-	return nil
 }

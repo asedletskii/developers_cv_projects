@@ -114,3 +114,31 @@ func TestReplaceStatusResumeLinkRejectsMissingLink(t *testing.T) {
 	})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 }
+
+func TestReplaceStatusResumeLinkNoOpKeepsVersionAndSkipsPersistence(t *testing.T) {
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumevalueobjects.NewID(), Name: "HH", Version: 7})
+	require.NoError(t, err)
+	repo := &lifecycleCommandRepositoryStub{link: link}
+
+	err = NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+		UserID: uservalueobjects.NewID(), LinkID: link.ID(), Active: true, Version: 7,
+	})
+
+	require.NoError(t, err)
+	require.False(t, repo.replaced)
+	require.True(t, link.IsActive())
+	require.Equal(t, int64(7), link.Version())
+}
+
+func TestReplaceStatusResumeLinkNoOpStillRejectsStaleVersion(t *testing.T) {
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumevalueobjects.NewID(), Name: "HH", Version: 7})
+	require.NoError(t, err)
+	repo := &lifecycleCommandRepositoryStub{link: link}
+
+	err = NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+		UserID: uservalueobjects.NewID(), LinkID: link.ID(), Active: true, Version: 6,
+	})
+
+	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
+	require.False(t, repo.replaced)
+}
