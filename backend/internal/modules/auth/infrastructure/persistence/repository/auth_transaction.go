@@ -114,7 +114,7 @@ func (r *AuthTransactionRepository) DeleteExpiredBatch(ctx context.Context, now 
 }
 
 func transactionModel(t *domain.AuthTransaction) gormmodel.AuthTransaction {
-	return gormmodel.AuthTransaction{ID: t.ID().UUID(), Provider: t.Provider().String(), StateHash: t.StateHash().Bytes(), NonceHash: t.NonceHash().Bytes(), CodeVerifier: t.CodeVerifier(), RedirectURI: t.RedirectURI(), CreatedAt: t.CreatedAt(), ExpiresAt: t.ExpiresAt(), ConsumedAt: t.ConsumedAt()}
+	return gormmodel.AuthTransaction{ID: t.ID().UUID(), Provider: t.Provider().String(), StateHash: t.StateHash().Bytes(), NonceHash: t.NonceHash().Bytes(), BrowserBindingHash: t.BrowserBindingHash().Bytes(), CodeVerifier: t.CodeVerifier(), RedirectURI: t.RedirectURI(), CreatedAt: t.CreatedAt(), ExpiresAt: t.ExpiresAt(), ConsumedAt: t.ConsumedAt()}
 }
 func transactionFromModel(m gormmodel.AuthTransaction) (*domain.AuthTransaction, error) {
 	id, err := sharedvalueobjects.IDFromUUID(m.ID)
@@ -133,5 +133,9 @@ func transactionFromModel(m gormmodel.AuthTransaction) (*domain.AuthTransaction,
 	if err != nil {
 		return nil, err
 	}
-	return domain.NewAuthTransaction(domain.AuthTransactionParams{ID: id, Provider: provider, StateHash: state, NonceHash: nonce, CodeVerifier: m.CodeVerifier, RedirectURI: m.RedirectURI, CreatedAt: m.CreatedAt, ExpiresAt: m.ExpiresAt, ConsumedAt: m.ConsumedAt})
+	browserBinding, err := valueobjects.NewBrowserBindingHash(m.BrowserBindingHash)
+	if err != nil {
+		return nil, err
+	}
+	return domain.NewAuthTransaction(domain.AuthTransactionParams{ID: id, Provider: provider, StateHash: state, NonceHash: nonce, BrowserBindingHash: browserBinding, CodeVerifier: m.CodeVerifier, RedirectURI: m.RedirectURI, CreatedAt: m.CreatedAt, ExpiresAt: m.ExpiresAt, ConsumedAt: m.ConsumedAt})
 }

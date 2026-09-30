@@ -25,6 +25,19 @@ func TestNonceHashRequiresSHA256Length(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestBrowserBindingHashRequiresSHA256Length(t *testing.T) {
+	_, err := NewBrowserBindingHash(make([]byte, HashSize-1))
+	require.Error(t, err)
+}
+
+func TestBrowserBindingHashCopiesInput(t *testing.T) {
+	input := bytes.Repeat([]byte{4}, HashSize)
+	value, err := NewBrowserBindingHash(input)
+	require.NoError(t, err)
+	input[0] = 9
+	require.Equal(t, byte(4), value.Bytes()[0])
+}
+
 func TestHashesExposeCopies(t *testing.T) {
 	input := bytes.Repeat([]byte{3}, HashSize)
 	value, err := NewSessionTokenHash(input)

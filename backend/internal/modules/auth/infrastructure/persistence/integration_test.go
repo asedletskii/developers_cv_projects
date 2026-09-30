@@ -4,6 +4,7 @@ package persistence_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"os"
 	"path/filepath"
@@ -100,7 +101,10 @@ func testTransaction(t *testing.T, at time.Time) *domain.AuthTransaction {
 	nonceBytes[0] = 1
 	nonce, err := valueobjects.NewNonceHash(nonceBytes)
 	require.NoError(t, err)
-	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{ID: sharedvalueobjects.NewID(), Provider: domain.ProviderTelegram, StateHash: state, NonceHash: nonce, CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
+	bindingBytes := sha256.Sum256([]byte("browser-binding"))
+	binding, err := valueobjects.NewBrowserBindingHash(bindingBytes[:])
+	require.NoError(t, err)
+	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{ID: sharedvalueobjects.NewID(), Provider: domain.ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding, CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
 	require.NoError(t, err)
 	return tx
 }
@@ -144,6 +148,7 @@ func TestAuthRepositoriesPersistAndCascade(t *testing.T) {
 	loadedTransaction, err := transactions.FindByStateHash(ctx, transaction.StateHash())
 	require.NoError(t, err)
 	require.Equal(t, transaction.ID(), loadedTransaction.ID())
+	require.Equal(t, transaction.BrowserBindingHash().Bytes(), loadedTransaction.BrowserBindingHash().Bytes())
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return transactions.Consume(tx, transaction.ID(), at.Add(time.Minute)) }))
 	consumed, err := transactions.FindByStateHash(ctx, transaction.StateHash())
 	require.NoError(t, err)

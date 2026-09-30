@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"time"
@@ -54,11 +55,11 @@ func NewCompleteTelegramLoginHandler(
 	}
 }
 
-func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, state string) (AuthenticatedSession, error) {
+func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, state string, browserBindingToken string) (AuthenticatedSession, error) {
 	if h == nil || h.transactions == nil || h.identities == nil || h.sessions == nil || h.oidc == nil || h.provisioner == nil || h.tokenGenerator == nil || h.uow == nil {
 		return AuthenticatedSession{}, fmt.Errorf("complete telegram login handler dependencies are nil")
 	}
-	if code == "" || state == "" || h.sessionTTL <= 0 {
+	if code == "" || state == "" || browserBindingToken == "" || h.sessionTTL <= 0 {
 		return AuthenticatedSession{}, fmt.Errorf("%w: invalid complete telegram login request", application.ErrInvalidAuthFlow)
 	}
 
@@ -79,6 +80,13 @@ func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, 
 	}
 	if transaction.IsExpired(initialNow) {
 		return AuthenticatedSession{}, domain.ErrAuthTransactionExpired
+	}
+	browserBindingHash, err := valueobjects.NewBrowserBindingHash(h.tokenGenerator.Hash([]byte(browserBindingToken)))
+	if err != nil {
+		return AuthenticatedSession{}, fmt.Errorf("create browser binding hash: %w", err)
+	}
+	if subtle.ConstantTimeCompare(browserBindingHash.Bytes(), transaction.BrowserBindingHash().Bytes()) != 1 {
+		return AuthenticatedSession{}, application.ErrBrowserBindingInvalid
 	}
 
 	identity, err := h.oidc.Exchange(ctx, code, transaction.RedirectURI(), transaction.CodeVerifier(), transaction.NonceHash())
@@ -111,7 +119,8 @@ func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, 
 		if transaction.IsConsumed() {
 			return AuthenticatedSession{}, domain.ErrAuthTransactionConsumed
 		}
-		if transaction.IsExpired(now) {
+		retryNow := h.now().UTC()
+		if transaction.IsExpired(retryNow) {
 			return AuthenticatedSession{}, domain.ErrAuthTransactionExpired
 		}
 	}

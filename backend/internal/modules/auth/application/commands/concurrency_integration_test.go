@@ -32,6 +32,9 @@ import (
 type integrationTokenGenerator struct{ counter atomic.Uint64 }
 
 func (g *integrationTokenGenerator) GenerateState() ([]byte, error) { return []byte("unused"), nil }
+func (g *integrationTokenGenerator) GenerateBrowserBinding() ([]byte, error) {
+	return []byte("unused-binding"), nil
+}
 func (g *integrationTokenGenerator) GenerateNonce() ([]byte, error) { return []byte("unused"), nil }
 func (g *integrationTokenGenerator) GeneratePKCEVerifier() ([]byte, error) {
 	return []byte("verifier"), nil
@@ -119,8 +122,10 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 		require.NoError(t, err)
 		nonceHash, err := valueobjects.NewNonceHash(generator.Hash([]byte("nonce-" + state)))
 		require.NoError(t, err)
+		bindingHash, err := valueobjects.NewBrowserBindingHash(generator.Hash([]byte("binding-" + state)))
+		require.NoError(t, err)
 		tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{
-			ID: sharedvalueobjects.NewID(), Provider: testIntegrationProvider(), StateHash: stateHash, NonceHash: nonceHash,
+			ID: sharedvalueobjects.NewID(), Provider: testIntegrationProvider(), StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: bindingHash,
 			CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: now, ExpiresAt: now.Add(5 * time.Minute),
 		})
 		require.NoError(t, err)
@@ -139,7 +144,7 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 		wg.Add(1)
 		go func(state string) {
 			defer wg.Done()
-			session, err := handler.Handle(ctx, "code-"+state, state)
+			session, err := handler.Handle(ctx, "code-"+state, state, "binding-"+state)
 			results <- result{session: session, err: err}
 		}(state)
 	}

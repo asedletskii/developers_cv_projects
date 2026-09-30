@@ -111,12 +111,13 @@ func Initialize() (*Application, error) {
 	cleanupExpiredHandlerValue := authcommands.NewCleanupExpiredHandler(authTransactionRepositoryValue, sessionRepositoryValue, unitOfWorkValue)
 	cleanupWorkerValue := cleanup.NewWorker(cleanupExpiredHandlerValue, loggerValue, metricsValue)
 	authHandlerValue := authhttp.NewHandler(authhttp.HandlerDependencies{
-		StartTelegramLogin: startTelegramLoginHandlerValue,
-		CompleteTelegram:   completeTelegramLoginHandlerValue,
-		Logout:             logoutHandlerValue,
-		Observer:           authObserverValue,
-		TokenGenerator:     tokenGeneratorValue,
-		Cookie:             cookieConfigFromRuntime(configValue.Auth),
+		StartTelegramLogin:   startTelegramLoginHandlerValue,
+		CompleteTelegram:     completeTelegramLoginHandlerValue,
+		Logout:               logoutHandlerValue,
+		Observer:             authObserverValue,
+		TokenGenerator:       tokenGeneratorValue,
+		Cookie:               cookieConfigFromRuntime(configValue.Auth),
+		BrowserBindingMaxAge: int(configValue.Auth.Transaction.TTL.Seconds()),
 	})
 	runtimeAuthenticatorValue, err := newRuntimeAuthenticator(configValue.Auth, currentSessionHandlerValue, userReaderValue, authObserverValue)
 	if err != nil {

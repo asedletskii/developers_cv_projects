@@ -12,6 +12,7 @@ import (
 )
 
 const DefaultCookieName = "__Host-session"
+const DefaultBrowserBindingCookieName = "__Host-auth-flow"
 
 var errInvalidSessionCookie = errors.New("invalid auth session cookie")
 
@@ -83,6 +84,52 @@ func (c CookieConfig) ClearCookie() *http.Cookie {
 	cookie := c.NewCookie("")
 	cookie.MaxAge = -1
 	return cookie
+}
+
+func (c CookieConfig) BrowserBindingCookie(value string, maxAge int) *http.Cookie {
+	name := DefaultBrowserBindingCookieName
+	if !c.Secure {
+		name = "auth-flow"
+	}
+	// #nosec G124
+	return &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   maxAge,
+		Secure:   c.Secure,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func (c CookieConfig) ClearBrowserBindingCookie() *http.Cookie {
+	// #nosec G124
+	cookie := c.BrowserBindingCookie("", -1)
+	cookie.MaxAge = -1
+	return cookie
+}
+
+func browserBindingCookieName(secure bool) string {
+	if secure {
+		return DefaultBrowserBindingCookieName
+	}
+	return "auth-flow"
+}
+
+func browserBindingToken(request *http.Request, secure bool) (string, error) {
+	if request == nil {
+		return "", errInvalidSessionCookie
+	}
+	cookie, err := request.Cookie(browserBindingCookieName(secure))
+	if err != nil {
+		return "", errInvalidSessionCookie
+	}
+	raw := strings.TrimSpace(cookie.Value)
+	if raw == "" {
+		return "", errInvalidSessionCookie
+	}
+	return raw, nil
 }
 
 func sessionTokenHash(request *http.Request, cookieName string, tokenGenerator ports.TokenGenerator) (valueobjects.SessionTokenHash, error) {

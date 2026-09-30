@@ -24,8 +24,10 @@ func newTestTransaction(t *testing.T) (*AuthTransaction, time.Time) {
 	t.Helper()
 	created := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
 	state, nonce := newHashes(t)
+	binding, err := valueobjects.NewBrowserBindingHash(bytes.Repeat([]byte{3}, valueobjects.HashSize))
+	require.NoError(t, err)
 	transaction, err := NewAuthTransaction(AuthTransactionParams{
-		ID: sharedvalueobjects.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce,
+		ID: sharedvalueobjects.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
 		CodeVerifier: "verifier", RedirectURI: "https://example.com/callback", CreatedAt: created,
 		ExpiresAt: created.Add(5 * time.Minute),
 	})
@@ -57,8 +59,10 @@ func TestAuthTransactionConsumeRejectsExpired(t *testing.T) {
 func TestNewAuthTransactionRejectsInvalidTimestamps(t *testing.T) {
 	created := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
 	state, nonce := newHashes(t)
-	_, err := NewAuthTransaction(AuthTransactionParams{
-		ID: sharedvalueobjects.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce,
+	binding, err := valueobjects.NewBrowserBindingHash(bytes.Repeat([]byte{3}, valueobjects.HashSize))
+	require.NoError(t, err)
+	_, err = NewAuthTransaction(AuthTransactionParams{
+		ID: sharedvalueobjects.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
 		CodeVerifier: "verifier", RedirectURI: "https://example.com/callback", CreatedAt: created,
 		ExpiresAt: created,
 	})

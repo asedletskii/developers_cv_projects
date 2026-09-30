@@ -43,7 +43,7 @@ func newRuntimeAuthenticator(cfg config.AuthConfig, currentSession *authqueries.
 	case "mock":
 		return authmock.NewMockAuthenticator(reader), nil
 	case "telegram":
-		return authsession.NewAuthenticator(currentSession, observer), nil
+		return authsession.NewAuthenticator(currentSession, cfg.Cookie.Name, observer), nil
 	default:
 		return nil, errors.New("unsupported authentication mode")
 	}

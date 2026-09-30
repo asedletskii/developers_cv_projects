@@ -18,20 +18,18 @@ import (
 	"developers-cv/backend/internal/platform/http/middleware"
 )
 
-const CookieName = "__Host-session"
-
 type Authenticator struct {
 	currentSession *queries.CurrentSessionHandler
 	cookieName     string
 	observer       ports.AuthObserver
 }
 
-func NewAuthenticator(currentSession *queries.CurrentSessionHandler, observers ...ports.AuthObserver) *Authenticator {
+func NewAuthenticator(currentSession *queries.CurrentSessionHandler, cookieName string, observers ...ports.AuthObserver) *Authenticator {
 	var observer ports.AuthObserver
 	if len(observers) > 0 {
 		observer = observers[0]
 	}
-	return &Authenticator{currentSession: currentSession, cookieName: CookieName, observer: observer}
+	return &Authenticator{currentSession: currentSession, cookieName: strings.TrimSpace(cookieName), observer: observer}
 }
 
 func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request) (uuid.UUID, error) {

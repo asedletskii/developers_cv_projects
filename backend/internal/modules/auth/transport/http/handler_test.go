@@ -16,18 +16,19 @@ import (
 	"developers-cv/backend/internal/modules/auth/application"
 	"developers-cv/backend/internal/modules/auth/application/commands"
 	"developers-cv/backend/internal/modules/auth/application/ports"
+	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/token"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeStartTelegramLogin struct {
-	location string
-	err      error
+	start commands.TelegramLoginStart
+	err   error
 }
 
-func (f *fakeStartTelegramLogin) Handle(context.Context) (string, error) {
-	return f.location, f.err
+func (f *fakeStartTelegramLogin) Handle(context.Context) (commands.TelegramLoginStart, error) {
+	return f.start, f.err
 }
 
 type fakeCompleteTelegramLogin struct {
@@ -35,7 +36,10 @@ type fakeCompleteTelegramLogin struct {
 	err     error
 }
 
-func (f *fakeCompleteTelegramLogin) Handle(context.Context, string, string) (commands.AuthenticatedSession, error) {
+func (f *fakeCompleteTelegramLogin) Handle(_ context.Context, _ string, _ string, browserBinding string) (commands.AuthenticatedSession, error) {
+	if f.err == nil && browserBinding == "" {
+		return commands.AuthenticatedSession{}, application.ErrBrowserBindingInvalid
+	}
 	return f.session, f.err
 }
 
@@ -79,12 +83,14 @@ func performRequest(handler gin.HandlerFunc, method, target string, configure fu
 }
 
 func TestHandlerStartTelegramRedirects(t *testing.T) {
-	handler := newTestHandler(&fakeStartTelegramLogin{location: "https://oauth.example/auth?state=opaque"}, nil, nil)
+	handler := newTestHandler(&fakeStartTelegramLogin{start: commands.TelegramLoginStart{AuthorizationURL: "https://oauth.example/auth?state=opaque", BrowserBindingToken: "binding", BrowserBindingMaxAge: 300}}, nil, nil)
 
 	response := performRequest(handler.StartTelegram, http.MethodGet, "/api/v1/auth/telegram", nil)
 
 	require.Equal(t, http.StatusFound, response.Code)
 	require.Equal(t, "https://oauth.example/auth?state=opaque", response.Header().Get("Location"))
+	require.Contains(t, response.Header().Get("Set-Cookie"), "__Host-auth-flow=binding")
+	require.Contains(t, response.Header().Get("Set-Cookie"), "Max-Age=300")
 }
 
 func TestHandlerStartTelegramMapsApplicationError(t *testing.T) {
@@ -105,17 +111,27 @@ func TestHandlerCompleteTelegramSetsSecureSessionCookieAndRedirects(t *testing.T
 		ExpiresAt:       time.Now().UTC().Add(time.Hour),
 	}}, nil)
 
-	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=authorization-code&state=state", nil)
+	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=authorization-code&state=state", func(request *http.Request) {
+		request.AddCookie(&http.Cookie{Name: DefaultBrowserBindingCookieName, Value: "binding", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	})
 
 	require.Equal(t, http.StatusFound, response.Code)
 	require.Equal(t, "/cv/lk", response.Header().Get("Location"))
-	setCookie := response.Header().Get("Set-Cookie")
-	require.Contains(t, setCookie, "__Host-session=test-session-value")
-	require.Contains(t, setCookie, "Path=/")
-	require.Contains(t, setCookie, "Max-Age=2592000")
-	require.Contains(t, setCookie, "HttpOnly")
-	require.Contains(t, setCookie, "Secure")
-	require.Contains(t, setCookie, "SameSite=Lax")
+	cookies := response.Result().Cookies()
+	var sessionCookie *http.Cookie
+	for _, cookie := range cookies {
+		if cookie.Name == DefaultCookieName {
+			sessionCookie = cookie
+			break
+		}
+	}
+	require.NotNil(t, sessionCookie)
+	require.Equal(t, "test-session-value", sessionCookie.Value)
+	require.Equal(t, "/", sessionCookie.Path)
+	require.Equal(t, 2592000, sessionCookie.MaxAge)
+	require.True(t, sessionCookie.HttpOnly)
+	require.True(t, sessionCookie.Secure)
+	require.Equal(t, http.SameSiteLaxMode, sessionCookie.SameSite)
 	require.NotContains(t, response.Body.String(), "authorization-code")
 	require.NotContains(t, response.Body.String(), userID.String())
 }
@@ -125,35 +141,73 @@ func TestHandlerCompleteTelegramRejectsMissingCallbackValues(t *testing.T) {
 
 	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=authorization-code", nil)
 
-	require.Equal(t, http.StatusBadRequest, response.Code)
-	require.Contains(t, response.Body.String(), `"message":"Authentication failed"`)
+	require.Equal(t, http.StatusFound, response.Code)
+	require.Equal(t, "/cv/auth/error?reason=invalid_request", response.Header().Get("Location"))
 }
 
 func TestHandlerCompleteTelegramRejectsInvalidState(t *testing.T) {
 	handler := newTestHandler(nil, &fakeCompleteTelegramLogin{err: application.ErrStateInvalid}, nil)
 
-	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=code&state=state", nil)
+	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=code&state=state", func(request *http.Request) {
+		request.AddCookie(&http.Cookie{Name: DefaultBrowserBindingCookieName, Value: "binding", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	})
 
-	require.Equal(t, http.StatusBadRequest, response.Code)
-	require.Contains(t, response.Body.String(), `"message":"Authentication failed"`)
+	require.Equal(t, http.StatusFound, response.Code)
+	require.Equal(t, "/cv/auth/error?reason=state_invalid", response.Header().Get("Location"))
 	require.NotContains(t, response.Body.String(), application.ErrStateInvalid.Error())
+}
+
+func TestHandlerCompleteTelegramRedirectsExpiredTransaction(t *testing.T) {
+	handler := newTestHandler(nil, &fakeCompleteTelegramLogin{err: domain.ErrAuthTransactionExpired}, nil)
+
+	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=code&state=state", func(request *http.Request) {
+		request.AddCookie(&http.Cookie{Name: DefaultBrowserBindingCookieName, Value: "binding", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	})
+
+	require.Equal(t, http.StatusFound, response.Code)
+	require.Equal(t, "/cv/auth/error?reason=transaction_expired", response.Header().Get("Location"))
+}
+
+func TestHandlerCompleteTelegramRedirectsConsumedTransaction(t *testing.T) {
+	handler := newTestHandler(nil, &fakeCompleteTelegramLogin{err: domain.ErrAuthTransactionConsumed}, nil)
+
+	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=code&state=state", func(request *http.Request) {
+		request.AddCookie(&http.Cookie{Name: DefaultBrowserBindingCookieName, Value: "binding", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	})
+
+	require.Equal(t, http.StatusFound, response.Code)
+	require.Equal(t, "/cv/auth/error?reason=transaction_consumed", response.Header().Get("Location"))
 }
 
 func TestHandlerCompleteTelegramProviderDenialRedirects(t *testing.T) {
 	handler := newTestHandler(nil, &fakeCompleteTelegramLogin{}, nil)
 
-	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?error=access_denied", nil)
+	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?error=access_denied&state=state", func(request *http.Request) {
+		request.AddCookie(&http.Cookie{Name: DefaultBrowserBindingCookieName, Value: "binding", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	})
 
 	require.Equal(t, http.StatusFound, response.Code)
 	require.Equal(t, "/cv/auth/error?reason=provider_denied", response.Header().Get("Location"))
 }
 
+func TestHandlerCompleteTelegramRejectsUnboundProviderDenial(t *testing.T) {
+	handler := newTestHandler(nil, &fakeCompleteTelegramLogin{}, nil)
+
+	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?error=access_denied&state=state", nil)
+
+	require.Equal(t, http.StatusFound, response.Code)
+	require.Equal(t, "/cv/auth/error?reason=invalid_request", response.Header().Get("Location"))
+}
+
 func TestHandlerCompleteTelegramMapsProviderFailureWithoutDetails(t *testing.T) {
 	handler := newTestHandler(nil, &fakeCompleteTelegramLogin{err: errors.New("telegram secret token=should-not-leak")}, nil)
 
-	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=code&state=state", nil)
+	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=code&state=state", func(request *http.Request) {
+		request.AddCookie(&http.Cookie{Name: DefaultBrowserBindingCookieName, Value: "binding", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	})
 
-	require.Equal(t, http.StatusInternalServerError, response.Code)
+	require.Equal(t, http.StatusFound, response.Code)
+	require.Equal(t, "/cv/auth/error?reason=database_error", response.Header().Get("Location"))
 	require.NotContains(t, response.Body.String(), "telegram secret")
 	require.NotContains(t, response.Body.String(), "should-not-leak")
 }
@@ -161,10 +215,12 @@ func TestHandlerCompleteTelegramMapsProviderFailureWithoutDetails(t *testing.T) 
 func TestHandlerCompleteTelegramMapsIdentityVerificationFailure(t *testing.T) {
 	handler := newTestHandler(nil, &fakeCompleteTelegramLogin{err: application.ErrIdentityVerificationFailed}, nil)
 
-	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=code&state=state", nil)
+	response := performRequest(handler.CompleteTelegram, http.MethodGet, "/api/v1/auth/telegram/callback?code=code&state=state", func(request *http.Request) {
+		request.AddCookie(&http.Cookie{Name: DefaultBrowserBindingCookieName, Value: "binding", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	})
 
-	require.Equal(t, http.StatusBadRequest, response.Code)
-	require.Contains(t, response.Body.String(), `"message":"Authentication failed"`)
+	require.Equal(t, http.StatusFound, response.Code)
+	require.Equal(t, "/cv/auth/error?reason=id_token_invalid", response.Header().Get("Location"))
 }
 
 func TestHandlerCurrentSessionUsesAuthenticatedMiddlewareUser(t *testing.T) {
@@ -225,6 +281,16 @@ func TestHandlerLogoutIsIdempotentWithoutCookie(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, response.Code)
 	require.Equal(t, 0, logout.calls)
 	require.Contains(t, response.Header().Get("Set-Cookie"), "Max-Age=0")
+}
+
+func TestBrowserBindingCookieUsesHostPrefixAndSecurityAttributes(t *testing.T) {
+	cookie := DefaultCookieConfig(300).BrowserBindingCookie("binding", 300)
+	require.Equal(t, DefaultBrowserBindingCookieName, cookie.Name)
+	require.Equal(t, "/", cookie.Path)
+	require.True(t, cookie.Secure)
+	require.True(t, cookie.HttpOnly)
+	require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+	require.Equal(t, 300, cookie.MaxAge)
 }
 
 func TestCookieConfigRejectsInsecureHostCookie(t *testing.T) {

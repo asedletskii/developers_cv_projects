@@ -20,7 +20,10 @@ type tokenGeneratorStub struct {
 	state, nonce, verifier, session []byte
 }
 
-func (g tokenGeneratorStub) GenerateState() ([]byte, error)        { return g.state, nil }
+func (g tokenGeneratorStub) GenerateState() ([]byte, error) { return g.state, nil }
+func (g tokenGeneratorStub) GenerateBrowserBinding() ([]byte, error) {
+	return []byte("browser-binding"), nil
+}
 func (g tokenGeneratorStub) GenerateNonce() ([]byte, error)        { return g.nonce, nil }
 func (g tokenGeneratorStub) GeneratePKCEVerifier() ([]byte, error) { return g.verifier, nil }
 func (g tokenGeneratorStub) GenerateSessionToken() ([]byte, error) { return g.session, nil }
@@ -187,7 +190,10 @@ func testTransaction(t *testing.T, at time.Time) *domain.AuthTransaction {
 	require.NoError(t, err)
 	nh, err := valueobjects.NewNonceHash(nonce[:])
 	require.NoError(t, err)
-	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{ID: sharedvalueobjects.NewID(), Provider: testProvider(t), StateHash: sh, NonceHash: nh, CodeVerifier: "verifier", RedirectURI: "https://example/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
+	binding := sha256.Sum256([]byte("browser-binding"))
+	bb, err := valueobjects.NewBrowserBindingHash(binding[:])
+	require.NoError(t, err)
+	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{ID: sharedvalueobjects.NewID(), Provider: testProvider(t), StateHash: sh, NonceHash: nh, BrowserBindingHash: bb, CodeVerifier: "verifier", RedirectURI: "https://example/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
 	require.NoError(t, err)
 	return tx
 }
@@ -206,12 +212,16 @@ func TestStartTelegramLoginCreatesTransactionAndURL(t *testing.T) {
 	oidc := &oidcStub{url: "https://oauth.example/auth"}
 	h := NewStartTelegramLoginHandler(repo, oidc, tokenGeneratorStub{state: []byte("state"), nonce: []byte("nonce"), verifier: []byte("verifier")}, &uowStub{}, "https://example/callback", 5*time.Minute)
 	h.now = func() time.Time { return at }
-	url, err := h.Handle(context.Background())
+	start, err := h.Handle(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, oidc.url, url)
+	require.Equal(t, oidc.url, start.AuthorizationURL)
+	require.NotEmpty(t, start.BrowserBindingToken)
+	require.Equal(t, 300, start.BrowserBindingMaxAge)
 	require.NotNil(t, repo.transaction)
 	require.Equal(t, "https://example/callback", repo.transaction.RedirectURI())
 	require.False(t, repo.transaction.StateHash().IsZero())
+	expectedBinding := sha256.Sum256([]byte("YnJvd3Nlci1iaW5kaW5n"))
+	require.Equal(t, expectedBinding[:], repo.transaction.BrowserBindingHash().Bytes())
 	require.False(t, repo.transaction.NonceHash().IsZero())
 	require.Equal(t, "dmVyaWZpZXI", repo.transaction.CodeVerifier())
 }
@@ -229,7 +239,7 @@ func TestCompleteTelegramLoginRejectsInvalidState(t *testing.T) {
 	h := NewCompleteTelegramLoginHandler(repo, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
 	h.now = func() time.Time { return at }
 
-	_, err := h.Handle(context.Background(), "code", "state")
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 
 	require.ErrorIs(t, err, application.ErrStateInvalid)
 }
@@ -243,7 +253,7 @@ func TestCompleteTelegramLoginRejectsConsumedTransaction(t *testing.T) {
 	h := NewCompleteTelegramLoginHandler(repo, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
 	h.now = func() time.Time { return at.Add(2 * time.Minute) }
 
-	_, err := h.Handle(context.Background(), "code", "state")
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 
 	require.ErrorIs(t, err, domain.ErrAuthTransactionConsumed)
 }
@@ -255,7 +265,7 @@ func TestCompleteTelegramLoginRejectsExpiredTransaction(t *testing.T) {
 	h := NewCompleteTelegramLoginHandler(repo, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
 	h.now = func() time.Time { return at.Add(6 * time.Minute) }
 
-	_, err := h.Handle(context.Background(), "code", "state")
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 
 	require.ErrorIs(t, err, domain.ErrAuthTransactionExpired)
 }
@@ -267,7 +277,7 @@ func TestCompleteTelegramLoginPropagatesProviderExchangeFailure(t *testing.T) {
 	h := NewCompleteTelegramLoginHandler(repo, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{exchangeErr: exchangeErr}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
 	h.now = func() time.Time { return at }
 
-	_, err := h.Handle(context.Background(), "code", "state")
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 
 	require.ErrorIs(t, err, application.ErrIdentityVerificationFailed)
 	require.ErrorIs(t, err, exchangeErr)
@@ -280,7 +290,7 @@ func TestCompleteTelegramLoginPropagatesIDTokenVerificationFailure(t *testing.T)
 	h := NewCompleteTelegramLoginHandler(repo, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{exchangeErr: verificationErr}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
 	h.now = func() time.Time { return at }
 
-	_, err := h.Handle(context.Background(), "code", "state")
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 
 	require.ErrorIs(t, err, application.ErrIdentityVerificationFailed)
 	require.ErrorIs(t, err, verificationErr)
@@ -294,7 +304,7 @@ func TestCompleteTelegramLoginPropagatesUnexpectedDatabaseError(t *testing.T) {
 	h := NewCompleteTelegramLoginHandler(repo, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{identity: ports.VerifiedIdentity{Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub")}}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, uow, time.Hour)
 	h.now = func() time.Time { return at }
 
-	_, err := h.Handle(context.Background(), "code", "state")
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 
 	require.ErrorIs(t, err, dbErr)
 	require.Equal(t, 1, uow.calls)
@@ -311,7 +321,7 @@ func TestCompleteTelegramLoginCreatesUserIdentityAndSession(t *testing.T) {
 	oidc := &oidcStub{identity: ports.VerifiedIdentity{Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub")}}
 	h := NewCompleteTelegramLoginHandler(repo, identityRepo, sessions, oidc, provisioner, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
 	h.now = func() time.Time { return at }
-	result, err := h.Handle(context.Background(), "code", "state")
+	result, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 	require.NoError(t, err)
 	require.Equal(t, userID, result.UserID)
 	require.Equal(t, "c2Vzc2lvbi10b2tlbg", result.RawSessionToken)
@@ -336,7 +346,7 @@ func TestCompleteTelegramLoginReusesExistingIdentity(t *testing.T) {
 	provisioner := &provisionerStub{userID: sharedvalueobjects.NewID()}
 	h := NewCompleteTelegramLoginHandler(repo, identityRepo, sessions, oidc, provisioner, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
 	h.now = func() time.Time { return at }
-	result, err := h.Handle(context.Background(), "code", "state")
+	result, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 	require.NoError(t, err)
 	require.Equal(t, userID, result.UserID)
 	require.Equal(t, 0, provisioner.calls)
@@ -354,7 +364,7 @@ func TestCompleteTelegramLoginRetriesIdentityConflict(t *testing.T) {
 	provisioner := &provisionerStub{userID: sharedvalueobjects.NewID()}
 	h := NewCompleteTelegramLoginHandler(&transactionRepositoryStub{transaction: tx}, tracing, &sessionRepositoryStub{}, oidc, provisioner, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
 	h.now = func() time.Time { return at }
-	result, err := h.Handle(context.Background(), "code", "state")
+	result, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 	require.NoError(t, err)
 	require.Equal(t, userID, result.UserID)
 	require.Equal(t, 1, tracing.createCalls)
@@ -380,6 +390,35 @@ func (r *raceIdentityRepository) Create(context.Context, *domain.Identity) error
 }
 func (r *raceIdentityRepository) UpdateLastLogin(context.Context, sharedvalueobjects.ID, time.Time) error {
 	return nil
+}
+
+func TestCompleteTelegramLoginRejectsMissingBrowserBinding(t *testing.T) {
+	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
+	tx := testTransaction(t, at)
+	h := NewCompleteTelegramLoginHandler(&transactionRepositoryStub{transaction: tx}, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
+	h.now = func() time.Time { return at }
+	_, err := h.Handle(context.Background(), "code", "state", "")
+	require.ErrorIs(t, err, application.ErrInvalidAuthFlow)
+}
+
+func TestCompleteTelegramLoginRejectsMismatchedBrowserBinding(t *testing.T) {
+	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
+	tx := testTransaction(t, at)
+	h := NewCompleteTelegramLoginHandler(&transactionRepositoryStub{transaction: tx}, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
+	h.now = func() time.Time { return at }
+	_, err := h.Handle(context.Background(), "code", "state", "wrong-binding")
+	require.ErrorIs(t, err, application.ErrBrowserBindingInvalid)
+}
+
+func TestCompleteTelegramLoginAcceptsMatchingBrowserBinding(t *testing.T) {
+	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
+	tx := testTransaction(t, at)
+	provider := testProvider(t)
+	subject := testSubject(t, "telegram-sub")
+	h := NewCompleteTelegramLoginHandler(&transactionRepositoryStub{transaction: tx}, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{identity: ports.VerifiedIdentity{Provider: provider, ProviderSubject: subject}}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
+	h.now = func() time.Time { return at }
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
+	require.NoError(t, err)
 }
 
 func TestLogoutIsIdempotentForMissingSession(t *testing.T) {

@@ -12,6 +12,7 @@ func TestGeneratorProduces32RandomBytes(t *testing.T) {
 	generator := NewGenerator()
 	values := [][]byte{
 		mustGenerate(t, generator.GenerateState),
+		mustGenerate(t, generator.GenerateBrowserBinding),
 		mustGenerate(t, generator.GenerateNonce),
 		mustGenerate(t, generator.GeneratePKCEVerifier),
 		mustGenerate(t, generator.GenerateSessionToken),

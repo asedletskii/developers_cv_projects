@@ -12,10 +12,11 @@ type Generator struct{}
 
 func NewGenerator() *Generator { return &Generator{} }
 
-func (g *Generator) GenerateState() ([]byte, error)        { return g.generate() }
-func (g *Generator) GenerateNonce() ([]byte, error)        { return g.generate() }
-func (g *Generator) GeneratePKCEVerifier() ([]byte, error) { return g.generate() }
-func (g *Generator) GenerateSessionToken() ([]byte, error) { return g.generate() }
+func (g *Generator) GenerateState() ([]byte, error)          { return g.generate() }
+func (g *Generator) GenerateBrowserBinding() ([]byte, error) { return g.generate() }
+func (g *Generator) GenerateNonce() ([]byte, error)          { return g.generate() }
+func (g *Generator) GeneratePKCEVerifier() ([]byte, error)   { return g.generate() }
+func (g *Generator) GenerateSessionToken() ([]byte, error)   { return g.generate() }
 
 func (g *Generator) Hash(value []byte) []byte {
 	hash := sha256.Sum256(value)

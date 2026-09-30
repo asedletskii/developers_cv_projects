@@ -48,7 +48,7 @@ var _ authports.UnitOfWork = runtimeUOWStub{}
 
 func TestNewRuntimeAuthenticatorTelegramModeIgnoresMockHeaderAndURLUserID(t *testing.T) {
 	currentSession := authqueries.NewCurrentSessionHandler(runtimeSessionRepositoryStub{}, runtimeUOWStub{}, time.Hour, time.Minute)
-	authenticator, err := newRuntimeAuthenticator(config.AuthConfig{Mode: "telegram"}, currentSession, nil, nil)
+	authenticator, err := newRuntimeAuthenticator(config.AuthConfig{Mode: "telegram", Cookie: config.CookieAuthConfig{Name: "__Host-session"}}, currentSession, nil, nil)
 	require.NoError(t, err)
 	require.IsType(t, &session.Authenticator{}, authenticator)
 

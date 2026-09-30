@@ -33,15 +33,16 @@ type AuthSession struct {
 func (AuthSession) TableName() string { return "auth_sessions" }
 
 type AuthTransaction struct {
-	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Provider     string    `gorm:"type:text;not null"`
-	StateHash    []byte    `gorm:"type:bytea;not null;uniqueIndex"`
-	NonceHash    []byte    `gorm:"type:bytea;not null"`
-	CodeVerifier string    `gorm:"type:text;not null"`
-	RedirectURI  string    `gorm:"type:text;not null"`
-	CreatedAt    time.Time `gorm:"not null"`
-	ExpiresAt    time.Time `gorm:"not null;index"`
-	ConsumedAt   *time.Time
+	ID                 uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Provider           string    `gorm:"type:text;not null"`
+	StateHash          []byte    `gorm:"type:bytea;not null;uniqueIndex"`
+	NonceHash          []byte    `gorm:"type:bytea;not null"`
+	BrowserBindingHash []byte    `gorm:"type:bytea;not null"`
+	CodeVerifier       string    `gorm:"type:text;not null"`
+	RedirectURI        string    `gorm:"type:text;not null"`
+	CreatedAt          time.Time `gorm:"not null"`
+	ExpiresAt          time.Time `gorm:"not null;index"`
+	ConsumedAt         *time.Time
 }
 
 func (AuthTransaction) TableName() string { return "auth_transactions" }

@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrInvalidAuthFlow            = errors.New("invalid auth flow")
 	ErrStateInvalid               = errors.New("invalid auth state")
+	ErrBrowserBindingInvalid      = errors.New("invalid auth browser binding")
 	ErrProviderUnavailable        = errors.New("auth provider unavailable")
 	ErrIdentityVerificationFailed = errors.New("identity verification failed")
 	ErrSessionInvalid             = errors.New("invalid auth session")

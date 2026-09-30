@@ -83,13 +83,13 @@ func newAuthenticatorSession(t *testing.T, now time.Time, lastSeenOffset time.Du
 
 func newTestAuthenticator(repo ports.SessionRepository) *Authenticator {
 	query := queries.NewCurrentSessionHandler(repo, &sessionUOWStub{}, time.Hour, 5*time.Minute)
-	return NewAuthenticator(query)
+	return NewAuthenticator(query, "__Host-session")
 }
 
 func requestWithSessionCookie(token string) *http.Request {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{
-		Name:     CookieName,
+		Name:     "__Host-session",
 		Value:    token,
 		Path:     "/",
 		Secure:   true,
@@ -182,8 +182,19 @@ func TestAuthenticatorRejectsAbsoluteExpiredSession(t *testing.T) {
 	require.ErrorIs(t, err, middleware.ErrUnauthenticated)
 }
 
-func TestAuthenticatorCookieNameIsHostPrefixed(t *testing.T) {
-	require.Equal(t, "__Host-session", CookieName)
+func TestAuthenticatorUsesConfiguredCookieName(t *testing.T) {
+	now := time.Now().UTC()
+	session := newAuthenticatorSession(t, now, -time.Minute)
+	repo := &sessionRepositoryStub{session: session}
+	query := queries.NewCurrentSessionHandler(repo, &sessionUOWStub{}, time.Hour, 5*time.Minute)
+	authenticator := NewAuthenticator(query, "dev-session")
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "dev-session", Value: encodedTestToken(), Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+
+	actual, err := authenticator.Authenticate(context.Background(), req)
+
+	require.NoError(t, err)
+	require.Equal(t, session.UserID().UUID(), actual)
 }
 
 func TestAuthenticatorDoesNotAcceptNilRequest(t *testing.T) {

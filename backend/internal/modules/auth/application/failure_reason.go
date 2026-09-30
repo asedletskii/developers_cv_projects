@@ -51,7 +51,7 @@ func FailureReason(err error) string {
 		return FailureReasonSessionExpired
 	case errors.Is(err, ErrSessionInvalid):
 		return FailureReasonSessionMissing
-	case errors.Is(err, ErrStateInvalid):
+	case errors.Is(err, ErrStateInvalid), errors.Is(err, ErrBrowserBindingInvalid):
 		return FailureReasonStateInvalid
 	case errors.Is(err, ErrInvalidAuthFlow):
 		return FailureReasonInvalidRequest

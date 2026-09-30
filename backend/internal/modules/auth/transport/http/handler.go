@@ -21,11 +21,11 @@ import (
 )
 
 type startTelegramLogin interface {
-	Handle(context.Context) (string, error)
+	Handle(context.Context) (commands.TelegramLoginStart, error)
 }
 
 type completeTelegramLogin interface {
-	Handle(context.Context, string, string) (commands.AuthenticatedSession, error)
+	Handle(context.Context, string, string, string) (commands.AuthenticatedSession, error)
 }
 
 type logoutHandler interface {
@@ -33,26 +33,28 @@ type logoutHandler interface {
 }
 
 type Handler struct {
-	startTelegramLogin startTelegramLogin
-	completeTelegram   completeTelegramLogin
-	logout             logoutHandler
-	observer           ports.AuthObserver
-	tokenGenerator     ports.TokenGenerator
-	cookie             CookieConfig
-	successLocation    string
-	failureLocation    string
-	now                func() time.Time
+	startTelegramLogin   startTelegramLogin
+	completeTelegram     completeTelegramLogin
+	logout               logoutHandler
+	observer             ports.AuthObserver
+	tokenGenerator       ports.TokenGenerator
+	cookie               CookieConfig
+	successLocation      string
+	failureLocation      string
+	browserBindingMaxAge int
+	now                  func() time.Time
 }
 
 type HandlerDependencies struct {
-	StartTelegramLogin startTelegramLogin
-	CompleteTelegram   completeTelegramLogin
-	Logout             logoutHandler
-	Observer           ports.AuthObserver
-	TokenGenerator     ports.TokenGenerator
-	Cookie             CookieConfig
-	SuccessLocation    string
-	FailureLocation    string
+	StartTelegramLogin   startTelegramLogin
+	CompleteTelegram     completeTelegramLogin
+	Logout               logoutHandler
+	Observer             ports.AuthObserver
+	TokenGenerator       ports.TokenGenerator
+	Cookie               CookieConfig
+	SuccessLocation      string
+	FailureLocation      string
+	BrowserBindingMaxAge int
 }
 
 func NewHandler(deps HandlerDependencies) *Handler {
@@ -61,15 +63,16 @@ func NewHandler(deps HandlerDependencies) *Handler {
 		successLocation = "/cv/lk"
 	}
 	return &Handler{
-		startTelegramLogin: deps.StartTelegramLogin,
-		completeTelegram:   deps.CompleteTelegram,
-		logout:             deps.Logout,
-		observer:           deps.Observer,
-		tokenGenerator:     deps.TokenGenerator,
-		cookie:             deps.Cookie,
-		successLocation:    successLocation,
-		failureLocation:    deps.FailureLocation,
-		now:                func() time.Time { return time.Now().UTC() },
+		startTelegramLogin:   deps.StartTelegramLogin,
+		completeTelegram:     deps.CompleteTelegram,
+		logout:               deps.Logout,
+		observer:             deps.Observer,
+		tokenGenerator:       deps.TokenGenerator,
+		cookie:               deps.Cookie,
+		successLocation:      successLocation,
+		failureLocation:      deps.FailureLocation,
+		browserBindingMaxAge: deps.BrowserBindingMaxAge,
+		now:                  func() time.Time { return time.Now().UTC() },
 	}
 }
 
@@ -93,7 +96,7 @@ func (h *Handler) StartTelegram(c *gin.Context) {
 		c.Request = c.Request.WithContext(spanCtx)
 	}
 	startedAt := h.now()
-	location, err := h.startTelegramLogin.Handle(c.Request.Context())
+	start, err := h.startTelegramLogin.Handle(c.Request.Context())
 	if err != nil {
 		finishSpan(err)
 		if h.observer != nil {
@@ -103,7 +106,20 @@ func (h *Handler) StartTelegram(c *gin.Context) {
 		return
 	}
 	finishSpan(nil)
-	c.Redirect(http.StatusFound, location)
+	maxAge := start.BrowserBindingMaxAge
+	if maxAge <= 0 {
+		maxAge = h.browserBindingMaxAge
+	}
+	if strings.TrimSpace(start.BrowserBindingToken) == "" || maxAge <= 0 {
+		err := application.ErrInvalidAuthFlow
+		if h.observer != nil {
+			h.observer.LoginFailed(c.Request.Context(), provider, application.FailureReason(err), time.Since(startedAt))
+		}
+		writeAuthError(c, err)
+		return
+	}
+	http.SetCookie(c.Writer, h.cookie.BrowserBindingCookie(start.BrowserBindingToken, maxAge))
+	c.Redirect(http.StatusFound, start.AuthorizationURL)
 }
 
 func (h *Handler) CompleteTelegram(c *gin.Context) {
@@ -132,11 +148,24 @@ func (h *Handler) CompleteTelegram(c *gin.Context) {
 	}
 	startedAt := h.now()
 	providerError := strings.TrimSpace(c.Query("error"))
+	code := strings.TrimSpace(c.Query("code"))
+	state := strings.TrimSpace(c.Query("state"))
+	browserBinding, bindingErr := browserBindingToken(c.Request, h.cookie.Secure)
+	if state == "" || bindingErr != nil {
+		err := application.ErrInvalidAuthFlow
+		finishSpan(err)
+		if h.observer != nil {
+			h.observer.LoginFailed(c.Request.Context(), provider, application.FailureReason(err), time.Since(startedAt))
+		}
+		h.redirectAuthError(c, err)
+		return
+	}
 	if providerError == "access_denied" {
 		finishSpan(nil)
 		if h.observer != nil {
 			h.observer.LoginFailed(c.Request.Context(), provider, application.FailureReasonProviderDenied, time.Since(startedAt))
 		}
+		http.SetCookie(c.Writer, h.cookie.ClearBrowserBindingCookie())
 		c.Redirect(http.StatusFound, h.failureRedirect("provider_denied"))
 		return
 	}
@@ -145,29 +174,27 @@ func (h *Handler) CompleteTelegram(c *gin.Context) {
 		if h.observer != nil {
 			h.observer.LoginFailed(c.Request.Context(), provider, application.FailureReasonIDTokenInvalid, time.Since(startedAt))
 		}
+		http.SetCookie(c.Writer, h.cookie.ClearBrowserBindingCookie())
 		c.Redirect(http.StatusFound, h.failureRedirect("authentication_failed"))
 		return
 	}
-
-	code := strings.TrimSpace(c.Query("code"))
-	state := strings.TrimSpace(c.Query("state"))
-	if code == "" || state == "" {
+	if code == "" {
 		err := application.ErrInvalidAuthFlow
 		finishSpan(err)
 		if h.observer != nil {
 			h.observer.LoginFailed(c.Request.Context(), provider, application.FailureReason(err), time.Since(startedAt))
 		}
-		writeAuthError(c, err)
+		h.redirectAuthError(c, err)
 		return
 	}
 
-	session, err := h.completeTelegram.Handle(c.Request.Context(), code, state)
+	session, err := h.completeTelegram.Handle(c.Request.Context(), code, state, browserBinding)
 	if err != nil {
 		finishSpan(err)
 		if h.observer != nil {
 			h.observer.LoginFailed(c.Request.Context(), provider, application.FailureReason(err), time.Since(startedAt))
 		}
-		writeAuthError(c, err)
+		h.redirectAuthError(c, err)
 		return
 	}
 	finishSpan(nil)
@@ -175,6 +202,7 @@ func (h *Handler) CompleteTelegram(c *gin.Context) {
 		h.observer.LoginSucceeded(c.Request.Context(), provider, session.UserID, time.Since(startedAt))
 	}
 	c.SetSameSite(h.cookie.SameSite)
+	http.SetCookie(c.Writer, h.cookie.ClearBrowserBindingCookie())
 	http.SetCookie(c.Writer, h.cookie.NewCookie(session.RawSessionToken))
 	c.Redirect(http.StatusFound, h.successLocation)
 }
@@ -253,6 +281,17 @@ func userIDFromUUID(value uuid.UUID) sharedvalueobjects.ID {
 	return id
 }
 
+func (h *Handler) redirectAuthError(c *gin.Context, err error) {
+	reason := application.FailureReason(err)
+	if reason == "" {
+		reason = application.FailureReasonInvalidRequest
+	}
+	if !errors.Is(err, application.ErrBrowserBindingInvalid) && !errors.Is(err, application.ErrStateInvalid) {
+		http.SetCookie(c.Writer, h.cookie.ClearBrowserBindingCookie())
+	}
+	c.Redirect(http.StatusFound, h.failureRedirect(reason))
+}
+
 func writeAuthError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, middleware.ErrUnauthenticated),
@@ -265,6 +304,9 @@ func writeAuthError(c *gin.Context, err error) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeUnavailable, http.StatusServiceUnavailable, "Authentication provider unavailable"))
 	case errors.Is(err, application.ErrInvalidAuthFlow),
 		errors.Is(err, application.ErrStateInvalid),
+		errors.Is(err, application.ErrBrowserBindingInvalid),
+		errors.Is(err, domain.ErrAuthTransactionExpired),
+		errors.Is(err, domain.ErrAuthTransactionConsumed),
 		errors.Is(err, application.ErrIdentityVerificationFailed),
 		errors.Is(err, application.ErrConcurrentIdentityCreation):
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Authentication failed"))
