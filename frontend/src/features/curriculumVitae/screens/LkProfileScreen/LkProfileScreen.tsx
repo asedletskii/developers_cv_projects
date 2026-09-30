@@ -1,17 +1,26 @@
+import { LoginPrompt } from '@features/auth/components/LoginPrompt'
+import { useSession } from '@features/auth/hooks'
 import { LoadFailure, ProfileCard, ProfilePlaceholder } from '@features/curriculumVitae/components'
 import { useLkProfile } from '@features/curriculumVitae/hooks'
 import { Container, Stack } from '@mui/material'
-import { Outlet, useParams } from 'react-router'
+import { Outlet } from 'react-router'
 
 /**
  * Каркас личного кабинета: ФИО и общие данные слева (1/4) всегда на месте, а правая часть (3/4)
- * меняется по адресу — список резюме (`/cv/lk/:userId`) или редактор резюме (`.../:cvId`).
+ * меняется по адресу — список резюме (`/cv/lk`) или редактор резюме (`.../:cvId`). userId берём
+ * из сессии (`/auth/me`), а не из URL — его знает только бэк по cookie.
  */
 const LkProfileScreen = () => {
-  const { userId } = useParams()
-  const { profile, isLoading, error } = useLkProfile(userId)
+  const { userId, isLoading: isSessionLoading, isAuthenticated } = useSession()
+  const {
+    profile,
+    isLoading: isProfileLoading,
+    error,
+  } = useLkProfile(isAuthenticated ? (userId ?? undefined) : undefined)
 
-  if (isLoading) return <ProfilePlaceholder />
+  if (isSessionLoading) return <ProfilePlaceholder />
+  if (!isAuthenticated) return <LoginPrompt />
+  if (isProfileLoading) return <ProfilePlaceholder />
   if (error) return <LoadFailure error={error} subject="profile" />
 
   // Сюда не попадаем: без ошибки и загрузки profile уже гарантированно загружен
@@ -29,7 +38,7 @@ const LkProfileScreen = () => {
         </Stack>
 
         <Stack sx={{ width: '100%', flex: 1, minWidth: 0 }}>
-          <Outlet />
+          <Outlet context={{ userId: profile.userId }} />
         </Stack>
       </Stack>
     </Container>

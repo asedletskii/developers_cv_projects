@@ -9,13 +9,12 @@ import { useTranslate } from '@shared/hooks'
 import { generatePath, Link as RouterLink } from 'react-router'
 
 type Props = {
-  userId: string
   resume: LkResumeSummary
   onOpenMenu: (e: MouseEvent<HTMLElement>) => void
 }
 
 /** Строка списка: название и язык резюме (ссылка в редактор) и меню действий. */
-export const ResumeListItem = ({ userId, resume, onOpenMenu }: Props) => {
+export const ResumeListItem = ({ resume, onOpenMenu }: Props) => {
   const translate = useTranslate('Lk.Resumes')
 
   return (
@@ -31,7 +30,7 @@ export const ResumeListItem = ({ userId, resume, onOpenMenu }: Props) => {
     >
       <ButtonBase
         component={RouterLink}
-        to={generatePath(ROUTES.lkResume, { userId, cvId: resume.id })}
+        to={generatePath(ROUTES.lkResume, { cvId: resume.id })}
         sx={{ flex: 1, justifyContent: 'space-between', px: 3, py: 2 }}
       >
         <Stack direction="row" alignItems="center" spacing={1.5}>

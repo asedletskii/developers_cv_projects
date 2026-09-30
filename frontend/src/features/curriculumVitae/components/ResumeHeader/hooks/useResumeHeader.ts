@@ -4,7 +4,7 @@ import { CurriculumVitaeError, ResumeStatus } from '@features/curriculumVitae/ty
 import { parseApiError } from '@features/curriculumVitae/utils'
 import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
-import { generatePath, useNavigate } from 'react-router'
+import { useNavigate } from 'react-router'
 
 type Params = {
   userId: string
@@ -54,7 +54,7 @@ export const useResumeHeader = ({ userId, resumeId, version, onRenamed, onError 
 
     try {
       await curriculumVitaeApi.deleteResume(userId, resumeId)
-      navigate(generatePath(ROUTES.lkProfile, { userId }))
+      navigate(ROUTES.lk)
     } catch (e) {
       onError(parseApiError(e))
     }

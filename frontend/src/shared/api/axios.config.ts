@@ -1,6 +1,6 @@
-// import { dispatch } from '@shared/store/store'
-// import { logoutHelper } from '@shared/utils'
-import axios, { AxiosError, AxiosRequestConfig } from 'axios'
+import { sessionExpired } from '@features/auth/store/session'
+import { dispatch } from '@shared/store'
+import axios, { AxiosError } from 'axios'
 
 // В браузере запрос по умолчанию идёт на тот же origin: в проде это Caddy, который проксирует
 // /api/v1 на бэкенд внутри docker-сети — без CORS и без хардкода адреса.
@@ -16,74 +16,17 @@ export const api = axios.create({
   },
 })
 
-const refreshApi = axios.create({
-  baseURL,
-  timeout: 30_000,
-  withCredentials: true,
-  headers: {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-  },
-})
-
-type RefreshResult = 'ok' | 'logout' | 'error'
-let refreshPromise: Promise<RefreshResult> | null = null
-
-const refreshSession = (): Promise<RefreshResult> => {
-  if (!refreshPromise) {
-    refreshPromise = refreshApi
-      .post('/auth/refresh')
-      .then((): RefreshResult => 'ok')
-      .catch((err: AxiosError): RefreshResult => {
-        const status = err.response?.status
-
-        if (status === 401) {
-          return 'logout'
-        }
-
-        return 'error'
-      })
-      .finally(() => {
-        refreshPromise = null
-      })
-  }
-
-  return refreshPromise
-}
-
+// Сессия — httpOnly cookie, обновить её самим нельзя (нет ручки /auth/refresh — только полный
+// повторный вход через Telegram). Если владельческая ручка ответила 401, cookie протухла или её
+// нет: сразу помечаем сессию как «не залогинен», чтобы экран показал форму входа.
 api.interceptors.response.use(
   (res) => res,
-  async (error: AxiosError) => {
-    const response = error.response
-    const config = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined
-
-    if (!response || !config) {
-      return Promise.reject(error)
-    }
-
-    const status = response.status
-    const url = config.url ?? ''
-
+  (error: AxiosError) => {
+    const url = error.config?.url ?? ''
     const isAuthEndpoint = url.startsWith('/auth/')
 
-    if (isAuthEndpoint) {
-      return Promise.reject(error)
-    }
-
-    if (status !== 401 || config._retry) {
-      return Promise.reject(error)
-    }
-
-    const result = await refreshSession()
-
-    if (result === 'ok') {
-      config._retry = true
-      return api.request(config)
-    }
-
-    if (result === 'logout') {
-      //   await logoutHelper(dispatch)
-      return Promise.reject(error)
+    if (error.response?.status === 401 && !isAuthEndpoint) {
+      dispatch(sessionExpired())
     }
 
     return Promise.reject(error)

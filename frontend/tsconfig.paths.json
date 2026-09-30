@@ -4,6 +4,7 @@
       "@app": ["./src/app"],
       "@app/*": ["./src/app/*"],
 
+      "@features/auth/*": ["./src/features/auth/*"],
       "@features/curriculumVitae/*": ["./src/features/curriculumVitae/*"],
 
       "@shared/animations/*": ["./src/shared/animations/*"],
