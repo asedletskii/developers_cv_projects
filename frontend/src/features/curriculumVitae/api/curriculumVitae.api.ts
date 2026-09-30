@@ -120,7 +120,7 @@ class CurriculumVitaeApi {
     resumeId: string,
     signal?: AbortSignal,
   ): Promise<ResumeLink[]> {
-    const response = await api.get<ResumeLink[]>(API_ROUTES.lkLinks, {
+    const response = await api.get<ResumeLink[]>(API_ROUTES.lkLinksList, {
       signal,
       params: { resumeId },
       headers: ownerHeaders(userId),
