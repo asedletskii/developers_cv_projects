@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
@@ -31,6 +32,7 @@ func NewRouter(
 	resumeHandler *resumehttp.Handler,
 	userHandler *userhttp.Handler,
 	resumeLinkHandler *resumelinkhttp.Handler,
+	authHandler *authhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
 ) (*Router, error) {
 	if cfg.App.Env == "production" {
@@ -58,8 +60,28 @@ func NewRouter(
 		engine.Use(middleware.NewRateLimiter(cfg.HTTP.RateLimit.Rate, cfg.HTTP.RateLimit.Burst).Middleware())
 	}
 
+	var authStartRateLimiter, authCallbackRateLimiter gin.HandlerFunc
+	if cfg.Auth.RateLimit.Enabled {
+		authStartRateLimiter = middleware.NewRateLimiter(
+			cfg.Auth.RateLimit.StartRatePerMinute/60,
+			cfg.Auth.RateLimit.StartBurst,
+		).Middleware()
+		authCallbackRateLimiter = middleware.NewRateLimiter(
+			cfg.Auth.RateLimit.CallbackRatePerMinute/60,
+			cfg.Auth.RateLimit.CallbackBurst,
+		).Middleware()
+	}
+
 	router := &Router{engine: engine, health: healthService, metrics: metrics}
-	router.registerRoutes(resumeHandler, userHandler, resumeLinkHandler, authenticate)
+	router.registerRoutes(
+		resumeHandler,
+		userHandler,
+		resumeLinkHandler,
+		authHandler,
+		authenticate,
+		authStartRateLimiter,
+		authCallbackRateLimiter,
+	)
 	return router, nil
 }
 
@@ -67,7 +89,15 @@ func (r *Router) Handler() http.Handler {
 	return r.engine
 }
 
-func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, userHandler *userhttp.Handler, resumeLinkHandler *resumelinkhttp.Handler, authenticate middleware.AuthenticateFunc) {
+func (r *Router) registerRoutes(
+	resumeHandler *resumehttp.Handler,
+	userHandler *userhttp.Handler,
+	resumeLinkHandler *resumelinkhttp.Handler,
+	authHandler *authhttp.Handler,
+	authenticate middleware.AuthenticateFunc,
+	authStartRateLimiter gin.HandlerFunc,
+	authCallbackRateLimiter gin.HandlerFunc,
+) {
 	engine := r.engine
 	engine.GET("/health", r.healthHandler)
 	engine.GET("/ready", r.readyHandler)
@@ -76,6 +106,13 @@ func (r *Router) registerRoutes(resumeHandler *resumehttp.Handler, userHandler *
 	}
 
 	api := engine.Group("/api/v1")
+	auth := api.Group("/auth")
+	if authHandler != nil {
+		authhttp.RegisterPublicRoutes(authHandler, auth, authStartRateLimiter, authCallbackRateLimiter)
+		authProtected := auth.Group("")
+		authProtected.Use(middleware.Authentication(authenticate))
+		authhttp.RegisterProtectedRoutes(authHandler, authProtected)
+	}
 	lk := api.Group("/lk")
 	lk.Use(middleware.Authentication(authenticate))
 	userhttp.RegisterRoutes(userHandler, lk)

@@ -17,6 +17,7 @@ func RequestID() gin.HandlerFunc {
 		}
 
 		c.Set(requestid.Key, requestID)
+		c.Request = c.Request.WithContext(requestid.WithContext(c.Request.Context(), requestID))
 		c.Header(requestid.Header, requestID)
 		c.Next()
 	}

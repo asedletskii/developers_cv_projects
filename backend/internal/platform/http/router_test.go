@@ -10,6 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+
+	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
+
 	"go.uber.org/zap/zaptest"
 
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
@@ -45,6 +48,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
 		testResumeLinkHandler(),
+		nil,
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -79,6 +83,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
 		testResumeLinkHandler(),
+		nil,
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -93,6 +98,10 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 
 func fakeAuthenticate(context.Context, *http.Request) (uuid.UUID, error) {
 	return uuid.New(), nil
+}
+
+func unauthenticatedAuthenticate(context.Context, *http.Request) (uuid.UUID, error) {
+	return uuid.Nil, middleware.ErrUnauthenticated
 }
 
 func testResumeLinkHandler() *resumelinkhttp.Handler {
@@ -120,6 +129,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
 		testResumeLinkHandler(),
+		nil,
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
@@ -165,6 +175,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{}), nil),
 		testResumeLinkHandler(),
+		nil,
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return userID, nil
 		},
@@ -198,6 +209,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
 		testResumeLinkHandler(),
+		nil,
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -259,6 +271,7 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
 		testResumeLinkHandler(),
+		nil,
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -321,6 +334,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 				resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 				userhttp.NewHandler(nil, nil),
 				testResumeLinkHandler(),
+				nil,
 				func(context.Context, *http.Request) (uuid.UUID, error) {
 					return uuid.Nil, middleware.ErrUnauthenticated
 				},
@@ -369,6 +383,7 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 				resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 				userhttp.NewHandler(nil, nil),
 				testResumeLinkHandler(),
+				nil,
 				fakeAuthenticate,
 			)
 			require.NoError(t, err)
@@ -410,6 +425,7 @@ func TestRouterReadinessReturnsUnavailableWhenDependencyFails(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
 		testResumeLinkHandler(),
+		nil,
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -438,6 +454,7 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
 		testResumeLinkHandler(),
+		nil,
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -468,6 +485,7 @@ func TestRouterRateLimitCoversPublicResumeLinkRoutes(t *testing.T) {
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
 		testResumeLinkHandler(),
+		nil,
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -481,4 +499,115 @@ func TestRouterRateLimitCoversPublicResumeLinkRoutes(t *testing.T) {
 	require.NotEqual(t, http.StatusTooManyRequests, first.Code)
 	require.Equal(t, http.StatusTooManyRequests, second.Code)
 	require.Contains(t, second.Body.String(), "TOO_MANY_REQUESTS")
+}
+
+func TestRouterRegistersAuthPublicAndProtectedRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{TLS: config.TLSConfig{Enabled: true}},
+	}
+	log := zaptest.NewLogger(t)
+	authHandler := authhttp.NewHandler(authhttp.HandlerDependencies{})
+	router, err := NewRouter(
+		cfg, log, health.NewService(), nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(nil, nil), testResumeLinkHandler(), authHandler, func(context.Context, *http.Request) (uuid.UUID, error) {
+			return uuid.Nil, middleware.ErrUnauthenticated
+		},
+	)
+	require.NoError(t, err)
+
+	publicRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/telegram", nil)
+	publicResponse := httptest.NewRecorder()
+	router.Handler().ServeHTTP(publicResponse, publicRequest)
+	require.NotEqual(t, http.StatusNotFound, publicResponse.Code)
+
+	protectedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	protectedResponse := httptest.NewRecorder()
+	router.Handler().ServeHTTP(protectedResponse, protectedRequest)
+	require.Equal(t, http.StatusUnauthorized, protectedResponse.Code)
+}
+
+func TestRouterAppliesDedicatedAuthRateLimitToTelegramStart(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{},
+		Auth: config.AuthConfig{
+			RateLimit: config.AuthRateLimitConfig{
+				Enabled:               true,
+				StartRatePerMinute:    0,
+				StartBurst:            1,
+				CallbackRatePerMinute: 0,
+				CallbackBurst:         1,
+			},
+		},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
+		authhttp.NewHandler(authhttp.HandlerDependencies{}),
+		unauthenticatedAuthenticate,
+	)
+	require.NoError(t, err)
+
+	first := httptest.NewRecorder()
+	router.Handler().ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/api/v1/auth/telegram", nil))
+	require.NotEqual(t, http.StatusTooManyRequests, first.Code)
+
+	second := httptest.NewRecorder()
+	router.Handler().ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/api/v1/auth/telegram", nil))
+	require.Equal(t, http.StatusTooManyRequests, second.Code)
+
+	protected := httptest.NewRecorder()
+	router.Handler().ServeHTTP(protected, httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil))
+	require.Equal(t, http.StatusUnauthorized, protected.Code)
+}
+
+func TestRouterAppliesDedicatedAuthRateLimitToTelegramCallback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{},
+		Auth: config.AuthConfig{
+			RateLimit: config.AuthRateLimitConfig{
+				Enabled:               true,
+				StartRatePerMinute:    0,
+				StartBurst:            1,
+				CallbackRatePerMinute: 0,
+				CallbackBurst:         1,
+			},
+		},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
+		authhttp.NewHandler(authhttp.HandlerDependencies{}),
+		fakeAuthenticate,
+	)
+	require.NoError(t, err)
+
+	first := httptest.NewRecorder()
+	router.Handler().ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/api/v1/auth/telegram/callback?code=test&state=test", nil))
+	require.NotEqual(t, http.StatusTooManyRequests, first.Code)
+
+	second := httptest.NewRecorder()
+	router.Handler().ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/api/v1/auth/telegram/callback?code=test&state=test", nil))
+	require.Equal(t, http.StatusTooManyRequests, second.Code)
 }

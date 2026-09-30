@@ -5,6 +5,13 @@ package app
 import (
 	"github.com/google/wire"
 
+	authcommands "developers-cv/backend/internal/modules/auth/application/commands"
+	authports "developers-cv/backend/internal/modules/auth/application/ports"
+	authqueries "developers-cv/backend/internal/modules/auth/application/queries"
+	cleanup "developers-cv/backend/internal/modules/auth/infrastructure/cleanup"
+	authrepository "developers-cv/backend/internal/modules/auth/infrastructure/persistence/repository"
+	authtoken "developers-cv/backend/internal/modules/auth/infrastructure/token"
+	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumeports "developers-cv/backend/internal/modules/resume/application/ports"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
@@ -32,10 +39,9 @@ import (
 	resumelinkpublichandler "developers-cv/backend/internal/modules/resume_link/transport/http/public"
 	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
-	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
+	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
-
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/database"
 	httpserver "developers-cv/backend/internal/platform/http"
@@ -94,18 +100,9 @@ var resumeLinkCommandSet = wire.NewSet(
 )
 
 var resumeHTTPSet = wire.NewSet(
-	activitieshttp.NewHandler,
-	contactshandler.NewHandler,
-	educationshttp.NewHandler,
-	courseshttp.NewHandler,
-	experienceshttp.NewHandler,
-	projectshttp.NewHandler,
-	skillshttp.NewHandler,
-	languageshttp.NewHandler,
-	technologieshttp.NewHandler,
-	overviewhandler.NewHandler,
-	profilehandler.NewHandler,
-	resumehttp.NewHandler,
+	activitieshttp.NewHandler, contactshandler.NewHandler, educationshttp.NewHandler, courseshttp.NewHandler,
+	experienceshttp.NewHandler, projectshttp.NewHandler, skillshttp.NewHandler, languageshttp.NewHandler,
+	technologieshttp.NewHandler, overviewhandler.NewHandler, profilehandler.NewHandler, resumehttp.NewHandler,
 	wire.Struct(new(resumehttp.HandlerDependencies), "*"),
 )
 
@@ -116,45 +113,57 @@ var resumeLinkHTTPSet = wire.NewSet(
 	wire.Struct(new(resumelinkhttp.HandlerDependencies), "*"),
 )
 
+var authRepositorySet = wire.NewSet(
+	authrepository.NewAuthTransactionRepository,
+	authrepository.NewIdentityRepository,
+	authrepository.NewSessionRepository,
+	wire.Bind(new(authports.AuthTransactionRepository), new(*authrepository.AuthTransactionRepository)),
+	wire.Bind(new(authports.IdentityRepository), new(*authrepository.IdentityRepository)),
+	wire.Bind(new(authports.SessionRepository), new(*authrepository.SessionRepository)),
+)
+
+var authSet = wire.NewSet(
+	authRepositorySet,
+	authtoken.NewGenerator,
+	wire.Bind(new(authports.TokenGenerator), new(*authtoken.Generator)),
+	usercommands.NewCreateUserHandler,
+	wire.Bind(new(authports.UserProvisioner), new(*usercommands.CreateUserHandler)),
+	authqueries.NewCurrentSessionHandler,
+	authcommands.NewStartTelegramLoginHandler,
+	newCompleteTelegramLoginHandler,
+	authcommands.NewLogoutHandler,
+	authcommands.NewCleanupExpiredHandler,
+	authhttp.NewHandler,
+	wire.Struct(new(authhttp.HandlerDependencies), "*"),
+)
+
 func Initialize() (*Application, error) {
 	panic(wire.Build(
-		config.Load,
-		logger.New,
-		newHealthService,
-		telemetry.New,
-		telemetry.NewMetrics,
-
-		database.NewGORMFromConfig,
-		database.NewUnitOfWork,
+		config.Load, logger.New, newHealthService, telemetry.New, telemetry.NewMetrics,
+		database.NewGORMFromConfig, database.NewUnitOfWork,
 		resumerepository.NewResumeRepository,
 		wire.Bind(new(resumeports.ResumeRepository), new(*resumerepository.ResumeRepository)),
 		resumelinkrepository.NewResumeLinkRepository,
 		wire.Bind(new(resumelinkports.ResumeLinkRepository), new(*resumelinkrepository.ResumeLinkRepository)),
 		wire.Bind(new(resumelinkports.ResumeOwnershipReader), new(*resumereaders.ResumeReader)),
-
-		resumeReadSet,
-		resumeCommandSet,
-		resumeLinkReadSet,
-		resumeLinkCommandSet,
-		resumeLinkAnalyticsSet,
-		resumeHTTPSet,
-		resumeLinkHTTPSet,
-
-		resumequeries.NewPublicResumeQueryHandler,
-		resumequeries.NewListResumesQueryHandler,
-		resumequeries.NewGetResumeQueryHandler,
-		resumequeries.NewContactViewQueryHandler,
-
+		resumeReadSet, resumeCommandSet, resumeLinkReadSet, resumeLinkCommandSet, resumeLinkAnalyticsSet,
+		resumeHTTPSet, resumeLinkHTTPSet,
+		resumequeries.NewPublicResumeQueryHandler, resumequeries.NewListResumesQueryHandler,
+		resumequeries.NewGetResumeQueryHandler, resumequeries.NewContactViewQueryHandler,
 		userreaders.NewUserReader,
 		wire.Bind(new(userqueries.UserReader), new(*userreaders.UserReader)),
-		userauth.NewMockAuthenticator,
-		newAuthenticate,
-		userqueries.NewGetProfileHandler,
+		userrepository.NewUserRepository,
+		userrepository.NewProfileRepository,
 		usercommands.NewReplaceProfileHandler,
+		userqueries.NewGetProfileHandler,
 		userhttp.NewHandler,
-
-		httpserver.NewRouter,
-		httpserver.NewServer,
-		NewApplication,
+		authSet,
+		newTelegramHTTPClient,
+		newTelegramOIDC,
+		newAuthObserver,
+		newRuntimeAuthenticator,
+		newAuthenticate,
+		cookieConfigFromRuntime,
+		httpserver.NewRouter, httpserver.NewServer, cleanup.NewWorker, NewApplication,
 	))
 }

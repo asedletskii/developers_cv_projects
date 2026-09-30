@@ -1,6 +1,7 @@
 package requestid
 
 import (
+	"context"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -28,4 +29,9 @@ func TestGetReturnsEmptyForMissingOrInvalidValue(t *testing.T) {
 
 	c.Set(Key, 123)
 	require.Empty(t, Get(c))
+}
+
+func TestWithContextRoundTripsRequestID(t *testing.T) {
+	ctx := WithContext(context.Background(), "request-123")
+	require.Equal(t, "request-123", FromContext(ctx))
 }
