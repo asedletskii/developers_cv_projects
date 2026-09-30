@@ -7,7 +7,8 @@ export const ROUTES = {
   cvResume: '/cv/:cvId',
 
   lk: '/cv/lk',
-  lkProfile: '/cv/lk/:userId',
-  lkResume: '/cv/lk/:userId/:cvId',
-  lkResumePreview: '/cv/lk/:userId/:cvId/preview',
+  lkResume: '/cv/lk/:cvId',
+  lkResumePreview: '/cv/lk/:cvId/preview',
+
+  authError: '/cv/auth/error',
 } as const

@@ -6,11 +6,10 @@ import { generatePath, Link as RouterLink } from 'react-router'
 import { PILL_SX } from './constants'
 
 type Props = {
-  userId: string
   cvId?: string
 }
 
-export const BackToResumes = ({ userId, cvId }: Props) => {
+export const BackToResumes = ({ cvId }: Props) => {
   const translate = useTranslate('Lk.Resume')
 
   return (
@@ -20,19 +19,14 @@ export const BackToResumes = ({ userId, cvId }: Props) => {
       spacing={1}
       sx={{ position: 'fixed', top: 12, left: 12, zIndex: 1201 }}
     >
-      <Button
-        component={RouterLink}
-        to={generatePath(ROUTES.lkProfile, { userId })}
-        startIcon={<ArrowBackOutlined />}
-        sx={PILL_SX}
-      >
+      <Button component={RouterLink} to={ROUTES.lk} startIcon={<ArrowBackOutlined />} sx={PILL_SX}>
         {translate('back')}
       </Button>
 
       {cvId && (
         <Button
           component={RouterLink}
-          to={generatePath(ROUTES.lkResume, { userId, cvId })}
+          to={generatePath(ROUTES.lkResume, { cvId })}
           startIcon={<EditRounded />}
           sx={PILL_SX}
         >

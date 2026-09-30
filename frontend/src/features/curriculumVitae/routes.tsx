@@ -2,6 +2,7 @@ import { lazy } from 'react'
 import { ROUTES } from '@shared/constants'
 import { Navigate, Route } from 'react-router'
 
+const AuthErrorScreen = lazy(() => import('@features/auth/screens/AuthErrorScreen'))
 const CurriculumVitaeScreen = lazy(
   () => import('./screens/CurriculumVitaeScreen/CurriculumVitaeScreen'),
 )
@@ -11,7 +12,8 @@ const LkResumeEditScreen = lazy(() => import('./screens/LkResumeEditScreen/LkRes
 const LkResumeScreen = lazy(() => import('./screens/LkResumeScreen/LkResumeScreen'))
 
 // Пути абсолютные, из ROUTES. Статический сегмент "lk" react-router ставит выше динамического
-// (:cvId), поэтому /cv/lk/... не спорит с /cv/:cvId.
+// (:cvId), поэтому /cv/lk/... не спорит с /cv/:cvId. userId в URL больше нет — его знает бэк
+// по сессионной cookie, LkProfileScreen сам решает, авторизован пользователь или нет.
 export const curriculumVitaeRoutes = {
   pages: (
     <>
@@ -19,10 +21,10 @@ export const curriculumVitaeRoutes = {
       <Route path={ROUTES.cv} element={<Navigate to={ROUTES.home} replace />} />
       <Route path={ROUTES.cvResume} element={<CurriculumVitaeScreen />} />
 
-      <Route path={ROUTES.lk} element={<Navigate to={ROUTES.home} replace />} />
+      <Route path={ROUTES.authError} element={<AuthErrorScreen />} />
 
       {/* Слева всегда карточка пользователя, справа — список резюме или редактор */}
-      <Route path={ROUTES.lkProfile} element={<LkProfileScreen />}>
+      <Route path={ROUTES.lk} element={<LkProfileScreen />}>
         <Route index element={<LkResumesScreen />} />
         <Route path={ROUTES.lkResume} element={<LkResumeEditScreen />} />
       </Route>

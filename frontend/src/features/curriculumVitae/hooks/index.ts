@@ -1,4 +1,5 @@
 export * from './useFormList'
+export * from './useLkOutletContext'
 export * from './useLkProfile'
 export * from './useLkResumes'
 export * from './useOwnerResume'

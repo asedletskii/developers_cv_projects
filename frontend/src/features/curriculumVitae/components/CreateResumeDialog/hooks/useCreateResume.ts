@@ -20,7 +20,7 @@ export const useCreateResume = (userId: string) => {
 
     try {
       const id = await dispatch(createLkResume({ userId, title: title.trim(), language })).unwrap()
-      navigate(generatePath(ROUTES.lkResume, { userId, cvId: id }))
+      navigate(generatePath(ROUTES.lkResume, { cvId: id }))
     } catch {
       setHasError(true)
       setIsSaving(false)

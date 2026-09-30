@@ -40,7 +40,6 @@ export const ResumeList = ({ userId, resumes }: Props) => {
           {resumes.map((resume) => (
             <ResumeListItem
               key={resume.id}
-              userId={userId}
               resume={resume}
               onOpenMenu={(e) => list.openMenu(e.currentTarget, resume)}
             />

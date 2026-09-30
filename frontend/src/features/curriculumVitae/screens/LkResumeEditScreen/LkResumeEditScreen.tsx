@@ -4,7 +4,7 @@ import { LinksTab } from '@features/curriculumVitae/components/LinksTab'
 import { MainTab } from '@features/curriculumVitae/components/MainTab'
 import { ResumeEditor } from '@features/curriculumVitae/components/ResumeEditor'
 import { ResumeHeader } from '@features/curriculumVitae/components/ResumeHeader'
-import { useOwnerResume, useResumeLinks } from '@features/curriculumVitae/hooks'
+import { useLkOutletContext, useOwnerResume, useResumeLinks } from '@features/curriculumVitae/hooks'
 import { LinearProgress, Stack, Tab, Tabs } from '@mui/material'
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -14,12 +14,13 @@ import { TAB_SX, TOP_SECTIONS } from './constants'
 import { useResumeSections } from './hooks'
 
 /**
- * Правая часть личного кабинета в режиме редактирования (`/cv/lk/:userId/:cvId`): слева остаётся
+ * Правая часть личного кабинета в режиме редактирования (`/cv/lk/:cvId`): слева остаётся
  * карточка пользователя из layout-а, здесь — шапка резюме и разделы «Главная», «Редактирование»,
  * «Ссылки», «Аналитика». Активный раздел живёт в `?section=`, чтобы на него можно было сослаться.
  */
 const LkResumeEditScreen = () => {
-  const { userId, cvId } = useParams()
+  const { userId } = useLkOutletContext()
+  const { cvId } = useParams()
   const { language } = useLanguage()
   const translateSections = useTranslate('Lk.Sections')
   const { view, error, setError, reload } = useOwnerResume(userId, cvId)

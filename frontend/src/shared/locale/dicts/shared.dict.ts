@@ -6,6 +6,7 @@ export const sharedDict = {
       Tabs: {
         main: 'Главная',
         about: 'О проекте',
+        lk: 'Личный кабинет',
       },
     },
 
@@ -55,6 +56,7 @@ export const sharedDict = {
       Tabs: {
         main: 'Main',
         about: 'About',
+        lk: 'Personal account',
       },
     },
 
