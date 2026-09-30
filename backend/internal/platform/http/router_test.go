@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
-	publichttp "developers-cv/backend/internal/modules/resume/transport/http/public"
+	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
+	resumelinkpublichandler "developers-cv/backend/internal/modules/resume_link/transport/http/public"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
@@ -44,6 +44,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -77,6 +78,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -91,6 +93,12 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 
 func fakeAuthenticate(context.Context, *http.Request) (uuid.UUID, error) {
 	return uuid.New(), nil
+}
+
+func testResumeLinkHandler() *resumelinkhttp.Handler {
+	return resumelinkhttp.NewHandler(resumelinkhttp.HandlerDependencies{
+		Public: resumelinkpublichandler.NewHandler(nil),
+	})
 }
 
 func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
@@ -111,6 +119,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
@@ -123,48 +132,6 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
-}
-
-type routerPublicResumeReader struct{}
-
-func (routerPublicResumeReader) GetPublic(
-	_ context.Context,
-	query resumequeries.PublicResumeQuery,
-) (resumequeries.ResumeView, error) {
-	return resumequeries.ResumeView{ID: query.ID.String()}, nil
-}
-
-func TestRouterAllowsPublicResumeRouteWithoutAuthentication(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	cfg := config.Config{
-		App: config.AppConfig{Env: "test"},
-		CORS: config.CORSConfig{
-			AllowedOrigins:   []string{"http://localhost:5173"},
-			AllowCredentials: true,
-		},
-		HTTP: config.HTTPConfig{},
-	}
-	log := zaptest.NewLogger(t)
-	handler := resumehttp.NewHandler(resumehttp.HandlerDependencies{Public: publichttp.NewHandler(resumequeries.NewPublicResumeQueryHandler(routerPublicResumeReader{}))})
-	router, err := NewRouter(
-		cfg,
-		log,
-		health.NewService(),
-		nil,
-		handler,
-		userhttp.NewHandler(nil, nil),
-		func(context.Context, *http.Request) (uuid.UUID, error) {
-			return uuid.Nil, middleware.ErrUnauthenticated
-		},
-	)
-	require.NoError(t, err)
-
-	req := httptest.NewRequest("GET", "/api/v1/cv/10000000-0000-0000-0000-000000000001", nil)
-	w := httptest.NewRecorder()
-	router.Handler().ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-	require.Contains(t, w.Body.String(), `"id":"10000000-0000-0000-0000-000000000001"`)
 }
 
 type routerGetProfileReader struct{}
@@ -197,6 +164,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{}), nil),
+		testResumeLinkHandler(),
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return userID, nil
 		},
@@ -229,6 +197,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -251,13 +220,18 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		"PUT /api/v1/lk/resume/:resumeId/courses":      {},
 		"PUT /api/v1/lk/resume/:resumeId/activities":   {},
 		"PUT /api/v1/lk/resume/:resumeId/projects":     {},
-		"GET /api/v1/cv/:resumeId":                     {},
-		"POST /api/v1/cv/:resumeId/contact-views":      {},
+		"GET /api/v1/cv/:linkId":                       {},
+		"POST /api/v1/cv/:linkId/contact-views":        {},
+		"GET /api/v1/lk/links":                         {},
+		"POST /api/v1/lk/link":                         {},
+		"DELETE /api/v1/lk/link/:linkId":               {},
+		"PUT /api/v1/lk/link/:linkId/status":           {},
+		"GET /api/v1/lk/link/:linkId/statistics":       {},
 	}
 
 	actual := make(map[string]struct{})
 	for _, route := range router.engine.Routes() {
-		if strings.HasPrefix(route.Path, "/api/v1/lk/resume") || strings.HasPrefix(route.Path, "/api/v1/cv/") {
+		if strings.HasPrefix(route.Path, "/api/v1/lk/resume") || strings.HasPrefix(route.Path, "/api/v1/lk/link") || strings.HasPrefix(route.Path, "/api/v1/cv/") {
 			actual[route.Method+" "+route.Path] = struct{}{}
 		}
 	}
@@ -284,6 +258,7 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -298,8 +273,9 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		{method: http.MethodPut, path: "/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001"},
 		{method: http.MethodDelete, path: "/api/v1/lk/resumes/10000000-0000-0000-0000-000000000001"},
 		{method: http.MethodGet, path: "/cv/10000000-0000-0000-0000-000000000001"},
+		{method: http.MethodPost, path: "/api/v1/cv/10000000-0000-0000-0000-000000000001"},
 	} {
-		req := httptest.NewRequest(methodPath.method, methodPath.path, nil)
+		req := httptest.NewRequest(methodPath.method, methodPath.path, strings.NewReader(""))
 		w := httptest.NewRecorder()
 		router.Handler().ServeHTTP(w, req)
 		require.Equal(t, http.StatusNotFound, w.Code, methodPath.method+" "+methodPath.path)
@@ -320,6 +296,8 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 	}{
 		{method: http.MethodPut, path: "/api/v1/lk/profile"},
 		{method: http.MethodGet, path: "/api/v1/lk/resumes"},
+		{method: http.MethodPost, path: "/api/v1/lk/link"},
+		{method: http.MethodGet, path: "/api/v1/lk/link/10000000-0000-0000-0000-000000000001/statistics"},
 		{method: http.MethodPut, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/overview"},
 		{method: http.MethodPut, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/profile"},
 		{method: http.MethodPut, path: "/api/v1/lk/resume/10000000-0000-0000-0000-000000000001/contacts"},
@@ -342,6 +320,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 				nil,
 				resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 				userhttp.NewHandler(nil, nil),
+				testResumeLinkHandler(),
 				func(context.Context, *http.Request) (uuid.UUID, error) {
 					return uuid.Nil, middleware.ErrUnauthenticated
 				},
@@ -389,6 +368,7 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 				nil,
 				resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 				userhttp.NewHandler(nil, nil),
+				testResumeLinkHandler(),
 				fakeAuthenticate,
 			)
 			require.NoError(t, err)
@@ -429,6 +409,7 @@ func TestRouterReadinessReturnsUnavailableWhenDependencyFails(t *testing.T) {
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -456,6 +437,7 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
 		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
 		fakeAuthenticate,
 	)
 	require.NoError(t, err)
@@ -466,4 +448,37 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 	require.Contains(t, response.Body.String(), `"status":"ready"`)
 	require.Contains(t, response.Body.String(), `"postgres":"ok"`)
+}
+
+func TestRouterRateLimitCoversPublicResumeLinkRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{
+			RateLimit: config.RateLimitConfig{Enabled: true, Rate: 1, Burst: 1},
+		},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(nil, nil),
+		testResumeLinkHandler(),
+		fakeAuthenticate,
+	)
+	require.NoError(t, err)
+
+	path := "/api/v1/cv/10000000-0000-0000-0000-000000000001"
+	first := httptest.NewRecorder()
+	router.Handler().ServeHTTP(first, httptest.NewRequest(http.MethodGet, path, nil))
+	second := httptest.NewRecorder()
+	router.Handler().ServeHTTP(second, httptest.NewRequest(http.MethodGet, path, nil))
+
+	require.NotEqual(t, http.StatusTooManyRequests, first.Code)
+	require.Equal(t, http.StatusTooManyRequests, second.Code)
+	require.Contains(t, second.Body.String(), "TOO_MANY_REQUESTS")
 }

@@ -57,13 +57,13 @@ func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
 
 	firstProfile, err := getProfileReader.GetProfile(ctx, queries.GetProfileQuery{UserID: firstIdentity})
 	require.NoError(t, err)
-	require.Equal(t, "Антон", firstProfile.Name)
-	require.Equal(t, "Frontend", *firstProfile.Position)
+	require.Equal(t, "Антон", *firstProfile.RU.Name)
+	require.Equal(t, "Frontend", *firstProfile.RU.Position)
 
 	secondProfile, err := getProfileReader.GetProfile(ctx, queries.GetProfileQuery{UserID: secondIdentity})
 	require.NoError(t, err)
-	require.Equal(t, "Second", secondProfile.Name)
-	require.Equal(t, "Backend", *secondProfile.Position)
+	require.Equal(t, "Second", *secondProfile.RU.Name)
+	require.Equal(t, "Backend", *secondProfile.RU.Position)
 }
 
 func TestPostgresGetProfileReaderReturnsNotFoundForMissingProfile(t *testing.T) {

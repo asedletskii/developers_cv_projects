@@ -12,15 +12,16 @@ import (
 type Code string
 
 const (
-	CodeBadRequest      Code = "BAD_REQUEST"
-	CodeUnauthorized    Code = "UNAUTHORIZED"
-	CodeForbidden       Code = "FORBIDDEN"
-	CodeNotFound        Code = "NOT_FOUND"
-	CodeConflict        Code = "CONFLICT"
-	CodeTooMany         Code = "TOO_MANY_REQUESTS"
-	CodeInternal        Code = "INTERNAL_ERROR"
-	CodeUnavailable     Code = "SERVICE_UNAVAILABLE"
-	CodeRequestTooLarge Code = "REQUEST_TOO_LARGE"
+	CodeBadRequest         Code = "BAD_REQUEST"
+	CodeUnauthorized       Code = "UNAUTHORIZED"
+	CodeForbidden          Code = "FORBIDDEN"
+	CodeNotFound           Code = "NOT_FOUND"
+	CodeConflict           Code = "CONFLICT"
+	CodePreconditionFailed Code = "PRECONDITION_FAILED"
+	CodeTooMany            Code = "TOO_MANY_REQUESTS"
+	CodeInternal           Code = "INTERNAL_ERROR"
+	CodeUnavailable        Code = "SERVICE_UNAVAILABLE"
+	CodeRequestTooLarge    Code = "REQUEST_TOO_LARGE"
 )
 
 type AppError struct {
