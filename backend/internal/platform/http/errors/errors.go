@@ -16,6 +16,7 @@ const (
 	CodeUnauthorized       Code = "UNAUTHORIZED"
 	CodeForbidden          Code = "FORBIDDEN"
 	CodeNotFound           Code = "NOT_FOUND"
+	CodeGone               Code = "GONE"
 	CodeConflict           Code = "CONFLICT"
 	CodePreconditionFailed Code = "PRECONDITION_FAILED"
 	CodeTooMany            Code = "TOO_MANY_REQUESTS"

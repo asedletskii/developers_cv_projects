@@ -173,7 +173,7 @@ func TestPublicResumeThroughLinkIntegration(t *testing.T) {
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+inactiveLinkID.String(), nil)
 	w = httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
-	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Equal(t, http.StatusGone, w.Code)
 
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+resumeID.String(), nil)
 	w = httptest.NewRecorder()
@@ -270,7 +270,7 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	require.Equal(t, http.StatusConflict, response.Code)
 
 	response = postContact(inactiveLinkID, `{"contact":"email"}`)
-	require.Equal(t, http.StatusNotFound, response.Code)
+	require.Equal(t, http.StatusGone, response.Code)
 
 	response = postContact(draftLinkID, `{"contact":"email"}`)
 	require.Equal(t, http.StatusNotFound, response.Code)
@@ -448,7 +448,7 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, getPublic().Code)
 	require.Equal(t, http.StatusNoContent, changeStatus("inactive", 1).Code)
-	require.Equal(t, http.StatusNotFound, getPublic().Code)
+	require.Equal(t, http.StatusGone, getPublic().Code)
 
 	var eventCount int
 	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, linkID).Scan(&eventCount))
@@ -645,7 +645,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 
 	response = do(http.MethodPut, "/api/v1/lk/link/"+linkAHH.String()+"/status", `{"status":"inactive","version":1}`)
 	require.Equal(t, http.StatusNoContent, response.Code)
-	require.Equal(t, http.StatusNotFound, getPublic(linkAHH).Code)
+	require.Equal(t, http.StatusGone, getPublic(linkAHH).Code)
 	require.Equal(t, http.StatusOK, getPublic(linkATelegram).Code)
 	response = getStatistics(linkAHH)
 	require.Equal(t, http.StatusOK, response.Code)

@@ -76,7 +76,7 @@ func TestPublicResumeLinkQueryDoesNotRecordInactiveLink(t *testing.T) {
 
 	_, err := NewPublicResumeLinkQueryHandler(links, resume, events).Handle(context.Background(), PublicResumeLinkQuery{LinkID: linkID})
 
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.ErrorIs(t, err, domain.ErrResumeLinkInactive)
 	require.Nil(t, events.event)
 }
 
@@ -86,7 +86,7 @@ func TestPublicResumeLinkQueryRejectsInactiveLink(t *testing.T) {
 
 	_, err := NewPublicResumeLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), PublicResumeLinkQuery{LinkID: valueobjects.NewID()})
 
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.ErrorIs(t, err, domain.ErrResumeLinkInactive)
 	require.True(t, resume.query.ID.IsZero())
 }
 

@@ -45,6 +45,9 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(ctx context.Context, query C
 	if err != nil {
 		return resumequeries.ContactView{}, err
 	}
+	if link.Status == domain.ResumeLinkStatusInactive {
+		return resumequeries.ContactView{}, domain.ErrResumeLinkInactive
+	}
 	if link.Status != domain.ResumeLinkStatusActive {
 		return resumequeries.ContactView{}, domain.ErrEntityNotFound
 	}

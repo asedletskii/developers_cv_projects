@@ -11,6 +11,7 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 )
 
@@ -53,4 +54,18 @@ func TestHandlerRejectsInvalidLinkID(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandlerMapsInactiveLinkToGone(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	query := &queryStub{err: domain.ErrResumeLinkInactive}
+	engine := gin.New()
+	engine.GET("/api/v1/cv/:linkId", NewHandler(query).Handle)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+valueobjects.NewID().String(), nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusGone, w.Code)
+	require.JSONEq(t, `{"error":{"code":"GONE","message":"Resume link is no longer active","requestId":""}}`, w.Body.String())
 }
