@@ -58,6 +58,8 @@ export const lkDict = {
         title: 'Личный кабинет',
         edit: 'Изменить профиль',
         editProfile: 'Профиль',
+        createTitle: 'Заполните профиль',
+        createText: 'Это первый вход — расскажите немного о себе, это отобразится в резюме.',
         photoPath: 'Фото',
         name: 'Имя',
         surname: 'Фамилия',
@@ -321,6 +323,9 @@ export const lkDict = {
         title: 'Personal account',
         edit: 'Edit profile',
         editProfile: 'Profile',
+        createTitle: 'Fill in your profile',
+        createText:
+          "This is your first sign-in — tell us a bit about yourself, it'll show up in your résumé.",
         photoPath: 'Photo',
         name: 'Name',
         surname: 'Surname',
