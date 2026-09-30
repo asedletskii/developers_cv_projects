@@ -20,9 +20,12 @@ type Props = {
   userId: string
   profile: LkProfile
   onClose: () => void
+
+  /** Пояснение над формой — для первого входа, когда профиля ещё не было */
+  intro?: string
 }
 
-export const EditProfileDialog = ({ userId, profile, onClose }: Props) => {
+export const EditProfileDialog = ({ userId, profile, onClose, intro }: Props) => {
   const translate = useTranslate('Lk.Profile')
   const edit = useEditProfile({ userId, profile, onClose })
 
@@ -38,6 +41,12 @@ export const EditProfileDialog = ({ userId, profile, onClose }: Props) => {
 
       <DialogContent>
         <Stack spacing={2}>
+          {intro && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {intro}
+            </Typography>
+          )}
+
           <TextField
             fullWidth
             label={translate('photoPath')}

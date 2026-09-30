@@ -1,9 +1,12 @@
 import { LoginPrompt } from '@features/auth/components/LoginPrompt'
 import { useSession } from '@features/auth/hooks'
 import { LoadFailure, ProfileCard, ProfilePlaceholder } from '@features/curriculumVitae/components'
+import { EditProfileDialog } from '@features/curriculumVitae/components/EditProfileDialog'
 import { useLkProfile } from '@features/curriculumVitae/hooks'
 import { Container, Stack } from '@mui/material'
-import { Outlet } from 'react-router'
+import { ROUTES } from '@shared/constants'
+import { useTranslate } from '@shared/hooks'
+import { Outlet, useNavigate } from 'react-router'
 
 /**
  * Каркас личного кабинета: ФИО и общие данные слева (1/4) всегда на месте, а правая часть (3/4)
@@ -11,6 +14,8 @@ import { Outlet } from 'react-router'
  * из сессии (`/auth/me`), а не из URL — его знает только бэк по cookie.
  */
 const LkProfileScreen = () => {
+  const translate = useTranslate('Lk.Profile')
+  const navigate = useNavigate()
   const { userId, isLoading: isSessionLoading, isAuthenticated } = useSession()
   const {
     profile,
@@ -19,8 +24,23 @@ const LkProfileScreen = () => {
   } = useLkProfile(isAuthenticated ? (userId ?? undefined) : undefined)
 
   if (isSessionLoading) return <ProfilePlaceholder />
-  if (!isAuthenticated) return <LoginPrompt />
+  if (!isAuthenticated || !userId) return <LoginPrompt />
   if (isProfileLoading) return <ProfilePlaceholder />
+
+  // Первый вход через Telegram: пользователь есть, а профиля — ещё нет (бэк отдаёт 404).
+  // PUT /lk/profile создаёт профиль, если его не было, так что форма редактирования и
+  // первичное заполнение — одна и та же ручка.
+  if (error?.kind === 'notFound' && !profile) {
+    return (
+      <EditProfileDialog
+        userId={userId}
+        profile={{ userId, ru: {}, en: {} }}
+        intro={translate('createText')}
+        onClose={() => navigate(ROUTES.home)}
+      />
+    )
+  }
+
   if (error) return <LoadFailure error={error} subject="profile" />
 
   // Сюда не попадаем: без ошибки и загрузки profile уже гарантированно загружен

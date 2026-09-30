@@ -66,6 +66,8 @@ export const lkSlice = createSlice<LkSliceState, LkSliceReducers, 'lk', any>({
 
       .addCase(updateLkProfile.fulfilled, (state, { payload }) => {
         state.profile = payload
+        // Профиль мог быть только что создан первым сохранением — до этого тут лежал notFound
+        state.profileError = null
       })
 
       .addCase(deleteLkResume.fulfilled, (state, { payload }) => {
