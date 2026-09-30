@@ -308,6 +308,14 @@ func (r *ResumeReader) loadExperiences(ctx context.Context, db *gorm.DB, resumeI
 	for _, item := range achievementRows {
 		achievements[item.ExperienceID] = append(achievements[item.ExperienceID], item.Value)
 	}
+	tasks := make(map[uuid.UUID][]string, len(ids))
+	var taskRows []gormmodel.ResumeExperienceTask
+	if err := db.WithContext(ctx).Where("experience_id IN ?", ids).Order("experience_id, position").Find(&taskRows).Error; err != nil {
+		return fmt.Errorf("get experience tasks: %w", err)
+	}
+	for _, item := range taskRows {
+		tasks[item.ExperienceID] = append(tasks[item.ExperienceID], item.Value)
+	}
 	stacks := make(map[uuid.UUID][]queries.ExperienceStackItemView, len(ids))
 	var stackRows []gormmodel.ResumeExperienceStack
 	if err := db.WithContext(ctx).Where("experience_id IN ?", ids).Order("experience_id, position").Find(&stackRows).Error; err != nil {
@@ -321,11 +329,14 @@ func (r *ResumeReader) loadExperiences(ctx context.Context, db *gorm.DB, resumeI
 		if err != nil {
 			return err
 		}
-		result = append(result, queries.ExperienceView{ID: row.ID, ResumeID: row.ResumeID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description, Achievements: append([]string(nil), achievements[id]...), Stack: append([]queries.ExperienceStackItemView(nil), stacks[id]...)})
+		result = append(result, queries.ExperienceView{ID: row.ID, ResumeID: row.ResumeID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description, Achievements: append([]string(nil), achievements[id]...), Tasks: append([]string(nil), tasks[id]...), Stack: append([]queries.ExperienceStackItemView(nil), stacks[id]...)})
 	}
 	for i := range result {
 		if result[i].Achievements == nil {
 			result[i].Achievements = make([]string, 0)
+		}
+		if result[i].Tasks == nil {
+			result[i].Tasks = make([]string, 0)
 		}
 		if result[i].Stack == nil {
 			result[i].Stack = make([]queries.ExperienceStackItemView, 0)

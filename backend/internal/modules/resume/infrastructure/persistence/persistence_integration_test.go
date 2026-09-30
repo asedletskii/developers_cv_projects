@@ -265,6 +265,7 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 		{`INSERT INTO resume_technologies (id,resume_id,name,position,grade) VALUES ($1,$2,'Go',0,'senior')`, []any{technologyID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2024-01-01')`, []any{experienceID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, []any{experienceID.UUID()}},
+		{`INSERT INTO resume_experience_tasks (experience_id,position,value) VALUES ($1,0,'Implement backend')`, []any{experienceID.UUID()}},
 		{`INSERT INTO resume_experience_stack (experience_id,position,name,grade) VALUES ($1,0,'Go','senior')`, []any{experienceID.UUID()}},
 		{`INSERT INTO resume_educations (id,resume_id,sort_order,location,university,grade,program_name,faculty) VALUES ($1,$2,0,'Paris','University',5,'Computer Science','Engineering')`, []any{educationID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_courses (id,resume_id,sort_order,name,organization,end_date) VALUES ($1,$2,0,'Go Course','Academy','2025-01-01')`, []any{courseID.UUID(), resumeID.UUID()}},
@@ -289,7 +290,7 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 		"resumes", "resume_overviews", "resume_overview_sections", "resume_profiles", "resume_profile_work_formats",
 		"resume_contacts", "resume_contact_hidden", "resume_contacts_text", "resume_skills", "resume_skill_hard",
 		"resume_skill_soft", "resume_languages", "resume_technologies", "resume_experiences", "resume_experience_achievements",
-		"resume_experience_stack", "resume_educations", "resume_courses", "resume_activities", "resume_projects",
+		"resume_experience_tasks", "resume_experience_stack", "resume_educations", "resume_courses", "resume_activities", "resume_projects",
 		"resume_project_screenshots", "resume_project_technologies", "resume_project_contributors",
 	}
 	for _, table := range tables {
@@ -373,7 +374,7 @@ func TestPostgresExperiencesAggregateReplacement(t *testing.T) {
 	resume := fixture.resume
 
 	require.NoError(t, resume.ReplaceExperiences([]domain.ExperienceParams{
-		{Company: "Acme", Position: "Go Developer", StartDate: phase6YearMonth(t, "2024-01"), Achievements: []string{"Built API"}, Stack: []domain.ExperienceStackParams{{Name: "Go"}}},
+		{Company: "Acme", Position: "Go Developer", StartDate: phase6YearMonth(t, "2024-01"), Achievements: []string{"Built API"}, Tasks: []string{"Implement backend"}, Stack: []domain.ExperienceStackParams{{Name: "Go"}}},
 		{Company: "Beta", Position: "Staff Engineer", StartDate: phase6YearMonth(t, "2023-01"), Achievements: []string{"Led migration"}, Stack: []domain.ExperienceStackParams{{Name: "PostgreSQL"}}},
 	}))
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
@@ -387,12 +388,14 @@ func TestPostgresExperiencesAggregateReplacement(t *testing.T) {
 	secondID := loaded.Experiences()[1].ID()
 	require.NotEqual(t, firstID, secondID)
 	require.Len(t, loaded.Experiences()[0].Achievements(), 1)
+	require.Equal(t, []string{"Implement backend"}, loaded.Experiences()[0].Tasks())
 	require.Len(t, loaded.Experiences()[0].Stack(), 1)
 
 	updated := loaded.Experiences()[1]
 	require.NoError(t, loaded.ReplaceExperiences([]domain.ExperienceParams{{
 		ID: updated.ID(), ResumeID: loaded.ID(), Company: "Beta Updated", Position: "Principal Engineer",
 		StartDate: updated.StartDate(), Achievements: []string{"Led migration", "Reduced latency"},
+		Tasks: []string{"Lead migration", "Review PRs"},
 		Stack: []domain.ExperienceStackParams{{Name: "Go"}, {Name: "PostgreSQL"}},
 	}}))
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
@@ -405,6 +408,7 @@ func TestPostgresExperiencesAggregateReplacement(t *testing.T) {
 	require.Equal(t, secondID, loaded.Experiences()[0].ID())
 	require.Equal(t, "Beta Updated", loaded.Experiences()[0].Company())
 	require.Len(t, loaded.Experiences()[0].Achievements(), 2)
+	require.Equal(t, []string{"Lead migration", "Review PRs"}, loaded.Experiences()[0].Tasks())
 	require.Len(t, loaded.Experiences()[0].Stack(), 2)
 }
 

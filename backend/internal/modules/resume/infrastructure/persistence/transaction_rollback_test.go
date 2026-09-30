@@ -186,7 +186,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		require.Zero(t, count, table+" must rollback with the surrounding transaction")
 	}
 
-	var childCounts struct{ profile, contacts, contactHidden, contactText, hard, soft, achievements, stack, screenshots int }
+	var childCounts struct{ profile, contacts, contactHidden, contactText, hard, soft, achievements, tasks, stack, screenshots int }
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_profile_work_formats").Scan(&childCounts.profile))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contacts").Scan(&childCounts.contacts))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contact_hidden").Scan(&childCounts.contactHidden))
@@ -194,6 +194,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&childCounts.hard))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&childCounts.soft))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_achievements").Scan(&childCounts.achievements))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_tasks").Scan(&childCounts.tasks))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_stack").Scan(&childCounts.stack))
 	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_project_screenshots").Scan(&childCounts.screenshots))
 	require.Zero(t, childCounts.profile)
@@ -203,6 +204,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	require.Zero(t, childCounts.hard)
 	require.Zero(t, childCounts.soft)
 	require.Zero(t, childCounts.achievements)
+	require.Zero(t, childCounts.tasks)
 	require.Zero(t, childCounts.stack)
 	require.Zero(t, childCounts.screenshots)
 }

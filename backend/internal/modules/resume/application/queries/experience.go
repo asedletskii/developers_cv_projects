@@ -14,5 +14,6 @@ type ExperienceView struct {
 	EndDate      *string                   `json:"endDate,omitempty"`
 	Description  *string                   `json:"description,omitempty"`
 	Achievements []string                  `json:"achievements"`
+	Tasks        []string                  `json:"tasks"`
 	Stack        []ExperienceStackItemView `json:"stack"`
 }

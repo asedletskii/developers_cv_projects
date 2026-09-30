@@ -35,6 +35,7 @@ type experienceRequest struct {
 	EndDate      *string             `json:"endDate,omitempty"`
 	Description  *string             `json:"description,omitempty"`
 	Achievements []string            `json:"achievements"`
+	Tasks        []string            `json:"tasks"`
 	Stack        []technologyRequest `json:"stack"`
 }
 type replaceRequest struct {
@@ -104,7 +105,7 @@ func experienceInputs(values []experienceRequest) ([]commands.ExperienceInput, e
 			}
 			stack[i] = commands.ExperienceStackItemInput{Name: item.Name, Grade: grade}
 		}
-		out = append(out, commands.ExperienceInput{ID: id, Company: body.Company, Position: body.Position, Location: body.Location, StartDate: start, EndDate: end, Description: body.Description, Achievements: append([]string(nil), body.Achievements...), Stack: stack})
+		out = append(out, commands.ExperienceInput{ID: id, Company: body.Company, Position: body.Position, Location: body.Location, StartDate: start, EndDate: end, Description: body.Description, Achievements: append([]string(nil), body.Achievements...), Tasks: append([]string(nil), body.Tasks...), Stack: stack})
 	}
 	return out, nil
 }
