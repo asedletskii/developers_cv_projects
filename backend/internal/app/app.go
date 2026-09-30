@@ -22,6 +22,9 @@ type Application struct {
 	logger          *zap.Logger
 	gormDB          *gorm.DB
 	shutdownTimeout time.Duration
+	worker          backgroundWorker
+	workerCancel    context.CancelFunc
+	workerDone      chan struct{}
 	once            sync.Once
 	shutdownErr     error
 }
@@ -32,6 +35,7 @@ func NewApplication(
 	logger *zap.Logger,
 	gormDB *gorm.DB,
 	shutdownTimeout time.Duration,
+	worker backgroundWorker,
 ) *Application {
 	return &Application{
 		server:          server,
@@ -39,10 +43,28 @@ func NewApplication(
 		logger:          logger,
 		gormDB:          gormDB,
 		shutdownTimeout: shutdownTimeout,
+		worker:          worker,
 	}
 }
 
+type backgroundWorker interface {
+	Run(context.Context)
+}
+
 func (a *Application) Run(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	workerCtx, workerCancel := context.WithCancel(ctx)
+	a.workerCancel = workerCancel
+	if a.worker != nil {
+		a.workerDone = make(chan struct{})
+		go func() {
+			defer close(a.workerDone)
+			a.worker.Run(workerCtx)
+		}()
+	}
+
 	serverErr := make(chan error, 1)
 	go func() {
 		serverErr <- a.server.Run()
@@ -52,10 +74,7 @@ func (a *Application) Run(ctx context.Context) error {
 	case <-ctx.Done():
 		return a.Shutdown(context.Background())
 	case err := <-serverErr:
-		if err != nil {
-			return errors.Join(err, a.Shutdown(context.Background()))
-		}
-		return nil
+		return errors.Join(err, a.Shutdown(context.Background()))
 	}
 }
 
@@ -72,6 +91,12 @@ func (a *Application) Shutdown(ctx context.Context) error {
 
 	a.once.Do(func() {
 		serverErr := a.server.Shutdown(shutdownCtx)
+		if a.workerCancel != nil {
+			a.workerCancel()
+			if a.workerDone != nil {
+				<-a.workerDone
+			}
+		}
 		telemetryErr := a.telemetry.Shutdown(shutdownCtx)
 		var dbErr error
 		if a.gormDB != nil {

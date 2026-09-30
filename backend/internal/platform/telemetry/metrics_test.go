@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -45,6 +46,30 @@ func TestMetricsMiddlewareRecordsRequest(t *testing.T) {
 	require.Contains(t, body, `developers_cv_http_request_duration_seconds`)
 	require.Contains(t, body, `developers_cv_http_requests_in_flight`)
 	require.NotContains(t, body, `route="/resumes/123"`)
+
+	metrics.RecordAuthLoginAttempt("telegram")
+	metrics.RecordAuthLoginSuccess("telegram", time.Second)
+	metrics.RecordAuthLoginFailure("telegram", "invalid_request", time.Second)
+	metrics.RecordAuthLogout("telegram", "success")
+	metrics.RecordAuthSessionRejection("telegram", "session_missing")
+	metrics.RecordAuthTransactionCleanup("telegram", "expired", 3)
+	metrics.RecordAuthCleanupFailure("sessions")
+	metrics.ObserveAuthOIDCExchange("telegram", time.Second)
+	metrics.ObserveAuthOIDCVerify("telegram", time.Second)
+
+	metricsResponse = httptest.NewRecorder()
+	metrics.Handler().ServeHTTP(metricsResponse, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body = metricsResponse.Body.String()
+	require.Contains(t, body, `developers_cv_auth_login_attempts_total`)
+	require.Contains(t, body, `developers_cv_auth_login_success_total`)
+	require.Contains(t, body, `developers_cv_auth_login_failures_total`)
+	require.Contains(t, body, `developers_cv_auth_logout_total`)
+	require.Contains(t, body, `developers_cv_auth_session_rejections_total`)
+	require.Contains(t, body, `developers_cv_auth_transaction_cleanup_total`)
+	require.Contains(t, body, `developers_cv_auth_cleanup_failures_total`)
+	require.Contains(t, body, `developers_cv_auth_login_duration_seconds`)
+	require.Contains(t, body, `developers_cv_auth_oidc_exchange_duration_seconds`)
+	require.Contains(t, body, `developers_cv_auth_oidc_verify_duration_seconds`)
 }
 
 func TestMetricsMiddlewareUsesUnmatchedRouteWithoutHighCardinalityPath(t *testing.T) {

@@ -24,7 +24,45 @@ type Config struct {
 }
 
 type AuthConfig struct {
-	Mode string
+	Mode        string
+	Telegram    TelegramAuthConfig
+	Session     SessionAuthConfig
+	Cookie      CookieAuthConfig
+	Transaction TransactionAuthConfig
+	RateLimit   AuthRateLimitConfig
+}
+
+type AuthRateLimitConfig struct {
+	Enabled               bool
+	StartRatePerMinute    float64
+	StartBurst            int
+	CallbackRatePerMinute float64
+	CallbackBurst         int
+}
+
+type TelegramAuthConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+	IssuerURL    string
+}
+
+type SessionAuthConfig struct {
+	AbsoluteTTL   time.Duration
+	IdleTTL       time.Duration
+	TouchInterval time.Duration
+}
+
+type CookieAuthConfig struct {
+	Name     string
+	Secure   bool
+	HTTPOnly bool
+	SameSite string
+	Path     string
+}
+
+type TransactionAuthConfig struct {
+	TTL time.Duration
 }
 
 type AppConfig struct {
@@ -121,6 +159,78 @@ func parse() (Config, error) {
 		return Config{}, err
 	}
 	authMode, err := envString("AUTH_MODE", "mock")
+	if err != nil {
+		return Config{}, err
+	}
+	authTelegramClientID, err := envString("AUTH_TELEGRAM_CLIENT_ID", "")
+	if err != nil {
+		return Config{}, err
+	}
+	authTelegramClientSecret, err := envString("AUTH_TELEGRAM_CLIENT_SECRET", "")
+	if err != nil {
+		return Config{}, err
+	}
+	authTelegramRedirectURL, err := envString("AUTH_TELEGRAM_REDIRECT_URL", "http://localhost:8080/api/v1/auth/telegram/callback")
+	if err != nil {
+		return Config{}, err
+	}
+	authTelegramIssuerURL, err := envString("AUTH_TELEGRAM_ISSUER_URL", "https://oauth.telegram.org")
+	if err != nil {
+		return Config{}, err
+	}
+	authSessionAbsoluteTTL, err := envDuration("AUTH_SESSION_ABSOLUTE_TTL", 720*time.Hour)
+	if err != nil {
+		return Config{}, err
+	}
+	authSessionIdleTTL, err := envDuration("AUTH_SESSION_IDLE_TTL", 168*time.Hour)
+	if err != nil {
+		return Config{}, err
+	}
+	authSessionTouchInterval, err := envDuration("AUTH_SESSION_TOUCH_INTERVAL", 5*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	authTransactionTTL, err := envDuration("AUTH_TRANSACTION_TTL", 5*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	authCookieName, err := envString("AUTH_COOKIE_NAME", "__Host-session")
+	if err != nil {
+		return Config{}, err
+	}
+	authCookieSecure, err := envBool("AUTH_COOKIE_SECURE", true)
+	if err != nil {
+		return Config{}, err
+	}
+	authCookieHTTPOnly, err := envBool("AUTH_COOKIE_HTTP_ONLY", true)
+	if err != nil {
+		return Config{}, err
+	}
+	authCookieSameSite, err := envString("AUTH_COOKIE_SAME_SITE", "lax")
+	if err != nil {
+		return Config{}, err
+	}
+	authCookiePath, err := envString("AUTH_COOKIE_PATH", "/")
+	if err != nil {
+		return Config{}, err
+	}
+	authRateLimitEnabled, err := envBool("AUTH_RATE_LIMIT_ENABLED", true)
+	if err != nil {
+		return Config{}, err
+	}
+	authStartRatePerMinute, err := envFloat("AUTH_RATE_LIMIT_START_PER_MINUTE", 5)
+	if err != nil {
+		return Config{}, err
+	}
+	authStartBurst, err := envInt("AUTH_RATE_LIMIT_START_BURST", 5)
+	if err != nil {
+		return Config{}, err
+	}
+	authCallbackRatePerMinute, err := envFloat("AUTH_RATE_LIMIT_CALLBACK_PER_MINUTE", 20)
+	if err != nil {
+		return Config{}, err
+	}
+	authCallbackBurst, err := envInt("AUTH_RATE_LIMIT_CALLBACK_BURST", 20)
 	if err != nil {
 		return Config{}, err
 	}
@@ -264,7 +374,12 @@ func parse() (Config, error) {
 			Version: appVersion,
 		},
 		Auth: AuthConfig{
-			Mode: authMode,
+			Mode:        authMode,
+			Telegram:    TelegramAuthConfig{ClientID: authTelegramClientID, ClientSecret: authTelegramClientSecret, RedirectURL: authTelegramRedirectURL, IssuerURL: authTelegramIssuerURL},
+			Session:     SessionAuthConfig{AbsoluteTTL: authSessionAbsoluteTTL, IdleTTL: authSessionIdleTTL, TouchInterval: authSessionTouchInterval},
+			Cookie:      CookieAuthConfig{Name: authCookieName, Secure: authCookieSecure, HTTPOnly: authCookieHTTPOnly, SameSite: authCookieSameSite, Path: authCookiePath},
+			Transaction: TransactionAuthConfig{TTL: authTransactionTTL},
+			RateLimit:   AuthRateLimitConfig{Enabled: authRateLimitEnabled, StartRatePerMinute: authStartRatePerMinute, StartBurst: authStartBurst, CallbackRatePerMinute: authCallbackRatePerMinute, CallbackBurst: authCallbackBurst},
 		},
 		HTTP: HTTPConfig{
 			Host:              host,
@@ -349,9 +464,36 @@ func isValidPostgresSSLMode(value string) bool {
 }
 
 func validate(cfg Config) error {
-	if cfg.Auth.Mode != "mock" {
+	if cfg.Auth.Mode != "mock" && cfg.Auth.Mode != "telegram" {
 		return fmt.Errorf("invalid AUTH_MODE: %q", cfg.Auth.Mode)
 	}
+	if cfg.Auth.Session.AbsoluteTTL <= 0 || cfg.Auth.Session.IdleTTL <= 0 || cfg.Auth.Session.TouchInterval <= 0 {
+		return errors.New("auth session durations must be positive")
+	}
+	if cfg.Auth.Session.IdleTTL > cfg.Auth.Session.AbsoluteTTL {
+		return errors.New("AUTH_SESSION_IDLE_TTL must not exceed AUTH_SESSION_ABSOLUTE_TTL")
+	}
+	if cfg.Auth.Transaction.TTL <= 0 {
+		return errors.New("AUTH_TRANSACTION_TTL must be positive")
+	}
+	if cfg.Auth.RateLimit.Enabled && (cfg.Auth.RateLimit.StartRatePerMinute <= 0 || cfg.Auth.RateLimit.StartBurst <= 0 || cfg.Auth.RateLimit.CallbackRatePerMinute <= 0 || cfg.Auth.RateLimit.CallbackBurst <= 0) {
+		return errors.New("auth rate limits must be positive when enabled")
+	}
+	if strings.TrimSpace(cfg.Auth.Cookie.Name) == "" || cfg.Auth.Cookie.Path != "/" || !cfg.Auth.Cookie.HTTPOnly || strings.ToLower(cfg.Auth.Cookie.SameSite) != "lax" {
+		return errors.New("invalid auth cookie configuration")
+	}
+	if strings.HasPrefix(cfg.Auth.Cookie.Name, "__Host-") && (!cfg.Auth.Cookie.Secure || cfg.Auth.Cookie.Path != "/") {
+		return errors.New("__Host- auth cookie requires Secure and Path=/")
+	}
+	if cfg.Auth.Mode == "telegram" {
+		if strings.TrimSpace(cfg.Auth.Telegram.ClientID) == "" || strings.TrimSpace(cfg.Auth.Telegram.ClientSecret) == "" || strings.TrimSpace(cfg.Auth.Telegram.RedirectURL) == "" || strings.TrimSpace(cfg.Auth.Telegram.IssuerURL) == "" {
+			return errors.New("telegram auth configuration is incomplete")
+		}
+	}
+	if cfg.Auth.Telegram.IssuerURL != "" && cfg.Auth.Telegram.IssuerURL != "https://oauth.telegram.org" && cfg.App.Env == "production" {
+		return errors.New("AUTH_TELEGRAM_ISSUER_URL must be https://oauth.telegram.org in production")
+	}
+
 	if strings.TrimSpace(cfg.Postgres.Host) == "" ||
 		strings.TrimSpace(cfg.Postgres.Database) == "" ||
 		strings.TrimSpace(cfg.Postgres.User) == "" ||
@@ -450,8 +592,18 @@ func validateProductionSecurity(cfg Config) error {
 	if cfg.App.Env != "production" {
 		return nil
 	}
+	if cfg.Auth.Mode != "telegram" {
+		return errors.New("AUTH_MODE must be telegram in production")
+	}
+	if !cfg.Auth.Cookie.Secure || cfg.Auth.Cookie.Name != "__Host-session" {
+		return errors.New("production auth cookie must be secure __Host-session")
+	}
+
 	if !cfg.HTTP.RateLimit.Enabled {
 		return errors.New("RATE_LIMIT_ENABLED must be true in production")
+	}
+	if !cfg.Auth.RateLimit.Enabled {
+		return errors.New("AUTH_RATE_LIMIT_ENABLED must be true in production")
 	}
 	if !cfg.Prometheus.Enabled {
 		return errors.New("PROMETHEUS_ENABLED must be true in production")
