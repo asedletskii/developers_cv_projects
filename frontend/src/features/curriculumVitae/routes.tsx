@@ -1,6 +1,6 @@
 import { lazy } from 'react'
 import { ROUTES } from '@shared/constants'
-import { Navigate, Route } from 'react-router'
+import { Navigate, Route, useLocation, useParams } from 'react-router'
 
 const AuthErrorScreen = lazy(() => import('@features/auth/screens/AuthErrorScreen'))
 const CurriculumVitaeScreen = lazy(
@@ -10,6 +10,14 @@ const LkProfileScreen = lazy(() => import('./screens/LkProfileScreen/LkProfileSc
 const LkResumesScreen = lazy(() => import('./screens/LkResumesScreen/LkResumesScreen'))
 const LkResumeEditScreen = lazy(() => import('./screens/LkResumeEditScreen/LkResumeEditScreen'))
 const LkResumeScreen = lazy(() => import('./screens/LkResumeScreen/LkResumeScreen'))
+
+/** Старые ссылки вида `/cv/lk/:userId/:cvId[/preview]` (до отвязки userId от URL) — тот же
+ *  хвост пути без userId, поиск/query сохраняем (в нём бывает `?section=`). */
+const LegacyLkRedirect = () => {
+  const { '*': rest } = useParams()
+  const { search } = useLocation()
+  return <Navigate to={`${ROUTES.lk}${rest ? `/${rest}` : ''}${search}`} replace />
+}
 
 // Пути абсолютные, из ROUTES. Статический сегмент "lk" react-router ставит выше динамического
 // (:cvId), поэтому /cv/lk/... не спорит с /cv/:cvId. userId в URL больше нет — его знает бэк
@@ -22,6 +30,8 @@ export const curriculumVitaeRoutes = {
       <Route path={ROUTES.cvResume} element={<CurriculumVitaeScreen />} />
 
       <Route path={ROUTES.authError} element={<AuthErrorScreen />} />
+
+      <Route path="/cv/lk/:legacyUserId/*" element={<LegacyLkRedirect />} />
 
       {/* Слева всегда карточка пользователя, справа — список резюме или редактор */}
       <Route path={ROUTES.lk} element={<LkProfileScreen />}>
