@@ -53,7 +53,7 @@ export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
       <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
         <IconButton
           component={RouterLink}
-          to={generatePath(ROUTES.lkProfile, { userId })}
+          to={ROUTES.lk}
           aria-label={translateResume('back')}
           sx={{ ...glassCard, borderRadius: 999 }}
         >
@@ -70,7 +70,7 @@ export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
         <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
           <Button
             component={RouterLink}
-            to={generatePath(ROUTES.lkResumePreview, { userId, cvId: view.id })}
+            to={generatePath(ROUTES.lkResumePreview, { cvId: view.id })}
             aria-label={translate('preview')}
             startIcon={<VisibilityOutlined />}
             sx={PREVIEW_BUTTON_SX}

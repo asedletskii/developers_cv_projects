@@ -15,6 +15,7 @@ module.exports = {
     '^@app$': '<rootDir>/src/app',
     '^@app/(.*)$': '<rootDir>/src/app/$1',
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
+    '^@features/auth/(.*)$': '<rootDir>/src/features/auth/$1',
     '^@features/curriculumVitae/(.*)$': '<rootDir>/src/features/curriculumVitae/$1',
   },
 }

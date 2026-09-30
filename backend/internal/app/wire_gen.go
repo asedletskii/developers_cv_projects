@@ -7,6 +7,14 @@ package app
 import (
 	"context"
 
+	authcommands "developers-cv/backend/internal/modules/auth/application/commands"
+	authqueries "developers-cv/backend/internal/modules/auth/application/queries"
+	cleanup "developers-cv/backend/internal/modules/auth/infrastructure/cleanup"
+	authrepository "developers-cv/backend/internal/modules/auth/infrastructure/persistence/repository"
+	authtoken "developers-cv/backend/internal/modules/auth/infrastructure/token"
+	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
+	usercommands "developers-cv/backend/internal/modules/user/application/commands"
+
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
@@ -30,9 +38,7 @@ import (
 	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
 	resumelinkpublichandler "developers-cv/backend/internal/modules/resume_link/transport/http/public"
-	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
-	userauth "developers-cv/backend/internal/modules/user/infrastructure/auth"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
@@ -83,9 +89,43 @@ func Initialize() (*Application, error) {
 	userReaderValue := userreaders.NewUserReader(gormDBValue)
 	getProfileReaderValue := newGetProfileReader(gormDBValue)
 	profileRepositoryValue := userrepository.NewProfileRepository(gormDBValue)
-	mockAuthenticatorValue := userauth.NewMockAuthenticator(userReaderValue)
-	authenticateValue := newAuthenticate(mockAuthenticatorValue)
 	unitOfWorkValue := database.NewUnitOfWork(gormDBValue)
+	authTransactionRepositoryValue := authrepository.NewAuthTransactionRepository(gormDBValue)
+	identityRepositoryValue := authrepository.NewIdentityRepository(gormDBValue)
+	sessionRepositoryValue := authrepository.NewSessionRepository(gormDBValue)
+	tokenGeneratorValue := authtoken.NewGenerator()
+	userRepositoryValue := userrepository.NewUserRepository(gormDBValue)
+	createUserHandlerValue := usercommands.NewCreateUserHandler(userRepositoryValue)
+	telegramHTTPClientValue := newTelegramHTTPClient()
+	telegramOIDCValue, err := newTelegramOIDC(configValue.Auth, telegramHTTPClientValue, metricsValue)
+	if err != nil {
+		_ = database.Close(gormDBValue)
+		_ = telemetryValue.Shutdown(context.Background())
+		return nil, err
+	}
+	authObserverValue := newAuthObserver(loggerValue, metricsValue, configValue.Telemetry.ServiceName)
+	currentSessionHandlerValue := authqueries.NewCurrentSessionHandler(sessionRepositoryValue, unitOfWorkValue, configValue.Auth.Session.IdleTTL, configValue.Auth.Session.TouchInterval)
+	startTelegramLoginHandlerValue := authcommands.NewStartTelegramLoginHandler(authTransactionRepositoryValue, telegramOIDCValue, tokenGeneratorValue, unitOfWorkValue, configValue.Auth.Telegram.RedirectURL, configValue.Auth.Transaction.TTL)
+	completeTelegramLoginHandlerValue := newCompleteTelegramLoginHandler(authTransactionRepositoryValue, identityRepositoryValue, sessionRepositoryValue, telegramOIDCValue, createUserHandlerValue, tokenGeneratorValue, unitOfWorkValue, configValue.Auth.Session.AbsoluteTTL, authObserverValue)
+	logoutHandlerValue := authcommands.NewLogoutHandler(sessionRepositoryValue, unitOfWorkValue)
+	cleanupExpiredHandlerValue := authcommands.NewCleanupExpiredHandler(authTransactionRepositoryValue, sessionRepositoryValue, unitOfWorkValue)
+	cleanupWorkerValue := cleanup.NewWorker(cleanupExpiredHandlerValue, loggerValue, metricsValue)
+	authHandlerValue := authhttp.NewHandler(authhttp.HandlerDependencies{
+		StartTelegramLogin:   startTelegramLoginHandlerValue,
+		CompleteTelegram:     completeTelegramLoginHandlerValue,
+		Logout:               logoutHandlerValue,
+		Observer:             authObserverValue,
+		TokenGenerator:       tokenGeneratorValue,
+		Cookie:               cookieConfigFromRuntime(configValue.Auth),
+		BrowserBindingMaxAge: int(configValue.Auth.Transaction.TTL.Seconds()),
+	})
+	runtimeAuthenticatorValue, err := newRuntimeAuthenticator(configValue.Auth, currentSessionHandlerValue, userReaderValue, authObserverValue)
+	if err != nil {
+		_ = database.Close(gormDBValue)
+		_ = telemetryValue.Shutdown(context.Background())
+		return nil, err
+	}
+	authenticateValue := newAuthenticate(runtimeAuthenticatorValue)
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	createResumeLinkHandlerValue := resumelinkcommands.NewCreateResumeLinkHandler(resumeLinkRepositoryValue, resumeReaderValue, unitOfWorkValue)
 	listResumeLinksHandlerValue := resumelinkqueries.NewListResumeLinksQueryHandler(resumeLinkReaderValue, resumeReaderValue)
@@ -168,6 +208,7 @@ func Initialize() (*Application, error) {
 		resumeHandlerValue,
 		userHandlerValue,
 		resumeLinkHandlerValue,
+		authHandlerValue,
 		authenticateValue,
 	)
 	if err != nil {
@@ -190,6 +231,7 @@ func Initialize() (*Application, error) {
 		loggerValue,
 		gormDBValue,
 		configValue.HTTP.ShutdownTimeout,
+		cleanupWorkerValue,
 	)
 
 	return applicationValue, nil

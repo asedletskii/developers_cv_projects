@@ -13,6 +13,11 @@ func setValidConfigEnvironment(t *testing.T) {
 	t.Helper()
 
 	t.Setenv("AUTH_MODE", "mock")
+	t.Setenv("AUTH_COOKIE_NAME", "__Host-session")
+	t.Setenv("AUTH_COOKIE_SECURE", "true")
+	t.Setenv("AUTH_COOKIE_HTTP_ONLY", "true")
+	t.Setenv("AUTH_COOKIE_SAME_SITE", "lax")
+	t.Setenv("AUTH_COOKIE_PATH", "/")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
 	t.Setenv("POSTGRES_PASSWORD", "test-password")
@@ -130,6 +135,11 @@ func TestLoadRejectsInvalidPostgresSSLMode(t *testing.T) {
 func TestLoadParsesAuthMode(t *testing.T) {
 	setValidConfigEnvironment(t)
 	t.Setenv("AUTH_MODE", "mock")
+	t.Setenv("AUTH_COOKIE_NAME", "__Host-session")
+	t.Setenv("AUTH_COOKIE_SECURE", "true")
+	t.Setenv("AUTH_COOKIE_HTTP_ONLY", "true")
+	t.Setenv("AUTH_COOKIE_SAME_SITE", "lax")
+	t.Setenv("AUTH_COOKIE_PATH", "/")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 
 	cfg, err := parse()
@@ -150,7 +160,7 @@ func TestLoadRejectsUnsupportedAuthMode(t *testing.T) {
 
 func TestValidateRejectsDisabledPrometheusInProduction(t *testing.T) {
 	cfg := productionSecurityTestConfig()
-	cfg.Auth.Mode = "jwt"
+	cfg.Auth.Mode = "telegram"
 	cfg.Postgres.SSLMode = "require"
 	cfg.Prometheus.Enabled = false
 
@@ -162,7 +172,7 @@ func TestValidateRejectsDisabledPrometheusInProduction(t *testing.T) {
 
 func TestValidateRejectsInsecureTelemetryInProduction(t *testing.T) {
 	cfg := productionSecurityTestConfig()
-	cfg.Auth.Mode = "jwt"
+	cfg.Auth.Mode = "telegram"
 	cfg.Postgres.SSLMode = "require"
 	cfg.Telemetry.Enabled = true
 	cfg.Telemetry.OTLPEndpoint = "otel-collector:4317"
@@ -204,7 +214,7 @@ func TestValidateAcceptsTelemetryEndpoint(t *testing.T) {
 func TestValidateRejectsDisabledRateLimitInProduction(t *testing.T) {
 	cfg := productionSecurityTestConfig()
 	cfg.App.Env = "production"
-	cfg.Auth.Mode = "jwt"
+	cfg.Auth.Mode = "telegram"
 	cfg.Postgres.SSLMode = "require"
 	cfg.HTTP.TLS.Enabled = true
 	cfg.HTTP.TLS.CertFile = "/run/secrets/tls.crt"
@@ -229,49 +239,95 @@ func TestValidateRejectsInvalidTrustedProxy(t *testing.T) {
 
 func productionSecurityTestConfig() Config {
 	return Config{
-		App:  AppConfig{Env: "production"},
-		Auth: AuthConfig{Mode: "mock"},
+		App: AppConfig{Env: "production"},
+		Auth: AuthConfig{
+			Mode:        "telegram",
+			Telegram:    TelegramAuthConfig{ClientID: "client-id", ClientSecret: "client-secret", RedirectURL: "https://example.com/api/v1/auth/telegram/callback", IssuerURL: "https://oauth.telegram.org"},
+			Cookie:      CookieAuthConfig{Name: "__Host-session", Secure: true, HTTPOnly: true, SameSite: "lax", Path: "/"},
+			Session:     SessionAuthConfig{AbsoluteTTL: 720 * time.Hour, IdleTTL: 168 * time.Hour, TouchInterval: 5 * time.Minute},
+			Transaction: TransactionAuthConfig{TTL: 5 * time.Minute},
+			RateLimit:   AuthRateLimitConfig{Enabled: true, StartRatePerMinute: 5, StartBurst: 5, CallbackRatePerMinute: 20, CallbackBurst: 20},
+		},
 		HTTP: HTTPConfig{
-			Port:              8080,
-			ReadTimeout:       time.Second,
-			ReadHeaderTimeout: time.Second,
-			WriteTimeout:      time.Second,
-			IdleTimeout:       time.Second,
-			ShutdownTimeout:   time.Second,
-			MaxBodyBytes:      1024,
-			TLS: TLSConfig{
-				Enabled:  true,
-				CertFile: "/run/secrets/tls.crt",
-				KeyFile:  "/run/secrets/tls.key",
-			},
-			RateLimit: RateLimitConfig{
-				Enabled: true,
-				Rate:    10,
-				Burst:   20,
-			},
+			Port: 8080, ReadTimeout: time.Second, ReadHeaderTimeout: time.Second, WriteTimeout: time.Second, IdleTimeout: time.Second, ShutdownTimeout: time.Second, MaxBodyBytes: 1024,
+			TLS:       TLSConfig{Enabled: true, CertFile: "/run/secrets/tls.crt", KeyFile: "/run/secrets/tls.key"},
+			RateLimit: RateLimitConfig{Enabled: true, Rate: 10, Burst: 20},
 		},
-		CORS: CORSConfig{
-			AllowedOrigins:   []string{"https://example.com"},
-			AllowCredentials: true,
-		},
-		Log: LogConfig{Format: "json"},
-		Telemetry: TelemetryConfig{
-			ServiceName:    "developers-cv-api",
-			ServiceVersion: "test",
-			Environment:    "production",
-		},
+		CORS:       CORSConfig{AllowedOrigins: []string{"https://example.com"}, AllowCredentials: true},
+		Log:        LogConfig{Format: "json"},
+		Telemetry:  TelemetryConfig{ServiceName: "developers-cv-api", ServiceVersion: "test", Environment: "production"},
 		Prometheus: PrometheusConfig{Enabled: true},
-		Postgres: PostgresConfig{
-			Host:            "postgres",
-			Port:            5432,
-			Database:        "developers_cv",
-			User:            "developers_cv",
-			Password:        "secret",
-			SSLMode:         "require",
-			MaxConns:        10,
-			MaxIdleConns:    2,
-			MaxConnLifetime: time.Hour,
-			MaxConnIdleTime: time.Minute,
-		},
+		Postgres:   PostgresConfig{Host: "postgres", Port: 5432, Database: "developers_cv", User: "developers_cv", Password: "secret", SSLMode: "require", MaxConns: 10, MaxIdleConns: 2, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute},
 	}
+}
+
+func TestValidateProductionRejectsMockAuthentication(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.Auth.Mode = "mock"
+
+	err := validateProductionSecurity(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "AUTH_MODE")
+}
+
+func TestValidateProductionAcceptsTelegramAuthentication(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.Auth.Mode = "telegram"
+	cfg.Auth.Telegram.ClientID = "client-id"
+	cfg.Auth.Telegram.ClientSecret = "client-secret"
+	cfg.Auth.Telegram.RedirectURL = "https://example.com/api/v1/auth/telegram/callback"
+	cfg.Auth.Telegram.IssuerURL = "https://oauth.telegram.org"
+	cfg.Auth.Cookie.Name = "__Host-session"
+	cfg.Auth.Cookie.Secure = true
+	cfg.Auth.Cookie.HTTPOnly = true
+	cfg.Auth.Cookie.Path = "/"
+	cfg.Auth.Cookie.SameSite = "lax"
+
+	err := validate(cfg)
+
+	require.NoError(t, err)
+}
+
+func TestLoadParsesDedicatedAuthRateLimits(t *testing.T) {
+	setValidConfigEnvironment(t)
+	t.Setenv("AUTH_RATE_LIMIT_ENABLED", "true")
+	t.Setenv("AUTH_RATE_LIMIT_START_PER_MINUTE", "7")
+	t.Setenv("AUTH_RATE_LIMIT_START_BURST", "7")
+	t.Setenv("AUTH_RATE_LIMIT_CALLBACK_PER_MINUTE", "25")
+	t.Setenv("AUTH_RATE_LIMIT_CALLBACK_BURST", "25")
+
+	cfg, err := parse()
+
+	require.NoError(t, err)
+	require.True(t, cfg.Auth.RateLimit.Enabled)
+	require.Equal(t, 7.0, cfg.Auth.RateLimit.StartRatePerMinute)
+	require.Equal(t, 7, cfg.Auth.RateLimit.StartBurst)
+	require.Equal(t, 25.0, cfg.Auth.RateLimit.CallbackRatePerMinute)
+	require.Equal(t, 25, cfg.Auth.RateLimit.CallbackBurst)
+}
+
+func TestValidateRejectsDisabledDedicatedAuthRateLimitInProduction(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.Auth.Mode = "telegram"
+	cfg.Postgres.SSLMode = "require"
+	cfg.HTTP.TLS.Enabled = true
+	cfg.HTTP.TLS.CertFile = "/run/secrets/tls.crt"
+	cfg.HTTP.TLS.KeyFile = "/run/secrets/tls.key"
+	cfg.Auth.RateLimit.Enabled = false
+
+	err := validateProductionSecurity(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "AUTH_RATE_LIMIT_ENABLED")
+}
+
+func TestValidateRejectsInvalidDedicatedAuthRateLimit(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.Auth.RateLimit.StartBurst = 0
+
+	err := validate(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "auth rate limits")
 }

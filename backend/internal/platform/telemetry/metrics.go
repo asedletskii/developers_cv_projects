@@ -12,10 +12,20 @@ import (
 )
 
 type Metrics struct {
-	requests *prometheus.CounterVec
-	duration *prometheus.HistogramVec
-	inFlight prometheus.Gauge
-	registry *prometheus.Registry
+	requests                 *prometheus.CounterVec
+	duration                 *prometheus.HistogramVec
+	inFlight                 prometheus.Gauge
+	authLoginAttempts        *prometheus.CounterVec
+	authLoginSuccess         *prometheus.CounterVec
+	authLoginFailures        *prometheus.CounterVec
+	authLogout               *prometheus.CounterVec
+	authSessionRejections    *prometheus.CounterVec
+	authTransactionCleanup   *prometheus.CounterVec
+	authCleanupFailures      *prometheus.CounterVec
+	authLoginDuration        *prometheus.HistogramVec
+	authOIDCExchangeDuration *prometheus.HistogramVec
+	authOIDCVerifyDuration   *prometheus.HistogramVec
+	registry                 *prometheus.Registry
 }
 
 func NewMetrics(enabled bool) (*Metrics, error) {
@@ -42,21 +52,56 @@ func NewMetrics(enabled bool) (*Metrics, error) {
 		Help:      "Current number of in-flight HTTP requests.",
 	})
 
+	authLoginAttempts := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Name: "auth_login_attempts_total", Help: "Total number of authentication login attempts.",
+	}, []string{"provider"})
+	authLoginSuccess := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Name: "auth_login_success_total", Help: "Total number of successful authentication logins.",
+	}, []string{"provider"})
+	authLoginFailures := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Name: "auth_login_failures_total", Help: "Total number of failed authentication logins.",
+	}, []string{"provider", "reason"})
+	authLogout := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Name: "auth_logout_total", Help: "Total number of authentication logout operations.",
+	}, []string{"provider", "reason"})
+	authSessionRejections := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Name: "auth_session_rejections_total", Help: "Total number of rejected authentication sessions.",
+	}, []string{"provider", "reason"})
+	authTransactionCleanup := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Name: "auth_transaction_cleanup_total", Help: "Total number of expired authentication transactions removed.",
+	}, []string{"provider", "reason"})
+	authCleanupFailures := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Name: "auth_cleanup_failures_total", Help: "Total number of authentication cleanup failures.",
+	}, []string{"resource"})
+	authLoginDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "developers_cv", Name: "auth_login_duration_seconds", Help: "Authentication login duration in seconds.",
+	}, []string{"provider"})
+	authOIDCExchangeDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "developers_cv", Name: "auth_oidc_exchange_duration_seconds", Help: "Telegram OIDC token exchange duration in seconds.",
+	}, []string{"provider"})
+	authOIDCVerifyDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "developers_cv", Name: "auth_oidc_verify_duration_seconds", Help: "Telegram OIDC ID token verification duration in seconds.",
+	}, []string{"provider"})
+
 	registry := prometheus.NewRegistry()
-	if err := registry.Register(requests); err != nil {
-		return nil, fmt.Errorf("register HTTP request counter: %w", err)
+	collectors := []prometheus.Collector{
+		requests, duration, inFlight,
+		authLoginAttempts, authLoginSuccess, authLoginFailures, authLogout,
+		authSessionRejections, authTransactionCleanup, authCleanupFailures, authLoginDuration,
+		authOIDCExchangeDuration, authOIDCVerifyDuration,
 	}
-	if err := registry.Register(duration); err != nil {
-		return nil, fmt.Errorf("register HTTP request duration: %w", err)
-	}
-	if err := registry.Register(inFlight); err != nil {
-		return nil, fmt.Errorf("register HTTP in-flight gauge: %w", err)
+	for _, collector := range collectors {
+		if err := registry.Register(collector); err != nil {
+			return nil, fmt.Errorf("register telemetry metric: %w", err)
+		}
 	}
 	return &Metrics{
-		requests: requests,
-		duration: duration,
-		inFlight: inFlight,
-		registry: registry,
+		requests: requests, duration: duration, inFlight: inFlight,
+		authLoginAttempts: authLoginAttempts, authLoginSuccess: authLoginSuccess,
+		authLoginFailures: authLoginFailures, authLogout: authLogout,
+		authSessionRejections: authSessionRejections, authTransactionCleanup: authTransactionCleanup,
+		authCleanupFailures: authCleanupFailures, authLoginDuration: authLoginDuration, authOIDCExchangeDuration: authOIDCExchangeDuration,
+		authOIDCVerifyDuration: authOIDCVerifyDuration, registry: registry,
 	}, nil
 }
 
@@ -78,4 +123,69 @@ func (m *Metrics) Middleware() gin.HandlerFunc {
 
 func (m *Metrics) Handler() http.Handler {
 	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
+}
+
+func (m *Metrics) RecordAuthLoginAttempt(provider string) {
+	if m == nil || m.authLoginAttempts == nil {
+		return
+	}
+	m.authLoginAttempts.WithLabelValues(provider).Inc()
+}
+
+func (m *Metrics) RecordAuthLoginSuccess(provider string, duration time.Duration) {
+	if m == nil || m.authLoginSuccess == nil {
+		return
+	}
+	m.authLoginSuccess.WithLabelValues(provider).Inc()
+	m.authLoginDuration.WithLabelValues(provider).Observe(duration.Seconds())
+}
+
+func (m *Metrics) RecordAuthLoginFailure(provider, reason string, duration time.Duration) {
+	if m == nil || m.authLoginFailures == nil {
+		return
+	}
+	m.authLoginFailures.WithLabelValues(provider, reason).Inc()
+	m.authLoginDuration.WithLabelValues(provider).Observe(duration.Seconds())
+}
+
+func (m *Metrics) RecordAuthLogout(provider, reason string) {
+	if m == nil || m.authLogout == nil {
+		return
+	}
+	m.authLogout.WithLabelValues(provider, reason).Inc()
+}
+
+func (m *Metrics) RecordAuthSessionRejection(provider, reason string) {
+	if m == nil || m.authSessionRejections == nil {
+		return
+	}
+	m.authSessionRejections.WithLabelValues(provider, reason).Inc()
+}
+
+func (m *Metrics) RecordAuthTransactionCleanup(provider, reason string, count int) {
+	if m == nil || m.authTransactionCleanup == nil || count <= 0 {
+		return
+	}
+	m.authTransactionCleanup.WithLabelValues(provider, reason).Add(float64(count))
+}
+
+func (m *Metrics) ObserveAuthOIDCExchange(provider string, duration time.Duration) {
+	if m == nil || m.authOIDCExchangeDuration == nil {
+		return
+	}
+	m.authOIDCExchangeDuration.WithLabelValues(provider).Observe(duration.Seconds())
+}
+
+func (m *Metrics) ObserveAuthOIDCVerify(provider string, duration time.Duration) {
+	if m == nil || m.authOIDCVerifyDuration == nil {
+		return
+	}
+	m.authOIDCVerifyDuration.WithLabelValues(provider).Observe(duration.Seconds())
+}
+
+func (m *Metrics) RecordAuthCleanupFailure(resource string) {
+	if m == nil || m.authCleanupFailures == nil {
+		return
+	}
+	m.authCleanupFailures.WithLabelValues(resource).Inc()
 }

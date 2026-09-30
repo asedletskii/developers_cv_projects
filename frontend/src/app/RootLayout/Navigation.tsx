@@ -12,6 +12,7 @@ export const Navigation = () => {
     () => [
       { label: translate('Tabs.main'), to: ROUTES.main },
       { label: translate('Tabs.about'), to: ROUTES.about },
+      { label: translate('Tabs.lk'), to: ROUTES.lk },
     ],
     [translate],
   )
