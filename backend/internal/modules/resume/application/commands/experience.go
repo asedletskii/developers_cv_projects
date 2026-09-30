@@ -24,6 +24,7 @@ type ExperienceInput struct {
 	EndDate           *valueobjects.YearMonth
 	Description       *string
 	Achievements      []string
+	Tasks             []string
 	Stack             []ExperienceStackItemInput
 }
 
@@ -34,7 +35,7 @@ func (i ExperienceInput) toDomain(resumeID valueobjects.ID) domain.ExperiencePar
 	for _, item := range i.Stack {
 		stack = append(stack, domain.ExperienceStackParams{Name: item.Name, Grade: item.Grade})
 	}
-	return domain.ExperienceParams{ID: i.ID, ResumeID: resumeID, Company: i.Company, Position: i.Position, Location: i.Location, StartDate: i.StartDate, EndDate: i.EndDate, Description: i.Description, Achievements: append([]string(nil), i.Achievements...), Stack: stack}
+	return domain.ExperienceParams{ID: i.ID, ResumeID: resumeID, Company: i.Company, Position: i.Position, Location: i.Location, StartDate: i.StartDate, EndDate: i.EndDate, Description: i.Description, Achievements: append([]string(nil), i.Achievements...), Tasks: append([]string(nil), i.Tasks...), Stack: stack}
 }
 
 type ReplaceExperiencesCommand struct {

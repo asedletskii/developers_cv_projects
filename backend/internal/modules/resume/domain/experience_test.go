@@ -34,12 +34,14 @@ func TestNewExperienceTrimsValuesAndBuildsChildren(t *testing.T) {
 		ID: id, ResumeID: resumeID, Company: " Acme ", Position: " Developer ",
 		StartDate:    start,
 		Achievements: []string{" shipped v2 ", "reduced latency"},
+		Tasks:        []string{" own backend ", "review PRs "},
 		Stack:        []ExperienceStackParams{{Name: " Go ", Grade: &grade}},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "Acme", item.Company())
 	require.Equal(t, "Developer", item.Position())
 	require.Equal(t, []string{"shipped v2", "reduced latency"}, item.Achievements())
+	require.Equal(t, []string{"own backend", "review PRs"}, item.Tasks())
 	require.Len(t, item.Stack(), 1)
 	require.Equal(t, "Go", item.Stack()[0].Name())
 	require.Equal(t, &grade, item.Stack()[0].Grade())
@@ -54,5 +56,15 @@ func TestNewExperienceRejectsZeroStartDate(t *testing.T) {
 		StartDate: valueobjects.YearMonth{},
 	})
 
+	require.ErrorIs(t, err, ErrInvalidEntity)
+}
+
+func TestNewExperienceRejectsEmptyTask(t *testing.T) {
+	start, err := valueobjects.ParseYearMonth("2024-01")
+	require.NoError(t, err)
+	_, err = NewExperience(ExperienceParams{
+		ID: valueobjects.NewID(), ResumeID: valueobjects.NewID(), Company: "Acme", Position: "Developer", StartDate: start,
+		Tasks: []string{""},
+	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
 }

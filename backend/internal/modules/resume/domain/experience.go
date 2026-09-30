@@ -22,6 +22,7 @@ type ExperienceParams struct {
 	EndDate           *valueobjects.YearMonth
 	Description       *string
 	Achievements      []string
+	Tasks             []string
 	Stack             []ExperienceStackParams
 }
 
@@ -35,6 +36,7 @@ type Experience struct {
 	endDate      *valueobjects.YearMonth
 	description  *string
 	achievements []string
+	tasks        []string
 	stack        []entities.Technology
 }
 
@@ -63,6 +65,14 @@ func NewExperience(params ExperienceParams) (*Experience, error) {
 		}
 		achievements[i] = value
 	}
+	tasks := make([]string, len(params.Tasks))
+	for i, task := range params.Tasks {
+		value := strings.TrimSpace(task)
+		if value == "" {
+			return nil, fmt.Errorf("%w: experience task is empty", ErrInvalidEntity)
+		}
+		tasks[i] = value
+	}
 	return &Experience{
 		id:           params.ID,
 		resumeID:     params.ResumeID,
@@ -73,6 +83,7 @@ func NewExperience(params ExperienceParams) (*Experience, error) {
 		endDate:      cloneYearMonth(params.EndDate),
 		description:  cloneString(params.Description),
 		achievements: achievements,
+		tasks:        tasks,
 		stack:        stack,
 	}, nil
 }
@@ -96,6 +107,7 @@ func (e *Experience) StartDate() valueobjects.YearMonth { return e.startDate }
 func (e *Experience) EndDate() *valueobjects.YearMonth  { return cloneYearMonth(e.endDate) }
 func (e *Experience) Description() *string              { return cloneString(e.description) }
 func (e *Experience) Achievements() []string            { return append([]string(nil), e.achievements...) }
+func (e *Experience) Tasks() []string                   { return append([]string(nil), e.tasks...) }
 func (e *Experience) Stack() []entities.Technology {
 	return append([]entities.Technology(nil), e.stack...)
 }

@@ -733,11 +733,19 @@ func replaceExperienceChildren(tx *gorm.DB, experienceID uuid.UUID, item *domain
 	if err := tx.Where("experience_id = ?", experienceID).Delete(&gormmodel.ResumeExperienceAchievement{}).Error; err != nil {
 		return err
 	}
+	if err := tx.Where("experience_id = ?", experienceID).Delete(&gormmodel.ResumeExperienceTask{}).Error; err != nil {
+		return err
+	}
 	if err := tx.Where("experience_id = ?", experienceID).Delete(&gormmodel.ResumeExperienceStack{}).Error; err != nil {
 		return err
 	}
 	for i, achievement := range item.Achievements() {
 		if err := tx.Create(&gormmodel.ResumeExperienceAchievement{ExperienceID: experienceID, Position: i, Value: achievement}).Error; err != nil {
+			return err
+		}
+	}
+	for i, task := range item.Tasks() {
+		if err := tx.Create(&gormmodel.ResumeExperienceTask{ExperienceID: experienceID, Position: i, Value: task}).Error; err != nil {
 			return err
 		}
 	}
@@ -779,6 +787,10 @@ func mapExperience(tx *gorm.DB, model gormmodel.ResumeExperience) (*domain.Exper
 	if err := tx.Where("experience_id = ?", model.ID).Order("position").Find(&achievements).Error; err != nil {
 		return nil, err
 	}
+	var tasks []gormmodel.ResumeExperienceTask
+	if err := tx.Where("experience_id = ?", model.ID).Order("position").Find(&tasks).Error; err != nil {
+		return nil, err
+	}
 	var stack []gormmodel.ResumeExperienceStack
 	if err := tx.Where("experience_id = ?", model.ID).Order("position").Find(&stack).Error; err != nil {
 		return nil, err
@@ -796,6 +808,10 @@ func mapExperience(tx *gorm.DB, model gormmodel.ResumeExperience) (*domain.Exper
 	for i, achievement := range achievements {
 		achievementValues[i] = achievement.Value
 	}
+	taskValues := make([]string, len(tasks))
+	for i, task := range tasks {
+		taskValues[i] = task.Value
+	}
 	return domain.NewExperience(domain.ExperienceParams{
 		ID:           id,
 		ResumeID:     resumeID,
@@ -806,6 +822,7 @@ func mapExperience(tx *gorm.DB, model gormmodel.ResumeExperience) (*domain.Exper
 		EndDate:      end,
 		Description:  model.Description,
 		Achievements: achievementValues,
+		Tasks:        taskValues,
 		Stack:        stackValues,
 	})
 }

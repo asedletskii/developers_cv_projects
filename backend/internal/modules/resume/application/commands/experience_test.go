@@ -40,6 +40,7 @@ func experienceCommandItem(t *testing.T, company string) ExperienceInput {
 	return ExperienceInput{
 		Company: company, Position: "Go Developer", StartDate: start,
 		Achievements: []string{"Built API"},
+		Tasks:        []string{"Implement backend", "Review PRs"},
 		Stack:        []ExperienceStackItemInput{{Name: "Go", Grade: ptr(enums.TechnologyGradeSenior)}},
 	}
 }

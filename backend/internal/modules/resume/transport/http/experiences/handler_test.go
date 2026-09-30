@@ -79,7 +79,7 @@ func TestReplaceExperiencesBindsFullSnapshot(t *testing.T) {
 		c.Set("user_id", uid.UUID())
 		handler.Replace(c)
 	})
-	body := `{"version":1,"items":[{"company":"Acme","position":"Go Developer","startDate":"2024-01","achievements":["Built API"],"stack":[{"name":"Go","grade":"senior"}]}]}`
+	body := `{"version":1,"items":[{"company":"Acme","position":"Go Developer","startDate":"2024-01","achievements":["Built API"],"tasks":["Implement backend","Review PRs"],"stack":[{"name":"Go","grade":"senior"}]}]}`
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resume.ID().String()+"/experiences", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -89,5 +89,6 @@ func TestReplaceExperiencesBindsFullSnapshot(t *testing.T) {
 	require.True(t, repo.saved)
 	require.Len(t, repo.resume.Experiences(), 1)
 	require.Equal(t, "Acme", repo.resume.Experiences()[0].Company())
+	require.Equal(t, []string{"Implement backend", "Review PRs"}, repo.resume.Experiences()[0].Tasks())
 	require.Len(t, repo.resume.Experiences()[0].Stack(), 1)
 }
