@@ -8,6 +8,7 @@ var (
 	ErrInvalidResumeLinkName   = errors.New("invalid resume link name")
 	ErrInvalidResumeLinkEvent  = errors.New("invalid resume link event")
 	ErrEntityNotFound          = errors.New("resume link not found")
+	ErrResumeLinkInactive      = errors.New("resume link is inactive")
 	ErrDuplicateResumeLink     = errors.New("duplicate resume link")
 	ErrResumeLinkLimitExceeded = errors.New("resume link limit exceeded")
 )

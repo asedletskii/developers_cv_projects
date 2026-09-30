@@ -88,7 +88,7 @@ func TestContactViewThroughLinkRejectsInactiveLink(t *testing.T) {
 		LinkID: valueobjects.NewID(), Contact: enums.ContactKeyEmail,
 	})
 
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.ErrorIs(t, err, domain.ErrResumeLinkInactive)
 	require.True(t, resume.query.ResumeID.IsZero())
 }
 

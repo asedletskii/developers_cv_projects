@@ -66,10 +66,19 @@ func TestContactViewHandlerRejectsInvalidLinkID(t *testing.T) {
 }
 
 func TestContactViewHandlerMapsMissingOrInactiveLink(t *testing.T) {
-	for _, want := range []error{domain.ErrEntityNotFound} {
-		t.Run("not found", func(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		code int
+	}{
+		{name: "not found", err: domain.ErrEntityNotFound, code: http.StatusNotFound},
+		{name: "inactive", err: domain.ErrResumeLinkInactive, code: http.StatusGone},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
-			query := &contactViewQueryStub{err: want}
+			query := &contactViewQueryStub{err: tt.err}
 			engine := gin.New()
 			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
 
@@ -78,7 +87,7 @@ func TestContactViewHandlerMapsMissingOrInactiveLink(t *testing.T) {
 			w := httptest.NewRecorder()
 			engine.ServeHTTP(w, req)
 
-			require.Equal(t, http.StatusNotFound, w.Code)
+			require.Equal(t, tt.code, w.Code)
 		})
 	}
 }

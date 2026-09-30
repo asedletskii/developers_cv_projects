@@ -61,6 +61,10 @@ func (h *ContactViewHandler) Handle(c *gin.Context) {
 		Contact: contact,
 	})
 	if err != nil {
+		if errors.Is(err, domain.ErrResumeLinkInactive) {
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeGone, http.StatusGone, "Resume link is no longer active"))
+			return
+		}
 		if errors.Is(err, domain.ErrEntityNotFound) || errors.Is(err, resumequeries.ErrResumeNotFound) {
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
 			return
