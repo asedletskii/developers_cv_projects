@@ -3,16 +3,16 @@ import { PaletteOptions } from '@mui/material/styles'
 /** Цвета, которые одинаковы в обеих темах. Оттенки: light — светлее, dark — темнее. */
 export const brand = {
   primary: {
-    light: '#E88E74',
-    main: '#DE6B48',
-    dark: '#C45532',
-    contrastText: '#FFFFFF',
+    light: '#FFDD7A',
+    main: '#FFCC3C',
+    dark: '#C99A1E',
+    contrastText: '#1F1F1D',
   },
 
   secondary: {
-    light: '#6BA3FA',
-    main: '#428BF9',
-    dark: '#1F6FE0',
+    light: '#F2A65A',
+    main: '#D97A3D',
+    dark: '#A85A26',
     contrastText: '#FFFFFF',
   },
 } satisfies Pick<PaletteOptions, 'primary' | 'secondary'>

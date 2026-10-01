@@ -10,13 +10,10 @@ type Params = {
   view: Resume
   values: Resume
   section: ResumeEditorTab
-
-  /** Вызывается после успешного сохранения — экран перечитывает резюме с бэка */
   onSaved: () => Promise<void>
   onDirtyChange: (isDirty: boolean) => void
 }
 
-/** Форма одной вкладки: значения, сохранение своей секции и предупреждение о несохранённых правках. */
 export const useSectionForm = ({
   userId,
   view,
@@ -26,11 +23,11 @@ export const useSectionForm = ({
   onDirtyChange,
 }: Params) => {
   const form = useForm<Resume>({ values })
-  const { isDirty } = form.formState
+  const { dirtyFields } = form.formState
+  const isDirty = Object.keys(dirtyFields).length > 0
 
   const [status, setStatus] = useState<SaveStatus>('idle')
 
-  // Несохранённые правки не должны теряться от случайной перезагрузки или закрытия вкладки
   useEffect(() => {
     if (!isDirty) return
 
@@ -60,7 +57,7 @@ export const useSectionForm = ({
     isDirty,
     status,
     submit,
-    reset: () => form.reset(),
+    reset: () => form.reset(values),
     resetStatus: () => setStatus('idle'),
   }
 }

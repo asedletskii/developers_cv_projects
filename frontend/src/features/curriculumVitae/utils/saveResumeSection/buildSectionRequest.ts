@@ -146,6 +146,7 @@ export const buildSectionRequest = (
             endDate: toOptionalString(e.endDate),
             description: toOptionalString(e.description),
             achievements: e.achievements.filter(Boolean),
+            tasks: e.tasks.filter(Boolean),
             stack: e.stack.map(({ name, grade }) => ({ name, grade: toOptionalString(grade) })),
           })),
         },

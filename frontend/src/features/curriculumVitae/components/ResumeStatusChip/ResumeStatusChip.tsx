@@ -7,7 +7,6 @@ type Props = {
   status: ResumeStatus
 }
 
-/** Черновик/опубликовано/скрыто — статус резюме одним чипом, цвет зависит от него. */
 export const ResumeStatusChip = ({ status }: Props) => {
   const translate = useTranslate('Lk.Resumes.Status')
 

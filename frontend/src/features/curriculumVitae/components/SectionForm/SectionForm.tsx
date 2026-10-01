@@ -12,22 +12,13 @@ type Props = {
   view: Resume
   values: Resume
   section: ResumeEditorTab
-
-  /** Секция страницы, которую вкладка правит — по ней рисуется предпросмотр (нет — без него) */
   previewSection?: SectionId
-
-  /** Участок секции, выделяемый в предпросмотре */
   previewHighlight?: string
-
-  /** Вызывается после успешного сохранения — экран перечитывает резюме с бэка */
   onSaved: () => Promise<void>
-
-  /** Есть ли несохранённые правки — экран спрашивает подтверждение при смене вкладки */
   onDirtyChange: (isDirty: boolean) => void
   children: ReactNode
 }
 
-/** Форма одной вкладки: своё состояние, свои кнопки «Сохранить»/«Сбросить», свой запрос на бэк. */
 export const SectionForm = ({
   userId,
   view,
@@ -61,7 +52,9 @@ export const SectionForm = ({
 
         {children}
 
-        <SectionFormActions status={status} isDirty={isDirty} onReset={reset} />
+        {(isDirty || status !== 'idle') && (
+          <SectionFormActions status={status} isDirty={isDirty} onReset={reset} />
+        )}
       </Stack>
     </FormProvider>
   )

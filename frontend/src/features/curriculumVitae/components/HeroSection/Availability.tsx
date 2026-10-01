@@ -12,7 +12,6 @@ type Props = {
   updatedAt?: string
 }
 
-/** Плашка «Открыт к предложениям» с датой выхода, заметкой и временем последнего обновления. */
 export const Availability = ({ availability, updatedAt }: Props) => {
   const translate = useTranslate('CurriculumVitae.Availability')
 

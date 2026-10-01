@@ -7,7 +7,6 @@ type Props = {
   sx?: SxProps<Theme>
 }
 
-/** Кнопка смены темы: показывает значок той темы, на которую переключит. */
 export const ThemeToggle = ({ sx }: Props) => {
   const translate = useTranslate('ThemeToggle')
   const { isDark, toggle } = useThemeToggle()

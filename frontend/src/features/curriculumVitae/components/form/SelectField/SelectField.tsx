@@ -8,18 +8,10 @@ type Props = {
   name: FieldPath<Resume>
   label: string
   multiple?: boolean
-
-  /** Есть ли пункт «—» (сбросить значение). Для обязательных полей его нет */
   clearable?: boolean
   options: Option[]
 } & Pick<TextFieldProps, 'required' | 'sx'>
 
-/**
- * Единый select для enum-полей формы: MUI Select требует контролируемое значение, поэтому
- * оборачиваем в RHF Controller (просто register тут не отражает изменения при reset формы).
- * Значение типизировано широко (any/never) — конкретные типы у каждого enum-поля разные,
- * а этот компонент общий для всех них.
- */
 export const SelectField = ({
   name,
   label,

@@ -3,6 +3,7 @@ import { useTechnologyFilter } from '@features/curriculumVitae/hooks'
 import { dimmed, glassCard } from '@features/curriculumVitae/styles'
 import { Experience } from '@features/curriculumVitae/types'
 import { Box, Stack, Typography } from '@mui/material'
+import { useTranslate } from '@shared/hooks'
 import { Achievements } from './Achievements'
 import { Dates } from './Dates'
 
@@ -12,6 +13,7 @@ type Props = {
 }
 
 export const Job = ({ job, isExtra }: Props) => {
+  const translate = useTranslate('CurriculumVitae.Experience')
   const { isDimmed } = useTechnologyFilter()
 
   return (
@@ -54,7 +56,23 @@ export const Job = ({ job, isExtra }: Props) => {
           <Typography sx={{ color: 'text.secondary' }}>{job.description}</Typography>
         )}
 
-        {!!job.achievements.length && <Achievements items={job.achievements} />}
+        {!!job.tasks.length && (
+          <Stack spacing={0.5}>
+            <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+              {translate('tasks')}
+            </Typography>
+            <Achievements items={job.tasks} />
+          </Stack>
+        )}
+
+        {!!job.achievements.length && (
+          <Stack spacing={0.5}>
+            <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+              {translate('achievements')}
+            </Typography>
+            <Achievements items={job.achievements} />
+          </Stack>
+        )}
 
         <TechnologyList technologies={job.stack} />
       </Stack>

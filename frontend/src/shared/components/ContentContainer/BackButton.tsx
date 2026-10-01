@@ -3,7 +3,6 @@ import { IconButton, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useNavigate } from 'react-router'
 
-/** Возвращает на предыдущую страницу истории. */
 export const BackButton = () => {
   const navigate = useNavigate()
   const translate = useTranslate('ContentContainer')

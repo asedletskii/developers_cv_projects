@@ -13,7 +13,6 @@ type Props = {
   onOpenMenu: (e: MouseEvent<HTMLElement>) => void
 }
 
-/** Строка списка: название и язык резюме (ссылка в редактор) и меню действий. */
 export const ResumeListItem = ({ resume, onOpenMenu }: Props) => {
   const translate = useTranslate('Lk.Resumes')
 

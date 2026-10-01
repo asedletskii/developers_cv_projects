@@ -7,10 +7,6 @@ import { selectToasts } from '@shared/store/toast'
 import { closeToast } from '@shared/utils'
 import { useSnackbar } from 'notistack'
 
-/**
- * Показывает тосты из стора через notistack. Источник правды — стор: `showToast` добавляет тост
- * и сам убирает его по таймеру, а здесь мы лишь рисуем то, что в сторе есть, и закрываем то, что из него пропало.
- */
 export const Host = () => {
   const translate = useTranslate('Toasts')
   const toasts = useAppSelector(selectToasts)
@@ -38,7 +34,6 @@ export const Host = () => {
         {
           key: id,
           variant: type,
-          // Время жизни считает showToast (удаляет тост из стора), поэтому сам notistack не скрывает
           persist: true,
           action: (key) => (
             <IconButton size="small" color="inherit" onClick={() => closeToast(Number(key))}>

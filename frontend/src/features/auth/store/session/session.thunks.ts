@@ -7,8 +7,6 @@ import { selectSessionStatus } from './session.selectors'
 
 type ThunkConfig = { state: RootState; rejectValue: 'unauthenticated' | 'error' }
 
-/** Не залогинен (401) — это нормальный исход, а не ошибка загрузки. `condition` не даёт двум
- *  экранам, спросившим сессию одновременно, сходить за ней дважды. */
 export const fetchSession = createAsyncThunk<Session, void, ThunkConfig>(
   'session/fetchSession',
   async (_, { rejectWithValue, signal }) => {

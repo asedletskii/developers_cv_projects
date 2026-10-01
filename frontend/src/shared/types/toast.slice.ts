@@ -1,10 +1,8 @@
 import { AppLocaleDictionary, NestedKeyOf } from './locale'
 import { PayloadAction, SliceCaseReducers } from './reduxToolkit'
 
-/** Ключ текста тоста из словаря `Toasts` */
 export type ToastKey = NestedKeyOf<AppLocaleDictionary['Toasts']>
 
-/** Вид тоста (совпадает с вариантами notistack) */
 export enum ToastType {
   Success = 'success',
   Error = 'error',

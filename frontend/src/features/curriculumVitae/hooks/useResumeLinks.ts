@@ -4,13 +4,6 @@ import { LinkStatus, ResumeLink } from '@features/curriculumVitae/types'
 import { ToastType } from '@shared/types'
 import { showToast } from '@shared/utils'
 
-/** Именованные ссылки на резюме (`/lk/link`) — свои у каждого адресата, отдельно от публичного
- *  адреса (резюме создаётся вообще без них, см. `CreateLinkPrompt`). Живёт на уровне экрана
- *  резюме — общий список для «Главной» (призыв создать первую) и вкладки «Ссылки» (полный CRUD).
- *
- *  После любого изменения список перечитывается с бэка, а не патчится локально: у каждой ссылки
- *  своя `version` для `PUT .../status`, и держать её в актуальном состоянии на клиенте — верный
- *  способ рано или поздно словить `412` на следующем действии. */
 export const useResumeLinks = (userId?: string, resumeId?: string) => {
   const [links, setLinks] = useState<ResumeLink[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -48,7 +41,6 @@ export const useResumeLinks = (userId?: string, resumeId?: string) => {
     return () => controller.abort()
   }, [load])
 
-  /** Тихое обновление после мутации: без спиннера на весь список ради одного изменения. */
   const refresh = async () => {
     const result = await fetchLinks()
     if (result) setLinks(result)

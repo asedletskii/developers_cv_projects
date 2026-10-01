@@ -16,7 +16,6 @@ type Props = {
   children: ReactNode
 }
 
-/** Одна повторяющаяся запись внутри секции (место работы, курс и т.д.): стрелки, удаление, форма. */
 export const ArrayItemCard = ({
   canMoveUp,
   canMoveDown,

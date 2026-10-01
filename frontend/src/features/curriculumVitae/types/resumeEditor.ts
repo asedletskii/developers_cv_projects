@@ -1,4 +1,3 @@
-/** Вкладки редактора резюме: каждая — одна секция и одна ручка бэка. */
 export type ResumeEditorTab =
   | 'overview'
   | 'profile'

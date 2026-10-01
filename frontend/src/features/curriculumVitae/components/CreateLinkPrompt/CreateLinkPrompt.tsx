@@ -9,11 +9,6 @@ type Props = {
   onCreate: (name: string) => void
 }
 
-/**
- * Призыв создать первую ссылку на резюме — показывается, пока ссылок ни одной нет (резюме
- * создаётся без них: делиться можно только по отдельной ссылке, свой id резюме напрямую не
- * светим). Имя по умолчанию — «Публичная ссылка», раз она пока единственная и для всех.
- */
 export const CreateLinkPrompt = ({ onCreate }: Props) => {
   const translate = useTranslate('Lk.Links')
   const [isOpen, setIsOpen] = useState(false)

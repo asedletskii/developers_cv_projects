@@ -6,7 +6,6 @@ import {
 } from '@features/curriculumVitae/store/lk'
 import { useAppDispatch, useAppSelector } from '@shared/store'
 
-/** Список резюме владельца кабинета: загружается при входе, устаревший запрос отменяется. */
 export const useLkResumes = (userId?: string) => {
   const dispatch = useAppDispatch()
   const resumes = useAppSelector(selectLkResumes)

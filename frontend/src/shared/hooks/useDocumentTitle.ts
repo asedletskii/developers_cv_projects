@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 
-/** Ставит заголовок вкладки браузера и возвращает прежний, когда компонент уходит с экрана. */
 export const useDocumentTitle = (title?: string) => {
   useEffect(() => {
     if (!title) return

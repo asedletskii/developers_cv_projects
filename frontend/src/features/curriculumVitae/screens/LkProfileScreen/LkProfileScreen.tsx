@@ -8,11 +8,6 @@ import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
 import { Outlet, useNavigate } from 'react-router'
 
-/**
- * Каркас личного кабинета: ФИО и общие данные слева (1/4) всегда на месте, а правая часть (3/4)
- * меняется по адресу — список резюме (`/cv/lk`) или редактор резюме (`.../:cvId`). userId берём
- * из сессии (`/auth/me`), а не из URL — его знает только бэк по cookie.
- */
 const LkProfileScreen = () => {
   const translate = useTranslate('Lk.Profile')
   const navigate = useNavigate()
@@ -27,9 +22,6 @@ const LkProfileScreen = () => {
   if (!isAuthenticated || !userId) return <LoginPrompt />
   if (isProfileLoading) return <ProfilePlaceholder />
 
-  // Первый вход через Telegram: пользователь есть, а профиля — ещё нет (бэк отдаёт 404).
-  // PUT /lk/profile создаёт профиль, если его не было, так что форма редактирования и
-  // первичное заполнение — одна и та же ручка.
   if (error?.kind === 'notFound' && !profile) {
     return (
       <EditProfileDialog
@@ -43,7 +35,6 @@ const LkProfileScreen = () => {
 
   if (error) return <LoadFailure error={error} subject="profile" />
 
-  // Сюда не попадаем: без ошибки и загрузки profile уже гарантированно загружен
   if (!profile) return null
 
   return (

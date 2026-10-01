@@ -1,7 +1,6 @@
 import { Resume } from '@features/curriculumVitae/types'
 import { useFormContext, useWatch } from 'react-hook-form'
 
-/** Данные предпросмотра первого экрана: значения формы «как сейчас набрано». */
 export const useHeroPreview = () => {
   const { control } = useFormContext<Resume>()
 

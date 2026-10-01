@@ -11,7 +11,6 @@ type Props = {
   project: Resume['projects'][number]
 }
 
-/** Карточка проекта: наклоняется за курсором, внутри название, описание, стек и ссылка. */
 export const Project = ({ project }: Props) => {
   const translate = useTranslate('CurriculumVitae.Projects')
   const { isDimmed } = useTechnologyFilter()

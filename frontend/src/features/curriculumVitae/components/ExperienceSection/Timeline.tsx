@@ -25,8 +25,7 @@ export const Timeline = ({ ref, children }: Props) => (
           height: '100%',
           transformOrigin: 'top center',
           borderRadius: 1,
-          background: ({ palette }) =>
-            `linear-gradient(${palette.primary.main}, ${palette.secondary.main})`,
+          bgcolor: 'primary.main',
         }}
       />
     </Box>

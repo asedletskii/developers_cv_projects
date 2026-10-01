@@ -5,7 +5,6 @@ type Props = {
   isCollapsed: boolean
 }
 
-/** Стрелка-индикатор аккордеона: вниз у свёрнутой секции, вверх у развёрнутой. */
 export const Chevron = ({ isCollapsed }: Props) => (
   <ExpandMoreRounded
     data-print-hidden

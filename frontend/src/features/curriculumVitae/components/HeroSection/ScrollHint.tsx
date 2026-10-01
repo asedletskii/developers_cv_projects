@@ -5,7 +5,6 @@ type Props = {
   onClick(): void
 }
 
-/** Индикатор «листайте вниз» внизу hero; по клику прокручивает к следующей секции. */
 export const ScrollHint = ({ onClick }: Props) => (
   <Box
     className="hero-hint"

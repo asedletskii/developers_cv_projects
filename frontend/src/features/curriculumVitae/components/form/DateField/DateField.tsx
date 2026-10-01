@@ -6,16 +6,11 @@ import { Controller, FieldPath, useFormContext } from 'react-hook-form'
 type Props = {
   name: FieldPath<Resume>
   label: string
-
-  /** Формат строки, как она хранится в `Resume` (YYYY-MM-DD / YYYY-MM / YYYY) */
   format: string
-
   views?: DatePickerProps['views']
   required?: boolean
 }
 
-/** Дата в форме — обычная строка (`YYYY-MM[-DD]`), а не объект даты — MUI X работает с dayjs,
- *  поэтому конвертируем на границе через Controller (как SelectField, но для дат). */
 export const DateField = ({ name, label, format, views, required }: Props) => {
   const { control } = useFormContext<Resume>()
 

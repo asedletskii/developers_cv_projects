@@ -123,6 +123,7 @@ describe('buildSectionRequest', () => {
           position: 'Dev',
           startDate: '2020-01',
           achievements: ['', 'Сделал'],
+          tasks: ['', 'Ревьюил код'],
           stack: [{ name: 'Go' }],
         },
       ],
@@ -135,6 +136,7 @@ describe('buildSectionRequest', () => {
       items: [
         expect.objectContaining({
           achievements: ['Сделал'],
+          tasks: ['Ревьюил код'],
           stack: [{ name: 'Go', grade: undefined }],
         }),
       ],

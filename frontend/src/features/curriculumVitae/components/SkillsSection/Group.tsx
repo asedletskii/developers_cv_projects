@@ -7,7 +7,6 @@ type Props = {
   skills: { id: string; label: string }[]
 }
 
-/** Карточка с группой навыков: заголовок и чипы, которые появляются каскадом. */
 export const Group = ({ title, color, skills }: Props) => (
   <Stack spacing={2} sx={{ flex: 1, p: 3, ...glassCard }}>
     <Typography variant="h6" sx={{ fontWeight: 700 }}>

@@ -12,8 +12,6 @@ type Props = {
   isDirtyRef: { current: boolean }
 }
 
-/** Раздел «Редактирование»: вкладка на каждую секцию резюме, у каждой своя форма и своё сохранение.
- *  Активная вкладка живёт в `?tab=`, чтобы на неё можно было сослаться. */
 export const ResumeEditor = ({ userId, view, onSaved, isDirtyRef }: Props) => {
   const translateTabs = useTranslate('Lk.Edit.Tabs')
   const { values, activeTab, changeTab, setDirty } = useResumeEditor({ view, isDirtyRef })

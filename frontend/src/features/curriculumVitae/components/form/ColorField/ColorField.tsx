@@ -11,7 +11,6 @@ type Props = {
   defaultColor: string
 }
 
-/** Поле цвета: круглый образец с палитрой и ввод hex-кода. */
 export const ColorField = ({ name, label, defaultColor }: Props) => {
   const { color, anchorEl, openPicker, closePicker, onChange, onBlur } = useColorField(
     name,

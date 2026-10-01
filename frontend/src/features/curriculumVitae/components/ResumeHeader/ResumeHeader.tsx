@@ -36,7 +36,6 @@ type Props = {
   onError: (error: CurriculumVitaeError) => void
 }
 
-/** Шапка страницы резюме в кабинете: назад, название, язык, предпросмотр и меню действий. */
 export const ResumeHeader = ({ userId, view, onReload, onError }: Props) => {
   const translate = useTranslate('Lk.Edit')
   const translateResume = useTranslate('Lk.Resume')

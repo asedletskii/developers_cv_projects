@@ -23,8 +23,6 @@ export const lkSlice = createSlice<LkSliceState, LkSliceReducers, 'lk', any>({
   extraReducers: (builder) => {
     builder
       .addCase(getLkProfile.fulfilled, (state, { payload, meta }) => {
-        // Игнорируем ответ отменённого/устаревшего запроса: на экране должен остаться только
-        // результат последнего из них, даже если старый ответ по сети пришёл позже нового
         if (meta.requestId !== state.currentProfileRequestId) return
 
         state.profile = payload
@@ -32,7 +30,6 @@ export const lkSlice = createSlice<LkSliceState, LkSliceReducers, 'lk', any>({
         state.profileError = null
       })
       .addCase(getLkProfile.rejected, (state, { payload, meta }) => {
-        // Отменённый запрос — это не ошибка загрузки, его сменил более новый
         if (meta.aborted || meta.requestId !== state.currentProfileRequestId) return
 
         state.isProfileLoading = false
@@ -40,7 +37,6 @@ export const lkSlice = createSlice<LkSliceState, LkSliceReducers, 'lk', any>({
       })
       .addCase(getLkProfile.pending, (state, { meta }) => {
         state.currentProfileRequestId = meta.requestId
-        // Скелетон только когда на экране нет данных этого же пользователя
         state.isProfileLoading = state.profile?.userId !== meta.arg
         state.profileError = null
       })
@@ -66,7 +62,6 @@ export const lkSlice = createSlice<LkSliceState, LkSliceReducers, 'lk', any>({
 
       .addCase(updateLkProfile.fulfilled, (state, { payload }) => {
         state.profile = payload
-        // Профиль мог быть только что создан первым сохранением — до этого тут лежал notFound
         state.profileError = null
       })
 

@@ -2,8 +2,6 @@ import { Stack, Typography } from '@mui/material'
 
 type Props = {
   title: string
-
-  /** Есть ли над заголовком кнопка «Назад» (тогда нужен небольшой отступ) */
   hasBackButton: boolean
 }
 

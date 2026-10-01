@@ -6,7 +6,6 @@ import { lightTheme } from '@shared/styles/lightTheme'
 import { ColorMode } from '@shared/types'
 import { useFormContext, useWatch } from 'react-hook-form'
 
-/** Тема предпросмотра: цвета из формы поверх светлой или тёмной базовой темы. */
 export const useThemePreview = () => {
   const { control } = useFormContext<Resume>()
   const primary = useWatch({ control, name: 'overview.theme.primary' })

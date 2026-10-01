@@ -4,12 +4,9 @@ import { createRandom } from '@shared/utils'
 
 type Params = {
   count: number
-
-  /** Зерно раскладки: одно и то же зерно всегда даёт одинаковое расположение звёзд */
   seed: number
 }
 
-/** Раскладка звёзд по зерну и их мерцание/дрейф (GSAP) внутри контейнера, реф которого возвращается. */
 export const useSparkles = ({ count, seed }: Params) => {
   const rootRef = useRef<HTMLDivElement | null>(null)
 

@@ -6,8 +6,6 @@ import { Link as RouterLink } from 'react-router'
 
 type Props = {
   error: CurriculumVitaeError
-
-  /** Что не загрузилось — от этого зависит только заголовок и текст */
   subject?: 'resume' | 'profile'
 }
 
@@ -18,8 +16,6 @@ export const LoadFailure = ({ error, subject = 'resume' }: Props) => {
 
   const isNotFound = error.kind === 'notFound'
 
-  // Показываем, только если ошибка реально пришла от бэкенда: пригодится, чтобы сообщить в
-  // поддержку — по коду и requestId проблему найдут в логах бэкенда
   const diagnostics = [
     error.status && translate('errorCode', { status: error.status }),
     error.requestId && translate('requestId', { requestId: error.requestId }),

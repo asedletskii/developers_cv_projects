@@ -1,9 +1,3 @@
-/**
- * Все конечные наборы значений резюме. Значение enum совпадает с кодом, который присылает бэкенд
- * (например, `WorkFormat.Remote === 'remote'`), а подписи для интерфейса лежат в словаре по этим кодам.
- */
-
-/** Формат работы */
 export enum WorkFormat {
   FullTime = 'fullTime',
   PartTime = 'partTime',
@@ -12,7 +6,6 @@ export enum WorkFormat {
   Hybrid = 'hybrid',
 }
 
-/** Язык, которым владеет человек */
 export enum LanguageType {
   Ru = 'ru',
   En = 'en',
@@ -23,7 +16,6 @@ export enum LanguageType {
   Es = 'es',
 }
 
-/** Уровень знания языка */
 export enum LanguageGrade {
   A1 = 'A1',
   A2 = 'A2',
@@ -33,7 +25,6 @@ export enum LanguageGrade {
   C2 = 'C2',
 }
 
-/** Личные качества */
 export enum SoftSkill {
   Communication = 'communication',
   Teamwork = 'teamwork',
@@ -44,7 +35,6 @@ export enum SoftSkill {
   Ownership = 'ownership',
 }
 
-/** Профессиональные навыки */
 export enum HardSkill {
   Architecture = 'architecture',
   Testing = 'testing',
@@ -56,7 +46,6 @@ export enum HardSkill {
   Api = 'api',
 }
 
-/** Уровень образования (в JSON приходит числом) */
 export enum EducationLevel {
   Secondary = 0,
   Bachelor = 1,
@@ -67,14 +56,12 @@ export enum EducationLevel {
   Doctor = 6,
 }
 
-/** Способ связи */
 export enum ContactKey {
   Telegram = 'telegram',
   Email = 'email',
   Phone = 'phone',
 }
 
-/** Вид дополнительной активности */
 export enum ActivityType {
   OpenSource = 'openSource',
   Hackathon = 'hackathon',
@@ -84,14 +71,12 @@ export enum ActivityType {
   Community = 'community',
 }
 
-/** Готовность к предложениям: ищу, рассматриваю, не ищу */
 export enum AvailabilityStatus {
   Open = 'open',
   Considering = 'considering',
   Busy = 'busy',
 }
 
-/** Секции страницы (hero всегда первый и не настраивается) */
 export enum SectionId {
   About = 'about',
   TechStack = 'techStack',

@@ -3,7 +3,6 @@ import { Session } from '@features/auth/types'
 import { api } from '@shared/api'
 
 class AuthApi {
-  /** Полная навигация браузера (не XHR) — бэк ставит cookie и редиректит на Telegram. */
   getTelegramLoginUrl(): string {
     return `${api.defaults.baseURL}${AUTH_API_ROUTES.telegramLogin}`
   }

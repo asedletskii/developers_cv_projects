@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import { gsap, prefersReducedMotion } from '@shared/animations'
 
-/** Полоска прогресса растёт от 0 до 1 по мере прокрутки страницы. */
 export const useScrollProgress = () => {
   const barRef = useRef<HTMLDivElement | null>(null)
 

@@ -4,8 +4,6 @@ import { useSparkles } from './hooks'
 type Props = {
   count?: number
   tone?: 'accent' | 'white'
-
-  /** Зерно раскладки: одно и то же зерно всегда даёт одинаковое расположение звёзд */
   seed?: number
 }
 

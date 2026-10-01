@@ -4,16 +4,6 @@ import { ContactLink } from '@features/curriculumVitae/utils'
 import { ToastType } from '@shared/types'
 import { showToast } from '@shared/utils'
 
-/**
- * Значение скрытого контакта бэк не отдаёт в публичном ответе — запрашиваем его по клику
- * (`POST /cv/:id/contact-views`). У открытых контактов `link.value` уже есть, `reveal` для них
- * ничего не делает.
- *
- * Исключение — предпросмотр в ЛК: там резюме читается владельческой ручкой, которая скрытые
- * контакты не вырезает, `link.value` приходит сразу. Кнопку всё равно показываем как «Показать»
- * (иначе предпросмотр выглядит не так, как настоящая публичная страница), но по клику просто
- * достаём уже пришедшее значение — без лишнего запроса на бэк.
- */
 export const useContactButton = (resumeId: string, link: ContactLink) => {
   const [value, setValue] = useState(link.isHidden ? undefined : link.value)
   const [isRevealing, setIsRevealing] = useState(false)

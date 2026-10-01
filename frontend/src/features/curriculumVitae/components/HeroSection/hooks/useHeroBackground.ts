@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import { createSpring, gsap, prefersReducedMotion, Spring } from '@shared/animations'
 
-/** Живой фон первого экрана: плавающие пятна, реакция на мышь и параллакс при прокрутке. */
 export const useHeroBackground = () => {
   const rootRef = useRef<HTMLDivElement | null>(null)
 

@@ -3,7 +3,6 @@ import { Box } from '@mui/material'
 import { ORBS } from './constants'
 import { useHeroBackground } from './hooks/useHeroBackground'
 
-/** Плавающие световые пятна: живут своей жизнью, реагируют на мышь и уезжают медленнее контента при скролле. */
 export const Background = () => {
   const rootRef = useHeroBackground()
 

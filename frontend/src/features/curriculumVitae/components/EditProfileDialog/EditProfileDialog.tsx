@@ -20,8 +20,6 @@ type Props = {
   userId: string
   profile: LkProfile
   onClose: () => void
-
-  /** Пояснение над формой — для первого входа, когда профиля ещё не было */
   intro?: string
 }
 
@@ -67,6 +65,7 @@ export const EditProfileDialog = ({ userId, profile, onClose, intro }: Props) =>
             onChange={(e) => edit.updateField('name', e.target.value)}
             disabled={edit.isSaving}
           />
+
           <TextField
             fullWidth
             label={translate('surname')}
@@ -74,6 +73,7 @@ export const EditProfileDialog = ({ userId, profile, onClose, intro }: Props) =>
             onChange={(e) => edit.updateField('surname', e.target.value)}
             disabled={edit.isSaving}
           />
+
           <TextField
             fullWidth
             label={translate('patronymic')}
@@ -81,6 +81,7 @@ export const EditProfileDialog = ({ userId, profile, onClose, intro }: Props) =>
             onChange={(e) => edit.updateField('patronymic', e.target.value)}
             disabled={edit.isSaving}
           />
+
           <TextField
             fullWidth
             label={translate('position')}
@@ -88,6 +89,7 @@ export const EditProfileDialog = ({ userId, profile, onClose, intro }: Props) =>
             onChange={(e) => edit.updateField('position', e.target.value)}
             disabled={edit.isSaving}
           />
+
           <TextField
             fullWidth
             label={translate('location')}

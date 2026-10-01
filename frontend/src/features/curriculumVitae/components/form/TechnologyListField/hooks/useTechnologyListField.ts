@@ -4,7 +4,6 @@ import { useController, useFormContext } from 'react-hook-form'
 
 type Name = 'technologies' | `experiences.${number}.stack` | `projects.${number}.stack`
 
-/** Поле-список технологий: значения формы ↔ названия в выпадающем списке. */
 export const useTechnologyListField = (name: Name) => {
   const { control } = useFormContext<Resume>()
   const { field } = useController({ control, name })
@@ -19,7 +18,6 @@ export const useTechnologyListField = (name: Name) => {
           item && all.findIndex((other) => isSameTechnology(other, item)) === index,
       )
 
-    // Существующие записи оставляем как есть (в них может быть уровень), новые — по имени
     field.onChange(unique.map((item) => value.find((tech) => tech.name === item) ?? { name: item }))
   }
 

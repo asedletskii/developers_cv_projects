@@ -2,11 +2,6 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { ScrollTrigger } from '@shared/animations'
 import { READING_LINE, UNLOCK_EVENTS } from '../constants'
 
-/**
- * Определяет текущую секцию по «линии чтения» (30% высоты экрана): активна та, что её пересекает.
- * В зазорах между секциями подсветка не меняется, у нижнего края страницы активна последняя.
- * После клика по пункту навигации выбор закреплён, пока идёт доскролл или пользователь не вмешался.
- */
 export const useActiveSection = (ids: string[]) => {
   const [activeId, setActiveId] = useState<string | null>(null)
   const isLockedRef = useRef(false)

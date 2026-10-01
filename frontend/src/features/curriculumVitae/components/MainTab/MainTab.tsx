@@ -11,13 +11,9 @@ import { useResumeChecklist } from './hooks'
 type Props = {
   view: Resume
   linksState: ReturnType<typeof useResumeLinks>
-
-  /** Открыть вкладку раздела «Редактирование» */
   onOpenTab: (tab: ResumeEditorTab) => void
 }
 
-/** «Главная» резюме: насколько оно заполнено, что осталось сделать, и призыв создать ссылку,
- *  если её ни одной ещё нет — без ссылки резюме нечем поделиться. */
 export const MainTab = ({ view, linksState, onOpenTab }: Props) => {
   const translate = useTranslate('Lk.Main')
   const { items, percent } = useResumeChecklist(view)
