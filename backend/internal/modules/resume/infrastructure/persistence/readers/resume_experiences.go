@@ -66,18 +66,7 @@ func (r *ResumeReader) loadExperiences(ctx context.Context, db *gorm.DB, resumeI
 		if err != nil {
 			return err
 		}
-		result = append(result, queries.ExperienceView{ID: row.ID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description, Achievements: append([]string(nil), achievements[id]...), Tasks: append([]string(nil), tasks[id]...), Stack: append([]queries.ExperienceStackItemView(nil), stacks[id]...)})
-	}
-	for i := range result {
-		if result[i].Achievements == nil {
-			result[i].Achievements = make([]string, 0)
-		}
-		if result[i].Tasks == nil {
-			result[i].Tasks = make([]string, 0)
-		}
-		if result[i].Stack == nil {
-			result[i].Stack = make([]queries.ExperienceStackItemView, 0)
-		}
+		result = append(result, queries.ExperienceView{ID: row.ID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description, Achievements: cloneSlice(achievements[id]), Tasks: cloneSlice(tasks[id]), Stack: cloneSlice(stacks[id])})
 	}
 	view.Experiences = result
 	return nil

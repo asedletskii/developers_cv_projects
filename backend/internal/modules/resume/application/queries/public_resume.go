@@ -65,30 +65,30 @@ func toPublic(view ResumeView) PublicResumeView {
 		Language:     view.Language,
 		CreatedAt:    view.CreatedAt,
 		UpdatedAt:    view.UpdatedAt,
-		Overview:     view.Overview,
-		Languages:    append([]LanguageView(nil), view.Languages...),
-		Technologies: append([]TechnologyView(nil), view.Technologies...),
-		Experiences:  append([]ExperienceView(nil), view.Experiences...),
-		Educations:   append([]EducationView(nil), view.Educations...),
-		Courses:      append([]CourseView(nil), view.Courses...),
-		Activities:   append([]ActivityView(nil), view.Activities...),
+		Overview:     cloneOverview(view.Overview),
+		Languages:    cloneSlice(view.Languages),
+		Technologies: cloneSlice(view.Technologies),
+		Experiences:  cloneSlice(view.Experiences),
+		Educations:   cloneSlice(view.Educations),
+		Courses:      cloneSlice(view.Courses),
+		Activities:   cloneSlice(view.Activities),
 		Projects:     make([]ProjectView, len(view.Projects)),
 	}
 
 	if view.Profile != nil {
 		profile := *view.Profile
-		profile.WorkFormat = append([]string(nil), view.Profile.WorkFormat...)
+		profile.WorkFormat = cloneSlice(view.Profile.WorkFormat)
 		result.Profile = &profile
 	}
 	if view.Skills != nil {
 		skills := *view.Skills
-		skills.HardSkills = append([]string(nil), view.Skills.HardSkills...)
-		skills.SoftSkills = append([]string(nil), view.Skills.SoftSkills...)
+		skills.HardSkills = cloneSlice(view.Skills.HardSkills)
+		skills.SoftSkills = cloneSlice(view.Skills.SoftSkills)
 		result.Skills = &skills
 	}
 	if view.Contacts != nil {
 		contacts := *view.Contacts
-		contacts.HiddenContacts = append([]string(nil), view.Contacts.HiddenContacts...)
+		contacts.HiddenContacts = cloneSlice(view.Contacts.HiddenContacts)
 		contacts.ContactsText = clonePublicContactsText(view.Contacts.ContactsText)
 		contacts.Phone = cloneStringPointer(view.Contacts.Phone)
 		contacts.Telegram = cloneStringPointer(view.Contacts.Telegram)
@@ -103,9 +103,21 @@ func toPublic(view ResumeView) PublicResumeView {
 		result.Projects[index].GitLink = nil
 		result.Projects[index].Screenshots = make([]string, 0)
 		result.Projects[index].Contributors = make([]ProjectContributorView, 0)
-		result.Projects[index].Stack = append([]ProjectTechnologyView(nil), project.Stack...)
+		result.Projects[index].Stack = cloneSlice(project.Stack)
 	}
 
+	return result
+}
+
+func cloneOverview(value ResumeOverviewView) ResumeOverviewView {
+	result := value
+	result.Sections = cloneSlice(value.Sections)
+	return result
+}
+
+func cloneSlice[T any](values []T) []T {
+	result := make([]T, len(values))
+	copy(result, values)
 	return result
 }
 

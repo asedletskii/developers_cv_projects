@@ -65,18 +65,7 @@ func (r *ResumeReader) loadProjects(ctx context.Context, db *gorm.DB, resumeID u
 		if err != nil {
 			return err
 		}
-		result = append(result, queries.ProjectView{ID: row.ID, Name: row.Name, Description: row.Description, Role: row.Role, Link: row.Link, GitLink: row.GitLink, Screenshots: append([]string(nil), screenshots[id]...), Stack: append([]queries.ProjectTechnologyView(nil), stacks[id]...), Contributors: append([]queries.ProjectContributorView(nil), contributors[id]...)})
-	}
-	for i := range result {
-		if result[i].Screenshots == nil {
-			result[i].Screenshots = make([]string, 0)
-		}
-		if result[i].Stack == nil {
-			result[i].Stack = make([]queries.ProjectTechnologyView, 0)
-		}
-		if result[i].Contributors == nil {
-			result[i].Contributors = make([]queries.ProjectContributorView, 0)
-		}
+		result = append(result, queries.ProjectView{ID: row.ID, Name: row.Name, Description: row.Description, Role: row.Role, Link: row.Link, GitLink: row.GitLink, Screenshots: cloneSlice(screenshots[id]), Stack: cloneSlice(stacks[id]), Contributors: cloneSlice(contributors[id])})
 	}
 	view.Projects = result
 	return nil
