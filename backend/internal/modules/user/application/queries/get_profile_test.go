@@ -7,24 +7,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeGetProfileReader struct {
-	profile Profile
+	profile ProfileView
 	err     error
 	query   GetProfileQuery
 }
 
-func (f *fakeGetProfileReader) GetProfile(_ context.Context, query GetProfileQuery) (Profile, error) {
+func (f *fakeGetProfileReader) GetProfile(_ context.Context, query GetProfileQuery) (ProfileView, error) {
 	f.query = query
 	return f.profile, f.err
 }
 
 func TestGetProfileHandlerReturnsProfile(t *testing.T) {
-	userID := valueobjects.NewID()
-	reader := &fakeGetProfileReader{profile: Profile{
-		ID: userID.String(), RU: LocalizedProfile{Name: stringPtr("Антон"), Surname: stringPtr("Седлецкий"), Position: stringPtr("Frontend")},
+	userID := sharedvalueobjects.NewID()
+	reader := &fakeGetProfileReader{profile: ProfileView{
+		ID: userID.String(), RU: LocalizedProfileView{Name: stringPtr("Антон"), Surname: stringPtr("Седлецкий"), Position: stringPtr("Frontend")},
 	}}
 	handler := NewGetProfileHandler(reader)
 
@@ -39,7 +39,7 @@ func TestGetProfileHandlerPropagatesNotFound(t *testing.T) {
 	reader := &fakeGetProfileReader{err: ErrProfileNotFound}
 	handler := NewGetProfileHandler(reader)
 
-	_, err := handler.Handle(context.Background(), GetProfileQuery{UserID: valueobjects.NewID()})
+	_, err := handler.Handle(context.Background(), GetProfileQuery{UserID: sharedvalueobjects.NewID()})
 
 	require.ErrorIs(t, err, ErrProfileNotFound)
 }

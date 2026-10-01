@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func IsValidationError(err error) bool {
@@ -12,5 +12,6 @@ func IsValidationError(err error) bool {
 		errors.Is(err, domain.ErrInvalidEntity) ||
 		errors.Is(err, domain.ErrResumeInvariant) ||
 		errors.Is(err, domain.ErrDuplicateEntity) ||
-		errors.Is(err, valueobjects.ErrInvalidValue)
+		errors.Is(err, domain.ErrInvalidValue) ||
+		errors.Is(err, sharedvalueobjects.ErrInvalidID)
 }

@@ -2,7 +2,6 @@ package queries
 
 type CourseView struct {
 	ID              string  `json:"id"`
-	ResumeID        string  `json:"resumeId"`
 	Name            string  `json:"name"`
 	Organization    string  `json:"organization"`
 	EndDate         string  `json:"endDate"`

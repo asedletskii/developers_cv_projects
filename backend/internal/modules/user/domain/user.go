@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"time"
 
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type User struct {
-	id        valueobjects.ID
+	id        sharedvalueobjects.ID
 	createdAt time.Time
 	updatedAt time.Time
 }
 
 type UserParams struct {
-	ID        valueobjects.ID
+	ID        sharedvalueobjects.ID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -44,7 +44,7 @@ func NewUser(params UserParams) (*User, error) {
 	}, nil
 }
 
-func (u *User) ID() valueobjects.ID {
+func (u *User) ID() sharedvalueobjects.ID {
 	return u.id
 }
 

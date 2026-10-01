@@ -2,19 +2,17 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
-	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type TechnologyInput struct {
-	ID       valueobjects.ID
+	ID       sharedvalueobjects.ID
 	Name     string
-	Grade    *enums.TechnologyGrade
+	Grade    *domain.TechnologyGrade
 	Position int
 }
 
@@ -33,39 +31,27 @@ func (i TechnologiesInput) toDomain() domain.ResumeTechnologiesParams {
 }
 
 type ReplaceTechnologiesCommand struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    TechnologiesInput
 }
 
 type ReplaceTechnologiesHandler struct {
 	repository ports.ResumeRepository
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewReplaceTechnologiesHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceTechnologiesHandler {
+func NewReplaceTechnologiesHandler(repository ports.ResumeRepository, uow ports.UnitOfWork) *ReplaceTechnologiesHandler {
 	return &ReplaceTechnologiesHandler{repository: repository, uow: uow}
 }
 
 func (h *ReplaceTechnologiesHandler) Handle(ctx context.Context, c ReplaceTechnologiesCommand) error {
-	if h == nil || h.repository == nil || h.uow == nil {
+	if h == nil {
 		return fmt.Errorf("replace technologies handler dependencies are nil")
 	}
-	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
-		return fmt.Errorf("invalid replace technologies command")
-	}
-	return h.uow.Do(ctx, func(tx context.Context) error {
-		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
-		if err != nil {
-			return err
-		}
-		if resume.Version() != c.Version {
-			return domain.ErrConcurrencyConflict
-		}
-		if err := resume.ReplaceTechnologies(c.Input.toDomain()); err != nil {
-			return err
-		}
-		return h.repository.Save(tx, resume)
+
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace technologies", func(resume *domain.Resume) error {
+		return resume.ReplaceTechnologies(c.Input.toDomain())
 	})
 }

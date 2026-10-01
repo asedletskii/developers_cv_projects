@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
+
+	"net/http"
 
 	"github.com/google/uuid"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
-	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 const MockUserIDHeader = "X-Mock-User-ID"
@@ -41,12 +41,12 @@ func (a *MockAuthenticator) Authenticate(ctx context.Context, request *http.Requ
 		return uuid.Nil, ErrUnauthenticated
 	}
 
-	userID, err := valueobjects.IDFromUUID(id)
+	userID, err := sharedvalueobjects.IDFromUUID(id)
 	if err != nil {
 		return uuid.Nil, ErrUnauthenticated
 	}
 	if _, err := a.reader.GetUser(ctx, queries.GetUserQuery{ID: userID}); err != nil {
-		if errors.Is(err, domain.ErrEntityNotFound) {
+		if errors.Is(err, queries.ErrUserNotFound) {
 			return uuid.Nil, ErrUnauthenticated
 		}
 		return uuid.Nil, fmt.Errorf("validate mock user: %w", err)

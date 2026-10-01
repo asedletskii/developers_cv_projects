@@ -2,14 +2,13 @@ package commands
 
 import (
 	"context"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
-	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeTechnologiesAggregateRepository struct {
@@ -33,14 +32,14 @@ func (r *fakeTechnologiesAggregateRepository) Delete(context.Context, ports.Dele
 }
 
 func TestReplaceTechnologiesHandlerUsesAggregateAndVersion(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeTechnologiesAggregateRepository{resume: resume}
 
 	err := NewReplaceTechnologiesHandler(repo, &fakeCommandUnitOfWork{}).Handle(context.Background(), ReplaceTechnologiesCommand{
 		ResumeID: resume.ID(), UserID: uid, Version: 1,
 		Input: TechnologiesInput{Entries: []TechnologyInput{
-			{Name: "Go", Grade: ptr(enums.TechnologyGradeSenior), Position: 0},
+			{Name: "Go", Grade: ptr(domain.TechnologyGradeSenior), Position: 0},
 			{Name: "Rust", Position: 1},
 		}},
 	})
@@ -51,7 +50,7 @@ func TestReplaceTechnologiesHandlerUsesAggregateAndVersion(t *testing.T) {
 }
 
 func TestReplaceTechnologiesHandlerRejectsStaleVersion(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeTechnologiesAggregateRepository{resume: resume}
 

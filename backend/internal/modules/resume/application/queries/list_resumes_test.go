@@ -6,13 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type stubListResumesReader struct {
 	items  []ResumeListItem
 	err    error
-	userID useridentity.ID
+	userID sharedvalueobjects.ID
 }
 
 func (s *stubListResumesReader) ListResumes(_ context.Context, query ListResumesQuery) ([]ResumeListItem, error) {
@@ -23,7 +23,7 @@ func (s *stubListResumesReader) ListResumes(_ context.Context, query ListResumes
 func TestListResumesUsesUserID(t *testing.T) {
 	reader := &stubListResumesReader{items: []ResumeListItem{{ID: "resume-a", Title: "Senior Go Developer", Status: "draft", Version: 3}}}
 	h := NewListResumesQueryHandler(reader)
-	userID := useridentity.NewID()
+	userID := sharedvalueobjects.NewID()
 
 	items, err := h.Handle(context.Background(), ListResumesQuery{UserID: userID})
 

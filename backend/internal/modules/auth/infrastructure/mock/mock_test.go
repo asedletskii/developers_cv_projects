@@ -2,15 +2,16 @@ package mock
 
 import (
 	"context"
-	"net/http/httptest"
 	"testing"
+
+	"net/http/httptest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeUserReader struct {
@@ -24,14 +25,14 @@ func (r *fakeUserReader) GetUser(_ context.Context, query queries.GetUserQuery) 
 	}
 	user, ok := r.users[query.ID.UUID()]
 	if !ok {
-		return nil, domain.ErrEntityNotFound
+		return nil, queries.ErrUserNotFound
 	}
 	return user, nil
 }
 
 func TestMockAuthenticatorAuthenticatesExistingUser(t *testing.T) {
 	userID := uuid.New()
-	id, err := valueobjects.IDFromUUID(userID)
+	id, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 	user, err := domain.NewUser(domain.UserParams{ID: id})
 	require.NoError(t, err)

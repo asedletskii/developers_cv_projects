@@ -6,15 +6,13 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type LanguageInput struct {
-	ID       valueobjects.ID
-	Language enums.SpokenLanguage
-	Grade    *enums.LanguageGrade
+	ID       sharedvalueobjects.ID
+	Language domain.SpokenLanguage
+	Grade    *domain.LanguageGrade
 	Position int
 }
 
@@ -33,39 +31,27 @@ func (i LanguagesInput) toDomain() domain.ResumeLanguagesParams {
 }
 
 type ReplaceLanguagesCommand struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    LanguagesInput
 }
 
 type ReplaceLanguagesHandler struct {
 	repository ports.ResumeRepository
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewReplaceLanguagesHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceLanguagesHandler {
+func NewReplaceLanguagesHandler(repository ports.ResumeRepository, uow ports.UnitOfWork) *ReplaceLanguagesHandler {
 	return &ReplaceLanguagesHandler{repository: repository, uow: uow}
 }
 
 func (h *ReplaceLanguagesHandler) Handle(ctx context.Context, c ReplaceLanguagesCommand) error {
-	if h == nil || h.repository == nil || h.uow == nil {
+	if h == nil {
 		return fmt.Errorf("replace languages handler dependencies are nil")
 	}
-	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
-		return fmt.Errorf("invalid replace languages command")
-	}
-	return h.uow.Do(ctx, func(tx context.Context) error {
-		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
-		if err != nil {
-			return err
-		}
-		if resume.Version() != c.Version {
-			return domain.ErrConcurrencyConflict
-		}
-		if err := resume.ReplaceLanguages(c.Input.toDomain()); err != nil {
-			return err
-		}
-		return h.repository.Save(tx, resume)
+
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace languages", func(resume *domain.Resume) error {
+		return resume.ReplaceLanguages(c.Input.toDomain())
 	})
 }

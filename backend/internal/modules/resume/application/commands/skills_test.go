@@ -8,8 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeSkillsAggregateRepository struct {
@@ -31,29 +30,29 @@ func (r *fakeSkillsAggregateRepository) Delete(context.Context, ports.DeleteResu
 }
 
 func TestReplaceSkillsHandlerUsesVersionAndAggregate(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeSkillsAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
 	err := NewReplaceSkillsHandler(repo, uow).Handle(context.Background(), ReplaceSkillsCommand{
 		ResumeID: resume.ID(), UserID: uid, Version: 1,
-		Input: SkillsInput{Hard: []enums.HardSkill{enums.HardSkillTesting}, Soft: []enums.SoftSkill{enums.SoftSkillTeamwork}},
+		Input: SkillsInput{Hard: []string{"testing"}, Soft: []string{"teamwork"}},
 	})
 	require.NoError(t, err)
 	require.True(t, repo.saved)
 	require.Equal(t, int64(1), repo.version)
 	require.NotNil(t, repo.resume.Skills())
-	require.Equal(t, []enums.HardSkill{enums.HardSkillTesting}, repo.resume.Skills().HardSkills())
+	require.Equal(t, []string{"testing"}, repo.resume.Skills().HardSkills())
 }
 
 func TestReplaceSkillsHandlerRejectsStaleVersion(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeSkillsAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
 	err := NewReplaceSkillsHandler(repo, uow).Handle(context.Background(), ReplaceSkillsCommand{
 		ResumeID: resume.ID(), UserID: uid, Version: 2,
-		Input: SkillsInput{Hard: []enums.HardSkill{enums.HardSkillTesting}},
+		Input: SkillsInput{Hard: []string{"testing"}},
 	})
 	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
 	require.False(t, repo.saved)

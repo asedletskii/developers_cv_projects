@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/modules/user/infrastructure/persistence/gormmodel"
+	"developers-cv/backend/internal/modules/user/infrastructure/persistence/mappers"
 	"developers-cv/backend/internal/platform/database"
 )
 
@@ -32,10 +32,9 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 		return fmt.Errorf("create user: %w", err)
 	}
 
-	model := gormmodel.User{
-		ID:        user.ID().UUID(),
-		CreatedAt: user.CreatedAt(),
-		UpdatedAt: user.UpdatedAt(),
+	model, err := mappers.UserToDB(user)
+	if err != nil {
+		return fmt.Errorf("create user: %w", err)
 	}
 	if err := tx.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("create user: %w", err)

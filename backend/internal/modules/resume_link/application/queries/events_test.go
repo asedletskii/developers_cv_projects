@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type linkEventRecorderStub struct {
@@ -40,7 +40,7 @@ func TestRecordLinkEventUsesDetachedBoundedContext(t *testing.T) {
 	cancel()
 
 	recorder := &contextRecorderStub{}
-	recordLinkEvent(ctx, recorder, valueobjects.NewID(), domain.EventTypeView)
+	recordLinkEvent(ctx, recorder, sharedvalueobjects.NewID(), domain.EventTypeView)
 
 	require.NotNil(t, recorder.ctx)
 	require.NoError(t, recorder.ctxErr)

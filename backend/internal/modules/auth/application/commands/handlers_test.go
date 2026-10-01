@@ -2,10 +2,11 @@ package commands
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"testing"
 	"time"
+
+	"crypto/sha256"
 
 	"github.com/stretchr/testify/require"
 
@@ -337,10 +338,10 @@ func TestCompleteTelegramLoginReusesExistingIdentity(t *testing.T) {
 	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
 	identityID := sharedvalueobjects.NewID()
 	userID := sharedvalueobjects.NewID()
-	identity, err := domain.NewIdentity(domain.IdentityParams{ID: identityID, UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
+	existingIdentity, err := domain.NewIdentity(domain.IdentityParams{ID: identityID, UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
 	require.NoError(t, err)
 	repo := &transactionRepositoryStub{transaction: testTransaction(t, at)}
-	identityRepo := &identityRepositoryStub{identity: identity}
+	identityRepo := &identityRepositoryStub{identity: existingIdentity}
 	sessions := &sessionRepositoryStub{}
 	oidc := &oidcStub{identity: ports.VerifiedIdentity{Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub")}}
 	provisioner := &provisionerStub{userID: sharedvalueobjects.NewID()}
@@ -357,9 +358,9 @@ func TestCompleteTelegramLoginRetriesIdentityConflict(t *testing.T) {
 	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
 	tx := testTransaction(t, at)
 	userID := sharedvalueobjects.NewID()
-	identity, err := domain.NewIdentity(domain.IdentityParams{ID: sharedvalueobjects.NewID(), UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
+	existingIdentity, err := domain.NewIdentity(domain.IdentityParams{ID: sharedvalueobjects.NewID(), UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
 	require.NoError(t, err)
-	tracing := &raceIdentityRepository{identity: identity}
+	tracing := &raceIdentityRepository{identity: existingIdentity}
 	oidc := &oidcStub{identity: ports.VerifiedIdentity{Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub")}}
 	provisioner := &provisionerStub{userID: sharedvalueobjects.NewID()}
 	h := NewCompleteTelegramLoginHandler(&transactionRepositoryStub{transaction: tx}, tracing, &sessionRepositoryStub{}, oidc, provisioner, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)

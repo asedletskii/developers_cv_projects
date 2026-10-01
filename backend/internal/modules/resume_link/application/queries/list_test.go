@@ -4,11 +4,10 @@ import (
 	"context"
 	"testing"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
-
 	"github.com/stretchr/testify/require"
+
+	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type listReaderStub struct {
@@ -36,8 +35,8 @@ func (s *ownershipReaderStub) GetOwned(_ context.Context, query resumequeries.Ge
 }
 
 func TestListResumeLinksQueryHandlerChecksOwnershipBeforeReading(t *testing.T) {
-	userID := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	userID := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	reader := &listReaderStub{items: []ResumeLinkListItem{{ID: "link", Name: "HH"}}}
 	ownership := &ownershipReaderStub{}
 
@@ -54,7 +53,7 @@ func TestListResumeLinksQueryHandlerRejectsForeignResume(t *testing.T) {
 	ownership := &ownershipReaderStub{err: resumequeries.ErrResumeNotFound}
 
 	_, err := NewListResumeLinksQueryHandler(reader, ownership).Handle(context.Background(), ListResumeLinksQuery{
-		UserID: uservalueobjects.NewID(), ResumeID: resumevalueobjects.NewID(),
+		UserID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(),
 	})
 	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
 	require.True(t, reader.query.ResumeID.IsZero())
@@ -62,6 +61,6 @@ func TestListResumeLinksQueryHandlerRejectsForeignResume(t *testing.T) {
 
 func TestListResumeLinksQueryHandlerRejectsInvalidQuery(t *testing.T) {
 	h := NewListResumeLinksQueryHandler(&listReaderStub{}, &ownershipReaderStub{})
-	_, err := h.Handle(context.Background(), ListResumeLinksQuery{UserID: uservalueobjects.NewID()})
+	_, err := h.Handle(context.Background(), ListResumeLinksQuery{UserID: sharedvalueobjects.NewID()})
 	require.Error(t, err)
 }

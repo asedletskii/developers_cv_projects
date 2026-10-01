@@ -2,13 +2,14 @@ package session
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
+
+	"crypto/sha256"
+	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/stretchr/testify/require"
 

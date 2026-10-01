@@ -4,6 +4,7 @@ package persistence_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,12 +12,9 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/entities"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
@@ -24,24 +22,24 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 	ctx := fixture.ctx
 	resumeRepo := repository.NewResumeRepository(fixture.gorm)
 
-	email, err := valueobjects.NewEmail("private@example.com")
+	email, err := domain.NewEmail("private@example.com")
 	require.NoError(t, err)
-	contacts, err := entities.NewContacts(entities.ContactsParams{Phone: "+33123456789", Email: &email})
+	contacts, err := domain.NewContactMethods(domain.ContactMethodsParams{Phone: "+33123456789", Email: &email})
 	require.NoError(t, err)
 	require.NoError(t, fixture.resume.ReplaceContacts(domain.ContactsParams{
 		Contacts:       contacts,
-		HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+		HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
 	}))
 
-	gitLink, err := valueobjects.NewExternalURL("https://github.com/example/project")
+	gitLink, err := domain.NewExternalURL("https://github.com/example/project")
 	require.NoError(t, err)
-	screenshot, err := valueobjects.NewExternalURL("https://example.com/project.png")
+	screenshot, err := domain.NewExternalURL("https://example.com/project.png")
 	require.NoError(t, err)
 	require.NoError(t, fixture.resume.ReplaceProjects([]domain.ProjectParams{{
 		Name:        "Public Project",
 		Role:        stringPtr("Lead Developer"),
 		GitLink:     &gitLink,
-		Screenshots: []valueobjects.ExternalURL{screenshot},
+		Screenshots: []domain.ExternalURL{screenshot},
 	}}))
 
 	require.NoError(t, fixture.resume.Publish())
@@ -68,7 +66,7 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 	publicHandler := queries.NewPublicResumeQueryHandler(reader)
 	public, err := publicHandler.Handle(ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
 	require.NoError(t, err)
-	require.Nil(t, public.Version)
+	require.NotContains(t, mustMarshalResumeView(t, public), `"resumeId"`)
 	require.NotNil(t, public.Contacts)
 	require.Nil(t, public.Contacts.Email)
 	require.Equal(t, "+33123456789", *public.Contacts.Phone)
@@ -78,7 +76,7 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 	require.Empty(t, public.Projects[0].Screenshots)
 	require.Empty(t, public.Projects[0].Contributors)
 
-	foreign := useridentity.NewID()
+	foreign := sharedvalueobjects.NewID()
 	_, err = reader.GetOwned(ctx, queries.GetResumeQuery{ResumeID: fixture.resume.ID(), UserID: foreign})
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
 }
@@ -88,13 +86,13 @@ func TestPostgresContactViewReturnsOnlyHiddenContact(t *testing.T) {
 	ctx := fixture.ctx
 	resumeRepo := repository.NewResumeRepository(fixture.gorm)
 
-	email, err := valueobjects.NewEmail("private@example.com")
+	email, err := domain.NewEmail("private@example.com")
 	require.NoError(t, err)
-	contacts, err := entities.NewContacts(entities.ContactsParams{Phone: "+33123456789", Email: &email})
+	contacts, err := domain.NewContactMethods(domain.ContactMethodsParams{Phone: "+33123456789", Email: &email})
 	require.NoError(t, err)
 	require.NoError(t, fixture.resume.ReplaceContacts(domain.ContactsParams{
 		Contacts:       contacts,
-		HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+		HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
 	}))
 	require.NoError(t, fixture.resume.Publish())
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
@@ -104,15 +102,15 @@ func TestPostgresContactViewReturnsOnlyHiddenContact(t *testing.T) {
 	reader := readers.NewResumeReader(fixture.gorm)
 	view, err := reader.GetContactForView(ctx, queries.ContactViewQuery{
 		ResumeID: fixture.resume.ID(),
-		Contact:  enums.ContactKeyEmail,
+		Contact:  domain.ContactKeyEmail,
 	})
 	require.NoError(t, err)
-	require.Equal(t, enums.ContactKeyEmail, view.Contact)
+	require.Equal(t, domain.ContactKeyEmail, view.Contact)
 	require.Equal(t, "private@example.com", view.Value)
 
 	_, err = reader.GetContactForView(ctx, queries.ContactViewQuery{
 		ResumeID: fixture.resume.ID(),
-		Contact:  enums.ContactKeyPhone,
+		Contact:  domain.ContactKeyPhone,
 	})
 	require.ErrorIs(t, err, queries.ErrContactNotHidden)
 }
@@ -142,4 +140,11 @@ func TestPostgresPublicResumeRequiresOpenedStatus(t *testing.T) {
 
 	_, err = reader.GetPublic(fixture.ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
+}
+
+func mustMarshalResumeView(t *testing.T, view queries.PublicResumeView) string {
+	t.Helper()
+	payload, err := json.Marshal(view)
+	require.NoError(t, err)
+	return string(payload)
 }

@@ -10,6 +10,7 @@ import (
 
 	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/gormmodel"
+	"developers-cv/backend/internal/modules/user/infrastructure/persistence/mappers"
 	"developers-cv/backend/internal/platform/database"
 )
 
@@ -21,7 +22,7 @@ func (r *ProfileRepository) ReplaceProfile(ctx context.Context, profile *domain.
 	if r == nil || r.db == nil {
 		return fmt.Errorf("replace profile: repository dependencies are nil")
 	}
-	if profile == nil || profile.UserID.IsZero() {
+	if profile == nil || profile.UserID().IsZero() {
 		return fmt.Errorf("replace profile: invalid profile")
 	}
 
@@ -31,8 +32,11 @@ func (r *ProfileRepository) ReplaceProfile(ctx context.Context, profile *domain.
 	}
 
 	now := time.Now().UTC()
-	model := gormmodel.UserProfile{UserID: profile.UserID.UUID(), PhotoPath: profile.PhotoPath, CreatedAt: now, UpdatedAt: now}
-	if err := db.WithContext(ctx).Where("user_id = ?", profile.UserID.UUID()).First(&model).Error; err != nil {
+	model, rows, err := mappers.ProfileToDBModels(profile, now)
+	if err != nil {
+		return fmt.Errorf("replace profile: %w", err)
+	}
+	if err := db.WithContext(ctx).Where("user_id = ?", profile.UserID().UUID()).First(&model).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("replace profile: load profile: %w", err)
 		}
@@ -40,33 +44,19 @@ func (r *ProfileRepository) ReplaceProfile(ctx context.Context, profile *domain.
 			return fmt.Errorf("replace profile: create profile: %w", err)
 		}
 	} else {
-		if err := db.WithContext(ctx).Model(&gormmodel.UserProfile{}).Where("user_id = ?", profile.UserID.UUID()).Updates(map[string]any{"photo_path": profile.PhotoPath, "updated_at": now}).Error; err != nil {
+		if err := db.WithContext(ctx).Model(&gormmodel.UserProfile{}).Where("user_id = ?", profile.UserID().UUID()).Updates(map[string]any{"photo_path": profile.PhotoPath(), "updated_at": now}).Error; err != nil {
 			return fmt.Errorf("replace profile: update profile: %w", err)
 		}
 	}
 
-	if err := db.WithContext(ctx).Where("user_id = ?", profile.UserID.UUID()).Delete(&gormmodel.UserProfileLocalization{}).Error; err != nil {
+	if err := db.WithContext(ctx).Where("user_id = ?", profile.UserID().UUID()).Delete(&gormmodel.UserProfileLocalization{}).Error; err != nil {
 		return fmt.Errorf("replace profile: clear localizations: %w", err)
-	}
-
-	rows := make([]gormmodel.UserProfileLocalization, 0, 2)
-	for language, localized := range map[domain.ProfileLanguage]domain.LocalizedProfile{
-		domain.ProfileLanguageRU: profile.RU,
-		domain.ProfileLanguageEN: profile.EN,
-	} {
-		if localizedEmpty(localized) {
-			continue
-		}
-		rows = append(rows, gormmodel.UserProfileLocalization{UserID: profile.UserID.UUID(), Language: string(language), Name: localized.Name, Surname: localized.Surname, Patronymic: localized.Patronymic, Position: localized.Position, Location: localized.Location})
 	}
 	if len(rows) > 0 {
 		if err := db.WithContext(ctx).Create(&rows).Error; err != nil {
 			return fmt.Errorf("replace profile: create localizations: %w", err)
 		}
 	}
-	return nil
-}
 
-func localizedEmpty(p domain.LocalizedProfile) bool {
-	return p.Name == nil && p.Surname == nil && p.Patronymic == nil && p.Position == nil && p.Location == nil
+	return nil
 }

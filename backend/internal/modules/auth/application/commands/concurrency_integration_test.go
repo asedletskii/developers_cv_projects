@@ -4,16 +4,17 @@ package commands
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
+
+	"crypto/sha256"
+	"path/filepath"
+	"sync/atomic"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
@@ -103,14 +104,14 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 	transactions := repository.NewAuthTransactionRepository(db)
 	users := userrepo.NewUserRepository(db)
 	provisioner := usercommands.NewCreateUserHandler(users)
-	identity := func() valueobjects.ProviderSubject {
+	providerSubject := func() valueobjects.ProviderSubject {
 		subject, err := valueobjects.NewProviderSubject("same-telegram-subject")
 		require.NoError(t, err)
 		return subject
 	}()
 	blockedIdentities := &blockingIdentityRepository{inner: identities, barrier: make(chan struct{})}
 	generator := &integrationTokenGenerator{}
-	oidc := integrationOIDCStub{subject: identity}
+	oidc := integrationOIDCStub{subject: providerSubject}
 
 	handler := NewCompleteTelegramLoginHandler(transactions, blockedIdentities, sessions, oidc, provisioner, generator, uow, time.Hour)
 	now := time.Now().UTC().Truncate(time.Microsecond)

@@ -34,42 +34,39 @@ type Handler struct {
 }
 
 type HandlerDependencies struct {
-	ListResumes        *queries.ListResumesQueryHandler
-	CreateResume       *commands.CreateResumeHandler
-	GetResume          *queries.GetResumeQueryHandler
-	ReplaceResumeTitle *commands.ReplaceResumeTitleHandler
-	DeleteResume       *commands.DeleteResumeHandler
-	ChangeResumeStatus *commands.ChangeResumeStatusHandler
-	ReplaceOverview    *commands.ReplaceOverviewHandler
-	ReplaceProfile     *commands.ReplaceProfileHandler
-	ReplaceContacts    *commands.ReplaceContactsHandler
-	Overview           *overviewhandler.Handler
-	Profile            *profilehandler.Handler
-	Contacts           *contactshandler.Handler
-	Skills             *skillshandler.Handler
-	Languages          *languageshandler.Handler
-	Technologies       *technologieshandler.Handler
-	Experiences        *experienceshandler.Handler
-	Educations         *educationshandler.Handler
-	Courses            *courseshandler.Handler
-	Activities         *activitieshandler.Handler
-	Projects           *projectshandler.Handler
+	ListResumes         *queries.ListResumesQueryHandler
+	CreateResume        *commands.CreateResumeHandler
+	GetResume           *queries.GetResumeQueryHandler
+	ReplaceResumeTitle  *commands.ReplaceResumeTitleHandler
+	DeleteResume        *commands.DeleteResumeHandler
+	ChangeResumeStatus  *commands.ChangeResumeStatusHandler
+	ReplaceOverview     *commands.ReplaceOverviewHandler
+	ReplaceProfile      *commands.ReplaceProfileHandler
+	ReplaceContacts     *commands.ReplaceContactsHandler
+	ReplaceSkills       *commands.ReplaceSkillsHandler
+	ReplaceLanguages    *commands.ReplaceLanguagesHandler
+	ReplaceTechnologies *commands.ReplaceTechnologiesHandler
+	ReplaceExperiences  *commands.ReplaceExperiencesHandler
+	ReplaceEducations   *commands.ReplaceEducationsHandler
+	ReplaceCourses      *commands.ReplaceCoursesHandler
+	ReplaceActivities   *commands.ReplaceActivitiesHandler
+	ReplaceProjects     *commands.ReplaceProjectsHandler
 }
 
 func NewHandler(deps HandlerDependencies) *Handler {
 	return &Handler{
 		resume:       newResumeHandler(deps.CreateResume, deps.GetResume, deps.ReplaceResumeTitle, deps.DeleteResume, deps.ChangeResumeStatus, deps.ListResumes),
-		overview:     deps.Overview,
-		profile:      deps.Profile,
-		contacts:     deps.Contacts,
-		skills:       deps.Skills,
-		languages:    deps.Languages,
-		technologies: deps.Technologies,
-		experiences:  deps.Experiences,
-		educations:   deps.Educations,
-		courses:      deps.Courses,
-		activities:   deps.Activities,
-		projects:     deps.Projects,
+		overview:     overviewhandler.NewHandler(deps.ReplaceOverview),
+		profile:      profilehandler.NewHandler(deps.ReplaceProfile),
+		contacts:     contactshandler.NewHandler(deps.ReplaceContacts),
+		skills:       skillshandler.NewHandler(deps.ReplaceSkills),
+		languages:    languageshandler.NewHandler(deps.ReplaceLanguages),
+		technologies: technologieshandler.NewHandler(deps.ReplaceTechnologies),
+		experiences:  experienceshandler.NewHandler(deps.ReplaceExperiences),
+		educations:   educationshandler.NewHandler(deps.ReplaceEducations),
+		courses:      courseshandler.NewHandler(deps.ReplaceCourses),
+		activities:   activitieshandler.NewHandler(deps.ReplaceActivities),
+		projects:     projectshandler.NewHandler(deps.ReplaceProjects),
 	}
 }
 

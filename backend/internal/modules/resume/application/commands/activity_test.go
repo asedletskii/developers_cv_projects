@@ -8,9 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type activityRepoStub struct {
@@ -35,12 +33,12 @@ type activityUOWStub struct{}
 func (activityUOWStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestReplaceActivitiesHandlerUsesAggregateRepository(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: useridentity.NewID(), Title: "Resume", Language: enums.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &activityRepoStub{resume: resume}
 	err = NewReplaceActivitiesHandler(repo, activityUOWStub{}).Handle(context.Background(), ReplaceActivitiesCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 1,
-		Input: ActivitiesInput{Items: []ActivityInput{{Type: enums.ActivityTypeOpenSource, Title: "OSS"}}},
+		Input: ActivitiesInput{Items: []ActivityInput{{Type: domain.ActivityTypeOpenSource, Title: "OSS"}}},
 	})
 	require.NoError(t, err)
 	require.True(t, repo.saved)
@@ -48,12 +46,12 @@ func TestReplaceActivitiesHandlerUsesAggregateRepository(t *testing.T) {
 }
 
 func TestReplaceActivitiesHandlerRejectsStaleVersion(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: useridentity.NewID(), Title: "Resume", Language: enums.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &activityRepoStub{resume: resume}
 	err = NewReplaceActivitiesHandler(repo, activityUOWStub{}).Handle(context.Background(), ReplaceActivitiesCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 2,
-		Input: ActivitiesInput{Items: []ActivityInput{{Type: enums.ActivityTypeOpenSource, Title: "OSS"}}},
+		Input: ActivitiesInput{Items: []ActivityInput{{Type: domain.ActivityTypeOpenSource, Title: "OSS"}}},
 	})
 	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
 	require.False(t, repo.saved)

@@ -1,15 +1,12 @@
 package http
 
 import (
-	"errors"
 	"net/http"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	apperrors "developers-cv/backend/internal/platform/http/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,7 +31,7 @@ func (h *resumeHandler) List(c *gin.Context) {
 	}
 	items, err := h.list.Handle(c.Request.Context(), queries.ListResumesQuery{UserID: userID})
 	if err != nil {
-		apperrors.WriteError(c, err)
+		common.WriteQueryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, items)
@@ -55,7 +52,7 @@ func (h *resumeHandler) Create(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	cmd := commands.CreateResumeCommand{UserID: uid, Title: b.Title, Language: enums.ResumeLanguage(b.Language)}
+	cmd := commands.CreateResumeCommand{UserID: uid, Title: b.Title, Language: domain.ResumeLanguage(b.Language)}
 	id, e := h.create.Handle(c.Request.Context(), cmd)
 	if e != nil {
 		common.WriteCommandError(c, e)
@@ -64,11 +61,7 @@ func (h *resumeHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 func (h *resumeHandler) Get(c *gin.Context) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return
-	}
-	id, ok := common.ParseResumeID(c)
+	uid, id, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
@@ -86,11 +79,7 @@ type replaceResumeTitleRequest struct {
 }
 
 func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return
-	}
-	id, ok := common.ParseResumeID(c)
+	uid, id, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
@@ -99,11 +88,10 @@ func (h *resumeHandler) ReplaceTitle(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
+	if !common.RequirePositiveVersion(c, body.Version) {
+		return
+	}
 	if err := h.replaceTitle.Handle(c.Request.Context(), commands.ReplaceResumeTitleCommand{ResumeID: id, UserID: uid, Version: body.Version, Title: body.Title}); err != nil {
-		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			c.Status(http.StatusPreconditionFailed)
-			return
-		}
 		common.WriteCommandError(c, err)
 		return
 	}
@@ -116,11 +104,7 @@ type changeResumeStatusRequest struct {
 }
 
 func (h *resumeHandler) ChangeStatus(c *gin.Context) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return
-	}
-	id, ok := common.ParseResumeID(c)
+	uid, id, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
@@ -129,38 +113,37 @@ func (h *resumeHandler) ChangeStatus(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	if body.Version < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+	if !common.RequirePositiveVersion(c, body.Version) {
 		return
 	}
 	err := h.changeStatus.Handle(c.Request.Context(), commands.ChangeResumeStatusCommand{
-		ResumeID: id, UserID: uid, Status: enums.ResumeStatus(body.Status), Version: body.Version,
+		ResumeID: id, UserID: uid, Status: domain.ResumeStatus(body.Status), Version: body.Version,
 	})
 	if err != nil {
-		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			c.Status(http.StatusPreconditionFailed)
-			return
-		}
-		if errors.Is(err, domain.ErrInvalidResumeStatusTransition) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Invalid resume status transition"))
-			return
-		}
 		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
 }
 
+type deleteResumeRequest struct {
+	Version int64 `json:"version"`
+}
+
 func (h *resumeHandler) Delete(c *gin.Context) {
-	uid, ok := common.RequireUserID(c)
+	uid, id, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
-	id, ok := common.ParseResumeID(c)
-	if !ok {
+	var body deleteResumeRequest
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
-	if e := h.delete.Handle(c.Request.Context(), commands.DeleteResumeCommand{ResumeID: id, UserID: uid}); e != nil {
+	if !common.RequirePositiveVersion(c, body.Version) {
+		return
+	}
+	if e := h.delete.Handle(c.Request.Context(), commands.DeleteResumeCommand{ResumeID: id, UserID: uid, Version: body.Version}); e != nil {
 		common.WriteCommandError(c, e)
 		return
 	}

@@ -1,17 +1,14 @@
 package experiences
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -44,7 +41,7 @@ type replaceRequest struct {
 }
 
 func (h *Handler) Replace(c *gin.Context) {
-	uid, rid, ok := ids(c)
+	uid, rid, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
@@ -53,8 +50,7 @@ func (h *Handler) Replace(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	if body.Version < 1 {
-		common.WriteInvalidBody(c)
+	if !common.RequirePositiveVersion(c, body.Version) {
 		return
 	}
 	items, err := experienceInputs(body.Items)
@@ -63,10 +59,6 @@ func (h *Handler) Replace(c *gin.Context) {
 		return
 	}
 	if err := h.replace.Handle(c.Request.Context(), commands.ReplaceExperiencesCommand{ResumeID: rid, UserID: uid, Version: body.Version, Input: commands.ExperiencesInput{Items: items}}); err != nil {
-		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			c.Status(http.StatusPreconditionFailed)
-			return
-		}
 		common.WriteCommandError(c, err)
 		return
 	}
@@ -76,21 +68,21 @@ func (h *Handler) Replace(c *gin.Context) {
 func experienceInputs(values []experienceRequest) ([]commands.ExperienceInput, error) {
 	out := make([]commands.ExperienceInput, 0, len(values))
 	for _, body := range values {
-		var id valueobjects.ID
+		var id sharedvalueobjects.ID
 		if body.ID != "" {
-			parsed, err := valueobjects.ParseID(body.ID)
+			parsed, err := sharedvalueobjects.ParseID(body.ID)
 			if err != nil {
 				return nil, err
 			}
 			id = parsed
 		}
-		start, err := valueobjects.ParseYearMonth(body.StartDate)
+		start, err := domain.ParseYearMonth(body.StartDate)
 		if err != nil {
 			return nil, err
 		}
-		var end *valueobjects.YearMonth
+		var end *domain.YearMonth
 		if body.EndDate != nil {
-			parsed, err := valueobjects.ParseYearMonth(*body.EndDate)
+			parsed, err := domain.ParseYearMonth(*body.EndDate)
 			if err != nil {
 				return nil, err
 			}
@@ -98,9 +90,9 @@ func experienceInputs(values []experienceRequest) ([]commands.ExperienceInput, e
 		}
 		stack := make([]commands.ExperienceStackItemInput, len(body.Stack))
 		for i, item := range body.Stack {
-			var grade *enums.TechnologyGrade
+			var grade *domain.TechnologyGrade
 			if item.Grade != nil {
-				value := enums.TechnologyGrade(*item.Grade)
+				value := domain.TechnologyGrade(*item.Grade)
 				grade = &value
 			}
 			stack[i] = commands.ExperienceStackItemInput{Name: item.Name, Grade: grade}
@@ -108,13 +100,4 @@ func experienceInputs(values []experienceRequest) ([]commands.ExperienceInput, e
 		out = append(out, commands.ExperienceInput{ID: id, Company: body.Company, Position: body.Position, Location: body.Location, StartDate: start, EndDate: end, Description: body.Description, Achievements: append([]string(nil), body.Achievements...), Tasks: append([]string(nil), body.Tasks...), Stack: stack})
 	}
 	return out, nil
-}
-
-func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return uid, valueobjects.ID{}, false
-	}
-	rid, ok := common.ParseResumeID(c)
-	return uid, rid, ok
 }

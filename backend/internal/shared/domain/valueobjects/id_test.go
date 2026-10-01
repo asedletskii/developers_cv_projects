@@ -19,3 +19,8 @@ func TestIDRejectsZeroUUID(t *testing.T) {
 	_, err := IDFromUUID(uuid.Nil)
 	require.ErrorIs(t, err, ErrInvalidID)
 }
+
+func TestParseIDRejectsInvalid(t *testing.T) {
+	_, err := ParseID("not-a-uuid")
+	require.ErrorIs(t, err, ErrInvalidID)
+}

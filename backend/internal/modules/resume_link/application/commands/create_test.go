@@ -8,10 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeUnitOfWork struct{ called bool }
@@ -49,18 +47,18 @@ func (r *fakeRepository) Create(_ context.Context, link *domain.ResumeLink) erro
 	return r.err
 }
 
-func (r *fakeRepository) GetByID(context.Context, valueobjects.ID) (*domain.ResumeLink, error) {
+func (r *fakeRepository) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	return nil, r.err
 }
-func (r *fakeRepository) ReplaceStatus(context.Context, valueobjects.ID, bool, int64) error {
+func (r *fakeRepository) ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error {
 	return r.err
 }
 
-func (r *fakeRepository) Delete(context.Context, valueobjects.ID) error              { return r.err }
+func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error        { return r.err }
 func (r *fakeRepository) RecordEvent(context.Context, *domain.ResumeLinkEvent) error { return r.err }
 
 func validCreateCommand() CreateResumeLinkCommand {
-	return CreateResumeLinkCommand{UserID: uservalueobjects.NewID(), ResumeID: resumevalueobjects.NewID(), Name: "  HH  "}
+	return CreateResumeLinkCommand{UserID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "  HH  "}
 }
 
 func TestCreateResumeLinkHandlerCreatesLinkAfterOwnershipValidation(t *testing.T) {
@@ -123,7 +121,7 @@ func TestCreateResumeLinkHandlerPropagatesRepositoryFailure(t *testing.T) {
 func TestCreateResumeLinkHandlerRejectsInvalidIdentifiers(t *testing.T) {
 	handler := NewCreateResumeLinkHandler(&fakeRepository{}, &fakeResumeReader{}, &fakeUnitOfWork{})
 	command := validCreateCommand()
-	command.UserID = uservalueobjects.ID{}
+	command.UserID = sharedvalueobjects.ID{}
 
 	_, err := handler.Handle(context.Background(), command)
 

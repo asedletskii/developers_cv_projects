@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,44 +10,55 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	jsonhttp "developers-cv/backend/internal/platform/http/json"
 	"developers-cv/backend/internal/platform/http/middleware"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 var ErrRequestBodyTooLarge = jsonhttp.ErrRequestBodyTooLarge
 
-func RequireUserID(c *gin.Context) (useridentity.ID, bool) {
+func BindJSON(c *gin.Context, target any) error {
+	return jsonhttp.BindJSON(c, target)
+}
+
+func RequireUserID(c *gin.Context) (sharedvalueobjects.ID, bool) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeUnauthorized, http.StatusUnauthorized, "Authentication required"))
-		return useridentity.ID{}, false
+		return sharedvalueobjects.ID{}, false
 	}
-	identity, err := useridentity.IDFromUUID(userID)
+	parsedID, err := sharedvalueobjects.IDFromUUID(userID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
-		return useridentity.ID{}, false
+		return sharedvalueobjects.ID{}, false
 	}
-	return identity, true
+	return parsedID, true
 }
 
-func ParseResumeID(c *gin.Context) (valueobjects.ID, bool) {
+func ParseResumeID(c *gin.Context) (sharedvalueobjects.ID, bool) {
 	parsed, err := uuid.Parse(c.Param("resumeId"))
 	if err != nil {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
-		return valueobjects.ID{}, false
+		return sharedvalueobjects.ID{}, false
 	}
-	id, err := valueobjects.IDFromUUID(parsed)
+	id, err := sharedvalueobjects.IDFromUUID(parsed)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
-		return valueobjects.ID{}, false
+		return sharedvalueobjects.ID{}, false
 	}
 	return id, true
 }
 
 func WriteCommandError(c *gin.Context, err error) {
+	if errors.Is(err, domain.ErrConcurrencyConflict) {
+		apperrors.WriteError(c, apperrors.New(apperrors.CodePreconditionFailed, http.StatusPreconditionFailed, "Resume was modified"))
+		return
+	}
+	if errors.Is(err, domain.ErrInvalidResumeStatusTransition) {
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Invalid resume status transition"))
+		return
+	}
 	if errors.Is(err, domain.ErrEntityNotFound) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume resource not found"))
 		return
@@ -84,16 +96,4 @@ func WriteQueryError(c *gin.Context, err error) {
 
 func WriteResumeNotFound(c *gin.Context) {
 	apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
-}
-
-func WriteContactNotFound(c *gin.Context) {
-	apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Contact not found"))
-}
-
-func WriteContactNotHidden(c *gin.Context) {
-	apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Contact is not hidden"))
-}
-
-func BindJSON(c *gin.Context, target any) error {
-	return jsonhttp.BindJSON(c, target)
 }

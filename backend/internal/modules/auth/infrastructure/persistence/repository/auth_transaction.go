@@ -13,6 +13,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/gormmodel"
+	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/mappers"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -31,7 +32,10 @@ func (r *AuthTransactionRepository) Create(ctx context.Context, transaction *dom
 	if err != nil {
 		return fmt.Errorf("create auth transaction: %w", err)
 	}
-	model := transactionModel(transaction)
+	model, err := mappers.AuthTransactionToDB(transaction)
+	if err != nil {
+		return fmt.Errorf("create auth transaction: %w", err)
+	}
 	if err := tx.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("create auth transaction: %w", mapDBError(err))
 	}
@@ -73,7 +77,7 @@ func (r *AuthTransactionRepository) find(ctx context.Context, stateHash valueobj
 	if err != nil {
 		return nil, fmt.Errorf("find auth transaction: %w", mapDBError(err))
 	}
-	return transactionFromModel(model)
+	return mappers.AuthTransactionToDomain(model)
 }
 
 func (r *AuthTransactionRepository) Consume(ctx context.Context, transactionID sharedvalueobjects.ID, at time.Time) error {
@@ -111,31 +115,4 @@ func (r *AuthTransactionRepository) DeleteExpiredBatch(ctx context.Context, now 
 		return 0, fmt.Errorf("delete expired auth transactions: %w", mapDBError(result.Error))
 	}
 	return int(result.RowsAffected), nil
-}
-
-func transactionModel(t *domain.AuthTransaction) gormmodel.AuthTransaction {
-	return gormmodel.AuthTransaction{ID: t.ID().UUID(), Provider: t.Provider().String(), StateHash: t.StateHash().Bytes(), NonceHash: t.NonceHash().Bytes(), BrowserBindingHash: t.BrowserBindingHash().Bytes(), CodeVerifier: t.CodeVerifier(), RedirectURI: t.RedirectURI(), CreatedAt: t.CreatedAt(), ExpiresAt: t.ExpiresAt(), ConsumedAt: t.ConsumedAt()}
-}
-func transactionFromModel(m gormmodel.AuthTransaction) (*domain.AuthTransaction, error) {
-	id, err := sharedvalueobjects.IDFromUUID(m.ID)
-	if err != nil {
-		return nil, err
-	}
-	provider, err := domain.NewProvider(m.Provider)
-	if err != nil {
-		return nil, err
-	}
-	state, err := valueobjects.NewStateHash(m.StateHash)
-	if err != nil {
-		return nil, err
-	}
-	nonce, err := valueobjects.NewNonceHash(m.NonceHash)
-	if err != nil {
-		return nil, err
-	}
-	browserBinding, err := valueobjects.NewBrowserBindingHash(m.BrowserBindingHash)
-	if err != nil {
-		return nil, err
-	}
-	return domain.NewAuthTransaction(domain.AuthTransactionParams{ID: id, Provider: provider, StateHash: state, NonceHash: nonce, BrowserBindingHash: browserBinding, CodeVerifier: m.CodeVerifier, RedirectURI: m.RedirectURI, CreatedAt: m.CreatedAt, ExpiresAt: m.ExpiresAt, ConsumedAt: m.ConsumedAt})
 }

@@ -4,30 +4,43 @@ import (
 	"fmt"
 	"strings"
 
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type ResumeLinkParams struct {
-	ID       valueobjects.ID
-	ResumeID resumevalueobjects.ID
-	Name     string
-	Version  int64
+type ResumeLinkStatus string
+
+const (
+	ResumeLinkStatusActive   ResumeLinkStatus = "active"
+	ResumeLinkStatusInactive ResumeLinkStatus = "inactive"
+)
+
+func (v ResumeLinkStatus) IsValid() bool {
+	switch v {
+	case ResumeLinkStatusActive, ResumeLinkStatusInactive:
+		return true
+	default:
+		return false
+	}
 }
 
 const (
 	MaxResumeLinkNameLength = 128
 	MaxResumeLinksPerResume = 50
-
-	ResumeLinkStatusActive   = "active"
-	ResumeLinkStatusInactive = "inactive"
 )
 
+type ResumeLinkParams struct {
+	ID       sharedvalueobjects.ID
+	ResumeID sharedvalueobjects.ID
+	Name     string
+	Version  int64
+	Status   ResumeLinkStatus
+}
+
 type ResumeLink struct {
-	id       valueobjects.ID
-	resumeID resumevalueobjects.ID
+	id       sharedvalueobjects.ID
+	resumeID sharedvalueobjects.ID
 	name     string
-	active   bool
+	status   ResumeLinkStatus
 	version  int64
 }
 
@@ -51,25 +64,33 @@ func NewResumeLink(params ResumeLinkParams) (*ResumeLink, error) {
 		return nil, fmt.Errorf("%w: version must be positive", ErrInvalidResumeLink)
 	}
 
+	status := params.Status
+	if status == "" {
+		status = ResumeLinkStatusActive
+	}
+	if !status.IsValid() {
+		return nil, fmt.Errorf("%w: invalid status %q", ErrInvalidResumeLink, status)
+	}
+
 	return &ResumeLink{
 		id:       params.ID,
 		resumeID: params.ResumeID,
 		name:     name,
-		active:   true,
+		status:   status,
 		version:  version,
 	}, nil
 }
 
-func (l *ResumeLink) ID() valueobjects.ID {
+func (l *ResumeLink) ID() sharedvalueobjects.ID {
 	if l == nil {
-		return valueobjects.ID{}
+		return sharedvalueobjects.ID{}
 	}
 	return l.id
 }
 
-func (l *ResumeLink) ResumeID() resumevalueobjects.ID {
+func (l *ResumeLink) ResumeID() sharedvalueobjects.ID {
 	if l == nil {
-		return resumevalueobjects.ID{}
+		return sharedvalueobjects.ID{}
 	}
 	return l.resumeID
 }
@@ -81,8 +102,15 @@ func (l *ResumeLink) Name() string {
 	return l.name
 }
 
+func (l *ResumeLink) Status() ResumeLinkStatus {
+	if l == nil {
+		return ""
+	}
+	return l.status
+}
+
 func (l *ResumeLink) IsActive() bool {
-	return l != nil && l.active
+	return l != nil && l.status == ResumeLinkStatusActive
 }
 
 func (l *ResumeLink) Version() int64 {
@@ -96,7 +124,7 @@ func (l *ResumeLink) Activate() error {
 	if l == nil {
 		return fmt.Errorf("%w: link is nil", ErrInvalidResumeLink)
 	}
-	l.active = true
+	l.status = ResumeLinkStatusActive
 	return nil
 }
 
@@ -104,6 +132,6 @@ func (l *ResumeLink) Deactivate() error {
 	if l == nil {
 		return fmt.Errorf("%w: link is nil", ErrInvalidResumeLink)
 	}
-	l.active = false
+	l.status = ResumeLinkStatusInactive
 	return nil
 }

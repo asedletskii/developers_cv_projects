@@ -2,7 +2,6 @@ package queries
 
 type ProjectView struct {
 	ID           string                   `json:"id"`
-	ResumeID     string                   `json:"resumeId"`
 	Name         string                   `json:"name"`
 	Description  *string                  `json:"description,omitempty"`
 	Role         *string                  `json:"role,omitempty"`

@@ -2,9 +2,10 @@ package public
 
 import (
 	"context"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -12,24 +13,24 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type queryStub struct {
-	view  resumequeries.ResumeView
+	view  resumequeries.PublicResumeView
 	err   error
 	query queries.PublicResumeLinkQuery
 }
 
-func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.ResumeView, error) {
+func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, error) {
 	s.query = query
 	return s.view, s.err
 }
 
 func TestHandlerReturnsPublicResume(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	linkID := valueobjects.NewID()
-	query := &queryStub{view: resumequeries.ResumeView{ID: "resume-id"}}
+	linkID := sharedvalueobjects.NewID()
+	query := &queryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
 
 	engine := gin.New()
 	engine.GET("/api/v1/cv/:linkId", NewHandler(query).Handle)
@@ -39,7 +40,9 @@ func TestHandlerReturnsPublicResume(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Contains(t, w.Body.String(), `"id":"resume-id"`)
+	require.NotContains(t, w.Body.String(), `"resumeId"`)
+	require.NotContains(t, w.Body.String(), `"id":"resume-id"`)
+	require.Contains(t, w.Body.String(), `"title":"CV"`)
 	require.Equal(t, linkID, query.query.LinkID)
 }
 
@@ -62,7 +65,7 @@ func TestHandlerMapsInactiveLinkToGone(t *testing.T) {
 	engine := gin.New()
 	engine.GET("/api/v1/cv/:linkId", NewHandler(query).Handle)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+valueobjects.NewID().String(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+sharedvalueobjects.NewID().String(), nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 

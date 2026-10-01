@@ -13,24 +13,23 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"gorm.io/gorm"
 
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
@@ -75,7 +74,7 @@ func newDatabase(t *testing.T) (context.Context, string, *gorm.DB, *repository.R
 	return ctx, dsn, gormDB, repository.NewResumeLinkRepository(gormDB), readers.NewResumeLinkReader(gormDB)
 }
 
-func insertUserAndResume(t *testing.T, ctx context.Context, dsn string, userID uservalueobjects.ID, resumeID resumevalueobjects.ID) {
+func insertUserAndResume(t *testing.T, ctx context.Context, dsn string, userID sharedvalueobjects.ID, resumeID sharedvalueobjects.ID) {
 	t.Helper()
 	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
@@ -93,11 +92,11 @@ func TestResumeLinkPersistence(t *testing.T) {
 		t.Skip("integration test")
 	}
 	ctx, dsn, gormDB, repo, reader := newDatabase(t)
-	owner := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "  HH  "})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "  HH  "})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) }))
@@ -135,9 +134,9 @@ func TestResumeLinkPersistence(t *testing.T) {
 	require.Equal(t, link.ID().String(), linkView.ID)
 	require.Equal(t, resumeID.String(), linkView.ResumeID)
 
-	viewEvent, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: valueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
+	viewEvent, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: sharedvalueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
 	require.NoError(t, err)
-	contact, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: valueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeContactView, OccurredAt: time.Now().UTC()})
+	contact, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: sharedvalueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeContactView, OccurredAt: time.Now().UTC()})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		if err := repo.RecordEvent(tx, viewEvent); err != nil {
@@ -146,7 +145,7 @@ func TestResumeLinkPersistence(t *testing.T) {
 		return repo.RecordEvent(tx, contact)
 	}))
 
-	standalone, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: valueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
+	standalone, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: sharedvalueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
 	require.NoError(t, err)
 	require.NoError(t, repo.RecordEvent(ctx, standalone))
 
@@ -154,9 +153,9 @@ func TestResumeLinkPersistence(t *testing.T) {
 	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, link.ID().UUID()).Scan(&eventCount))
 	require.Equal(t, 3, eventCount)
 
-	_, err = conn.Exec(ctx, `INSERT INTO resume_link_events (id, link_id, event_type, occurred_at) VALUES ($1, $2, $3, now())`, valueobjects.NewID().UUID(), link.ID().UUID(), "unknown")
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link_events (id, link_id, event_type, occurred_at) VALUES ($1, $2, $3, now())`, sharedvalueobjects.NewID().UUID(), link.ID().UUID(), "unknown")
 	require.Error(t, err, "database must reject unknown event type")
-	_, err = conn.Exec(ctx, `INSERT INTO resume_link_events (id, link_id, event_type, occurred_at) VALUES ($1, $2, $3, now())`, valueobjects.NewID().UUID(), valueobjects.NewID().UUID(), "view")
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link_events (id, link_id, event_type, occurred_at) VALUES ($1, $2, $3, now())`, sharedvalueobjects.NewID().UUID(), sharedvalueobjects.NewID().UUID(), "view")
 	require.Error(t, err, "database must reject an event for a missing link")
 
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Delete(tx, link.ID()) }))
@@ -175,23 +174,23 @@ func TestResumeLinkReaderListsLinksForResumeOnly(t *testing.T) {
 	}
 
 	ctx, dsn, gormDB, repo, reader := newDatabase(t)
-	owner := uservalueobjects.NewID()
-	foreignOwner := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
-	foreignResumeID := resumevalueobjects.NewID()
+	owner := sharedvalueobjects.NewID()
+	foreignOwner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
+	foreignResumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 	insertUserAndResume(t, ctx, dsn, foreignOwner, foreignResumeID)
 
 	first, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH",
+		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH",
 	})
 	require.NoError(t, err)
 	second, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: valueobjects.NewID(), ResumeID: resumeID, Name: "GitHub",
+		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "GitHub",
 	})
 	require.NoError(t, err)
 	foreign, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: valueobjects.NewID(), ResumeID: foreignResumeID, Name: "Telegram",
+		ID: sharedvalueobjects.NewID(), ResumeID: foreignResumeID, Name: "Telegram",
 	})
 	require.NoError(t, err)
 
@@ -214,7 +213,7 @@ func TestResumeLinkReaderListsLinksForResumeOnly(t *testing.T) {
 	require.Equal(t, first.ID().String(), links[0].ID)
 	require.Equal(t, second.ID().String(), links[1].ID)
 
-	empty, err := reader.ListByResumeID(ctx, queries.ListResumeLinksQuery{UserID: owner, ResumeID: resumevalueobjects.NewID()})
+	empty, err := reader.ListByResumeID(ctx, queries.ListResumeLinksQuery{UserID: owner, ResumeID: sharedvalueobjects.NewID()})
 	require.NoError(t, err)
 	require.Empty(t, empty)
 }
@@ -224,14 +223,14 @@ func TestResumeLinkMigrationCascade(t *testing.T) {
 		t.Skip("integration test")
 	}
 	ctx, dsn, gormDB, repo, _ := newDatabase(t)
-	owner := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "GitHub"})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "GitHub"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) }))
-	event, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: valueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
+	event, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: sharedvalueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.RecordEvent(tx, event) }))
 
@@ -253,20 +252,20 @@ func TestResumeLinkReaderAggregatesStatistics(t *testing.T) {
 	}
 
 	ctx, dsn, gormDB, repo, reader := newDatabase(t)
-	owner := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
 	viewsOnly, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: valueobjects.NewID(), ResumeID: resumeID, Name: "Views",
+		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "Views",
 	})
 	require.NoError(t, err)
 	contactOnly, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: valueobjects.NewID(), ResumeID: resumeID, Name: "Contacts",
+		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "Contacts",
 	})
 	require.NoError(t, err)
 	mixed, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: valueobjects.NewID(), ResumeID: resumeID, Name: "Mixed",
+		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "Mixed",
 	})
 	require.NoError(t, err)
 
@@ -280,9 +279,9 @@ func TestResumeLinkReaderAggregatesStatistics(t *testing.T) {
 		return nil
 	}))
 
-	record := func(linkID valueobjects.ID, eventType domain.EventType) {
+	record := func(linkID sharedvalueobjects.ID, eventType domain.EventType) {
 		event, eventErr := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{
-			ID: valueobjects.NewID(), LinkID: linkID, Type: eventType, OccurredAt: time.Now().UTC(),
+			ID: sharedvalueobjects.NewID(), LinkID: linkID, Type: eventType, OccurredAt: time.Now().UTC(),
 		})
 		require.NoError(t, eventErr)
 		require.NoError(t, repo.RecordEvent(ctx, event))
@@ -298,7 +297,7 @@ func TestResumeLinkReaderAggregatesStatistics(t *testing.T) {
 
 	zero, err := reader.GetStatistics(ctx, queries.GetResumeLinkStatisticsQuery{
 		UserID: owner,
-		LinkID: valueobjects.NewID(),
+		LinkID: sharedvalueobjects.NewID(),
 	})
 	require.NoError(t, err)
 	require.Zero(t, zero.Views)
@@ -368,9 +367,9 @@ func TestReplaceStatusResumeLinkIntegration(t *testing.T) {
 	uow := database.NewUnitOfWork(gormDB)
 	handler := commands.NewReplaceStatusResumeLinkHandler(repo, resumeReader, uow)
 
-	linkValue, err := valueobjects.IDFromUUID(linkID)
+	linkValue, err := sharedvalueobjects.IDFromUUID(linkID)
 	require.NoError(t, err)
-	userValue, err := uservalueobjects.IDFromUUID(userID)
+	userValue, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 	require.NoError(t, handler.Handle(ctx, commands.ReplaceStatusResumeLinkCommand{UserID: userValue, LinkID: linkValue, Active: false, Version: 1}))
 
@@ -405,8 +404,8 @@ func TestResumeLinkPersistenceEnforcesDatabaseNameLength(t *testing.T) {
 		t.Skip("integration test")
 	}
 	ctx, dsn, _, _, _ := newDatabase(t)
-	owner := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
 	conn, err := pgx.Connect(ctx, dsn)
@@ -427,22 +426,22 @@ func TestResumeLinkPersistenceEnforcesUniqueNameWithinResume(t *testing.T) {
 		t.Skip("integration test")
 	}
 	ctx, dsn, gormDB, repo, _ := newDatabase(t)
-	owner := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
-	first, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
+	first, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
 	require.NoError(t, err)
-	second, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
+	second, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, first) }))
 	err = uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, second) })
 	require.ErrorIs(t, err, domain.ErrDuplicateResumeLink)
 
-	otherResumeID := resumevalueobjects.NewID()
+	otherResumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, otherResumeID)
-	otherResumeLink, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: otherResumeID, Name: "HH"})
+	otherResumeLink, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: otherResumeID, Name: "HH"})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, otherResumeLink) }))
 }
@@ -452,11 +451,11 @@ func TestReplaceStatusResumeLinkNoOpPreservesVersionAndUpdatedAt(t *testing.T) {
 		t.Skip("integration test")
 	}
 	ctx, dsn, gormDB, repo, _ := newDatabase(t)
-	owner := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 3})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 3})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) }))
@@ -481,7 +480,7 @@ func TestReplaceStatusResumeLinkNoOpPreservesVersionAndUpdatedAt(t *testing.T) {
 	}
 	require.NoError(t, gormDB.Raw(`SELECT status, version, updated_at FROM resume_links WHERE id = ?`, link.ID().UUID()).Scan(&row).Error)
 	status, version, after := row.Status, row.Version, row.UpdatedAt
-	require.Equal(t, domain.ResumeLinkStatusActive, status)
+	require.Equal(t, string(domain.ResumeLinkStatusActive), status)
 	require.Equal(t, int64(3), version)
 	require.Equal(t, before, after)
 }
@@ -491,8 +490,8 @@ func TestResumeLinkPersistenceEnforcesMaximumLinksConcurrently(t *testing.T) {
 		t.Skip("integration test")
 	}
 	ctx, dsn, gormDB, repo, _ := newDatabase(t)
-	owner := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
 	const attempts = 55
@@ -502,7 +501,7 @@ func TestResumeLinkPersistenceEnforcesMaximumLinksConcurrently(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: fmt.Sprintf("link-%d", i)})
+			link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: fmt.Sprintf("link-%d", i)})
 			if err != nil {
 				errs <- err
 				return

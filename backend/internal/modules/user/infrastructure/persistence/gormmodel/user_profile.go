@@ -8,7 +8,7 @@ import (
 
 type UserProfile struct {
 	UserID    uuid.UUID `gorm:"type:uuid;primaryKey"`
-	PhotoPath *string
+	PhotoPath *string   `gorm:"column:photo_path"`
 	CreatedAt time.Time `gorm:"not null"`
 	UpdatedAt time.Time `gorm:"not null"`
 }

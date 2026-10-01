@@ -4,35 +4,33 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
-
-	"github.com/stretchr/testify/require"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type deleteRepositoryStub struct {
 	link    *domain.ResumeLink
-	deleted valueobjects.ID
+	deleted sharedvalueobjects.ID
 	getErr  error
 	delErr  error
 }
 
 func (s *deleteRepositoryStub) Create(context.Context, *domain.ResumeLink) error { return nil }
-func (s *deleteRepositoryStub) GetByID(context.Context, valueobjects.ID) (*domain.ResumeLink, error) {
+func (s *deleteRepositoryStub) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
 	return s.link, nil
 }
-func (s *deleteRepositoryStub) ReplaceStatus(context.Context, valueobjects.ID, bool, int64) error {
+func (s *deleteRepositoryStub) ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error {
 	return nil
 }
 
-func (s *deleteRepositoryStub) Delete(_ context.Context, id valueobjects.ID) error {
+func (s *deleteRepositoryStub) Delete(_ context.Context, id sharedvalueobjects.ID) error {
 	s.deleted = id
 	return s.delErr
 }
@@ -56,9 +54,9 @@ func (s *deleteOwnershipStub) GetOwned(_ context.Context, q resumequeries.GetRes
 }
 
 func TestDeleteResumeLinkHandlerChecksOwnershipBeforeDelete(t *testing.T) {
-	userID := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
-	linkID := valueobjects.NewID()
+	userID := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
+	linkID := sharedvalueobjects.NewID()
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: linkID, ResumeID: resumeID, Name: "HH"})
 	require.NoError(t, err)
 
@@ -72,18 +70,18 @@ func TestDeleteResumeLinkHandlerChecksOwnershipBeforeDelete(t *testing.T) {
 }
 
 func TestDeleteResumeLinkHandlerDoesNotDeleteForeignLink(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumevalueobjects.NewID(), Name: "HH"})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "HH"})
 	require.NoError(t, err)
 	repo := &deleteRepositoryStub{link: link}
 	ownership := &deleteOwnershipStub{err: resumequeries.ErrResumeNotFound}
 
-	err = NewDeleteResumeLinkHandler(repo, ownership, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: uservalueobjects.NewID(), LinkID: link.ID()})
+	err = NewDeleteResumeLinkHandler(repo, ownership, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: sharedvalueobjects.NewID(), LinkID: link.ID()})
 	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
 	require.True(t, repo.deleted.IsZero())
 }
 
 func TestDeleteResumeLinkHandlerPropagatesMissingLink(t *testing.T) {
 	repo := &deleteRepositoryStub{getErr: domain.ErrEntityNotFound}
-	err := NewDeleteResumeLinkHandler(repo, &deleteOwnershipStub{}, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: uservalueobjects.NewID(), LinkID: valueobjects.NewID()})
+	err := NewDeleteResumeLinkHandler(repo, &deleteOwnershipStub{}, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID()})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 }

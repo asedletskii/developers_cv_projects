@@ -5,18 +5,18 @@ package persistence_test
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"path/filepath"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/platform/database"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
@@ -50,9 +50,9 @@ func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
 	insertProfile(t, ctx, dsn, secondID, "Second", "User", "Backend", "Москва")
 
 	getProfileReader := readers.NewGetProfileReader(gormDB)
-	firstIdentity, err := valueobjects.IDFromUUID(firstID)
+	firstIdentity, err := sharedvalueobjects.IDFromUUID(firstID)
 	require.NoError(t, err)
-	secondIdentity, err := valueobjects.IDFromUUID(secondID)
+	secondIdentity, err := sharedvalueobjects.IDFromUUID(secondID)
 	require.NoError(t, err)
 
 	firstProfile, err := getProfileReader.GetProfile(ctx, queries.GetProfileQuery{UserID: firstIdentity})
@@ -91,7 +91,7 @@ func TestPostgresGetProfileReaderReturnsNotFoundForMissingProfile(t *testing.T) 
 
 	userID := uuid.New()
 	insertUser(t, ctx, dsn, userID)
-	identity, err := valueobjects.IDFromUUID(userID)
+	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
 	_, err = readers.NewGetProfileReader(gormDB).GetProfile(ctx, queries.GetProfileQuery{UserID: identity})
@@ -106,12 +106,31 @@ func applyProfileMigrations(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	for _, migration := range []string{"000001_users.up.sql", "000002_user_profiles.up.sql", "000011_user_profile_localizations.up.sql"} {
+	for _, migration := range []string{"000001_users.up.sql", "000002_user_profiles.up.sql"} {
 		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", migration))
 		require.NoError(t, err)
 		_, err = conn.Exec(ctx, string(content))
 		require.NoError(t, err)
 	}
+
+	_, err = conn.Exec(ctx, `
+		ALTER TABLE user_profiles DROP CONSTRAINT IF EXISTS user_profiles_photo_path_check;
+		UPDATE user_profiles
+		SET photo_path = CASE photo_path
+			WHEN '/profiles/anton.svg' THEN 'https://example.com/profiles/anton.svg'
+			WHEN '/profiles/dmitry.svg' THEN 'https://example.com/profiles/dmitry.svg'
+			ELSE photo_path
+		END;
+		ALTER TABLE user_profiles
+		ADD CONSTRAINT user_profiles_photo_path_check
+		CHECK (photo_path IS NULL OR photo_path ~ '^https?://[^/?#[:space:]]+([/?#].*)?$');
+	`)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", "000011_user_profile_localizations.up.sql"))
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, string(content))
+	require.NoError(t, err)
 }
 
 func insertUser(t *testing.T, ctx context.Context, dsn string, id uuid.UUID) {
@@ -168,13 +187,14 @@ func TestPostgresGetProfileReaderReturnsSeededDemoProfiles(t *testing.T) {
 	require.Equal(t, "Антон", *profile.RU.Name)
 	require.Equal(t, "Профиль", *profile.RU.Surname)
 	require.Equal(t, "Profile Owner", *profile.RU.Position)
+	require.Equal(t, "https://example.com/profiles/anton.svg", *profile.PhotoPath)
 }
 
-func mustUserID(t *testing.T, value string) valueobjects.ID {
+func mustUserID(t *testing.T, value string) sharedvalueobjects.ID {
 	t.Helper()
 	id, err := uuid.Parse(value)
 	require.NoError(t, err)
-	identity, err := valueobjects.IDFromUUID(id)
+	identity, err := sharedvalueobjects.IDFromUUID(id)
 	require.NoError(t, err)
 	return identity
 }

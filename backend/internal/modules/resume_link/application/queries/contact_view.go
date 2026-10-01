@@ -2,21 +2,21 @@ package queries
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactViewThroughLinkQuery struct {
-	LinkID  valueobjects.ID
-	Contact enums.ContactKey
+	LinkID  sharedvalueobjects.ID
+	Contact resumedomain.ContactKey
 }
 
 type ResumeContactViewQuery interface {
@@ -43,20 +43,23 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(ctx context.Context, query C
 
 	link, err := h.links.GetByID(ctx, PublicResumeLinkQuery{LinkID: query.LinkID})
 	if err != nil {
+		if errors.Is(err, domain.ErrEntityNotFound) {
+			return resumequeries.ContactView{}, ErrResumeLinkNotFound
+		}
 		return resumequeries.ContactView{}, err
 	}
-	if link.Status == domain.ResumeLinkStatusInactive {
+	if domain.ResumeLinkStatus(link.Status) == domain.ResumeLinkStatusInactive {
 		return resumequeries.ContactView{}, domain.ErrResumeLinkInactive
 	}
-	if link.Status != domain.ResumeLinkStatusActive {
-		return resumequeries.ContactView{}, domain.ErrEntityNotFound
+	if domain.ResumeLinkStatus(link.Status) != domain.ResumeLinkStatusActive {
+		return resumequeries.ContactView{}, ErrResumeLinkNotFound
 	}
 
 	resumeUUID, err := uuid.Parse(link.ResumeID)
 	if err != nil {
 		return resumequeries.ContactView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
-	resumeID, err := resumevalueobjects.IDFromUUID(resumeUUID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
 		return resumequeries.ContactView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
