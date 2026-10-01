@@ -31,16 +31,11 @@ type SpokenLanguage string
 const (
 	SpokenLanguageRU SpokenLanguage = "ru"
 	SpokenLanguageEN SpokenLanguage = "en"
-	SpokenLanguageFR SpokenLanguage = "fr"
-	SpokenLanguageDE SpokenLanguage = "de"
-	SpokenLanguageKZ SpokenLanguage = "kz"
-	SpokenLanguageZH SpokenLanguage = "zh"
-	SpokenLanguageES SpokenLanguage = "es"
 )
 
 func (v SpokenLanguage) IsValid() bool {
 	switch v {
-	case SpokenLanguageRU, SpokenLanguageEN, SpokenLanguageFR, SpokenLanguageDE, SpokenLanguageKZ, SpokenLanguageZH, SpokenLanguageES:
+	case SpokenLanguageRU, SpokenLanguageEN:
 		return true
 	default:
 		return false

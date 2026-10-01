@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -35,15 +34,7 @@ func (r skillsRequest) input() (commands.SkillsInput, error) {
 		}
 		id = parsed
 	}
-	hard := make([]domain.HardSkill, len(r.HardSkills))
-	for i, value := range r.HardSkills {
-		hard[i] = domain.HardSkill(value)
-	}
-	soft := make([]domain.SoftSkill, len(r.SoftSkills))
-	for i, value := range r.SoftSkills {
-		soft[i] = domain.SoftSkill(value)
-	}
-	return commands.SkillsInput{ID: id, Hard: hard, Soft: soft}, nil
+	return commands.SkillsInput{ID: id, Hard: append([]string(nil), r.HardSkills...), Soft: append([]string(nil), r.SoftSkills...)}, nil
 }
 
 func (h *Handler) Replace(c *gin.Context) {

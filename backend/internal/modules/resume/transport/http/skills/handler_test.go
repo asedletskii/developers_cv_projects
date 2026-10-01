@@ -55,6 +55,6 @@ func TestReplaceSkillsBindsFullSnapshot(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, w.Code)
 	require.NotNil(t, resume.Skills())
-	require.Equal(t, []domain.HardSkill{domain.HardSkillTesting}, resume.Skills().HardSkills())
-	require.Equal(t, []domain.SoftSkill{domain.SoftSkillTeamwork}, resume.Skills().SoftSkills())
+	require.Equal(t, []string{"testing"}, resume.Skills().HardSkills())
+	require.Equal(t, []string{"teamwork"}, resume.Skills().SoftSkills())
 }

@@ -11,15 +11,15 @@ import (
 
 type SkillsInput struct {
 	ID   sharedvalueobjects.ID
-	Hard []domain.HardSkill
-	Soft []domain.SoftSkill
+	Hard []string
+	Soft []string
 }
 
 func (i SkillsInput) toDomain(resumeID sharedvalueobjects.ID) domain.SkillsParams {
 	return domain.SkillsParams{
 		ID: i.ID, ResumeID: resumeID,
-		Hard: append([]domain.HardSkill(nil), i.Hard...),
-		Soft: append([]domain.SoftSkill(nil), i.Soft...),
+		Hard: append([]string(nil), i.Hard...),
+		Soft: append([]string(nil), i.Soft...),
 	}
 }
 

@@ -18,13 +18,13 @@ func SkillsToDomain(
 	if err != nil {
 		return nil, err
 	}
-	hard := make([]domain.HardSkill, len(hardRows))
+	hard := make([]string, len(hardRows))
 	for i, row := range hardRows {
-		hard[i] = domain.HardSkill(row.Value)
+		hard[i] = row.Value
 	}
-	soft := make([]domain.SoftSkill, len(softRows))
+	soft := make([]string, len(softRows))
 	for i, row := range softRows {
-		soft[i] = domain.SoftSkill(row.Value)
+		soft[i] = row.Value
 	}
 	return domain.NewSkills(domain.SkillsParams{ID: id, ResumeID: resumeID, Hard: hard, Soft: soft})
 }
@@ -38,11 +38,11 @@ func SkillsToDBModels(
 	m := gormmodel.ResumeSkills{ID: skills.ID().UUID(), ResumeID: skills.ResumeID().UUID()}
 	hard := make([]gormmodel.ResumeSkillHard, 0, len(skills.HardSkills()))
 	for i, value := range skills.HardSkills() {
-		hard = append(hard, gormmodel.ResumeSkillHard{SkillsID: m.ID, Value: string(value), Position: i})
+		hard = append(hard, gormmodel.ResumeSkillHard{SkillsID: m.ID, Value: value, Position: i})
 	}
 	soft := make([]gormmodel.ResumeSkillSoft, 0, len(skills.SoftSkills()))
 	for i, value := range skills.SoftSkills() {
-		soft = append(soft, gormmodel.ResumeSkillSoft{SkillsID: m.ID, Value: string(value), Position: i})
+		soft = append(soft, gormmodel.ResumeSkillSoft{SkillsID: m.ID, Value: value, Position: i})
 	}
 	return m, hard, soft, nil
 }

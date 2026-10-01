@@ -21,8 +21,6 @@ func TestResumeEnumValidationContracts(t *testing.T) {
 		{"education level", func() bool { return EducationLevelMaster.IsValid() }, func() bool { return EducationLevel(99).IsValid() }},
 		{"contact key", func() bool { return ContactKeyEmail.IsValid() }, func() bool { return ContactKey("invalid").IsValid() }},
 		{"activity type", func() bool { return ActivityTypeOpenSource.IsValid() }, func() bool { return ActivityType("invalid").IsValid() }},
-		{"hard skill", func() bool { return HardSkillAPI.IsValid() }, func() bool { return HardSkill("invalid").IsValid() }},
-		{"soft skill", func() bool { return SoftSkillOwnership.IsValid() }, func() bool { return SoftSkill("invalid").IsValid() }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

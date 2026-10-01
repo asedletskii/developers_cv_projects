@@ -9,11 +9,12 @@ import (
 	"strings"
 	"testing"
 
+	"path/filepath"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"path/filepath"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -151,8 +152,8 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 		return resumeRepo.Create(tx, resume)
 	}))
 
-	hard := []domain.HardSkill{domain.HardSkillArchitecture, domain.HardSkillTesting}
-	soft := []domain.SoftSkill{domain.SoftSkillCommunication, domain.SoftSkillTeamwork}
+	hard := []string{"architecture", "testing"}
+	soft := []string{"communication", "teamwork"}
 	require.NoError(t, resume.ReplaceSkills(domain.SkillsParams{Hard: hard, Soft: soft}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Save(tx, resume)
@@ -170,7 +171,7 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 
 	require.NoError(t, loadedResume.ReplaceLanguages(domain.ResumeLanguagesParams{Entries: []domain.ResumeLanguageEntryParams{
 		{Language: domain.SpokenLanguageEN, Grade: languageGradePtr(domain.LanguageGradeB2), Position: 0},
-		{Language: domain.SpokenLanguageFR, Position: 1},
+		{Language: domain.SpokenLanguageRU, Position: 1},
 	}}))
 	firstLanguageID := loadedResume.Languages().Entries()[0].ID()
 	secondLanguageID := loadedResume.Languages().Entries()[1].ID()
@@ -184,7 +185,7 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 	require.Equal(t, secondLanguageID, loadedResume.Languages().Entries()[1].ID())
 
 	require.NoError(t, loadedResume.ReplaceLanguages(domain.ResumeLanguagesParams{Entries: []domain.ResumeLanguageEntryParams{
-		{ID: secondLanguageID, Language: domain.SpokenLanguageDE, Position: 0},
+		{ID: secondLanguageID, Language: domain.SpokenLanguageRU, Position: 0},
 		{ID: firstLanguageID, Language: domain.SpokenLanguageEN, Grade: languageGradePtr(domain.LanguageGradeC1), Position: 1},
 	}}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
@@ -192,6 +193,6 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 	}))
 	loadedResume, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: owner})
 	require.NoError(t, err)
-	require.Equal(t, []domain.SpokenLanguage{domain.SpokenLanguageDE, domain.SpokenLanguageEN}, []domain.SpokenLanguage{loadedResume.Languages().Entries()[0].Language(), loadedResume.Languages().Entries()[1].Language()})
+	require.Equal(t, []domain.SpokenLanguage{domain.SpokenLanguageRU, domain.SpokenLanguageEN}, []domain.SpokenLanguage{loadedResume.Languages().Entries()[0].Language(), loadedResume.Languages().Entries()[1].Language()})
 
 }

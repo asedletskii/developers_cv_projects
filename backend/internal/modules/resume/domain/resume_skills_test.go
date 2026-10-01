@@ -8,9 +8,9 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func TestSkillsKeepsHardAndSoftSkillTypesSeparate(t *testing.T) {
-	hard := []HardSkill{HardSkillArchitecture, HardSkillTesting}
-	soft := []SoftSkill{SoftSkillCommunication, SoftSkillTeamwork}
+func TestSkillsAcceptsArbitraryHardAndSoftSkillValues(t *testing.T) {
+	hard := []string{"architecture", "testing"}
+	soft := []string{"communication", "teamwork"}
 
 	skills, err := NewSkills(SkillsParams{
 		ID:       sharedvalueobjects.NewID(),
@@ -27,14 +27,14 @@ func TestSkillsRejectsDuplicatesWithinEachCategory(t *testing.T) {
 	_, err := NewSkills(SkillsParams{
 		ID:       sharedvalueobjects.NewID(),
 		ResumeID: sharedvalueobjects.NewID(),
-		Hard:     []HardSkill{HardSkillTesting, HardSkillTesting},
+		Hard:     []string{"testing", "testing"},
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
 
 	_, err = NewSkills(SkillsParams{
 		ID:       sharedvalueobjects.NewID(),
 		ResumeID: sharedvalueobjects.NewID(),
-		Soft:     []SoftSkill{SoftSkillTeamwork, SoftSkillTeamwork},
+		Soft:     []string{"teamwork", "teamwork"},
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
 }
@@ -42,39 +42,40 @@ func TestSkillsRejectsDuplicatesWithinEachCategory(t *testing.T) {
 func TestResumeReplaceSkillsCreatesAndReplaces(t *testing.T) {
 	resume := newTestResume(t)
 	require.NoError(t, resume.ReplaceSkills(SkillsParams{
-		Hard: []HardSkill{HardSkillTesting},
-		Soft: []SoftSkill{SoftSkillTeamwork},
+		Hard: []string{"testing"},
+		Soft: []string{"teamwork"},
 	}))
 	firstID := resume.Skills().ID()
 	require.False(t, firstID.IsZero())
 	require.Equal(t, resume.ID(), resume.Skills().ResumeID())
 
 	require.NoError(t, resume.ReplaceSkills(SkillsParams{
-		Hard: []HardSkill{HardSkillArchitecture},
-		Soft: []SoftSkill{SoftSkillCommunication},
+		Hard: []string{"architecture"},
+		Soft: []string{"communication"},
 	}))
 	require.Equal(t, firstID, resume.Skills().ID())
-	require.Equal(t, []HardSkill{HardSkillArchitecture}, resume.Skills().HardSkills())
-	require.Equal(t, []SoftSkill{SoftSkillCommunication}, resume.Skills().SoftSkills())
+	require.Equal(t, []string{"architecture"}, resume.Skills().HardSkills())
+	require.Equal(t, []string{"communication"}, resume.Skills().SoftSkills())
 }
 
 func TestResumeReplaceSkillsRejectsUnknownID(t *testing.T) {
 	resume := newTestResume(t)
-	require.NoError(t, resume.ReplaceSkills(SkillsParams{Hard: []HardSkill{HardSkillTesting}}))
-	err := resume.ReplaceSkills(SkillsParams{ID: sharedvalueobjects.NewID(), Hard: []HardSkill{HardSkillArchitecture}})
+	require.NoError(t, resume.ReplaceSkills(SkillsParams{Hard: []string{"testing"}}))
+	err := resume.ReplaceSkills(SkillsParams{ID: sharedvalueobjects.NewID(), Hard: []string{"architecture"}})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 }
 
-func TestResumeReplaceSkillsRejectsInvalidReplacement(t *testing.T) {
+func TestResumeReplaceSkillsAcceptsArbitraryReplacement(t *testing.T) {
 	resume := newTestResume(t)
-	err := resume.ReplaceSkills(SkillsParams{Hard: []HardSkill{HardSkill("invalid")}})
-	require.ErrorIs(t, err, ErrInvalidEntity)
+	err := resume.ReplaceSkills(SkillsParams{Hard: []string{"Rust 2026", "Kubernetes", "whatever frontend sends"}})
+	require.NoError(t, err)
+	require.Equal(t, []string{"Rust 2026", "Kubernetes", "whatever frontend sends"}, resume.Skills().HardSkills())
 }
 
 func TestResumeReplaceSkillsPreservesExplicitExistingID(t *testing.T) {
 	resume := newTestResume(t)
-	require.NoError(t, resume.ReplaceSkills(SkillsParams{Hard: []HardSkill{HardSkillTesting}}))
+	require.NoError(t, resume.ReplaceSkills(SkillsParams{Hard: []string{"testing"}}))
 	id := resume.Skills().ID()
-	require.NoError(t, resume.ReplaceSkills(SkillsParams{ID: id, Hard: []HardSkill{HardSkillArchitecture}}))
+	require.NoError(t, resume.ReplaceSkills(SkillsParams{ID: id, Hard: []string{"architecture"}}))
 	require.Equal(t, id, resume.Skills().ID())
 }

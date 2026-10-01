@@ -46,12 +46,12 @@ func TestReplaceLanguagesBindsFullSnapshot(t *testing.T) {
 	engine.Use(func(c *gin.Context) { c.Set("user_id", uid.UUID()); c.Next() })
 	engine.PUT("/resume/:resumeId/languages", handler.Replace)
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/resume/"+resume.ID().String()+"/languages", strings.NewReader(`{"version":1,"items":[{"language":"en","grade":"C1","position":0},{"language":"fr","position":1}]}`))
+	req := httptest.NewRequest(http.MethodPut, "/resume/"+resume.ID().String()+"/languages", strings.NewReader(`{"version":1,"items":[{"language":"en","grade":"C1","position":0},{"language":"ru","position":1}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusNoContent, w.Code)
 	require.Len(t, resume.Languages().Entries(), 2)
 	require.Equal(t, domain.SpokenLanguageEN, resume.Languages().Entries()[0].Language())
-	require.Equal(t, domain.SpokenLanguageFR, resume.Languages().Entries()[1].Language())
+	require.Equal(t, domain.SpokenLanguageRU, resume.Languages().Entries()[1].Language())
 }

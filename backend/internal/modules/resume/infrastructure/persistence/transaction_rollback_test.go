@@ -76,8 +76,8 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 			return err
 		}
 		if err := resume.ReplaceSkills(domain.SkillsParams{
-			Hard: []domain.HardSkill{domain.HardSkillArchitecture, domain.HardSkillTesting},
-			Soft: []domain.SoftSkill{domain.SoftSkillCommunication},
+			Hard: []string{"architecture", "testing"},
+			Soft: []string{"communication"},
 		}); err != nil {
 			return err
 		}

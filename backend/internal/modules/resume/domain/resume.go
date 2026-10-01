@@ -29,16 +29,11 @@ type ResumeLanguage string
 const (
 	ResumeLanguageRU ResumeLanguage = "ru"
 	ResumeLanguageEN ResumeLanguage = "en"
-	ResumeLanguageFR ResumeLanguage = "fr"
-	ResumeLanguageDE ResumeLanguage = "de"
-	ResumeLanguageKZ ResumeLanguage = "kz"
-	ResumeLanguageZH ResumeLanguage = "zh"
-	ResumeLanguageES ResumeLanguage = "es"
 )
 
 func (v ResumeLanguage) IsValid() bool {
 	switch v {
-	case ResumeLanguageRU, ResumeLanguageEN, ResumeLanguageFR, ResumeLanguageDE, ResumeLanguageKZ, ResumeLanguageZH, ResumeLanguageES:
+	case ResumeLanguageRU, ResumeLanguageEN:
 		return true
 	default:
 		return false

@@ -7,85 +7,40 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type SoftSkill string
-
-const (
-	SoftSkillCommunication  SoftSkill = "communication"
-	SoftSkillTeamwork       SoftSkill = "teamwork"
-	SoftSkillProblemSolving SoftSkill = "problemSolving"
-	SoftSkillTimeManagement SoftSkill = "timeManagement"
-	SoftSkillMentoring      SoftSkill = "mentoring"
-	SoftSkillAdaptability   SoftSkill = "adaptability"
-	SoftSkillOwnership      SoftSkill = "ownership"
-)
-
-func (v SoftSkill) IsValid() bool {
-	switch v {
-	case SoftSkillCommunication, SoftSkillTeamwork, SoftSkillProblemSolving, SoftSkillTimeManagement,
-		SoftSkillMentoring, SoftSkillAdaptability, SoftSkillOwnership:
-		return true
-	default:
-		return false
-	}
-}
-
-type HardSkill string
-
-const (
-	HardSkillArchitecture  HardSkill = "architecture"
-	HardSkillTesting       HardSkill = "testing"
-	HardSkillCICD          HardSkill = "cicd"
-	HardSkillPerformance   HardSkill = "performance"
-	HardSkillAccessibility HardSkill = "accessibility"
-	HardSkillCodeReview    HardSkill = "codeReview"
-	HardSkillUIDesign      HardSkill = "uiDesign"
-	HardSkillAPI           HardSkill = "api"
-)
-
-func (v HardSkill) IsValid() bool {
-	switch v {
-	case HardSkillArchitecture, HardSkillTesting, HardSkillCICD, HardSkillPerformance,
-		HardSkillAccessibility, HardSkillCodeReview, HardSkillUIDesign, HardSkillAPI:
-		return true
-	default:
-		return false
-	}
-}
-
 type Skills struct {
 	id, resumeID sharedvalueobjects.ID
-	hard         []HardSkill
-	soft         []SoftSkill
+	hard         []string
+	soft         []string
 }
 type SkillsParams struct {
 	ID, ResumeID sharedvalueobjects.ID
-	Hard         []HardSkill
-	Soft         []SoftSkill
+	Hard         []string
+	Soft         []string
 }
 
 func NewSkills(p SkillsParams) (*Skills, error) {
 	if p.ID.IsZero() || p.ResumeID.IsZero() {
 		return nil, fmt.Errorf("%w: skills ids are required", ErrInvalidEntity)
 	}
-	h := make([]HardSkill, 0, len(p.Hard))
+	h := make([]string, 0, len(p.Hard))
 	seen := map[string]bool{}
 	for _, v := range p.Hard {
-		s := strings.TrimSpace(string(v))
-		if s == "" || !HardSkill(s).IsValid() || seen[s] {
+		s := strings.TrimSpace(v)
+		if s == "" || seen[s] {
 			return nil, fmt.Errorf("%w: invalid or duplicate hard skill", ErrInvalidEntity)
 		}
 		seen[s] = true
-		h = append(h, HardSkill(s))
+		h = append(h, s)
 	}
-	sft := make([]SoftSkill, 0, len(p.Soft))
+	sft := make([]string, 0, len(p.Soft))
 	seen = map[string]bool{}
 	for _, v := range p.Soft {
-		s := strings.TrimSpace(string(v))
-		if s == "" || !SoftSkill(s).IsValid() || seen[s] {
+		s := strings.TrimSpace(v)
+		if s == "" || seen[s] {
 			return nil, fmt.Errorf("%w: invalid or duplicate soft skill", ErrInvalidEntity)
 		}
 		seen[s] = true
-		sft = append(sft, SoftSkill(s))
+		sft = append(sft, s)
 	}
 	return &Skills{id: p.ID, resumeID: p.ResumeID, hard: h, soft: sft}, nil
 }
@@ -101,8 +56,8 @@ func (s *Skills) Replace(params SkillsParams) error {
 
 func (s *Skills) ID() sharedvalueobjects.ID       { return s.id }
 func (s *Skills) ResumeID() sharedvalueobjects.ID { return s.resumeID }
-func (s *Skills) HardSkills() []HardSkill         { return append([]HardSkill(nil), s.hard...) }
-func (s *Skills) SoftSkills() []SoftSkill         { return append([]SoftSkill(nil), s.soft...) }
+func (s *Skills) HardSkills() []string            { return append([]string(nil), s.hard...) }
+func (s *Skills) SoftSkills() []string            { return append([]string(nil), s.soft...) }
 
 func (r *Resume) ReplaceSkills(params SkillsParams) error {
 	if r == nil {
