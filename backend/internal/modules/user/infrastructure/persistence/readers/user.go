@@ -10,8 +10,8 @@ import (
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/gormmodel"
+	"developers-cv/backend/internal/modules/user/infrastructure/persistence/mappers"
 	"developers-cv/backend/internal/platform/database"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type UserReader struct {
@@ -27,29 +27,17 @@ func (r *UserReader) GetUser(ctx context.Context, query queries.GetUserQuery) (*
 		return nil, fmt.Errorf("get user: reader dependencies are nil")
 	}
 	if query.ID.IsZero() {
-		return nil, fmt.Errorf("get user: %w", domain.ErrInvalidUser)
+		return nil, fmt.Errorf("get user: invalid user id")
 	}
 
 	var model gormmodel.User
 	db := database.DBFromContext(ctx, r.db)
 	if err := db.WithContext(ctx).First(&model, "id = ?", query.ID.UUID()).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrEntityNotFound
+			return nil, queries.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	return fromModel(model)
-}
-
-func fromModel(model gormmodel.User) (*domain.User, error) {
-	id, err := sharedvalueobjects.IDFromUUID(model.ID)
-	if err != nil {
-		return nil, fmt.Errorf("map user id: %w", err)
-	}
-	return domain.NewUser(domain.UserParams{
-		ID:        id,
-		CreatedAt: model.CreatedAt,
-		UpdatedAt: model.UpdatedAt,
-	})
+	return mappers.UserToDomain(model)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"developers-cv/backend/internal/modules/user/application/ports"
 	"developers-cv/backend/internal/modules/user/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -23,16 +24,12 @@ type ReplaceProfileCommand struct {
 	PhotoPath *string
 }
 
-type ProfileRepository interface {
-	ReplaceProfile(ctx context.Context, profile *domain.Profile) error
-}
-
 type ReplaceProfileHandler struct {
-	repository ProfileRepository
-	uow        UnitOfWork
+	repository ports.ProfileRepository
+	uow        ports.UnitOfWork
 }
 
-func NewReplaceProfileHandler(repository ProfileRepository, uow UnitOfWork) *ReplaceProfileHandler {
+func NewReplaceProfileHandler(repository ports.ProfileRepository, uow ports.UnitOfWork) *ReplaceProfileHandler {
 	return &ReplaceProfileHandler{repository: repository, uow: uow}
 }
 
@@ -40,11 +37,15 @@ func (h *ReplaceProfileHandler) Handle(ctx context.Context, c ReplaceProfileComm
 	if h == nil || h.repository == nil || h.uow == nil {
 		return fmt.Errorf("replace user profile handler dependencies are nil")
 	}
-	if c.UserID.IsZero() {
-		return fmt.Errorf("invalid replace user profile command")
+	ru, err := toDomain(c.RU)
+	if err != nil {
+		return err
 	}
-
-	profile, err := domain.NewProfile(c.UserID, toDomain(c.RU), toDomain(c.EN), c.PhotoPath)
+	en, err := toDomain(c.EN)
+	if err != nil {
+		return err
+	}
+	profile, err := domain.NewProfile(c.UserID, ru, en, c.PhotoPath)
 	if err != nil {
 		return err
 	}
@@ -53,10 +54,6 @@ func (h *ReplaceProfileHandler) Handle(ctx context.Context, c ReplaceProfileComm
 	})
 }
 
-func toDomain(input LocalizedProfileInput) domain.LocalizedProfile {
-	return domain.LocalizedProfile{Name: input.Name, Surname: input.Surname, Patronymic: input.Patronymic, Position: input.Position, Location: input.Location}
-}
-
-type UnitOfWork interface {
-	Do(ctx context.Context, fn func(context.Context) error) error
+func toDomain(input LocalizedProfileInput) (domain.LocalizedProfile, error) {
+	return domain.NewLocalizedProfile(input.Name, input.Surname, input.Patronymic, input.Position, input.Location)
 }

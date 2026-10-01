@@ -4,19 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"developers-cv/backend/internal/modules/user/application/ports"
 	"developers-cv/backend/internal/modules/user/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type UserRepository interface {
-	Create(ctx context.Context, user *domain.User) error
-}
-
 type CreateUserHandler struct {
-	repository UserRepository
+	repository ports.UserRepository
 }
 
-func NewCreateUserHandler(repository UserRepository) *CreateUserHandler {
+func NewCreateUserHandler(repository ports.UserRepository) *CreateUserHandler {
 	return &CreateUserHandler{repository: repository}
 }
 

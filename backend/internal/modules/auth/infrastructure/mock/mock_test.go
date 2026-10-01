@@ -25,7 +25,7 @@ func (r *fakeUserReader) GetUser(_ context.Context, query queries.GetUserQuery) 
 	}
 	user, ok := r.users[query.ID.UUID()]
 	if !ok {
-		return nil, domain.ErrEntityNotFound
+		return nil, queries.ErrUserNotFound
 	}
 	return user, nil
 }

@@ -67,6 +67,27 @@ func TestPostgresUserReaderGetUser(t *testing.T) {
 	require.Equal(t, createdAt, user.UpdatedAt())
 }
 
+func TestPostgresUserReaderReturnsNotFound(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, container.Terminate(ctx)) })
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyUsersMigration(t, ctx, dsn)
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+
+	identity := sharedvalueobjects.NewID()
+	_, err = readers.NewUserReader(gormDB).GetUser(ctx, queries.GetUserQuery{ID: identity})
+	require.ErrorIs(t, err, queries.ErrUserNotFound)
+}
+
 func applyUsersMigration(t *testing.T, ctx context.Context, dsn string) {
 	t.Helper()
 

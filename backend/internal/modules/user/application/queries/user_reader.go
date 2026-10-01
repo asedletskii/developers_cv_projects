@@ -12,5 +12,5 @@ type GetUserQuery struct {
 }
 
 type UserReader interface {
-	GetUser(ctx context.Context, query GetUserQuery) (*domain.User, error)
+	GetUser(context.Context, GetUserQuery) (*domain.User, error)
 }

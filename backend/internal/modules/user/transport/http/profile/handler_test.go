@@ -14,6 +14,7 @@ import (
 
 	"developers-cv/backend/internal/modules/user/application/commands"
 	"developers-cv/backend/internal/modules/user/application/queries"
+	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -31,14 +32,18 @@ func (s *stubReplaceProfileHandler) Handle(_ context.Context, command commands.R
 }
 
 type stubGetProfileReader struct {
-	profile queries.Profile
+	profile queries.ProfileView
 	err     error
 	userID  sharedvalueobjects.ID
 }
 
-func (r *stubGetProfileReader) GetProfile(_ context.Context, query queries.GetProfileQuery) (queries.Profile, error) {
+func (r *stubGetProfileReader) GetProfile(_ context.Context, query queries.GetProfileQuery) (queries.ProfileView, error) {
 	r.userID = query.UserID
 	return r.profile, r.err
+}
+
+func newHandler(query *queries.GetProfileHandler, replace profileReplacer) *Handler {
+	return NewHandler(query, replace)
 }
 
 func newTestEngine(userID uuid.UUID, authErr error, handler *Handler) *gin.Engine {
@@ -59,10 +64,10 @@ func TestGetReturnsAuthenticatedUserProfile(t *testing.T) {
 	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
-	reader := &stubGetProfileReader{profile: queries.Profile{
-		ID: userID.String(), RU: queries.LocalizedProfile{Name: stringPtr("Антон"), Surname: stringPtr("Седлецкий"), Patronymic: stringPtr("Александрович"), Position: stringPtr("Frontend"), Location: stringPtr("Новосибирск")}, PhotoPath: stringPtr("/mock/avatar.svg"),
+	reader := &stubGetProfileReader{profile: queries.ProfileView{
+		ID: userID.String(), RU: queries.LocalizedProfileView{Name: stringPtr("Антон"), Surname: stringPtr("Седлецкий"), Patronymic: stringPtr("Александрович"), Position: stringPtr("Frontend"), Location: stringPtr("Новосибирск")}, PhotoPath: stringPtr("https://example.com/mock/avatar.svg"),
 	}}
-	engine := newTestEngine(userID, nil, NewHandler(queries.NewGetProfileHandler(reader), nil))
+	engine := newTestEngine(userID, nil, newHandler(queries.NewGetProfileHandler(reader), nil))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
 	w := httptest.NewRecorder()
@@ -78,7 +83,7 @@ func TestGetReturnsAuthenticatedUserProfile(t *testing.T) {
 
 func TestGetRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := newTestEngine(uuid.Nil, middleware.ErrUnauthenticated, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), nil))
+	engine := newTestEngine(uuid.Nil, middleware.ErrUnauthenticated, newHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), nil))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
 	w := httptest.NewRecorder()
@@ -90,7 +95,7 @@ func TestGetRequiresAuthentication(t *testing.T) {
 
 func TestGetReturnsNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := newTestEngine(uuid.New(), nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{err: queries.ErrProfileNotFound}), nil))
+	engine := newTestEngine(uuid.New(), nil, newHandler(queries.NewGetProfileHandler(&stubGetProfileReader{err: queries.ErrProfileNotFound}), nil))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile", nil)
 	w := httptest.NewRecorder()
@@ -103,8 +108,8 @@ func TestGetReturnsNotFound(t *testing.T) {
 func TestGetIgnoresUserIDQueryParameter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
-	reader := &stubGetProfileReader{profile: queries.Profile{ID: userID.String(), RU: queries.LocalizedProfile{Name: stringPtr("Anton"), Surname: stringPtr("User")}}}
-	engine := newTestEngine(userID, nil, NewHandler(queries.NewGetProfileHandler(reader), nil))
+	reader := &stubGetProfileReader{profile: queries.ProfileView{ID: userID.String(), RU: queries.LocalizedProfileView{Name: stringPtr("Anton"), Surname: stringPtr("User")}}}
+	engine := newTestEngine(userID, nil, newHandler(queries.NewGetProfileHandler(reader), nil))
 
 	foreignID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/profile?userId="+foreignID.String(), nil)
@@ -121,7 +126,7 @@ func TestReplaceReturnsNoContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
 	replace := &stubReplaceProfileHandler{}
-	engine := newTestEngineWithProfile(userID, nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
+	engine := newTestEngineWithProfile(userID, nil, newHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
 	body := []byte(`{"ru":{"name":"Дмитрий","surname":"Костерин","patronymic":"Александрович","position":"Backend Developer","location":"Томск"},"en":{"name":"Dmitry","surname":"Kosterin","patronymic":"Alexandrovich","position":"Backend Developer","location":"Tomsk"},"photoPath":"https://example.com/profiles/dmitry.svg"}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/profile", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -149,12 +154,12 @@ func newTestEngineWithProfile(userID uuid.UUID, authErr error, handler *Handler,
 	return engine
 }
 
-func TestReplaceRejectsEmptyNameBeforeCommand(t *testing.T) {
+func TestReplaceMapsDomainValidationError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
-	replace := &stubReplaceProfileHandler{}
-	engine := newTestEngineWithProfile(userID, nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
-	body := []byte(`{"ru":{"name":"   ","surname":"Костерин"}}`)
+	replace := &stubReplaceProfileHandler{err: domain.ErrInvalidProfile}
+	engine := newTestEngineWithProfile(userID, nil, newHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
+	body := []byte(`{"ru":{"name":"Дмитрий","surname":"Костерин"}}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/profile", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -162,37 +167,21 @@ func TestReplaceRejectsEmptyNameBeforeCommand(t *testing.T) {
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
 	require.Contains(t, w.Body.String(), "BAD_REQUEST")
-	require.False(t, replace.called)
+	require.True(t, replace.called)
 }
 
-func TestReplaceRejectsEmptySurnameBeforeCommand(t *testing.T) {
+func TestReplacePassesPhotoURLToCommand(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
 	replace := &stubReplaceProfileHandler{}
-	engine := newTestEngineWithProfile(userID, nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
-	body := []byte(`{"en":{"name":"Dmitry","surname":"\t"}}`)
+	engine := newTestEngineWithProfile(userID, nil, newHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
+	body := []byte(`{"ru":{"name":"Дмитрий","surname":"Костерин"},"photoPath":"https://example.com/profiles/dmitry.svg"}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/profile", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	require.Contains(t, w.Body.String(), "BAD_REQUEST")
-	require.False(t, replace.called)
-}
-
-func TestReplaceRejectsInvalidPhotoPathBeforeCommand(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	userID := uuid.New()
-	replace := &stubReplaceProfileHandler{}
-	engine := newTestEngineWithProfile(userID, nil, NewHandler(queries.NewGetProfileHandler(&stubGetProfileReader{}), replace), replace)
-	body := []byte(`{"ru":{"name":"Дмитрий","surname":"Костерин"},"photoPath":"/profiles/dmitry.svg"}`)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/profile", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	engine.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	require.Contains(t, w.Body.String(), "BAD_REQUEST")
-	require.False(t, replace.called)
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.True(t, replace.called)
+	require.Equal(t, "https://example.com/profiles/dmitry.svg", *replace.command.PhotoPath)
 }

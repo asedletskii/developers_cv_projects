@@ -144,7 +144,7 @@ func Initialize() (*Application, error) {
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	replaceUserProfileHandlerValue := usercommands.NewReplaceProfileHandler(profileRepositoryValue, unitOfWorkValue)
-	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue, replaceUserProfileHandlerValue)
+	userHandlerValue := userhttp.NewHandler(userhttp.HandlerDependencies{GetProfile: getProfileHandlerValue, ReplaceProfile: replaceUserProfileHandlerValue})
 	resumeHandlerDependencies := http.HandlerDependencies{
 		ListResumes:         listResumesHandlerValue,
 		CreateResume:        createResumeHandlerValue,

@@ -106,12 +106,31 @@ func applyProfileMigrations(t *testing.T, ctx context.Context, dsn string) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	for _, migration := range []string{"000001_users.up.sql", "000002_user_profiles.up.sql", "000011_user_profile_localizations.up.sql"} {
+	for _, migration := range []string{"000001_users.up.sql", "000002_user_profiles.up.sql"} {
 		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", migration))
 		require.NoError(t, err)
 		_, err = conn.Exec(ctx, string(content))
 		require.NoError(t, err)
 	}
+
+	_, err = conn.Exec(ctx, `
+		ALTER TABLE user_profiles DROP CONSTRAINT IF EXISTS user_profiles_photo_path_check;
+		UPDATE user_profiles
+		SET photo_path = CASE photo_path
+			WHEN '/profiles/anton.svg' THEN 'https://example.com/profiles/anton.svg'
+			WHEN '/profiles/dmitry.svg' THEN 'https://example.com/profiles/dmitry.svg'
+			ELSE photo_path
+		END;
+		ALTER TABLE user_profiles
+		ADD CONSTRAINT user_profiles_photo_path_check
+		CHECK (photo_path IS NULL OR photo_path ~ '^https?://[^/?#[:space:]]+([/?#].*)?$');
+	`)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "db", "migrations", "000011_user_profile_localizations.up.sql"))
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, string(content))
+	require.NoError(t, err)
 }
 
 func insertUser(t *testing.T, ctx context.Context, dsn string, id uuid.UUID) {
@@ -168,6 +187,7 @@ func TestPostgresGetProfileReaderReturnsSeededDemoProfiles(t *testing.T) {
 	require.Equal(t, "Антон", *profile.RU.Name)
 	require.Equal(t, "Профиль", *profile.RU.Surname)
 	require.Equal(t, "Profile Owner", *profile.RU.Position)
+	require.Equal(t, "https://example.com/profiles/anton.svg", *profile.PhotoPath)
 }
 
 func mustUserID(t *testing.T, value string) sharedvalueobjects.ID {
