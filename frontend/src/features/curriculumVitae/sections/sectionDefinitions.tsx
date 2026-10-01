@@ -35,14 +35,14 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
     isCollapsible: false,
     inNav: false,
     isFullWidth: true,
-    hasContent: (resume) => !!resume.technologies.length,
+    hasContent: (resume) => !!resume.technologies?.length,
     render: (resume) => <TechStackSlider technologies={resume.technologies} />,
   },
 
   [SectionId.Experience]: {
     isCollapsible: false,
     inNav: true,
-    hasContent: (resume) => !!resume.experiences.length,
+    hasContent: (resume) => !!resume.experiences?.length,
     render: (resume) => <ExperienceSection experience={resume.experiences} />,
   },
 
@@ -59,28 +59,28 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
   [SectionId.Education]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (resume) => !!resume.educations.length,
+    hasContent: (resume) => !!resume.educations?.length,
     render: (resume) => <EducationSection education={resume.educations} />,
   },
 
   [SectionId.Courses]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (resume) => !!resume.courses.length,
+    hasContent: (resume) => !!resume.courses?.length,
     render: (resume) => <CoursesSection courses={resume.courses} />,
   },
 
   [SectionId.Projects]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (resume) => !!resume.projects.length,
+    hasContent: (resume) => !!resume.projects?.length,
     render: (resume) => <ProjectsSection projects={resume.projects} />,
   },
 
   [SectionId.Activities]: {
     isCollapsible: true,
     inNav: true,
-    hasContent: (resume) => !!resume.activities.length,
+    hasContent: (resume) => !!resume.activities?.length,
     render: (resume) => <ActivitiesSection activities={resume.activities} />,
   },
 
@@ -89,9 +89,8 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
     inNav: true,
     hasContent: ({ contacts = EMPTY_CONTACTS }) =>
       !!(contacts.phone || contacts.telegram || contacts.email || contacts.hiddenContacts.length),
-    render: ({ id, contacts = EMPTY_CONTACTS }) => (
+    render: ({ contacts = EMPTY_CONTACTS }) => (
       <ContactsSection
-        resumeId={id}
         contacts={contacts}
         text={contacts.contactsText}
         hidden={contacts.hiddenContacts}
