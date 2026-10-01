@@ -1,3 +1,10 @@
+{
+  log {
+    output stdout
+    format json
+  }
+}
+
 {$FRONTEND_ADDRESS:80} {
 	root * /srv
 	encode zstd gzip
