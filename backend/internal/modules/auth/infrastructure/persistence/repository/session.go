@@ -12,6 +12,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/gormmodel"
+	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/mappers"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -28,7 +29,10 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	if err != nil {
 		return fmt.Errorf("create session: %w", err)
 	}
-	model := sessionModel(session)
+	model, err := mappers.SessionToDB(session)
+	if err != nil {
+		return fmt.Errorf("create session: %w", err)
+	}
 	if err := tx.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("create session: %w", mapDBError(err))
 	}
@@ -48,7 +52,7 @@ func (r *SessionRepository) FindActiveByTokenHash(ctx context.Context, tokenHash
 	if err != nil {
 		return nil, fmt.Errorf("find active session: %w", mapDBError(err))
 	}
-	return sessionFromModel(model)
+	return mappers.SessionToDomain(model)
 }
 
 func (r *SessionRepository) Revoke(ctx context.Context, sessionID sharedvalueobjects.ID, at time.Time) error {
@@ -118,23 +122,4 @@ func (r *SessionRepository) DeleteExpiredBatch(ctx context.Context, now time.Tim
 		return 0, fmt.Errorf("delete expired sessions: %w", mapDBError(result.Error))
 	}
 	return int(result.RowsAffected), nil
-}
-
-func sessionModel(s *domain.Session) gormmodel.AuthSession {
-	return gormmodel.AuthSession{ID: s.ID().UUID(), UserID: s.UserID().UUID(), TokenHash: s.TokenHash().Bytes(), CreatedAt: s.CreatedAt(), LastSeenAt: s.LastSeenAt(), ExpiresAt: s.ExpiresAt(), RevokedAt: s.RevokedAt(), UserAgent: s.UserAgent(), IPAddress: s.IPAddress()}
-}
-func sessionFromModel(m gormmodel.AuthSession) (*domain.Session, error) {
-	id, err := sharedvalueobjects.IDFromUUID(m.ID)
-	if err != nil {
-		return nil, err
-	}
-	uid, err := sharedvalueobjects.IDFromUUID(m.UserID)
-	if err != nil {
-		return nil, err
-	}
-	hash, err := valueobjects.NewSessionTokenHash(m.TokenHash)
-	if err != nil {
-		return nil, err
-	}
-	return domain.NewSession(domain.SessionParams{ID: id, UserID: uid, TokenHash: hash, CreatedAt: m.CreatedAt, LastSeenAt: m.LastSeenAt, ExpiresAt: m.ExpiresAt, RevokedAt: m.RevokedAt, UserAgent: m.UserAgent, IPAddress: m.IPAddress})
 }

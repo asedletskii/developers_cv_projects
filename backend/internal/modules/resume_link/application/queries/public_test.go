@@ -125,3 +125,10 @@ func TestPublicResumeLinkQueryRejectsInvalidResolvedResumeID(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, resume.query.ID.IsZero())
 }
+
+func TestPublicResumeLinkQueryTranslatesDomainNotFound(t *testing.T) {
+	links := &publicLinkReaderStub{err: domain.ErrEntityNotFound}
+	handler := NewPublicResumeLinkQueryHandler(links, &publicResumeQueryStub{}, &linkEventRecorderStub{})
+	_, err := handler.Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
+	require.ErrorIs(t, err, ErrResumeLinkNotFound)
+}

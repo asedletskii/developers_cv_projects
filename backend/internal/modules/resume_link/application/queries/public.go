@@ -2,6 +2,7 @@ package queries
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -50,6 +51,9 @@ func (h *PublicResumeLinkQueryHandler) Handle(ctx context.Context, query PublicR
 
 	link, err := h.links.GetByID(ctx, query)
 	if err != nil {
+		if errors.Is(err, domain.ErrEntityNotFound) {
+			return resumequeries.ResumeView{}, ErrResumeLinkNotFound
+		}
 		return resumequeries.ResumeView{}, err
 	}
 	if domain.ResumeLinkStatus(link.Status) == domain.ResumeLinkStatusInactive {

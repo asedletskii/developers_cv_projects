@@ -33,7 +33,7 @@ func (r *ResumeLinkReader) GetByID(ctx context.Context, query queries.PublicResu
 	var model gormmodel.ResumeLink
 	if err := db.Where("id = ?", query.LinkID.UUID()).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return queries.ResumeLinkPublicView{}, queries.ErrResumeLinkNotFound
+			return queries.ResumeLinkPublicView{}, domain.ErrEntityNotFound
 		}
 		return queries.ResumeLinkPublicView{}, fmt.Errorf("get resume link: %w", err)
 	}

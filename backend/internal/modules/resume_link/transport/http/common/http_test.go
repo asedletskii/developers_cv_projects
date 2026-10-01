@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
+	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 )
 
@@ -59,4 +61,37 @@ func TestWriteCommandErrorMapsInvalidName(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
 	WriteCommandError(c, domain.ErrInvalidResumeLinkName)
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestWriteCommandErrorMapsResumeOwnershipNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
+
+	WriteCommandError(c, resumequeries.ErrResumeNotFound)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestWriteStatisticsErrorMapsMissingResumeLink(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	WriteStatisticsError(c, domain.ErrEntityNotFound)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestWriteCommandErrorMapsMissingResume(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
+
+	WriteCommandError(c, resumedomain.ErrEntityNotFound)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
 }

@@ -2,6 +2,7 @@ package queries
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -42,6 +43,9 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(ctx context.Context, query C
 
 	link, err := h.links.GetByID(ctx, PublicResumeLinkQuery{LinkID: query.LinkID})
 	if err != nil {
+		if errors.Is(err, domain.ErrEntityNotFound) {
+			return resumequeries.ContactView{}, ErrResumeLinkNotFound
+		}
 		return resumequeries.ContactView{}, err
 	}
 	if domain.ResumeLinkStatus(link.Status) == domain.ResumeLinkStatusInactive {

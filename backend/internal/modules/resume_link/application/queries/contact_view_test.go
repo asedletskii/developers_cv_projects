@@ -132,3 +132,10 @@ func TestContactViewThroughLinkPropagatesResumeContactRules(t *testing.T) {
 
 	require.ErrorIs(t, err, want)
 }
+
+func TestContactViewThroughLinkTranslatesDomainNotFound(t *testing.T) {
+	links := &contactViewLinkReaderStub{err: domain.ErrEntityNotFound}
+	handler := NewContactViewThroughLinkQueryHandler(links, &contactViewResumeQueryStub{}, &linkEventRecorderStub{})
+	_, err := handler.Handle(context.Background(), ContactViewThroughLinkQuery{LinkID: sharedvalueobjects.NewID(), Contact: resumedomain.ContactKeyEmail})
+	require.ErrorIs(t, err, ErrResumeLinkNotFound)
+}

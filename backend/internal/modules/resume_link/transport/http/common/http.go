@@ -68,6 +68,10 @@ func WriteBindError(c *gin.Context, err error) {
 }
 
 func WriteCommandError(c *gin.Context, err error) {
+	if errors.Is(err, resumequeries.ErrResumeNotFound) || errors.Is(err, resumedomain.ErrEntityNotFound) {
+		WriteResumeLinkNotFound(c)
+		return
+	}
 	if errors.Is(err, domain.ErrConcurrencyConflict) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodePreconditionFailed, http.StatusPreconditionFailed, "Resume link was modified"))
 		return
@@ -128,7 +132,8 @@ func WriteListError(c *gin.Context, err error) {
 }
 
 func WriteStatisticsError(c *gin.Context, err error) {
-	if errors.Is(err, resumequeries.ErrResumeNotFound) || errors.Is(err, queries.ErrResumeLinkNotFound) {
+	if errors.Is(err, resumequeries.ErrResumeNotFound) || errors.Is(err, queries.ErrResumeLinkNotFound) || errors.Is(err, domain.ErrEntityNotFound) {
+
 		WriteResumeLinkNotFound(c)
 		return
 	}
