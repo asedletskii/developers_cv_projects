@@ -2,7 +2,6 @@ import { ButtonBase, Stack } from '@mui/material'
 import { useLanguage, useTranslate } from '@shared/hooks'
 import { LANGUAGES } from './constants'
 
-/** Переключатель языка интерфейса: сегментированная «таблетка» RU / EN. */
 export const LanguageSwitch = () => {
   const translate = useTranslate('LanguageSwitch')
   const { language, changeLanguage } = useLanguage()

@@ -4,7 +4,6 @@ import { useSectionCollapseState } from './hooks'
 
 const noop = () => {}
 
-// Значение по умолчанию: без провайдера секции просто всегда развёрнуты
 export const SectionCollapseContext = createContext<SectionCollapseValue>({
   isCollapsed: () => false,
   toggle: noop,
@@ -12,11 +11,9 @@ export const SectionCollapseContext = createContext<SectionCollapseValue>({
 })
 
 type Props = PropsWithChildren<{
-  /** Секции, свёрнутые при первом показе (приходят из настроек API) */
   initiallyCollapsed: SectionId[]
 }>
 
-/** Аккордеон секций: значение состояния отдаётся вниз по дереву через контекст. */
 export const SectionCollapseProvider = ({ initiallyCollapsed, children }: Props) => {
   const value = useSectionCollapseState(initiallyCollapsed)
 

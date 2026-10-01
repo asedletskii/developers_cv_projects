@@ -11,8 +11,6 @@ type Params = {
   onClose: () => void
 }
 
-/** Пустая строка в поле — «стереть значение»: `PUT` заменяет профиль целиком, значит то, что
- *  не пришло, бэк сотрёт, а не оставит как было. */
 const toBody = (localized: LkLocalizedProfile): LkLocalizedProfile => ({
   name: toOptionalString(localized.name),
   surname: toOptionalString(localized.surname),
@@ -21,8 +19,6 @@ const toBody = (localized: LkLocalizedProfile): LkLocalizedProfile => ({
   location: toOptionalString(localized.location),
 })
 
-/** Форма профиля владельца: отдельные поля на русском и английском (переключаются табом) плюс
- *  общее фото. Сохраняет весь профиль разом. */
 export const useEditProfile = ({ userId, profile, onClose }: Params) => {
   const dispatch = useAppDispatch()
 

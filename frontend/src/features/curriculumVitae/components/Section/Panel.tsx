@@ -10,10 +10,6 @@ type Props = PropsWithChildren<{
   isCollapsed: boolean
 }>
 
-/**
- * Сворачиваемое тело секции. Высота анимируется через grid-template-rows: 0fr ↔ 1fr,
- * без измерений в JS.
- */
 export const Panel = ({ id, isCollapsed, children }: Props) => {
   const { isAnimating, handleTransitionEnd } = usePanelAnimation(isCollapsed)
 
@@ -35,7 +31,6 @@ export const Panel = ({ id, isCollapsed, children }: Props) => {
         sx={{
           minHeight: 0,
           overflow: isCollapsed || isAnimating ? 'hidden' : 'visible',
-          // Свёрнутое содержимое недоступно ни для фокуса, ни для скринридеров
           visibility: isCollapsed ? 'hidden' : 'visible',
           opacity: isCollapsed ? 0 : 1,
           transition: isCollapsed

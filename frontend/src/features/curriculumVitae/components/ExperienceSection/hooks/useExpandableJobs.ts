@@ -16,7 +16,6 @@ export const useExpandableJobs = (timelineRef: RefObject<HTMLDivElement | null>)
     const collapse = () => {
       setIsExpanded(false)
       ScrollTrigger.refresh(true)
-      //страница стала короче — возвращаем кнопку в поле зрения, если она уехала
       buttonRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     }
 

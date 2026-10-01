@@ -93,6 +93,9 @@ export type Experience = {
   /** Достижения */
   achievements: string[]
 
+  /** Задачи — чем занимался на позиции */
+  tasks: string[]
+
   /** Используемый стэк */
   stack: Technology[]
 }

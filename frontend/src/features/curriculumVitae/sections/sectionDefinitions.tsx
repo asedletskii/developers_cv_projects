@@ -14,18 +14,10 @@ import { withPinnedAbout } from '@features/curriculumVitae/utils/withPinnedAbout
 import { DEFAULT_SECTIONS } from './defaultSections'
 
 type SectionDefinition = {
-  /** Есть ли что показывать: пустые секции не рендерятся, даже если включены */
   hasContent(resume: Resume): boolean
-
   render(resume: Resume): ReactNode
-
-  /** Пункт в плавающей навигации */
   inNav: boolean
-
-  /** Может ли пользователь свернуть секцию (и учитывать ли `collapsed` из API) */
   isCollapsible: boolean
-
-  /** Занимает всю ширину экрана, а не контейнер */
   isFullWidth?: boolean
 }
 
@@ -95,8 +87,6 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
   [SectionId.Contacts]: {
     isCollapsible: false,
     inNav: true,
-    // Скрытый контакт не приходит значением (его прячет бэк), но секцию всё равно показываем —
-    // просто с кнопкой «показать» вместо готовой ссылки
     hasContent: ({ contacts = EMPTY_CONTACTS }) =>
       !!(contacts.phone || contacts.telegram || contacts.email || contacts.hiddenContacts.length),
     render: ({ id, contacts = EMPTY_CONTACTS }) => (
@@ -110,7 +100,6 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
   },
 }
 
-/** Секции в порядке из настроек: включённые, известные и с данными */
 export const getVisibleSections = (resume: Resume): SectionSettings[] =>
   withPinnedAbout(
     resume.overview.sections.length ? resume.overview.sections : DEFAULT_SECTIONS,

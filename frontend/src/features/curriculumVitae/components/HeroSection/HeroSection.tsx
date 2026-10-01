@@ -17,7 +17,6 @@ type Props = {
   updatedAt?: string
 }
 
-/** Первый экран: приветствие на весь экран, кнопка резюме и живой фон. */
 export const HeroSection = ({ greeting, resumeLink, availability, updatedAt }: Props) => {
   const rootRef = useGreetingAnimation()
 

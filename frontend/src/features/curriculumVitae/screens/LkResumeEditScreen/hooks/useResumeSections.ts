@@ -4,10 +4,6 @@ import { useTranslate } from '@shared/hooks'
 import { useSearchParams } from 'react-router'
 import { TOP_SECTIONS, TopSection } from '../constants'
 
-/**
- * Активный раздел страницы резюме (`?section=`) и переходы между разделами. Пока в форме
- * редактирования есть несохранённые правки (`isDirtyRef`), уход из раздела требует подтверждения.
- */
 export const useResumeSections = () => {
   const translate = useTranslate('Lk.Edit')
   const [searchParams, setSearchParams] = useSearchParams()
@@ -16,7 +12,6 @@ export const useResumeSections = () => {
   const section = TOP_SECTIONS.find((id) => id === searchParams.get('section')) ?? TOP_SECTIONS[0]
 
   const changeSection = (id: TopSection) => {
-    // Форма редактирования пересоздаётся — правки без сохранения пропали бы
     if (isDirtyRef.current && !window.confirm(translate('discardConfirm'))) return
 
     isDirtyRef.current = false

@@ -6,10 +6,6 @@ import { glassCard } from '@features/curriculumVitae/styles'
 import { Box, Stack } from '@mui/material'
 import { useHeroPreview } from './hooks'
 
-/**
- * Живой предпросмотр первого экрана: те же компоненты, что и на странице резюме, но данные —
- * из формы «как сейчас набрано» (без сохранения). Уменьшен через `zoom`, ссылка не кликается.
- */
 export const HeroPreview = () => {
   const { greeting, availability, resumeLink, theme } = useHeroPreview()
 

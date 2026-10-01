@@ -1,7 +1,6 @@
 import { useColorMode } from '@shared/hooks'
 import { ColorMode } from '@shared/types'
 
-/** Смена светлой/тёмной темы: на полсекунды включает плавный переход цветов по всей странице. */
 export const useThemeToggle = () => {
   const { colorMode, changeColorMode } = useColorMode()
 

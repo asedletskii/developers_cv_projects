@@ -2,8 +2,6 @@ import { SliceCaseReducers } from '@shared/types'
 import { CurriculumVitaeError } from './curriculumVitae.slice'
 import { LkProfile, LkResumeSummary } from './lk'
 
-// Профиль и список резюме — два независимых запроса (getLkProfile/getLkResumes), поэтому у
-// каждого свои isLoading/error/requestId, по тому же принципу отмены, что и у резюме.
 export type LkSliceState = {
   profile: LkProfile | null
   resumes: LkResumeSummary[] | null

@@ -1,13 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import { gsap, prefersReducedMotion } from '@shared/animations'
 
-/**
- * Проявление при прокрутке:
- * `.reveal` — блок целиком, `.section-line` — прорисовка линии заголовка,
- * `.reveal-group` — каскадно проявляет вложенные `.reveal-item`.
- *
- * При reduced motion остаётся только мягкий кроссфейд без движения.
- */
 export const useScrollReveal = () => {
   const containerRef = useRef<HTMLDivElement | null>(null)
 

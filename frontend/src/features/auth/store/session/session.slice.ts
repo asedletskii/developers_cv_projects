@@ -7,8 +7,6 @@ export const sessionSlice = createSlice({
   name: 'session',
   initialState: getSessionInitialState(),
   reducers: {
-    /** Cookie протухла на середине работы (401 от владельческой ручки, не от `/auth/*`) —
-     *  сбрасываем на «не залогинен», не дожидаясь следующего похода за `/auth/me`. */
     sessionExpired(state) {
       state.status = 'unauthenticated'
       state.userId = null

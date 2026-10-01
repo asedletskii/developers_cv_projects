@@ -13,7 +13,6 @@ type Props = {
   resumes: LkResumeSummary[]
 }
 
-/** Список резюме пользователя (правая часть ЛК): создание, переименование, удаление, переход в редактор. */
 export const ResumeList = ({ userId, resumes }: Props) => {
   const translate = useTranslate('Lk.Resumes')
   const list = useResumeList(userId)

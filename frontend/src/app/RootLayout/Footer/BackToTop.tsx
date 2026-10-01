@@ -2,7 +2,6 @@ import { KeyboardArrowUpRounded } from '@mui/icons-material'
 import { Button } from '@mui/material'
 import { useScrollToTop, useTranslate } from '@shared/hooks'
 
-/** Кнопка «Наверх»: плавно прокручивает страницу к началу. */
 export const BackToTop = () => {
   const translate = useTranslate('Footer')
   const scrollToTop = useScrollToTop()

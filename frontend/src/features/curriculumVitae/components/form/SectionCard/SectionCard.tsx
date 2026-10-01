@@ -10,10 +10,7 @@ type Props = {
   onToggleEnabled: () => void
   collapsed: boolean
   onToggleCollapsed: () => void
-
-  /** Можно ли вообще сворачивать секцию на публичной странице (см. SECTION_DEFINITIONS.isCollapsible) */
   collapsible?: boolean
-  /** Закреплённая секция («Обо мне»): без переключателей и стрелок, всегда первая и включена */
   pinned?: boolean
   canMoveUp: boolean
   canMoveDown: boolean
@@ -22,8 +19,6 @@ type Props = {
   children?: ReactNode
 }
 
-/** Карточка одной настраиваемой секции резюме: заголовок, вкл/выкл, свёрнута ли по умолчанию,
- *  стрелки порядка, форма внутри. */
 export const SectionCard = ({
   title,
   enabled,

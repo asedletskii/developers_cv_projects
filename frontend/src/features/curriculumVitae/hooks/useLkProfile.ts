@@ -8,7 +8,6 @@ import {
 } from '@features/curriculumVitae/store/lk'
 import { useAppDispatch, useAppSelector } from '@shared/store'
 
-/** Общие данные владельца кабинета: загрузка при входе и очистка состояния кабинета при выходе. */
 export const useLkProfile = (userId?: string) => {
   const dispatch = useAppDispatch()
   const isLoading = useAppSelector(selectIsLkProfileLoading)

@@ -29,7 +29,7 @@ export const Greeting = ({ greeting }: Props) => {
           color="primary.main"
           sx={{ fontSize: 'clamp(1.75rem, 5.5vw, 3.75rem)' }}
           coloredSx={({ palette }) => ({
-            background: `linear-gradient(90deg, ${palette.primary.main}, ${palette.primary.light}, ${palette.secondary.main}, ${palette.primary.main})`,
+            background: `linear-gradient(90deg, ${palette.primary.dark}, ${palette.primary.light}, ${palette.primary.dark})`,
             backgroundSize: '200% 100%',
             WebkitBackgroundClip: 'text',
             backgroundClip: 'text',

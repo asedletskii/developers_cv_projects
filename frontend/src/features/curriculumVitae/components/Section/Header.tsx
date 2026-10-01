@@ -12,7 +12,6 @@ type Props = {
   onToggle(): void
 }
 
-/** Заголовок секции: у сворачиваемой секции это кнопка аккордеона. */
 export const Header = ({ id, title, isCollapsible, isCollapsed, onToggle }: Props) => (
   <Typography
     id={getTitleId(id)}

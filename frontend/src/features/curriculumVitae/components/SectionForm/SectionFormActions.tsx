@@ -9,8 +9,6 @@ type Props = {
   onReset: () => void
 }
 
-/** Плавающая панель формы: статус сохранения и кнопки «Сбросить»/«Сохранить». Прилипает к низу
- *  окна, пока форма длиннее экрана. */
 export const SectionFormActions = ({ status, isDirty, onReset }: Props) => {
   const translate = useTranslate('Lk.Edit')
 

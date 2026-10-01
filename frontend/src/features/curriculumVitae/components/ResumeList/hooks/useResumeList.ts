@@ -8,7 +8,6 @@ import { showToast } from '@shared/utils'
 
 type Menu = { anchor: HTMLElement; resume: LkResumeSummary }
 
-/** Логика списка резюме: меню действий, переименование, создание и удаление. */
 export const useResumeList = (userId: string) => {
   const dispatch = useAppDispatch()
   const translate = useTranslate('Lk.Resumes')

@@ -21,7 +21,6 @@ export const ExperienceSection = ({ experience }: Props) => {
   const { isExpanded, toggle, expand, buttonRef } = useExpandableJobs(timelineRef)
   const { selected } = useTechnologyFilter()
 
-  // Если технология из фильтра встречается только в скрытых местах работы, показываем их
   useEffect(() => {
     if (
       selected &&

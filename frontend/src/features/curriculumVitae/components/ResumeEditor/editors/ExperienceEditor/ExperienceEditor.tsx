@@ -1,20 +1,17 @@
 import { ArrayItemCard } from '@features/curriculumVitae/components/form/ArrayItemCard'
 import { DateField } from '@features/curriculumVitae/components/form/DateField'
+import { StringListField } from '@features/curriculumVitae/components/form/StringListField'
 import { TechnologyListField } from '@features/curriculumVitae/components/form/TechnologyListField'
 import { useFormList } from '@features/curriculumVitae/hooks'
 import { blankExperience } from '@features/curriculumVitae/utils'
 import { AddRounded } from '@mui/icons-material'
-import { Button, Stack, TextField } from '@mui/material'
+import { Button, Stack, TextField, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
-import { Controller } from 'react-hook-form'
 
 /** Секция «Опыт работы»: список мест работы, каждое — со своим стэком технологий. */
 export const ExperienceEditor = () => {
   const translate = useTranslate('Lk.Edit.Experience')
-  const { control, register, fields, addItem, itemProps } = useFormList(
-    'experiences',
-    blankExperience,
-  )
+  const { register, fields, addItem, itemProps } = useFormList('experiences', blankExperience)
 
   return (
     <Stack spacing={1.5}>
@@ -64,20 +61,22 @@ export const ExperienceEditor = () => {
             multiline
           />
 
-          <Controller
-            control={control}
-            name={`experiences.${index}.achievements`}
-            render={({ field }) => (
-              <TextField
-                fullWidth
-                label={translate('achievements')}
-                multiline
-                value={(field.value ?? []).join('\n')}
-                onChange={(e) => field.onChange(e.target.value.split('\n'))}
-                onBlur={field.onBlur}
-              />
-            )}
-          />
+          <Stack spacing={1}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {translate('achievements')}
+            </Typography>
+            <StringListField
+              name={`experiences.${index}.achievements`}
+              addLabel={translate('addAchievement')}
+            />
+          </Stack>
+
+          <Stack spacing={1}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {translate('tasks')}
+            </Typography>
+            <StringListField name={`experiences.${index}.tasks`} addLabel={translate('addTask')} />
+          </Stack>
 
           <TechnologyListField name={`experiences.${index}.stack`} />
         </ArrayItemCard>

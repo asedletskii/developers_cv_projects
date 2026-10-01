@@ -16,6 +16,12 @@ export const api = axios.create({
   },
 })
 
+// Локальная разработка без Telegram: бэк с AUTH_MODE=mock пускает по этому заголовку вместо
+// сессионной cookie. Только для dev-сборки — в проде переменной нет, и ветка не компилируется в бандл.
+if (import.meta.env.DEV && import.meta.env.VITE_MOCK_USER_ID) {
+  api.defaults.headers.common['X-Mock-User-ID'] = import.meta.env.VITE_MOCK_USER_ID
+}
+
 // Сессия — httpOnly cookie, обновить её самим нельзя (нет ручки /auth/refresh — только полный
 // повторный вход через Telegram). Если владельческая ручка ответила 401, cookie протухла или её
 // нет: сразу помечаем сессию как «не залогинен», чтобы экран показал форму входа.

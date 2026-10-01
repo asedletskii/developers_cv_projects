@@ -5,15 +5,8 @@ import { createAsyncThunk } from '@reduxjs/toolkit'
 
 type GetPublicResumeArg = {
   cvId: string
-
-  /** Предпросмотр в ЛК: тот же экран, что у публичной страницы, но данные — владельческой
-   *  ручкой (`GET /lk/resume/:id`), а не публичной. Публичная отвечает `404`, пока резюме не
-   *  `opened` — владелец должен видеть черновик и до публикации. */
   userId?: string
 }
-
-/** Резюме для страницы: публичная проекция (`GET /cv/:id`) или, в предпросмотре ЛК, владельческая
- *  (`GET /lk/resume/:id`) — см. `userId` у `GetPublicResumeArg`. */
 export const getPublicResume = createAsyncThunk<
   Resume,
   GetPublicResumeArg,

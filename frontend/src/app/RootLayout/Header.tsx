@@ -21,7 +21,7 @@ export const Header = () => {
 
   return (
     <AppBar position="static" color="transparent">
-      <Container maxWidth="xl" sx={{ display: 'flex', alignItems: 'center' }}>
+      <Container maxWidth="xl" sx={{ display: 'flex', alignItems: 'center', py: 1.5 }}>
         <Navigation />
 
         <Box sx={{ flexGrow: 1 }} />

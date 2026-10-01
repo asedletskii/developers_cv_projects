@@ -12,7 +12,6 @@ type Props = {
   onOpenMenu: (e: MouseEvent<HTMLElement>) => void
 }
 
-/** Неактивная ссылка не открывается — приглушаем строку и убираем кнопку «Открыть». */
 export const LinkRow = ({ name, url, isActive, isCopied, onCopy, onOpenMenu }: Props) => {
   const translate = useTranslate('Lk.Links')
 

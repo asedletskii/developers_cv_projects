@@ -71,6 +71,8 @@ export const curriculumVitaeDict = {
         present: 'по настоящее время',
         showMore: 'Показать ещё {{count}}',
         showLess: 'Скрыть',
+        tasks: 'Задачи',
+        achievements: 'Достижения',
       },
 
       Skills: {
@@ -230,6 +232,8 @@ export const curriculumVitaeDict = {
         present: 'Present',
         showMore: 'Show {{count}} more',
         showLess: 'Show less',
+        tasks: 'Tasks',
+        achievements: 'Achievements',
       },
 
       Skills: {

@@ -6,7 +6,6 @@ type Props = {
   resumeLink?: string
 }
 
-/** Главная кнопка hero: скачать файл резюме. Без ссылки на файл не показывается. */
 export const Cta = ({ resumeLink }: Props) => {
   const translate = useTranslate('CurriculumVitae.Controls')
 

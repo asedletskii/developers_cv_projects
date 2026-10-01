@@ -9,7 +9,6 @@ type Props = {
   onFill: () => void
 }
 
-/** Строка чек-листа: заполнена ли секция и кнопка «Заполнить», если нет. */
 export const ChecklistItem = ({ tab, isDone, onFill }: Props) => {
   const translate = useTranslate('Lk.Main')
   const translateTabs = useTranslate('Lk.Edit.Tabs')

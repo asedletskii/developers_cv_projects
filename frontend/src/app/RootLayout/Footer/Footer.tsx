@@ -2,12 +2,9 @@ import { Box, Container, Divider, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { LanguageSwitch, ThemeToggle } from '@shared/components'
 import { useTranslate } from '@shared/hooks'
-import { getBrandGradient } from '@shared/styles/gradients'
 import { BackToTop } from './BackToTop'
 import { Brand } from './Brand'
 import { DeveloperCard } from './DeveloperCard'
-import { useCurrentYear } from './hooks'
-import { SiteLink } from './SiteLink'
 
 type Props = {
   appName: string
@@ -16,33 +13,27 @@ type Props = {
     role: string
     telegram?: string
   }[]
-  externalSiteLink?: {
-    url: string
-    label: string
-  }
 }
 
-/** Футер: название проекта с описанием, карточки разработчиков и нижняя строка с годом и «Наверх». */
-export const Footer = ({ appName, developers, externalSiteLink }: Props) => {
+export const Footer = ({ appName, developers }: Props) => {
   const translate = useTranslate('Footer')
-  const year = useCurrentYear()
+  const year = new Date().getFullYear()
 
   return (
     <Box
       component="footer"
       sx={{ position: 'relative', overflow: 'hidden', bgcolor: 'surface.dark' }}
     >
-      {/* Градиентная линия над футером и два размытых световых пятна за содержимым */}
       <Box
         aria-hidden
-        sx={(theme) => ({
+        sx={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           height: 2,
-          background: getBrandGradient(theme),
-        })}
+          bgcolor: 'primary.main',
+        }}
       />
 
       <Box
@@ -91,8 +82,6 @@ export const Footer = ({ appName, developers, externalSiteLink }: Props) => {
           </Typography>
 
           <Stack direction="row" alignItems="center" spacing={2}>
-            {externalSiteLink && <SiteLink {...externalSiteLink} />}
-
             <LanguageSwitch />
 
             <ThemeToggle sx={{ color: 'gray.light', '&:hover': { color: 'primary.main' } }} />

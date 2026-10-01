@@ -18,6 +18,7 @@ export const blankExperience = (): Experience => ({
   position: '',
   startDate: '',
   achievements: [],
+  tasks: [],
   stack: [],
 })
 

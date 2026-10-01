@@ -11,21 +11,15 @@ const LkResumesScreen = lazy(() => import('./screens/LkResumesScreen/LkResumesSc
 const LkResumeEditScreen = lazy(() => import('./screens/LkResumeEditScreen/LkResumeEditScreen'))
 const LkResumeScreen = lazy(() => import('./screens/LkResumeScreen/LkResumeScreen'))
 
-/** Старые ссылки вида `/cv/lk/:userId/:cvId[/preview]` (до отвязки userId от URL) — тот же
- *  хвост пути без userId, поиск/query сохраняем (в нём бывает `?section=`). */
 const LegacyLkRedirect = () => {
   const { '*': rest } = useParams()
   const { search } = useLocation()
   return <Navigate to={`${ROUTES.lk}${rest ? `/${rest}` : ''}${search}`} replace />
 }
 
-// Пути абсолютные, из ROUTES. Статический сегмент "lk" react-router ставит выше динамического
-// (:cvId), поэтому /cv/lk/... не спорит с /cv/:cvId. userId в URL больше нет — его знает бэк
-// по сессионной cookie, LkProfileScreen сам решает, авторизован пользователь или нет.
 export const curriculumVitaeRoutes = {
   pages: (
     <>
-      {/* Без id показывать нечего — уходим на главную */}
       <Route path={ROUTES.cv} element={<Navigate to={ROUTES.home} replace />} />
       <Route path={ROUTES.cvResume} element={<CurriculumVitaeScreen />} />
 
@@ -33,13 +27,11 @@ export const curriculumVitaeRoutes = {
 
       <Route path="/cv/lk/:legacyUserId/*" element={<LegacyLkRedirect />} />
 
-      {/* Слева всегда карточка пользователя, справа — список резюме или редактор */}
       <Route path={ROUTES.lk} element={<LkProfileScreen />}>
         <Route index element={<LkResumesScreen />} />
         <Route path={ROUTES.lkResume} element={<LkResumeEditScreen />} />
       </Route>
 
-      {/* Просмотр как есть — отдельной страницей без каркаса ЛК */}
       <Route path={ROUTES.lkResumePreview} element={<LkResumeScreen />} />
     </>
   ),

@@ -9,12 +9,9 @@ import { Panel } from './Panel'
 type Props = PropsWithChildren<{
   id: SectionId
   title: string
-
-  /** Можно ли сворачивать секцию (по умолчанию да) */
   collapsible?: boolean
 }>
 
-/** Секция страницы. Сворачиваемая работает как аккордеон: заголовок скрывает и показывает содержимое. */
 export const Section = ({ id, title, collapsible = true, children }: Props) => {
   const { isCollapsed, toggle } = useSectionCollapse()
   const collapsed = collapsible && isCollapsed(id)

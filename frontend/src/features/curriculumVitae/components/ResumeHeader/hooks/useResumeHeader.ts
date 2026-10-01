@@ -10,13 +10,10 @@ type Params = {
   userId: string
   resumeId: string
   version?: number
-
-  /** Название или статус изменены — экран перечитывает резюме */
   onRenamed: () => void
   onError: (error: CurriculumVitaeError) => void
 }
 
-/** Действия над резюме в шапке: меню, переименование, публикация и удаление с переходом к списку. */
 export const useResumeHeader = ({ userId, resumeId, version, onRenamed, onError }: Params) => {
   const translate = useTranslate('Lk.Edit')
   const navigate = useNavigate()
@@ -40,7 +37,6 @@ export const useResumeHeader = ({ userId, resumeId, version, onRenamed, onError 
     closeMenu()
 
     try {
-      // Для владельческих данных `version` всегда есть по факту, см. комментарий у `Resume.version`
       await curriculumVitaeApi.changeStatus(userId, resumeId, version ?? 0, status)
       onRenamed()
     } catch (e) {

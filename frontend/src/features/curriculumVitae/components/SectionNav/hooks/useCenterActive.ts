@@ -1,6 +1,5 @@
 import { RefObject, useLayoutEffect } from 'react'
 
-/** На узких экранах прокручивает саму навигацию так, чтобы активный пункт был по центру. */
 export const useCenterActive = (
   pillRef: RefObject<HTMLElement | null>,
   activeId: string | null,

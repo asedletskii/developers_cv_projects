@@ -41,7 +41,6 @@ type UpdateLkProfileArg = {
   photoPath?: string
 }
 
-/** Ответ `PUT` — `204` без тела, поэтому в стор кладём то же, что отправили. */
 export const updateLkProfile = createAsyncThunk<LkProfile, UpdateLkProfileArg, ThunkConfig>(
   'updateLkProfile',
   async ({ userId, ru, en, photoPath }, { rejectWithValue }) => {
@@ -61,9 +60,6 @@ type UpdateLkResumeTitleArg = {
   title: string
 }
 
-/** Ответ `PUT` — `204` без тела, новой версии бэк не отдаёт. Раз запрос прошёл, версия
- *  выросла ровно на 1 — обновляем её локально, иначе следующее переименование подряд без
- *  перезагрузки списка упёрлось бы в `412` со старой версией. */
 export const updateLkResumeTitle = createAsyncThunk<
   Pick<LkResumeSummary, 'id' | 'title' | 'version'>,
   UpdateLkResumeTitleArg,
@@ -84,8 +80,6 @@ type ChangeLkResumeStatusArg = {
   status: ResumeStatus
 }
 
-/** Тот же приём, что у переименования: `PUT` отвечает `204` без тела, поэтому версию после
- *  успешного перехода увеличиваем локально сами. */
 export const changeLkResumeStatus = createAsyncThunk<
   Pick<LkResumeSummary, 'id' | 'status' | 'version'>,
   ChangeLkResumeStatusArg,
@@ -105,7 +99,6 @@ type CreateLkResumeArg = {
   language: ResumeLanguage
 }
 
-/** Возвращает id созданного резюме — дальше его наполняют секциями в редакторе. */
 export const createLkResume = createAsyncThunk<string, CreateLkResumeArg, ThunkConfig>(
   'createLkResume',
   async ({ userId, title, language }, { rejectWithValue }) => {

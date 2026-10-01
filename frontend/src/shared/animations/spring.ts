@@ -1,27 +1,17 @@
 import { gsap } from './gsap.config'
 
 type SpringOptions = {
-  /** Затухание: 1 — без отскока, меньше — с овершутом. Отскок только там, где жест нёс импульс. */
   damping?: number
-
-  /** Скорость отклика в секундах (это не длительность: время «успокоения» получается само). */
   response?: number
-
-  /** Порог, при котором пружина считается остановившейся. */
   precision?: number
 }
 
 export type Spring = {
-  /** Новая цель. Текущая скорость сохраняется, поэтому перенаправление не даёт рывка. */
   to(target: number): void
   set(value: number): void
   kill(): void
 }
 
-/**
- * Пружина в терминах Apple (damping + response) поверх тикера GSAP.
- * Всегда анимирует от текущего значения и текущей скорости — её можно перехватить в любой момент.
- */
 export const createSpring = (
   initial: number,
   onUpdate: (value: number) => void,

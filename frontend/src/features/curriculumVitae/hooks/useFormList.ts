@@ -3,10 +3,6 @@ import { useFieldArray, useFormContext } from 'react-hook-form'
 
 type ListName = 'educations' | 'experiences' | 'courses' | 'activities' | 'projects'
 
-/**
- * Список записей в форме редактора (опыт, образование, курсы, …): добавление пустой записи,
- * удаление и перестановка. `itemProps(index)` — готовые свойства карточки записи.
- */
 export const useFormList = <Name extends ListName>(
   name: Name,
   createItem: () => Resume[Name][number],

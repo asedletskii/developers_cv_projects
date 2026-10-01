@@ -2,10 +2,6 @@ import { alpha, Theme } from '@mui/material/styles'
 
 const isLight = ({ palette }: Theme) => palette.mode === 'light'
 
-/**
- * Полупрозрачная «стеклянная» карточка: размывает то, что под ней, и ловит свет верхней кромкой.
- * Для reduced transparency и повышенного контраста материал становится плотным.
- */
 export const glassCard = {
   borderRadius: 3,
   border: 1,

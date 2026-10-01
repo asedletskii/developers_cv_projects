@@ -10,7 +10,6 @@ export const paletteDark: PaletteOptions = {
 
   ...brand,
   ...status,
-  primary: { ...brand.primary, main: '#E8785A' },
 
   surface: {
     light: '#26262A',

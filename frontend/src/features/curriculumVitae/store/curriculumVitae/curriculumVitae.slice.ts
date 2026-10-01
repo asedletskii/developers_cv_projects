@@ -24,8 +24,6 @@ export const curriculumVitaeSlice = createSlice<
   extraReducers: (builder) => {
     builder
       .addCase(getPublicResume.fulfilled, (state, { payload, meta }) => {
-        // Игнорируем ответ отменённого/устаревшего запроса: на экране должен остаться только
-        // результат последнего из them, даже если старый ответ по сети пришёл позже нового
         if (meta.requestId !== state.currentRequestId) return
 
         state.resume = payload
@@ -33,7 +31,6 @@ export const curriculumVitaeSlice = createSlice<
         state.error = null
       })
       .addCase(getPublicResume.rejected, (state, { payload, meta }) => {
-        // Отменённый запрос — это не ошибка загрузки, его сменил более новый
         if (meta.aborted || meta.requestId !== state.currentRequestId) return
 
         state.isLoading = false
@@ -41,7 +38,6 @@ export const curriculumVitaeSlice = createSlice<
       })
       .addCase(getPublicResume.pending, (state, { meta }) => {
         state.currentRequestId = meta.requestId
-        // Скелетон только когда на экране нет этого же резюме: смена языка не должна мигать
         state.isLoading = state.resume.id !== meta.arg.cvId
         state.error = null
       })

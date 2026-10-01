@@ -13,11 +13,6 @@ import { useParams } from 'react-router'
 import { TAB_SX, TOP_SECTIONS } from './constants'
 import { useResumeSections } from './hooks'
 
-/**
- * Правая часть личного кабинета в режиме редактирования (`/cv/lk/:cvId`): слева остаётся
- * карточка пользователя из layout-а, здесь — шапка резюме и разделы «Главная», «Редактирование»,
- * «Ссылки», «Аналитика». Активный раздел живёт в `?section=`, чтобы на него можно было сослаться.
- */
 const LkResumeEditScreen = () => {
   const { userId } = useLkOutletContext()
   const { cvId } = useParams()

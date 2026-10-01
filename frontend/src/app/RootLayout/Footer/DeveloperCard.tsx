@@ -1,7 +1,6 @@
 import { Telegram } from '@mui/icons-material'
 import { Box, Link, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { getBrandGradient } from '@shared/styles/gradients'
 import { getInitials } from '@shared/utils'
 import { AVATAR_SIZE, CARD_MIN_WIDTH } from './constants'
 
@@ -38,7 +37,7 @@ export const DeveloperCard = ({ name, role, telegram }: Props) => (
     <Stack direction="row" alignItems="center" spacing={1.5}>
       <Box
         aria-hidden
-        sx={(theme) => ({
+        sx={{
           width: AVATAR_SIZE,
           height: AVATAR_SIZE,
           flexShrink: 0,
@@ -46,9 +45,9 @@ export const DeveloperCard = ({ name, role, telegram }: Props) => (
           display: 'grid',
           placeItems: 'center',
           fontWeight: 700,
-          color: theme.palette.common.white,
-          background: getBrandGradient(theme, 135),
-        })}
+          color: 'primary.contrastText',
+          bgcolor: 'primary.main',
+        }}
       >
         {getInitials(name)}
       </Box>

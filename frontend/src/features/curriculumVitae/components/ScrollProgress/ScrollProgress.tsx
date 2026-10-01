@@ -1,7 +1,6 @@
 import { Box } from '@mui/material'
 import { useScrollProgress } from './hooks'
 
-/** Тонкая полоска прогресса прокрутки страницы вверху экрана. */
 export const ScrollProgress = () => {
   const barRef = useScrollProgress()
 
@@ -16,8 +15,7 @@ export const ScrollProgress = () => {
         sx={{
           height: '100%',
           transformOrigin: 'left center',
-          background: ({ palette }) =>
-            `linear-gradient(90deg, ${palette.primary.main}, ${palette.secondary.main})`,
+          bgcolor: 'primary.main',
         }}
       />
     </Box>

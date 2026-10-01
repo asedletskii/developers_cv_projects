@@ -13,10 +13,6 @@ type Props = {
   items: { id: SectionId; label: string }[]
 }
 
-/**
- * Плавающая навигация по секциям. Появляется, когда hero уходит вверх,
- * подсвечивает текущую секцию и по клику плавно доскролливает до неё.
- */
 export const SectionNav = ({ items }: Props) => {
   const pillRef = useRef<HTMLDivElement | null>(null)
   const ids = useMemo(() => items.map(({ id }) => id), [items])
@@ -34,8 +30,6 @@ export const SectionNav = ({ items }: Props) => {
       return
     }
 
-    // Пока секция свёрнута, страница короче, и браузер обрежет скролл по текущему максимуму,
-    // поэтому сначала разворачиваем, а прокручиваем, когда высота уже настоящая
     expand(id)
     afterExpanded(id, () => scrollToSection(id))
   }
