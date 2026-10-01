@@ -16,17 +16,13 @@ type CreateResumeLinkCommand struct {
 	Name     string
 }
 
-type UnitOfWork interface {
-	Do(context.Context, func(context.Context) error) error
-}
-
 type CreateResumeLinkHandler struct {
 	repository ports.ResumeLinkRepository
 	resumes    ports.ResumeOwnershipReader
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewCreateResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow UnitOfWork) *CreateResumeLinkHandler {
+func NewCreateResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow ports.UnitOfWork) *CreateResumeLinkHandler {
 	return &CreateResumeLinkHandler{repository: repository, resumes: resumes, uow: uow}
 }
 

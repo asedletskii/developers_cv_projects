@@ -7,26 +7,40 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type ResumeLinkParams struct {
-	ID       sharedvalueobjects.ID
-	ResumeID sharedvalueobjects.ID
-	Name     string
-	Version  int64
+type ResumeLinkStatus string
+
+const (
+	ResumeLinkStatusActive   ResumeLinkStatus = "active"
+	ResumeLinkStatusInactive ResumeLinkStatus = "inactive"
+)
+
+func (v ResumeLinkStatus) IsValid() bool {
+	switch v {
+	case ResumeLinkStatusActive, ResumeLinkStatusInactive:
+		return true
+	default:
+		return false
+	}
 }
 
 const (
 	MaxResumeLinkNameLength = 128
 	MaxResumeLinksPerResume = 50
-
-	ResumeLinkStatusActive   = "active"
-	ResumeLinkStatusInactive = "inactive"
 )
+
+type ResumeLinkParams struct {
+	ID       sharedvalueobjects.ID
+	ResumeID sharedvalueobjects.ID
+	Name     string
+	Version  int64
+	Status   ResumeLinkStatus
+}
 
 type ResumeLink struct {
 	id       sharedvalueobjects.ID
 	resumeID sharedvalueobjects.ID
 	name     string
-	active   bool
+	status   ResumeLinkStatus
 	version  int64
 }
 
@@ -50,11 +64,19 @@ func NewResumeLink(params ResumeLinkParams) (*ResumeLink, error) {
 		return nil, fmt.Errorf("%w: version must be positive", ErrInvalidResumeLink)
 	}
 
+	status := params.Status
+	if status == "" {
+		status = ResumeLinkStatusActive
+	}
+	if !status.IsValid() {
+		return nil, fmt.Errorf("%w: invalid status %q", ErrInvalidResumeLink, status)
+	}
+
 	return &ResumeLink{
 		id:       params.ID,
 		resumeID: params.ResumeID,
 		name:     name,
-		active:   true,
+		status:   status,
 		version:  version,
 	}, nil
 }
@@ -80,8 +102,15 @@ func (l *ResumeLink) Name() string {
 	return l.name
 }
 
+func (l *ResumeLink) Status() ResumeLinkStatus {
+	if l == nil {
+		return ""
+	}
+	return l.status
+}
+
 func (l *ResumeLink) IsActive() bool {
-	return l != nil && l.active
+	return l != nil && l.status == ResumeLinkStatusActive
 }
 
 func (l *ResumeLink) Version() int64 {
@@ -95,7 +124,7 @@ func (l *ResumeLink) Activate() error {
 	if l == nil {
 		return fmt.Errorf("%w: link is nil", ErrInvalidResumeLink)
 	}
-	l.active = true
+	l.status = ResumeLinkStatusActive
 	return nil
 }
 
@@ -103,6 +132,6 @@ func (l *ResumeLink) Deactivate() error {
 	if l == nil {
 		return fmt.Errorf("%w: link is nil", ErrInvalidResumeLink)
 	}
-	l.active = false
+	l.status = ResumeLinkStatusInactive
 	return nil
 }

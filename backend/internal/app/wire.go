@@ -85,7 +85,7 @@ var resumeLinkCommandSet = wire.NewSet(
 	resumelinkcommands.NewCreateResumeLinkHandler,
 	resumelinkcommands.NewDeleteResumeLinkHandler,
 	resumelinkcommands.NewReplaceStatusResumeLinkHandler,
-	wire.Bind(new(resumelinkcommands.UnitOfWork), new(*database.UnitOfWork)),
+	wire.Bind(new(resumelinkports.UnitOfWork), new(*database.UnitOfWork)),
 )
 
 var resumeHTTPSet = wire.NewSet(
@@ -132,6 +132,7 @@ func Initialize() (*Application, error) {
 		wire.Bind(new(resumeports.ResumeRepository), new(*resumerepository.ResumeRepository)),
 		resumelinkrepository.NewResumeLinkRepository,
 		wire.Bind(new(resumelinkports.ResumeLinkRepository), new(*resumelinkrepository.ResumeLinkRepository)),
+		wire.Bind(new(resumelinkports.ResumeLinkEventRepository), new(*resumelinkrepository.ResumeLinkRepository)),
 		wire.Bind(new(resumelinkports.ResumeOwnershipReader), new(*resumereaders.ResumeReader)),
 		resumeReadSet, resumeCommandSet, resumeLinkReadSet, resumeLinkCommandSet, resumeLinkAnalyticsSet,
 		resumeHTTPSet, resumeLinkHTTPSet,

@@ -12,6 +12,9 @@ type ResumeLinkRepository interface {
 	GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error)
 	Delete(context.Context, sharedvalueobjects.ID) error
 	ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error
+}
+
+type ResumeLinkEventRepository interface {
 	RecordEvent(context.Context, *domain.ResumeLinkEvent) error
 }
 

@@ -20,10 +20,10 @@ type ReplaceStatusResumeLinkCommand struct {
 type ReplaceStatusResumeLinkHandler struct {
 	repository ports.ResumeLinkRepository
 	resumes    ports.ResumeOwnershipReader
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewReplaceStatusResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow UnitOfWork) *ReplaceStatusResumeLinkHandler {
+func NewReplaceStatusResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow ports.UnitOfWork) *ReplaceStatusResumeLinkHandler {
 	return &ReplaceStatusResumeLinkHandler{repository: repository, resumes: resumes, uow: uow}
 }
 

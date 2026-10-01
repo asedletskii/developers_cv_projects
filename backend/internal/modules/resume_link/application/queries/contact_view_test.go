@@ -38,7 +38,7 @@ func TestContactViewThroughLinkResolvesActiveLink(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
-		ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive,
+		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 	events := &linkEventRecorderStub{}
@@ -63,7 +63,7 @@ func TestContactViewThroughLinkIgnoresAnalyticsFailure(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
-		ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive,
+		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 	events := &linkEventRecorderStub{err: context.Canceled}
@@ -80,7 +80,7 @@ func TestContactViewThroughLinkIgnoresAnalyticsFailure(t *testing.T) {
 func TestContactViewThroughLinkRejectsInactiveLink(t *testing.T) {
 	resume := &contactViewResumeQueryStub{}
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: sharedvalueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive,
+		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusInactive),
 	}}
 
 	_, err := NewContactViewThroughLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), ContactViewThroughLinkQuery{
@@ -93,20 +93,20 @@ func TestContactViewThroughLinkRejectsInactiveLink(t *testing.T) {
 
 func TestContactViewThroughLinkPropagatesMissingLink(t *testing.T) {
 	resume := &contactViewResumeQueryStub{}
-	links := &contactViewLinkReaderStub{err: domain.ErrEntityNotFound}
+	links := &contactViewLinkReaderStub{err: ErrResumeLinkNotFound}
 
 	_, err := NewContactViewThroughLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID: sharedvalueobjects.NewID(), Contact: resumedomain.ContactKeyEmail,
 	})
 
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.ErrorIs(t, err, ErrResumeLinkNotFound)
 	require.True(t, resume.query.ResumeID.IsZero())
 }
 
 func TestContactViewThroughLinkDoesNotRecordFailedContact(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: sharedvalueobjects.NewID().String(), Status: domain.ResumeLinkStatusActive,
+		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &contactViewResumeQueryStub{err: resumequeries.ErrContactNotHidden}
 	events := &linkEventRecorderStub{}
@@ -123,7 +123,7 @@ func TestContactViewThroughLinkPropagatesResumeContactRules(t *testing.T) {
 	want := resumequeries.ErrContactNotHidden
 	resume := &contactViewResumeQueryStub{err: want}
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: sharedvalueobjects.NewID().String(), Status: domain.ResumeLinkStatusActive,
+		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 
 	_, err := NewContactViewThroughLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), ContactViewThroughLinkQuery{

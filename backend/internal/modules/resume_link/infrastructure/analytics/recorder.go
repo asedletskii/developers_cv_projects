@@ -11,11 +11,11 @@ import (
 )
 
 type Recorder struct {
-	repository ports.ResumeLinkRepository
+	repository ports.ResumeLinkEventRepository
 	logger     *zap.Logger
 }
 
-func NewRecorder(repository ports.ResumeLinkRepository, logger *zap.Logger) *Recorder {
+func NewRecorder(repository ports.ResumeLinkEventRepository, logger *zap.Logger) *Recorder {
 	return &Recorder{repository: repository, logger: logger}
 }
 

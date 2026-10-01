@@ -13,7 +13,7 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
-	linkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -21,10 +21,10 @@ import (
 type contactViewQueryStub struct {
 	view  resumequeries.ContactView
 	err   error
-	query linkqueries.ContactViewThroughLinkQuery
+	query queries.ContactViewThroughLinkQuery
 }
 
-func (s *contactViewQueryStub) Handle(_ context.Context, query linkqueries.ContactViewThroughLinkQuery) (resumequeries.ContactView, error) {
+func (s *contactViewQueryStub) Handle(_ context.Context, query queries.ContactViewThroughLinkQuery) (resumequeries.ContactView, error) {
 	s.query = query
 	if s.err != nil {
 		return resumequeries.ContactView{}, s.err
@@ -72,7 +72,7 @@ func TestContactViewHandlerMapsMissingOrInactiveLink(t *testing.T) {
 		err  error
 		code int
 	}{
-		{name: "not found", err: domain.ErrEntityNotFound, code: http.StatusNotFound},
+		{name: "not found", err: queries.ErrResumeLinkNotFound, code: http.StatusNotFound},
 		{name: "inactive", err: domain.ErrResumeLinkInactive, code: http.StatusGone},
 	}
 

@@ -6,19 +6,20 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"gorm.io/gorm"
-	"path/filepath"
 
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
@@ -479,7 +480,7 @@ func TestReplaceStatusResumeLinkNoOpPreservesVersionAndUpdatedAt(t *testing.T) {
 	}
 	require.NoError(t, gormDB.Raw(`SELECT status, version, updated_at FROM resume_links WHERE id = ?`, link.ID().UUID()).Scan(&row).Error)
 	status, version, after := row.Status, row.Version, row.UpdatedAt
-	require.Equal(t, domain.ResumeLinkStatusActive, status)
+	require.Equal(t, string(domain.ResumeLinkStatusActive), status)
 	require.Equal(t, int64(3), version)
 	require.Equal(t, before, after)
 }

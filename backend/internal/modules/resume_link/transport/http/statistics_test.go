@@ -15,7 +15,6 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -117,7 +116,7 @@ func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 
 func TestStatisticsHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{err: domain.ErrEntityNotFound},
+		statisticsHTTPLinkReader{err: queries.ErrResumeLinkNotFound},
 		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{},
 	), uuid.New())

@@ -36,7 +36,7 @@ func (s *publicResumeQueryStub) Handle(_ context.Context, query resumequeries.Pu
 func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive}}
+	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive)}}
 	resume := &publicResumeQueryStub{view: resumequeries.ResumeView{ID: resumeID.String()}}
 	events := &linkEventRecorderStub{}
 
@@ -54,7 +54,7 @@ func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 func TestPublicResumeLinkQueryIgnoresAnalyticsFailure(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive}}
+	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive)}}
 	resume := &publicResumeQueryStub{view: resumequeries.ResumeView{ID: resumeID.String()}}
 	events := &linkEventRecorderStub{err: context.Canceled}
 
@@ -68,7 +68,7 @@ func TestPublicResumeLinkQueryIgnoresAnalyticsFailure(t *testing.T) {
 func TestPublicResumeLinkQueryDoesNotRecordInactiveLink(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: sharedvalueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive,
+		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusInactive),
 	}}
 	resume := &publicResumeQueryStub{}
 	events := &linkEventRecorderStub{}
@@ -81,7 +81,7 @@ func TestPublicResumeLinkQueryDoesNotRecordInactiveLink(t *testing.T) {
 
 func TestPublicResumeLinkQueryRejectsInactiveLink(t *testing.T) {
 	resume := &publicResumeQueryStub{}
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive}}
+	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusInactive)}}
 
 	_, err := NewPublicResumeLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 
@@ -90,30 +90,30 @@ func TestPublicResumeLinkQueryRejectsInactiveLink(t *testing.T) {
 }
 
 func TestPublicResumeLinkQueryDoesNotRecordFailedLookup(t *testing.T) {
-	links := &publicLinkReaderStub{err: domain.ErrEntityNotFound}
+	links := &publicLinkReaderStub{err: ErrResumeLinkNotFound}
 	resume := &publicResumeQueryStub{}
 	events := &linkEventRecorderStub{}
 
 	_, err := NewPublicResumeLinkQueryHandler(links, resume, events).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.ErrorIs(t, err, ErrResumeLinkNotFound)
 	require.Nil(t, events.event)
 }
 
 func TestPublicResumeLinkQueryPropagatesMissingLink(t *testing.T) {
 	resume := &publicResumeQueryStub{}
-	links := &publicLinkReaderStub{err: domain.ErrEntityNotFound}
+	links := &publicLinkReaderStub{err: ErrResumeLinkNotFound}
 
 	_, err := NewPublicResumeLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	require.ErrorIs(t, err, ErrResumeLinkNotFound)
 	require.True(t, resume.query.ID.IsZero())
 }
 
 func TestPublicResumeLinkQueryRejectsInvalidResolvedResumeID(t *testing.T) {
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{
 		ResumeID: "not-a-uuid",
-		Status:   domain.ResumeLinkStatusActive,
+		Status:   string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &publicResumeQueryStub{}
 

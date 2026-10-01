@@ -13,6 +13,7 @@ import (
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/gormmodel"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/mappers"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -55,9 +56,9 @@ func (r *ResumeLinkRepository) Create(ctx context.Context, link *domain.ResumeLi
 	}
 
 	now := time.Now().UTC()
-	model := gormmodel.ResumeLink{
-		ID: link.ID().UUID(), ResumeID: link.ResumeID().UUID(), Name: link.Name(),
-		Status: statusOf(link), Version: link.Version(), CreatedAt: now, UpdatedAt: now,
+	model, err := mappers.ResumeLinkToDB(link, now, now)
+	if err != nil {
+		return fmt.Errorf("create resume link: %w", err)
 	}
 	if err := tx.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("create resume link: %w", mapDBError(err))
@@ -80,7 +81,7 @@ func (r *ResumeLinkRepository) GetByID(ctx context.Context, id sharedvalueobject
 		}
 		return nil, fmt.Errorf("get resume link: %w", err)
 	}
-	return mapResumeLink(model)
+	return mappers.ResumeLinkToDomain(model)
 }
 
 func (r *ResumeLinkRepository) ReplaceStatus(ctx context.Context, id sharedvalueobjects.ID, active bool, version int64) error {
@@ -150,41 +151,12 @@ func (r *ResumeLinkRepository) RecordEvent(ctx context.Context, event *domain.Re
 		return fmt.Errorf("record resume link event: invalid event")
 	}
 	db := database.DBFromContext(ctx, r.db)
-	model := gormmodel.ResumeLinkEvent{ID: event.ID().UUID(), LinkID: event.LinkID().UUID(), EventType: string(event.Type()), OccurredAt: event.OccurredAt().UTC()}
+	model, err := mappers.ResumeLinkEventToDB(event)
+	if err != nil {
+		return fmt.Errorf("record resume link event: %w", err)
+	}
 	if err := db.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("record resume link event: %w", mapDBError(err))
 	}
 	return nil
-}
-
-func statusOf(link *domain.ResumeLink) string {
-	if link.IsActive() {
-		return domain.ResumeLinkStatusActive
-	}
-	return domain.ResumeLinkStatusInactive
-}
-
-func mapResumeLink(model gormmodel.ResumeLink) (*domain.ResumeLink, error) {
-	id, err := sharedvalueobjects.IDFromUUID(model.ID)
-	if err != nil {
-		return nil, fmt.Errorf("map resume link id: %w", err)
-	}
-	resumeID, err := sharedvalueobjects.IDFromUUID(model.ResumeID)
-	if err != nil {
-		return nil, fmt.Errorf("map resume link resume id: %w", err)
-	}
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: id, ResumeID: resumeID, Name: model.Name, Version: model.Version,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("map resume link: %w", err)
-	}
-	if model.Status == domain.ResumeLinkStatusInactive {
-		if err := link.Deactivate(); err != nil {
-			return nil, fmt.Errorf("map resume link status: %w", err)
-		}
-	} else if model.Status != domain.ResumeLinkStatusActive {
-		return nil, fmt.Errorf("map resume link: invalid status %q", model.Status)
-	}
-	return link, nil
 }

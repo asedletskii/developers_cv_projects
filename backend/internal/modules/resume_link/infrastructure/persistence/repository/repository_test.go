@@ -9,6 +9,10 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
+func statusOf(link *domain.ResumeLink) string {
+	return string(link.Status())
+}
+
 func TestStatusOf(t *testing.T) {
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "GitHub"})
 	require.NoError(t, err)

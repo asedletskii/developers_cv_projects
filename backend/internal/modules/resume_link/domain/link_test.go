@@ -98,3 +98,20 @@ func TestNewResumeLinkRejectsNameLongerThanMaximum(t *testing.T) {
 	_, err := NewResumeLink(params)
 	require.ErrorIs(t, err, ErrInvalidResumeLinkName)
 }
+
+func TestNewResumeLinkRejectsInvalidStatus(t *testing.T) {
+	params := validResumeLinkParams()
+	params.Status = ResumeLinkStatus("broken")
+
+	_, err := NewResumeLink(params)
+
+	require.ErrorIs(t, err, ErrInvalidResumeLink)
+}
+
+func TestNewResumeLinkDefaultsStatusToActive(t *testing.T) {
+	link, err := NewResumeLink(validResumeLinkParams())
+
+	require.NoError(t, err)
+	require.Equal(t, ResumeLinkStatusActive, link.Status())
+	require.True(t, link.IsActive())
+}

@@ -52,11 +52,11 @@ func (h *PublicResumeLinkQueryHandler) Handle(ctx context.Context, query PublicR
 	if err != nil {
 		return resumequeries.ResumeView{}, err
 	}
-	if link.Status == domain.ResumeLinkStatusInactive {
+	if domain.ResumeLinkStatus(link.Status) == domain.ResumeLinkStatusInactive {
 		return resumequeries.ResumeView{}, domain.ErrResumeLinkInactive
 	}
-	if link.Status != domain.ResumeLinkStatusActive {
-		return resumequeries.ResumeView{}, domain.ErrEntityNotFound
+	if domain.ResumeLinkStatus(link.Status) != domain.ResumeLinkStatusActive {
+		return resumequeries.ResumeView{}, ErrResumeLinkNotFound
 	}
 
 	resumeUUID, err := uuid.Parse(link.ResumeID)

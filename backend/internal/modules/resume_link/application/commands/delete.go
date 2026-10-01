@@ -17,10 +17,10 @@ type DeleteResumeLinkCommand struct {
 type DeleteResumeLinkHandler struct {
 	repository ports.ResumeLinkRepository
 	resumes    ports.ResumeOwnershipReader
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewDeleteResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow UnitOfWork) *DeleteResumeLinkHandler {
+func NewDeleteResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow ports.UnitOfWork) *DeleteResumeLinkHandler {
 	return &DeleteResumeLinkHandler{repository: repository, resumes: resumes, uow: uow}
 }
 
