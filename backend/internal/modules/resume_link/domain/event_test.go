@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func validResumeLinkEventParams() ResumeLinkEventParams {

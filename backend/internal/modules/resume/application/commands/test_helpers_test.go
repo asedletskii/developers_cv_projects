@@ -2,7 +2,7 @@ package commands
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/domain"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,16 +17,16 @@ func (u *fakeCommandUnitOfWork) Do(ctx context.Context, fn func(context.Context)
 	return fn(ctx)
 }
 
-func testDate(t *testing.T) valueobjects.Date {
+func testDate(t *testing.T) domain.Date {
 	t.Helper()
-	v, err := valueobjects.ParseDate("2020-01-02")
+	v, err := domain.ParseDate("2020-01-02")
 	require.NoError(t, err)
 	return v
 }
 
-func testURL(t *testing.T) valueobjects.ExternalURL {
+func testURL(t *testing.T) domain.ExternalURL {
 	t.Helper()
-	v, err := valueobjects.NewExternalURL("https://example.com/item")
+	v, err := domain.NewExternalURL("https://example.com/item")
 	require.NoError(t, err)
 	return v
 }

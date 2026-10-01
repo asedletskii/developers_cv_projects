@@ -2,20 +2,19 @@ package educations
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"net/http"
+	"net/http/httptest"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type repoStub struct{ resume *domain.Resume }
@@ -32,7 +31,7 @@ type uowStub struct{}
 func (uowStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 func TestReplaceEducationsHandlerReturnsNoContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: useridentity.NewID(), Title: "Resume", Language: enums.ResumeLanguageEN})
+	r, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	uid := r.UserID()
 	rid := r.ID()

@@ -5,7 +5,6 @@ package persistence_test
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -14,24 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"path/filepath"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func languageGradePtr(value enums.LanguageGrade) *enums.LanguageGrade {
+func languageGradePtr(value domain.LanguageGrade) *domain.LanguageGrade {
 	return &value
 }
 
-func newTestResume(t *testing.T, userID useridentity.ID) *domain.Resume {
+func newTestResume(t *testing.T, userID identity.ID) *domain.Resume {
 	t.Helper()
 	root, err := domain.NewResume(domain.ResumeParams{
-		ID: valueobjects.NewID(), UserID: userID, Title: "Test Resume", Language: enums.ResumeLanguageRU,
+		ID: identity.NewID(), UserID: userID, Title: "Test Resume", Language: domain.ResumeLanguageRU,
 	})
 	require.NoError(t, err)
 	return root
@@ -103,7 +101,7 @@ func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
 	}
 }
 
-func insertResumeTestUser(t *testing.T, ctx context.Context, dsn string, userID useridentity.ID) {
+func insertResumeTestUser(t *testing.T, ctx context.Context, dsn string, userID identity.ID) {
 	t.Helper()
 
 	conn, err := pgx.Connect(ctx, dsn)
@@ -138,8 +136,8 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	owner := useridentity.NewID()
-	foreign := useridentity.NewID()
+	owner := identity.NewID()
+	foreign := identity.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	insertResumeTestUser(t, ctx, dsn, foreign)
 
@@ -147,14 +145,14 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 	uow := database.NewUnitOfWork(gormDB)
 	resume := newTestResume(t, owner)
 	require.NoError(t, resume.ReplaceOverview(domain.ResumeOverviewParams{
-		Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
+		Greeting: domain.NewGreeting(domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
 	}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, resume)
 	}))
 
-	hard := []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting}
-	soft := []enums.SoftSkill{enums.SoftSkillCommunication, enums.SoftSkillTeamwork}
+	hard := []domain.HardSkill{domain.HardSkillArchitecture, domain.HardSkillTesting}
+	soft := []domain.SoftSkill{domain.SoftSkillCommunication, domain.SoftSkillTeamwork}
 	require.NoError(t, resume.ReplaceSkills(domain.SkillsParams{Hard: hard, Soft: soft}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Save(tx, resume)
@@ -171,8 +169,8 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 	require.Equal(t, 2, softCount)
 
 	require.NoError(t, loadedResume.ReplaceLanguages(domain.ResumeLanguagesParams{Entries: []domain.ResumeLanguageEntryParams{
-		{Language: enums.SpokenLanguageEN, Grade: languageGradePtr(enums.LanguageGradeB2), Position: 0},
-		{Language: enums.SpokenLanguageFR, Position: 1},
+		{Language: domain.SpokenLanguageEN, Grade: languageGradePtr(domain.LanguageGradeB2), Position: 0},
+		{Language: domain.SpokenLanguageFR, Position: 1},
 	}}))
 	firstLanguageID := loadedResume.Languages().Entries()[0].ID()
 	secondLanguageID := loadedResume.Languages().Entries()[1].ID()
@@ -186,14 +184,14 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 	require.Equal(t, secondLanguageID, loadedResume.Languages().Entries()[1].ID())
 
 	require.NoError(t, loadedResume.ReplaceLanguages(domain.ResumeLanguagesParams{Entries: []domain.ResumeLanguageEntryParams{
-		{ID: secondLanguageID, Language: enums.SpokenLanguageDE, Position: 0},
-		{ID: firstLanguageID, Language: enums.SpokenLanguageEN, Grade: languageGradePtr(enums.LanguageGradeC1), Position: 1},
+		{ID: secondLanguageID, Language: domain.SpokenLanguageDE, Position: 0},
+		{ID: firstLanguageID, Language: domain.SpokenLanguageEN, Grade: languageGradePtr(domain.LanguageGradeC1), Position: 1},
 	}}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Save(tx, loadedResume)
 	}))
 	loadedResume, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: owner})
 	require.NoError(t, err)
-	require.Equal(t, []enums.SpokenLanguage{enums.SpokenLanguageDE, enums.SpokenLanguageEN}, []enums.SpokenLanguage{loadedResume.Languages().Entries()[0].Language(), loadedResume.Languages().Entries()[1].Language()})
+	require.Equal(t, []domain.SpokenLanguage{domain.SpokenLanguageDE, domain.SpokenLanguageEN}, []domain.SpokenLanguage{loadedResume.Languages().Entries()[0].Language(), loadedResume.Languages().Entries()[1].Language()})
 
 }

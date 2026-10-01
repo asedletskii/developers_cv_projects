@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type linkEventRecorderStub struct {

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GetUserQuery struct {

@@ -2,20 +2,21 @@ package commands
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"time"
+
+	"crypto/subtle"
 
 	"developers-cv/backend/internal/modules/auth/application"
 	"developers-cv/backend/internal/modules/auth/application/ports"
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type AuthenticatedSession struct {
-	UserID          sharedvalueobjects.ID
+	UserID          identity.ID
 	RawSessionToken string
 	ExpiresAt       time.Time
 }
@@ -129,7 +130,7 @@ func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, 
 
 var errIdentityCreationConflict = errors.New("identity creation conflict")
 
-func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, transactionID sharedvalueobjects.ID, stateHash valueobjects.StateHash, verified ports.VerifiedIdentity) (AuthenticatedSession, error) {
+func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, transactionID identity.ID, stateHash valueobjects.StateHash, verified ports.VerifiedIdentity) (AuthenticatedSession, error) {
 	var result AuthenticatedSession
 	err := h.uow.Do(ctx, func(tx context.Context) error {
 		transaction, err := h.transactions.FindByStateHashForUpdate(tx, stateHash)
@@ -143,7 +144,7 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 		if h.observer != nil {
 			identityCtx, finishIdentitySpan = h.observer.StartSpan(tx, "auth.resolve_identity", verified.Provider)
 		}
-		identity, err := h.identities.FindByProviderSubject(identityCtx, verified.Provider, verified.ProviderSubject)
+		authIdentity, err := h.identities.FindByProviderSubject(identityCtx, verified.Provider, verified.ProviderSubject)
 		if err != nil && !errors.Is(err, domain.ErrEntityNotFound) {
 			finishIdentitySpan(err)
 			return err
@@ -156,28 +157,28 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 		// before that wait can produce a timestamp earlier than identity.created_at,
 		// which is rejected by user_identities_timestamps_check.
 		loginAt := h.now().UTC()
-		var userID sharedvalueobjects.ID
+		var userID identity.ID
 		if errors.Is(err, domain.ErrEntityNotFound) {
 			userID, err = h.provisioner.CreateUser(tx)
 			if err != nil {
 				return err
 			}
-			identity, err = domain.NewIdentity(domain.IdentityParams{
-				ID: sharedvalueobjects.NewID(), UserID: userID, Provider: verified.Provider,
+			authIdentity, err = domain.NewIdentity(domain.IdentityParams{
+				ID: identity.NewID(), UserID: userID, Provider: verified.Provider,
 				ProviderSubject: verified.ProviderSubject, CreatedAt: loginAt, UpdatedAt: loginAt, LastLoginAt: loginAt,
 			})
 			if err != nil {
 				return err
 			}
-			if err := h.identities.Create(tx, identity); err != nil {
+			if err := h.identities.Create(tx, authIdentity); err != nil {
 				if errors.Is(err, domain.ErrDuplicateEntity) {
 					return fmt.Errorf("%w: %w", errIdentityCreationConflict, err)
 				}
 				return err
 			}
 		} else {
-			userID = identity.UserID()
-			if err := h.identities.UpdateLastLogin(tx, identity.ID(), loginAt); err != nil {
+			userID = authIdentity.UserID()
+			if err := h.identities.UpdateLastLogin(tx, authIdentity.ID(), loginAt); err != nil {
 				return err
 			}
 		}
@@ -202,7 +203,7 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 		}
 		expiresAt := loginAt.Add(h.sessionTTL)
 		session, err := domain.NewSession(domain.SessionParams{
-			ID: sharedvalueobjects.NewID(), UserID: userID, TokenHash: tokenHash,
+			ID: identity.NewID(), UserID: userID, TokenHash: tokenHash,
 			CreatedAt: loginAt, LastSeenAt: loginAt, ExpiresAt: expiresAt,
 		})
 		if err != nil {

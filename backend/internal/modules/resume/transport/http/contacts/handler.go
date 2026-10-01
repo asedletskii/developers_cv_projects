@@ -1,16 +1,14 @@
 package contacts
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -37,27 +35,27 @@ type contactsTextRequest struct {
 }
 
 func (r contactsRequest) input() (commands.ContactsInput, error) {
-	var telegram *valueobjects.Telegram
+	var telegram *domain.Telegram
 	if r.Telegram != nil {
-		value, err := valueobjects.NewTelegram(*r.Telegram)
+		value, err := domain.NewTelegram(*r.Telegram)
 		if err != nil {
 			return commands.ContactsInput{}, err
 		}
 		telegram = &value
 	}
 
-	var email *valueobjects.Email
+	var email *domain.Email
 	if r.Email != nil {
-		value, err := valueobjects.NewEmail(*r.Email)
+		value, err := domain.NewEmail(*r.Email)
 		if err != nil {
 			return commands.ContactsInput{}, err
 		}
 		email = &value
 	}
 
-	hidden := make([]enums.ContactKey, len(r.HiddenContacts))
+	hidden := make([]domain.ContactKey, len(r.HiddenContacts))
 	for i, value := range r.HiddenContacts {
-		hidden[i] = enums.ContactKey(value)
+		hidden[i] = domain.ContactKey(value)
 	}
 
 	var text *commands.ContactsTextInput
@@ -75,11 +73,7 @@ func (r contactsRequest) input() (commands.ContactsInput, error) {
 }
 
 func (h *Handler) Replace(c *gin.Context) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return
-	}
-	resumeID, ok := common.ParseResumeID(c)
+	uid, resumeID, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
@@ -89,8 +83,7 @@ func (h *Handler) Replace(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	if body.Version < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+	if !common.RequirePositiveVersion(c, body.Version) {
 		return
 	}
 
@@ -101,7 +94,7 @@ func (h *Handler) Replace(c *gin.Context) {
 	}
 
 	if body.ID != "" {
-		id, err := valueobjects.ParseID(body.ID)
+		id, err := identity.ParseID(body.ID)
 		if err != nil {
 			common.WriteCommandError(c, err)
 			return
@@ -116,10 +109,6 @@ func (h *Handler) Replace(c *gin.Context) {
 		Input:    input,
 	})
 	if err != nil {
-		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			c.Status(http.StatusPreconditionFailed)
-			return
-		}
 		common.WriteCommandError(c, err)
 		return
 	}

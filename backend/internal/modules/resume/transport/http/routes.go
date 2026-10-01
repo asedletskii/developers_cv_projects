@@ -2,7 +2,7 @@ package http
 
 import "github.com/gin-gonic/gin"
 
-func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup) {
+func RegisterRoutes(handler *Handler, lk *gin.RouterGroup) {
 	lk.GET("/resumes", handler.ListResumes)
 	lk.POST("/resume", handler.CreateResume)
 	lk.GET("/resume/:resumeId", handler.GetResume)

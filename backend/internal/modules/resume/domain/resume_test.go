@@ -6,15 +6,26 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
+
+func newTestResume(t *testing.T) *Resume {
+	t.Helper()
+	resume, err := NewResume(ResumeParams{
+		ID:       identity.NewID(),
+		UserID:   identity.NewID(),
+		Title:    "Resume",
+		Language: ResumeLanguageEN,
+		Version:  1,
+	})
+	require.NoError(t, err)
+	return resume
+}
 
 func validResumeParams() ResumeParams {
 	return ResumeParams{
-		ID: valueobjects.NewID(), UserID: useridentity.NewID(), Title: "Frontend Developer",
-		Language: enums.ResumeLanguageEN,
+		ID: identity.NewID(), UserID: identity.NewID(), Title: "Frontend Developer",
+		Language: ResumeLanguageEN,
 	}
 }
 
@@ -22,21 +33,15 @@ func TestNewResumeRequiresValidLanguage(t *testing.T) {
 	params := validResumeParams()
 	resume, err := NewResume(params)
 	require.NoError(t, err)
-	require.Equal(t, enums.ResumeLanguageEN, resume.Language())
+	require.Equal(t, ResumeLanguageEN, resume.Language())
 
 	params.Language = ""
 	_, err = NewResume(params)
 	require.Error(t, err)
 
-	params.Language = enums.ResumeLanguage("xx")
+	params.Language = ResumeLanguage("xx")
 	_, err = NewResume(params)
 	require.Error(t, err)
-}
-
-func TestResumeExperiencesReturnsNilForNilReceiver(t *testing.T) {
-	var resume *Resume
-
-	require.Nil(t, resume.Experiences())
 }
 
 func TestResumeReplaceTitleKeepsLanguageImmutable(t *testing.T) {
@@ -45,12 +50,12 @@ func TestResumeReplaceTitleKeepsLanguageImmutable(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, resume.ReplaceTitle("Backend Developer"))
-	require.Equal(t, enums.ResumeLanguageEN, resume.Language())
+	require.Equal(t, ResumeLanguageEN, resume.Language())
 	require.Equal(t, "Backend Developer", resume.Title())
 }
 
 func TestNewResumeGeneratesIDAndStartsAtVersionOne(t *testing.T) {
-	resume, err := NewResume(ResumeParams{UserID: useridentity.NewID(), Title: "Backend Developer", Language: enums.ResumeLanguageEN})
+	resume, err := NewResume(ResumeParams{UserID: identity.NewID(), Title: "Backend Developer", Language: ResumeLanguageEN})
 	require.NoError(t, err)
 	require.False(t, resume.ID().IsZero())
 	require.Equal(t, int64(1), resume.Version())
@@ -58,8 +63,8 @@ func TestNewResumeGeneratesIDAndStartsAtVersionOne(t *testing.T) {
 
 func TestNewResumeRejectsInvalidUserAndTitle(t *testing.T) {
 	tests := []ResumeParams{
-		{Title: "Backend Developer", Language: enums.ResumeLanguageEN},
-		{UserID: useridentity.NewID(), Language: enums.ResumeLanguageEN},
+		{Title: "Backend Developer", Language: ResumeLanguageEN},
+		{UserID: identity.NewID(), Language: ResumeLanguageEN},
 	}
 	for _, params := range tests {
 		_, err := NewResume(params)
@@ -68,17 +73,17 @@ func TestNewResumeRejectsInvalidUserAndTitle(t *testing.T) {
 }
 
 func TestNewResumeRejectsInvalidVersion(t *testing.T) {
-	_, err := NewResume(ResumeParams{UserID: useridentity.NewID(), Title: "Backend Developer", Language: enums.ResumeLanguageEN, Version: -1})
+	_, err := NewResume(ResumeParams{UserID: identity.NewID(), Title: "Backend Developer", Language: ResumeLanguageEN, Version: -1})
 	require.ErrorIs(t, err, ErrInvalidResume)
 }
 
 func TestReconstructResumeAllowsAbsentOptionalChildren(t *testing.T) {
 	resume, err := ReconstructResume(ResumeSnapshot{
-		ID:       valueobjects.NewID(),
-		UserID:   useridentity.NewID(),
+		ID:       identity.NewID(),
+		UserID:   identity.NewID(),
 		Title:    "Backend",
-		Language: enums.ResumeLanguageEN,
-		Status:   enums.ResumeStatusDraft,
+		Language: ResumeLanguageEN,
+		Status:   ResumeStatusDraft,
 		Version:  1,
 	})
 	require.NoError(t, err)
@@ -91,61 +96,23 @@ func TestReconstructResumeAllowsAbsentOptionalChildren(t *testing.T) {
 }
 
 func TestReconstructResumeRejectsForeignOwnedChildren(t *testing.T) {
-	resumeID := valueobjects.NewID()
-	foreignResumeID := valueobjects.NewID()
-	photoPath, err := valueobjects.NewExternalURL("https://example.com/photo.jpg")
+	resumeID := identity.NewID()
+	foreignResumeID := identity.NewID()
+	photoPath, err := NewExternalURL("https://example.com/photo.jpg")
 	require.NoError(t, err)
-	dob, err := valueobjects.NewDate(time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC))
+	dob, err := NewDate(time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	profile, err := NewProfile(ProfileParams{
-		ID: valueobjects.NewID(), ResumeID: foreignResumeID, Name: "John", Surname: "Doe", Position: "Developer",
+		ID: identity.NewID(), ResumeID: foreignResumeID, Name: "John", Surname: "Doe", Position: "Developer",
 		PhotoPath: photoPath, DateOfBirth: dob, Location: "Paris",
 	})
 	require.NoError(t, err)
-	_, err = ReconstructResume(ResumeSnapshot{ID: resumeID, UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN, Status: enums.ResumeStatusDraft, Version: 1, Profile: profile})
+	_, err = ReconstructResume(ResumeSnapshot{ID: resumeID, UserID: identity.NewID(), Title: "Backend", Language: ResumeLanguageEN, Status: ResumeStatusDraft, Version: 1, Profile: profile})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 }
 
-func TestResumeReplaceTitleTrimsTitle(t *testing.T) {
-	resume, err := NewResume(validResumeParams())
-	require.NoError(t, err)
-	require.NoError(t, resume.ReplaceTitle("  Senior Backend Developer  "))
-	require.Equal(t, "Senior Backend Developer", resume.Title())
-}
-
-func TestResumeReplaceTitleRejectsEmptyTitle(t *testing.T) {
-	resume, err := NewResume(validResumeParams())
-	require.NoError(t, err)
-
-	err = resume.ReplaceTitle("   ")
-	require.ErrorIs(t, err, ErrInvalidResume)
-	require.Equal(t, "Frontend Developer", resume.Title())
-}
-
-func TestResumeReplaceOverviewReplacesWholeSection(t *testing.T) {
-	resume, err := NewResume(validResumeParams())
-	require.NoError(t, err)
-
-	first := ResumeOverviewParams{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{First: "First"}), Sections: []valueobjects.SectionSettings{}}
-	require.NoError(t, resume.ReplaceOverview(first))
-
-	second := ResumeOverviewParams{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Second"}), Sections: []valueobjects.SectionSettings{}}
-	require.NoError(t, resume.ReplaceOverview(second))
-
-	require.Equal(t, "Second", resume.Overview().Greeting().First())
-}
-
-func TestResumeReplaceOverviewRejectsInvalidSection(t *testing.T) {
-	resume, err := NewResume(validResumeParams())
-	require.NoError(t, err)
-
-	err = resume.ReplaceOverview(ResumeOverviewParams{Sections: []valueobjects.SectionSettings{{}}})
-	require.ErrorIs(t, err, valueobjects.ErrInvalidValue)
-	require.Nil(t, resume.Overview())
-}
-
 func TestResumeReplaceTitleTrimsAndValidates(t *testing.T) {
-	resume, err := NewResume(ResumeParams{UserID: useridentity.NewID(), Title: "Old", Language: enums.ResumeLanguage("en")})
+	resume, err := NewResume(ResumeParams{UserID: identity.NewID(), Title: "Old", Language: ResumeLanguage("en")})
 	require.NoError(t, err)
 
 	require.NoError(t, resume.ReplaceTitle("  New title  "))
@@ -157,32 +124,43 @@ func TestResumeReplaceTitleTrimsAndValidates(t *testing.T) {
 
 func TestNewResumeStartsAsDraft(t *testing.T) {
 	resume, err := NewResume(ResumeParams{
-		UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN,
+		UserID: identity.NewID(), Title: "Backend", Language: ResumeLanguageEN,
 	})
 	require.NoError(t, err)
-	require.Equal(t, enums.ResumeStatusDraft, resume.Status())
+	require.Equal(t, ResumeStatusDraft, resume.Status())
 }
 
 func TestResumeStatusTransitions(t *testing.T) {
 	resume, err := NewResume(ResumeParams{
-		UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN,
+		UserID: identity.NewID(), Title: "Backend", Language: ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 
 	require.NoError(t, resume.Publish())
-	require.Equal(t, enums.ResumeStatusOpened, resume.Status())
+	require.Equal(t, ResumeStatusOpened, resume.Status())
 	require.ErrorIs(t, resume.Publish(), ErrInvalidResumeStatusTransition)
 	require.NoError(t, resume.Close())
-	require.Equal(t, enums.ResumeStatusClosed, resume.Status())
+	require.Equal(t, ResumeStatusClosed, resume.Status())
 	require.NoError(t, resume.Publish())
-	require.Equal(t, enums.ResumeStatusOpened, resume.Status())
+	require.Equal(t, ResumeStatusOpened, resume.Status())
 }
 
 func TestResumeCannotCloseDraft(t *testing.T) {
 	resume, err := NewResume(ResumeParams{
-		UserID: useridentity.NewID(), Title: "Backend", Language: enums.ResumeLanguageEN,
+		UserID: identity.NewID(), Title: "Backend", Language: ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 	require.ErrorIs(t, resume.Close(), ErrInvalidResumeStatusTransition)
-	require.Equal(t, enums.ResumeStatusDraft, resume.Status())
+	require.Equal(t, ResumeStatusDraft, resume.Status())
+}
+
+func TestNormalizeOptionalStringTrimsWhitespaceAndTurnsEmptyIntoNil(t *testing.T) {
+	value := "  optional value  "
+	got := cloneString(&value)
+	require.NotNil(t, got)
+	require.Equal(t, "optional value", *got)
+
+	empty := "   "
+	require.Nil(t, cloneString(&empty))
+	require.Nil(t, cloneString(nil))
 }

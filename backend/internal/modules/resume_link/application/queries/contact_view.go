@@ -7,16 +7,15 @@ import (
 	"github.com/google/uuid"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactViewThroughLinkQuery struct {
-	LinkID  valueobjects.ID
-	Contact enums.ContactKey
+	LinkID  identity.ID
+	Contact resumedomain.ContactKey
 }
 
 type ResumeContactViewQuery interface {
@@ -56,7 +55,7 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(ctx context.Context, query C
 	if err != nil {
 		return resumequeries.ContactView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
-	resumeID, err := resumevalueobjects.IDFromUUID(resumeUUID)
+	resumeID, err := identity.IDFromUUID(resumeUUID)
 	if err != nil {
 		return resumequeries.ContactView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}

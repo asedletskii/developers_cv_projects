@@ -10,7 +10,7 @@ import (
 
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type cleanupTransactionRepo struct {
@@ -25,7 +25,7 @@ func (r *cleanupTransactionRepo) FindByStateHash(context.Context, valueobjects.S
 func (r *cleanupTransactionRepo) FindByStateHashForUpdate(context.Context, valueobjects.StateHash) (*domain.AuthTransaction, error) {
 	return nil, domain.ErrEntityNotFound
 }
-func (r *cleanupTransactionRepo) Consume(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (r *cleanupTransactionRepo) Consume(context.Context, identity.ID, time.Time) error {
 	return nil
 }
 func (r *cleanupTransactionRepo) DeleteExpiredBatch(context.Context, time.Time, int) (int, error) {
@@ -41,13 +41,13 @@ func (r *cleanupSessionRepo) Create(context.Context, *domain.Session) error { re
 func (r *cleanupSessionRepo) FindActiveByTokenHash(context.Context, valueobjects.SessionTokenHash) (*domain.Session, error) {
 	return nil, domain.ErrEntityNotFound
 }
-func (r *cleanupSessionRepo) Revoke(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (r *cleanupSessionRepo) Revoke(context.Context, identity.ID, time.Time) error {
 	return nil
 }
-func (r *cleanupSessionRepo) RevokeAllByUserID(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (r *cleanupSessionRepo) RevokeAllByUserID(context.Context, identity.ID, time.Time) error {
 	return nil
 }
-func (r *cleanupSessionRepo) Touch(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (r *cleanupSessionRepo) Touch(context.Context, identity.ID, time.Time) error {
 	return nil
 }
 func (r *cleanupSessionRepo) DeleteExpiredBatch(context.Context, time.Time, int) (int, error) {

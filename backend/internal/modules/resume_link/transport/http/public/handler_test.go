@@ -2,9 +2,10 @@ package public
 
 import (
 	"context"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type queryStub struct {

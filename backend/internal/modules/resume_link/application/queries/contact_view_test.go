@@ -7,10 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewLinkReaderStub struct {
@@ -36,41 +35,41 @@ func (s *contactViewResumeQueryStub) Handle(_ context.Context, query resumequeri
 }
 
 func TestContactViewThroughLinkResolvesActiveLink(t *testing.T) {
-	linkID := valueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	linkID := identity.NewID()
+	resumeID := identity.NewID()
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive,
 	}}
-	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: enums.ContactKeyEmail, Value: "person@example.com"}}
+	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 	events := &linkEventRecorderStub{}
 
 	view, err := NewContactViewThroughLinkQueryHandler(links, resume, events).Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID:  linkID,
-		Contact: enums.ContactKeyEmail,
+		Contact: resumedomain.ContactKeyEmail,
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, enums.ContactKeyEmail, view.Contact)
+	require.Equal(t, resumedomain.ContactKeyEmail, view.Contact)
 	require.Equal(t, "person@example.com", view.Value)
 	require.Equal(t, linkID, links.query.LinkID)
 	require.Equal(t, resumeID, resume.query.ResumeID)
-	require.Equal(t, enums.ContactKeyEmail, resume.query.Contact)
+	require.Equal(t, resumedomain.ContactKeyEmail, resume.query.Contact)
 	require.NotNil(t, events.event)
 	require.Equal(t, linkID, events.event.LinkID())
 	require.Equal(t, domain.EventTypeContactView, events.event.Type())
 }
 
 func TestContactViewThroughLinkIgnoresAnalyticsFailure(t *testing.T) {
-	linkID := valueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	linkID := identity.NewID()
+	resumeID := identity.NewID()
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive,
 	}}
-	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: enums.ContactKeyEmail, Value: "person@example.com"}}
+	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 	events := &linkEventRecorderStub{err: context.Canceled}
 
 	view, err := NewContactViewThroughLinkQueryHandler(links, resume, events).Handle(context.Background(), ContactViewThroughLinkQuery{
-		LinkID: linkID, Contact: enums.ContactKeyEmail,
+		LinkID: linkID, Contact: resumedomain.ContactKeyEmail,
 	})
 
 	require.NoError(t, err)
@@ -81,11 +80,11 @@ func TestContactViewThroughLinkIgnoresAnalyticsFailure(t *testing.T) {
 func TestContactViewThroughLinkRejectsInactiveLink(t *testing.T) {
 	resume := &contactViewResumeQueryStub{}
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: resumevalueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive,
+		ResumeID: identity.NewID().String(), Status: domain.ResumeLinkStatusInactive,
 	}}
 
 	_, err := NewContactViewThroughLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), ContactViewThroughLinkQuery{
-		LinkID: valueobjects.NewID(), Contact: enums.ContactKeyEmail,
+		LinkID: identity.NewID(), Contact: resumedomain.ContactKeyEmail,
 	})
 
 	require.ErrorIs(t, err, domain.ErrResumeLinkInactive)
@@ -97,7 +96,7 @@ func TestContactViewThroughLinkPropagatesMissingLink(t *testing.T) {
 	links := &contactViewLinkReaderStub{err: domain.ErrEntityNotFound}
 
 	_, err := NewContactViewThroughLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), ContactViewThroughLinkQuery{
-		LinkID: valueobjects.NewID(), Contact: enums.ContactKeyEmail,
+		LinkID: identity.NewID(), Contact: resumedomain.ContactKeyEmail,
 	})
 
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
@@ -105,15 +104,15 @@ func TestContactViewThroughLinkPropagatesMissingLink(t *testing.T) {
 }
 
 func TestContactViewThroughLinkDoesNotRecordFailedContact(t *testing.T) {
-	linkID := valueobjects.NewID()
+	linkID := identity.NewID()
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: resumevalueobjects.NewID().String(), Status: domain.ResumeLinkStatusActive,
+		ResumeID: identity.NewID().String(), Status: domain.ResumeLinkStatusActive,
 	}}
 	resume := &contactViewResumeQueryStub{err: resumequeries.ErrContactNotHidden}
 	events := &linkEventRecorderStub{}
 
 	_, err := NewContactViewThroughLinkQueryHandler(links, resume, events).Handle(context.Background(), ContactViewThroughLinkQuery{
-		LinkID: linkID, Contact: enums.ContactKeyEmail,
+		LinkID: linkID, Contact: resumedomain.ContactKeyEmail,
 	})
 
 	require.ErrorIs(t, err, resumequeries.ErrContactNotHidden)
@@ -124,11 +123,11 @@ func TestContactViewThroughLinkPropagatesResumeContactRules(t *testing.T) {
 	want := resumequeries.ErrContactNotHidden
 	resume := &contactViewResumeQueryStub{err: want}
 	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: resumevalueobjects.NewID().String(), Status: domain.ResumeLinkStatusActive,
+		ResumeID: identity.NewID().String(), Status: domain.ResumeLinkStatusActive,
 	}}
 
 	_, err := NewContactViewThroughLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), ContactViewThroughLinkQuery{
-		LinkID: valueobjects.NewID(), Contact: enums.ContactKeyEmail,
+		LinkID: identity.NewID(), Contact: resumedomain.ContactKeyEmail,
 	})
 
 	require.ErrorIs(t, err, want)

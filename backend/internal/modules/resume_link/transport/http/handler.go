@@ -2,22 +2,21 @@ package http
 
 import (
 	"errors"
+
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/public"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	jsonhttp "developers-cv/backend/internal/platform/http/json"
 	"developers-cv/backend/internal/platform/http/middleware"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -64,7 +63,7 @@ func (h *Handler) Create(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
+	userID, err := valueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -80,7 +79,7 @@ func (h *Handler) Create(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
 		return
 	}
-	resumeID, err := resumevalueobjects.IDFromUUID(resumeUUID)
+	resumeID, err := valueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -107,7 +106,7 @@ func (h *Handler) List(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
+	userID, err := valueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -117,7 +116,7 @@ func (h *Handler) List(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
 		return
 	}
-	resumeID, err := resumevalueobjects.IDFromUUID(resumeUUID)
+	resumeID, err := valueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -148,7 +147,7 @@ func (h *Handler) Statistics(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
+	userID, err := valueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -190,7 +189,7 @@ func (h *Handler) ReplaceStatus(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
+	userID, err := valueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -255,7 +254,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
+	userID, err := valueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return

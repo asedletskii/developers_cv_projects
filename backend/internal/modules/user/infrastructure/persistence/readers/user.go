@@ -9,9 +9,9 @@ import (
 
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type UserReader struct {

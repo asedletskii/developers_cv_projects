@@ -2,13 +2,14 @@ package session
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
+
+	"crypto/sha256"
+	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/stretchr/testify/require"
 
@@ -17,7 +18,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type sessionRepositoryStub struct {
@@ -38,13 +39,13 @@ func (r *sessionRepositoryStub) FindActiveByTokenHash(_ context.Context, hash va
 	}
 	return r.session, nil
 }
-func (r *sessionRepositoryStub) Revoke(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (r *sessionRepositoryStub) Revoke(context.Context, identity.ID, time.Time) error {
 	return nil
 }
-func (r *sessionRepositoryStub) RevokeAllByUserID(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (r *sessionRepositoryStub) RevokeAllByUserID(context.Context, identity.ID, time.Time) error {
 	return nil
 }
-func (r *sessionRepositoryStub) Touch(_ context.Context, _ sharedvalueobjects.ID, at time.Time) error {
+func (r *sessionRepositoryStub) Touch(_ context.Context, _ identity.ID, at time.Time) error {
 	if r.touchErr != nil {
 		return r.touchErr
 	}
@@ -70,8 +71,8 @@ func newAuthenticatorSession(t *testing.T, now time.Time, lastSeenOffset time.Du
 	hash, err := valueobjects.NewSessionTokenHash(hashBytes[:])
 	require.NoError(t, err)
 	session, err := domain.NewSession(domain.SessionParams{
-		ID:         sharedvalueobjects.NewID(),
-		UserID:     sharedvalueobjects.NewID(),
+		ID:         identity.NewID(),
+		UserID:     identity.NewID(),
 		TokenHash:  hash,
 		CreatedAt:  now.Add(-3 * time.Hour),
 		LastSeenAt: now.Add(lastSeenOffset),
@@ -167,8 +168,8 @@ func TestAuthenticatorRejectsAbsoluteExpiredSession(t *testing.T) {
 	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
 	require.NoError(t, err)
 	expired, err := domain.NewSession(domain.SessionParams{
-		ID:         sharedvalueobjects.NewID(),
-		UserID:     sharedvalueobjects.NewID(),
+		ID:         identity.NewID(),
+		UserID:     identity.NewID(),
 		TokenHash:  hash,
 		CreatedAt:  now.Add(-3 * time.Hour),
 		LastSeenAt: now.Add(-time.Minute),

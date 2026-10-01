@@ -2,8 +2,8 @@ package projects
 
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/domain"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type technologyRequest struct {
@@ -42,36 +42,36 @@ type replaceProjectsRequest struct {
 }
 
 func projectInput(body projectRequest) (commands.ProjectInput, error) {
-	var id valueobjects.ID
+	var id identity.ID
 	if body.ID != "" {
-		parsed, err := valueobjects.ParseID(body.ID)
+		parsed, err := identity.ParseID(body.ID)
 		if err != nil {
 			return commands.ProjectInput{}, err
 		}
 		id = parsed
 	}
 
-	screenshots := make([]valueobjects.ExternalURL, len(body.Screenshots))
+	screenshots := make([]domain.ExternalURL, len(body.Screenshots))
 	for i, value := range body.Screenshots {
-		url, err := valueobjects.NewExternalURL(value)
+		url, err := domain.NewExternalURL(value)
 		if err != nil {
 			return commands.ProjectInput{}, err
 		}
 		screenshots[i] = url
 	}
 
-	var link *valueobjects.ExternalURL
+	var link *domain.ExternalURL
 	if body.Link != nil {
-		value, err := valueobjects.NewExternalURL(*body.Link)
+		value, err := domain.NewExternalURL(*body.Link)
 		if err != nil {
 			return commands.ProjectInput{}, err
 		}
 		link = &value
 	}
 
-	var gitLink *valueobjects.ExternalURL
+	var gitLink *domain.ExternalURL
 	if body.GitLink != nil {
-		value, err := valueobjects.NewExternalURL(*body.GitLink)
+		value, err := domain.NewExternalURL(*body.GitLink)
 		if err != nil {
 			return commands.ProjectInput{}, err
 		}
@@ -80,9 +80,9 @@ func projectInput(body projectRequest) (commands.ProjectInput, error) {
 
 	stack := make([]commands.ProjectTechnologyInput, len(body.Stack))
 	for i, value := range body.Stack {
-		var grade *enums.TechnologyGrade
+		var grade *domain.TechnologyGrade
 		if value.Grade != nil {
-			parsed := enums.TechnologyGrade(*value.Grade)
+			parsed := domain.TechnologyGrade(*value.Grade)
 			grade = &parsed
 		}
 		stack[i] = commands.ProjectTechnologyInput{Name: value.Name, Grade: grade}
@@ -90,17 +90,17 @@ func projectInput(body projectRequest) (commands.ProjectInput, error) {
 
 	contributors := make([]commands.ProjectContributorInput, len(body.Contributors))
 	for i, value := range body.Contributors {
-		var telegram *valueobjects.Telegram
+		var telegram *domain.Telegram
 		if value.Contacts.Telegram != nil {
-			parsed, err := valueobjects.NewTelegram(*value.Contacts.Telegram)
+			parsed, err := domain.NewTelegram(*value.Contacts.Telegram)
 			if err != nil {
 				return commands.ProjectInput{}, err
 			}
 			telegram = &parsed
 		}
-		var email *valueobjects.Email
+		var email *domain.Email
 		if value.Contacts.Email != nil {
-			parsed, err := valueobjects.NewEmail(*value.Contacts.Email)
+			parsed, err := domain.NewEmail(*value.Contacts.Email)
 			if err != nil {
 				return commands.ProjectInput{}, err
 			}

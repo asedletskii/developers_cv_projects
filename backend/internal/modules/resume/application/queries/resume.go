@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GetResumeQuery struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
+	ResumeID identity.ID
+	UserID   identity.ID
 }
 
 type ResumeReader interface {

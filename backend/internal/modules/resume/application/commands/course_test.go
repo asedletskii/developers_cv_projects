@@ -2,14 +2,13 @@ package commands
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/ports"
-	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"developers-cv/backend/internal/modules/resume/application/ports"
+	"developers-cv/backend/internal/modules/resume/domain"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type courseRepoStub struct {
@@ -32,10 +31,10 @@ type courseUOWStub struct{}
 func (courseUOWStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestReplaceCoursesHandlerUsesAggregateRepository(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: useridentity.NewID(), Title: "Resume", Language: enums.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &courseRepoStub{resume: resume}
-	end, err := valueobjects.ParseYearMonth("2024-06")
+	end, err := domain.ParseYearMonth("2024-06")
 	require.NoError(t, err)
 	err = NewReplaceCoursesHandler(repo, courseUOWStub{}).Handle(context.Background(), ReplaceCoursesCommand{ResumeID: resume.ID(), UserID: resume.UserID(), Version: 1, Input: CoursesInput{Items: []CourseInput{{Name: "Go", Organization: "Academy", EndDate: end}}}})
 	require.NoError(t, err)
@@ -43,10 +42,10 @@ func TestReplaceCoursesHandlerUsesAggregateRepository(t *testing.T) {
 	require.Len(t, resume.Courses(), 1)
 }
 func TestReplaceCoursesHandlerRejectsStaleVersion(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: useridentity.NewID(), Title: "Resume", Language: enums.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &courseRepoStub{resume: resume}
-	end, err := valueobjects.ParseYearMonth("2024-06")
+	end, err := domain.ParseYearMonth("2024-06")
 	require.NoError(t, err)
 	err = NewReplaceCoursesHandler(repo, courseUOWStub{}).Handle(context.Background(), ReplaceCoursesCommand{ResumeID: resume.ID(), UserID: resume.UserID(), Version: 2, Input: CoursesInput{Items: []CourseInput{{Name: "Go", Organization: "Academy", EndDate: end}}}})
 	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)

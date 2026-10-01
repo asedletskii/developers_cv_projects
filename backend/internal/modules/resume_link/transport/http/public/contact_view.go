@@ -3,17 +3,18 @@ package public
 import (
 	"context"
 	"errors"
+
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
+	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	linkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	jsonhttp "developers-cv/backend/internal/platform/http/json"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewQuery interface {
@@ -38,7 +39,7 @@ func (h *ContactViewHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	linkID, err := valueobjects.ParseID(c.Param("linkId"))
+	linkID, err := identity.ParseID(c.Param("linkId"))
 	if err != nil {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
 		return
@@ -50,7 +51,7 @@ func (h *ContactViewHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	contact := enums.ContactKey(body.Contact)
+	contact := resumedomain.ContactKey(body.Contact)
 	if !contact.IsValid() {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid request body"))
 		return

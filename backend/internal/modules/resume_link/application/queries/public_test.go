@@ -4,12 +4,11 @@ import (
 	"context"
 	"testing"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-
 	"github.com/stretchr/testify/require"
+
+	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/domain"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type publicLinkReaderStub struct {
@@ -36,7 +35,7 @@ func (s *publicResumeQueryStub) Handle(_ context.Context, query resumequeries.Pu
 
 func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 	linkID := valueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive}}
 	resume := &publicResumeQueryStub{view: resumequeries.ResumeView{ID: resumeID.String()}}
 	events := &linkEventRecorderStub{}
@@ -54,7 +53,7 @@ func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 
 func TestPublicResumeLinkQueryIgnoresAnalyticsFailure(t *testing.T) {
 	linkID := valueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive}}
 	resume := &publicResumeQueryStub{view: resumequeries.ResumeView{ID: resumeID.String()}}
 	events := &linkEventRecorderStub{err: context.Canceled}
@@ -69,7 +68,7 @@ func TestPublicResumeLinkQueryIgnoresAnalyticsFailure(t *testing.T) {
 func TestPublicResumeLinkQueryDoesNotRecordInactiveLink(t *testing.T) {
 	linkID := valueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: resumevalueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive,
+		ResumeID: valueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive,
 	}}
 	resume := &publicResumeQueryStub{}
 	events := &linkEventRecorderStub{}

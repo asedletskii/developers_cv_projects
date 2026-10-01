@@ -5,16 +5,14 @@ import (
 	"fmt"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CreateResumeLinkCommand struct {
-	UserID   uservalueobjects.ID
-	ResumeID resumevalueobjects.ID
+	UserID   valueobjects.ID
+	ResumeID valueobjects.ID
 	Name     string
 }
 

@@ -2,10 +2,11 @@ package technologies
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -13,9 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeTechnologiesHTTPRepository struct{ resume *domain.Resume }
@@ -39,9 +38,9 @@ func (fakeTechnologiesHTTPUnitOfWork) Do(ctx context.Context, fn func(context.Co
 
 func TestReplaceTechnologiesBindsFullSnapshot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	uid := useridentity.NewID()
+	uid := identity.NewID()
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: valueobjects.NewID(), UserID: uid, Title: "Resume", Language: enums.ResumeLanguageEN,
+		ID: identity.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 

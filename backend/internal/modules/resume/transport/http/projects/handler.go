@@ -1,16 +1,12 @@
 package projects
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -22,13 +18,16 @@ func NewHandler(replace *commands.ReplaceProjectsHandler) *Handler {
 }
 
 func (h *Handler) Replace(c *gin.Context) {
-	uid, rid, ok := ids(c)
+	uid, rid, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
 	var body replaceProjectsRequest
 	if err := common.BindJSON(c, &body); err != nil {
 		common.WriteBindError(c, err)
+		return
+	}
+	if !common.RequirePositiveVersion(c, body.Version) {
 		return
 	}
 
@@ -49,21 +48,8 @@ func (h *Handler) Replace(c *gin.Context) {
 		Input:    commands.ProjectsInput{Items: items},
 	})
 	if err != nil {
-		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			c.Status(http.StatusPreconditionFailed)
-			return
-		}
 		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-
-func ids(c *gin.Context) (useridentity.ID, valueobjects.ID, bool) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return uid, valueobjects.ID{}, false
-	}
-	rid, ok := common.ParseResumeID(c)
-	return uid, rid, ok
 }

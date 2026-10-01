@@ -5,14 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func validResumeLinkParams() ResumeLinkParams {
 	return ResumeLinkParams{
 		ID:       valueobjects.NewID(),
-		ResumeID: resumevalueobjects.NewID(),
+		ResumeID: valueobjects.NewID(),
 		Name:     "HH",
 	}
 }
@@ -34,7 +33,7 @@ func TestNewResumeLinkRejectsInvalidIdentity(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidResumeLink)
 
 	params = validResumeLinkParams()
-	params.ResumeID = resumevalueobjects.ID{}
+	params.ResumeID = valueobjects.ID{}
 	_, err = NewResumeLink(params)
 	require.ErrorIs(t, err, ErrInvalidResumeLink)
 }

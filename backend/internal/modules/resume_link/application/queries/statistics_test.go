@@ -8,9 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type statisticsLinkReaderStub struct {
@@ -45,9 +43,9 @@ func (s *statisticsReaderStub) GetStatistics(_ context.Context, query GetResumeL
 }
 
 func TestGetResumeLinkStatisticsChecksOwnershipBeforeAggregation(t *testing.T) {
-	userID := uservalueobjects.NewID()
+	userID := valueobjects.NewID()
 	linkID := valueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	reader := &statisticsReaderStub{result: ResumeLinkStatistics{Views: 2, ContactViews: 1}}
 
 	handler := NewGetResumeLinkStatisticsQueryHandler(
@@ -73,14 +71,14 @@ func TestGetResumeLinkStatisticsRejectsForeignResume(t *testing.T) {
 	reader := &statisticsReaderStub{}
 	handler := NewGetResumeLinkStatisticsQueryHandler(
 		statisticsLinkReaderStub{view: ResumeLinkPublicView{
-			ID: valueobjects.NewID().String(), ResumeID: resumevalueobjects.NewID().String(), Status: "active",
+			ID: valueobjects.NewID().String(), ResumeID: valueobjects.NewID().String(), Status: "active",
 		}},
 		statisticsOwnershipStub{err: resumequeries.ErrResumeNotFound},
 		reader,
 	)
 
 	_, err := handler.Handle(context.Background(), GetResumeLinkStatisticsQuery{
-		UserID: uservalueobjects.NewID(),
+		UserID: valueobjects.NewID(),
 		LinkID: valueobjects.NewID(),
 	})
 	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
@@ -96,7 +94,7 @@ func TestGetResumeLinkStatisticsPropagatesMissingLink(t *testing.T) {
 	)
 
 	_, err := handler.Handle(context.Background(), GetResumeLinkStatisticsQuery{
-		UserID: uservalueobjects.NewID(),
+		UserID: valueobjects.NewID(),
 		LinkID: valueobjects.NewID(),
 	})
 	require.EqualError(t, err, "missing")

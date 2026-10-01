@@ -3,9 +3,10 @@ package contacts
 import (
 	"bytes"
 	"context"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,10 +15,8 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeRepo struct {
@@ -40,11 +39,11 @@ func TestHandlerReplaceContacts(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rid := uuid.New()
 	uid := uuid.New()
-	resumeID, err := valueobjects.IDFromUUID(rid)
+	resumeID, err := identity.IDFromUUID(rid)
 	require.NoError(t, err)
-	owner, err := useridentity.IDFromUUID(uid)
+	owner, err := identity.IDFromUUID(uid)
 	require.NoError(t, err)
-	resume, err := domain.NewResume(domain.ResumeParams{ID: resumeID, UserID: owner, Title: "Resume", Language: enums.ResumeLanguageEN, Version: 1})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: resumeID, UserID: owner, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
 	require.NoError(t, err)
 
 	repo := &fakeRepo{resume: resume}

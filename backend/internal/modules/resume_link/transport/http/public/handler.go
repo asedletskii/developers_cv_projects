@@ -3,6 +3,7 @@ package public
 import (
 	"context"
 	"errors"
+
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,8 +11,8 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {

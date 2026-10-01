@@ -3,9 +3,10 @@ package http
 import (
 	"bytes"
 	"context"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -15,15 +16,13 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type stubListReader struct {
 	items  []queries.ResumeListItem
-	userID useridentity.ID
+	userID identity.ID
 }
 
 func (r *stubListReader) ListResumes(_ context.Context, query queries.ListResumesQuery) ([]queries.ResumeListItem, error) {
@@ -37,6 +36,127 @@ type stubOwnedResumeReader struct {
 
 func (r stubOwnedResumeReader) GetOwned(context.Context, queries.GetResumeQuery) (queries.ResumeView, error) {
 	return r.view, nil
+}
+
+func TestResumeMutationHandlersRejectNonPositiveVersionBeforeApplication(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID := uuid.New()
+	handler := NewHandler(HandlerDependencies{})
+
+	routes := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPut, "/resume/" + resumeID.String()},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/status"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/overview"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/profile"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/contacts"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/skills"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/languages"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/technologies"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/experiences"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/educations"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/courses"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/activities"},
+		{http.MethodPut, "/resume/" + resumeID.String() + "/projects"},
+		{http.MethodDelete, "/resume/" + resumeID.String()},
+	}
+
+	for _, route := range routes {
+		t.Run(route.path, func(t *testing.T) {
+			engine := gin.New()
+			engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+				return userID, nil
+			}))
+			RegisterRoutes(handler, engine.Group("/"))
+
+			req := httptest.NewRequest(route.method, route.path, bytes.NewBufferString(`{"version":0}`))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			engine.ServeHTTP(w, req)
+
+			require.Equal(t, http.StatusBadRequest, w.Code)
+			require.Contains(t, w.Body.String(), `"code":"BAD_REQUEST"`)
+		})
+	}
+}
+
+func TestHandlerDeletesResumeWithVersion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID := uuid.New()
+	resume := newStubResume(t, resumeID, userID, 4)
+	repository := &stubResumeRepository{resume: resume}
+	deleteHandler := commands.NewDeleteResumeHandler(repository, stubResumeUnitOfWork{})
+	handler := newResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.DELETE("/api/v1/lk/resume/:resumeId", handler.Delete)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/lk/resume/"+resumeID.String(), bytes.NewBufferString(`{"version":4}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestHandlerRejectsDeleteWithNonPositiveVersion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID := uuid.New()
+	deleteHandler := commands.NewDeleteResumeHandler(&stubResumeRepository{}, stubResumeUnitOfWork{})
+	handler := newResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.DELETE("/api/v1/lk/resume/:resumeId", handler.Delete)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/lk/resume/"+resumeID.String(), bytes.NewBufferString(`{"version":0}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), `"Version must be positive"`)
+}
+
+func TestHandlerMapsDeleteConcurrencyConflictToPreconditionFailed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID := uuid.New()
+	repository := &stubResumeRepository{deleteErr: domain.ErrConcurrencyConflict}
+	deleteHandler := commands.NewDeleteResumeHandler(repository, stubResumeUnitOfWork{})
+	handler := newResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.DELETE("/api/v1/lk/resume/:resumeId", handler.Delete)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/lk/resume/"+resumeID.String(), bytes.NewBufferString(`{"version":4}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusPreconditionFailed, w.Code)
+	require.Contains(t, w.Body.String(), `"Resume was modified"`)
 }
 
 func TestHandlerReturnsResumeVersion(t *testing.T) {
@@ -112,9 +232,10 @@ func TestHandlerReturnsCurrentUsersResumes(t *testing.T) {
 }
 
 type stubResumeRepository struct {
-	resume  *domain.Resume
-	saved   *domain.Resume
-	version int64
+	resume    *domain.Resume
+	saved     *domain.Resume
+	version   int64
+	deleteErr error
 }
 
 func (r *stubResumeRepository) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
@@ -129,7 +250,7 @@ func (r *stubResumeRepository) Save(_ context.Context, resume *domain.Resume) er
 
 func (r *stubResumeRepository) Create(context.Context, *domain.Resume) error { return nil }
 func (r *stubResumeRepository) Delete(context.Context, ports.DeleteResumeParams) error {
-	return nil
+	return r.deleteErr
 }
 
 type stubResumeUnitOfWork struct{}
@@ -140,12 +261,12 @@ func (stubResumeUnitOfWork) Do(ctx context.Context, fn func(context.Context) err
 
 func newStubResume(t *testing.T, resumeID uuid.UUID, userID uuid.UUID, version int64) *domain.Resume {
 	t.Helper()
-	id, err := valueobjects.IDFromUUID(resumeID)
+	id, err := identity.IDFromUUID(resumeID)
 	require.NoError(t, err)
-	uid, err := useridentity.IDFromUUID(userID)
+	uid, err := identity.IDFromUUID(userID)
 	require.NoError(t, err)
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: id, UserID: uid, Title: "Old title", Language: enums.ResumeLanguageEN, Version: version,
+		ID: id, UserID: uid, Title: "Old title", Language: domain.ResumeLanguageEN, Version: version,
 	})
 	require.NoError(t, err)
 	return resume
@@ -222,6 +343,7 @@ func TestHandlerMapsResumeTitleConcurrencyConflictToPreconditionFailed(t *testin
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusPreconditionFailed, w.Code)
+	require.Contains(t, w.Body.String(), `"code":"PRECONDITION_FAILED"`)
 	require.Nil(t, repository.saved)
 }
 
@@ -275,7 +397,7 @@ func TestHandlerChangesResumeStatusAndReturnsNoContent(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, w.Code)
 	require.Empty(t, w.Body.String())
-	require.Equal(t, enums.ResumeStatusOpened, repository.saved.Status())
+	require.Equal(t, domain.ResumeStatusOpened, repository.saved.Status())
 }
 
 func TestHandlerRejectsInvalidResumeStatusTransition(t *testing.T) {

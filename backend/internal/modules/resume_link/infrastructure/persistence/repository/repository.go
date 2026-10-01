@@ -11,11 +11,10 @@ import (
 	"gorm.io/gorm/clause"
 
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ResumeLinkRepository struct {
@@ -170,7 +169,7 @@ func mapResumeLink(model gormmodel.ResumeLink) (*domain.ResumeLink, error) {
 	if err != nil {
 		return nil, fmt.Errorf("map resume link id: %w", err)
 	}
-	resumeID, err := resumevalueobjects.IDFromUUID(model.ResumeID)
+	resumeID, err := valueobjects.IDFromUUID(model.ResumeID)
 	if err != nil {
 		return nil, fmt.Errorf("map resume link resume id: %w", err)
 	}

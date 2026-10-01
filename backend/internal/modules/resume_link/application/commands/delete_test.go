@@ -4,14 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
-
-	"github.com/stretchr/testify/require"
+	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type deleteRepositoryStub struct {
@@ -56,8 +54,8 @@ func (s *deleteOwnershipStub) GetOwned(_ context.Context, q resumequeries.GetRes
 }
 
 func TestDeleteResumeLinkHandlerChecksOwnershipBeforeDelete(t *testing.T) {
-	userID := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	userID := valueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	linkID := valueobjects.NewID()
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: linkID, ResumeID: resumeID, Name: "HH"})
 	require.NoError(t, err)
@@ -72,18 +70,18 @@ func TestDeleteResumeLinkHandlerChecksOwnershipBeforeDelete(t *testing.T) {
 }
 
 func TestDeleteResumeLinkHandlerDoesNotDeleteForeignLink(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumevalueobjects.NewID(), Name: "HH"})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: valueobjects.NewID(), Name: "HH"})
 	require.NoError(t, err)
 	repo := &deleteRepositoryStub{link: link}
 	ownership := &deleteOwnershipStub{err: resumequeries.ErrResumeNotFound}
 
-	err = NewDeleteResumeLinkHandler(repo, ownership, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: uservalueobjects.NewID(), LinkID: link.ID()})
+	err = NewDeleteResumeLinkHandler(repo, ownership, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: valueobjects.NewID(), LinkID: link.ID()})
 	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
 	require.True(t, repo.deleted.IsZero())
 }
 
 func TestDeleteResumeLinkHandlerPropagatesMissingLink(t *testing.T) {
 	repo := &deleteRepositoryStub{getErr: domain.ErrEntityNotFound}
-	err := NewDeleteResumeLinkHandler(repo, &deleteOwnershipStub{}, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: uservalueobjects.NewID(), LinkID: valueobjects.NewID()})
+	err := NewDeleteResumeLinkHandler(repo, &deleteOwnershipStub{}, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: valueobjects.NewID(), LinkID: valueobjects.NewID()})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 }

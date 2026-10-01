@@ -8,9 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeContactsAggregateRepository struct {
@@ -32,18 +30,18 @@ func (r *fakeContactsAggregateRepository) Delete(context.Context, ports.DeleteRe
 }
 
 func TestReplaceContactsHandlerUsesVersionAndAggregate(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := identity.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeContactsAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
 
 	err := NewReplaceContactsHandler(repo, uow).Handle(context.Background(), ReplaceContactsCommand{
 		ResumeID: resume.ID(), UserID: uid, Version: 1,
-		Input: ContactsInput{Email: func() *valueobjects.Email {
-			v, e := valueobjects.NewEmail("john@example.com")
+		Input: ContactsInput{Email: func() *domain.Email {
+			v, e := domain.NewEmail("john@example.com")
 			require.NoError(t, e)
 			return &v
-		}(), HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail}},
+		}(), HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail}},
 	})
 	require.NoError(t, err)
 	require.True(t, repo.saved)
@@ -52,12 +50,12 @@ func TestReplaceContactsHandlerUsesVersionAndAggregate(t *testing.T) {
 }
 
 func TestReplaceContactsHandlerRejectsStaleVersion(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := identity.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeContactsAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
 
-	email, err := valueobjects.NewEmail("stale@example.com")
+	email, err := domain.NewEmail("stale@example.com")
 	require.NoError(t, err)
 
 	err = NewReplaceContactsHandler(repo, uow).Handle(context.Background(), ReplaceContactsCommand{

@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"developers-cv/backend/internal/modules/resume/domain"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -73,4 +75,39 @@ func TestBindJSONRejectsNonObjectBody(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "JSON object")
+}
+
+func TestRequirePositiveVersionRejectsNonPositiveVersion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", nil)
+
+	require.False(t, RequirePositiveVersion(c, 0))
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), `"code":"BAD_REQUEST"`)
+}
+
+func TestWriteCommandErrorMapsConcurrencyConflict(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", nil)
+
+	WriteCommandError(c, domain.ErrConcurrencyConflict)
+
+	require.Equal(t, http.StatusPreconditionFailed, w.Code)
+	require.Contains(t, w.Body.String(), `"code":"PRECONDITION_FAILED"`)
+}
+
+func TestWriteCommandErrorMapsStatusTransitionConflict(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", nil)
+
+	WriteCommandError(c, domain.ErrInvalidResumeStatusTransition)
+
+	require.Equal(t, http.StatusConflict, w.Code)
+	require.Contains(t, w.Body.String(), `"code":"CONFLICT"`)
 }

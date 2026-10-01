@@ -2,19 +2,20 @@ package public
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
+	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	linkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewQueryStub struct {
@@ -33,8 +34,8 @@ func (s *contactViewQueryStub) Handle(_ context.Context, query linkqueries.Conta
 
 func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	linkID := valueobjects.NewID()
-	query := &contactViewQueryStub{view: resumequeries.ContactView{Contact: enums.ContactKeyEmail, Value: "person@example.com"}}
+	linkID := identity.NewID()
+	query := &contactViewQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 	engine := gin.New()
 	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
 
@@ -45,7 +46,7 @@ func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, linkID, query.query.LinkID)
-	require.Equal(t, enums.ContactKeyEmail, query.query.Contact)
+	require.Equal(t, resumedomain.ContactKeyEmail, query.query.Contact)
 	require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 	require.JSONEq(t, `{"contact":"email","value":"person@example.com"}`, w.Body.String())
 }
@@ -82,7 +83,7 @@ func TestContactViewHandlerMapsMissingOrInactiveLink(t *testing.T) {
 			engine := gin.New()
 			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+valueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+identity.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			engine.ServeHTTP(w, req)
@@ -108,7 +109,7 @@ func TestContactViewHandlerMapsResumeContactErrors(t *testing.T) {
 			engine := gin.New()
 			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+valueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+identity.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			engine.ServeHTTP(w, req)

@@ -18,17 +18,6 @@ import (
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
-	activitieshttp "developers-cv/backend/internal/modules/resume/transport/http/activities"
-	contactshandler "developers-cv/backend/internal/modules/resume/transport/http/contacts"
-	courseshttp "developers-cv/backend/internal/modules/resume/transport/http/courses"
-	educationshttp "developers-cv/backend/internal/modules/resume/transport/http/educations"
-	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
-	languageshttp "developers-cv/backend/internal/modules/resume/transport/http/languages"
-	overviewhandler "developers-cv/backend/internal/modules/resume/transport/http/overview"
-	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
-	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
-	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
-	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 	resumelinkcommands "developers-cv/backend/internal/modules/resume_link/application/commands"
 	resumelinkports "developers-cv/backend/internal/modules/resume_link/application/ports"
 	resumelinkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
@@ -73,7 +62,7 @@ var resumeCommandSet = wire.NewSet(
 	resumecommands.NewReplaceCoursesHandler,
 	resumecommands.NewReplaceActivitiesHandler,
 	resumecommands.NewReplaceProjectsHandler,
-	wire.Bind(new(resumecommands.UnitOfWork), new(*database.UnitOfWork)),
+	wire.Bind(new(resumeports.UnitOfWork), new(*database.UnitOfWork)),
 )
 
 var resumeLinkReadSet = wire.NewSet(
@@ -100,9 +89,7 @@ var resumeLinkCommandSet = wire.NewSet(
 )
 
 var resumeHTTPSet = wire.NewSet(
-	activitieshttp.NewHandler, contactshandler.NewHandler, educationshttp.NewHandler, courseshttp.NewHandler,
-	experienceshttp.NewHandler, projectshttp.NewHandler, skillshttp.NewHandler, languageshttp.NewHandler,
-	technologieshttp.NewHandler, overviewhandler.NewHandler, profilehandler.NewHandler, resumehttp.NewHandler,
+	resumehttp.NewHandler,
 	wire.Struct(new(resumehttp.HandlerDependencies), "*"),
 )
 

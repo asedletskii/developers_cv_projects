@@ -1,16 +1,14 @@
 package languages
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -36,32 +34,28 @@ type languageRequest struct {
 func (r languagesRequest) input() (commands.LanguagesInput, error) {
 	items := make([]commands.LanguageInput, 0, len(r.Items))
 	for _, item := range r.Items {
-		var id valueobjects.ID
+		var id identity.ID
 		if item.ID != "" {
-			parsed, err := valueobjects.ParseID(item.ID)
+			parsed, err := identity.ParseID(item.ID)
 			if err != nil {
 				return commands.LanguagesInput{}, err
 			}
 			id = parsed
 		}
-		var grade *enums.LanguageGrade
+		var grade *domain.LanguageGrade
 		if item.Grade != nil {
-			value := enums.LanguageGrade(*item.Grade)
+			value := domain.LanguageGrade(*item.Grade)
 			grade = &value
 		}
 		items = append(items, commands.LanguageInput{
-			ID: id, Language: enums.SpokenLanguage(item.Language), Grade: grade, Position: item.Position,
+			ID: id, Language: domain.SpokenLanguage(item.Language), Grade: grade, Position: item.Position,
 		})
 	}
 	return commands.LanguagesInput{Entries: items}, nil
 }
 
 func (h *Handler) Replace(c *gin.Context) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return
-	}
-	rid, ok := common.ParseResumeID(c)
+	uid, rid, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
@@ -70,8 +64,7 @@ func (h *Handler) Replace(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	if body.Version < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+	if !common.RequirePositiveVersion(c, body.Version) {
 		return
 	}
 	input, err := body.input()
@@ -82,10 +75,6 @@ func (h *Handler) Replace(c *gin.Context) {
 	if err := h.replace.Handle(c.Request.Context(), commands.ReplaceLanguagesCommand{
 		ResumeID: rid, UserID: uid, Version: body.Version, Input: input,
 	}); err != nil {
-		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			c.Status(http.StatusPreconditionFailed)
-			return
-		}
 		common.WriteCommandError(c, err)
 		return
 	}

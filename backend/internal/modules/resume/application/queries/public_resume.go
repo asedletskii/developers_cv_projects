@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/domain"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type PublicResumeQuery struct {
-	ID valueobjects.ID
+	ID identity.ID
 }
 
 type PublicResumeReader interface {
@@ -73,12 +73,12 @@ func redactHiddenContacts(contacts *ResumeContactsView) {
 	}
 
 	for _, key := range contacts.HiddenContacts {
-		switch enums.ContactKey(key) {
-		case enums.ContactKeyPhone:
+		switch domain.ContactKey(key) {
+		case domain.ContactKeyPhone:
 			contacts.Phone = nil
-		case enums.ContactKeyTelegram:
+		case domain.ContactKeyTelegram:
 			contacts.Telegram = nil
-		case enums.ContactKeyEmail:
+		case domain.ContactKeyEmail:
 			contacts.Email = nil
 		}
 	}

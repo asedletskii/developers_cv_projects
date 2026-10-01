@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ListResumesQuery struct {
-	UserID useridentity.ID
+	UserID identity.ID
 }
 
 type ListResumesReader interface {

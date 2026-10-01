@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/gormmodel"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestMapView(t *testing.T) {

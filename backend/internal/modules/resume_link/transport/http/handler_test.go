@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -16,8 +17,8 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeResumeOwnershipReader struct{ err error }

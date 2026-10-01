@@ -6,51 +6,49 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GreetingInput struct{ First, Second, SecondHighlight, Third string }
 type AvailabilityInput struct {
-	Status enums.AvailabilityStatus
-	From   *valueobjects.Date
+	Status domain.AvailabilityStatus
+	From   *domain.Date
 	Note   *string
 }
-type ThemeInput struct{ Primary, Secondary *valueobjects.Color }
+type ThemeInput struct{ Primary, Secondary *domain.Color }
 type SectionInput struct {
-	ID                 enums.SectionID
+	ID                 domain.SectionID
 	Enabled, Collapsed bool
 }
 type OverviewInput struct {
 	Theme        *ThemeInput
 	Greeting     GreetingInput
 	Availability *AvailabilityInput
-	ResumeLink   *valueobjects.ExternalURL
+	ResumeLink   *domain.ExternalURL
 	Sections     []SectionInput
 }
 
 func (i OverviewInput) toDomain() (domain.ResumeOverviewParams, error) {
-	g := valueobjects.NewGreeting(valueobjects.GreetingParams{First: i.Greeting.First, Second: i.Greeting.Second, SecondHighlight: i.Greeting.SecondHighlight, Third: i.Greeting.Third})
-	var theme *valueobjects.ThemeSettings
+	g := domain.NewGreeting(domain.GreetingParams{First: i.Greeting.First, Second: i.Greeting.Second, SecondHighlight: i.Greeting.SecondHighlight, Third: i.Greeting.Third})
+	var theme *domain.ThemeSettings
 	if i.Theme != nil {
-		v, err := valueobjects.NewThemeSettings(valueobjects.ThemeSettingsParams{Primary: cloneColor(i.Theme.Primary), Secondary: cloneColor(i.Theme.Secondary)})
+		v, err := domain.NewThemeSettings(domain.ThemeSettingsParams{Primary: cloneColor(i.Theme.Primary), Secondary: cloneColor(i.Theme.Secondary)})
 		if err != nil {
 			return domain.ResumeOverviewParams{}, err
 		}
 		theme = &v
 	}
-	var av *valueobjects.Availability
+	var av *domain.Availability
 	if i.Availability != nil {
-		v, err := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: i.Availability.Status, From: i.Availability.From, Note: i.Availability.Note})
+		v, err := domain.NewAvailability(domain.AvailabilityParams{Status: i.Availability.Status, From: i.Availability.From, Note: i.Availability.Note})
 		if err != nil {
 			return domain.ResumeOverviewParams{}, err
 		}
 		av = &v
 	}
-	sections := make([]valueobjects.SectionSettings, len(i.Sections))
+	sections := make([]domain.SectionSettings, len(i.Sections))
 	for n, v := range i.Sections {
-		x, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed})
+		x, err := domain.NewSectionSettings(domain.SectionSettingsParams{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed})
 		if err != nil {
 			return domain.ResumeOverviewParams{}, err
 		}
@@ -60,48 +58,35 @@ func (i OverviewInput) toDomain() (domain.ResumeOverviewParams, error) {
 }
 
 type ReplaceOverviewCommand struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
+	ResumeID identity.ID
+	UserID   identity.ID
 	Version  int64
 	Input    OverviewInput
 }
 
 type ReplaceOverviewHandler struct {
 	repository ports.ResumeRepository
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewReplaceOverviewHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceOverviewHandler {
+func NewReplaceOverviewHandler(repository ports.ResumeRepository, uow ports.UnitOfWork) *ReplaceOverviewHandler {
 	return &ReplaceOverviewHandler{repository: repository, uow: uow}
 }
 
 func (h *ReplaceOverviewHandler) Handle(ctx context.Context, c ReplaceOverviewCommand) error {
-	if h == nil || h.repository == nil || h.uow == nil {
+	if h == nil {
 		return fmt.Errorf("replace overview handler dependencies are nil")
-	}
-	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
-		return fmt.Errorf("invalid replace overview command")
 	}
 	input, err := c.Input.toDomain()
 	if err != nil {
 		return err
 	}
-	return h.uow.Do(ctx, func(tx context.Context) error {
-		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
-		if err != nil {
-			return err
-		}
-		if resume.Version() != c.Version {
-			return domain.ErrConcurrencyConflict
-		}
-		if err := resume.ReplaceOverview(input); err != nil {
-			return err
-		}
-		return h.repository.Save(tx, resume)
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace overview", func(resume *domain.Resume) error {
+		return resume.ReplaceOverview(input)
 	})
 }
 
-func cloneColor(value *valueobjects.Color) *valueobjects.Color {
+func cloneColor(value *domain.Color) *domain.Color {
 	if value == nil {
 		return nil
 	}
@@ -109,7 +94,7 @@ func cloneColor(value *valueobjects.Color) *valueobjects.Color {
 	return &copy
 }
 
-func cloneExternalURL(value *valueobjects.ExternalURL) *valueobjects.ExternalURL {
+func cloneExternalURL(value *domain.ExternalURL) *domain.ExternalURL {
 	if value == nil {
 		return nil
 	}

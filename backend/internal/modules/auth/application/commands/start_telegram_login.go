@@ -9,7 +9,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/application/ports"
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type TelegramLoginStart struct {
@@ -95,7 +95,7 @@ func (h *StartTelegramLoginHandler) Handle(ctx context.Context) (TelegramLoginSt
 		return TelegramLoginStart{}, fmt.Errorf("create browser binding hash: %w", err)
 	}
 	transaction, err := domain.NewAuthTransaction(domain.AuthTransactionParams{
-		ID: sharedvalueobjects.NewID(), Provider: provider, StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: browserBindingHash,
+		ID: identity.NewID(), Provider: provider, StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: browserBindingHash,
 		CodeVerifier: verifierValue, RedirectURI: h.redirectURI, CreatedAt: createdAt, ExpiresAt: createdAt.Add(h.transactionTTL),
 	})
 	if err != nil {

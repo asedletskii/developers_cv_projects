@@ -6,13 +6,12 @@ import (
 	"time"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ListResumeLinksQuery struct {
-	UserID   uservalueobjects.ID
-	ResumeID resumevalueobjects.ID
+	UserID   valueobjects.ID
+	ResumeID valueobjects.ID
 }
 
 type ResumeLinkListItem struct {

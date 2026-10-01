@@ -2,15 +2,16 @@ package mock
 
 import (
 	"context"
-	"net/http/httptest"
 	"testing"
+
+	"net/http/httptest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeUserReader struct {

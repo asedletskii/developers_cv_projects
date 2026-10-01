@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func newHashes(t *testing.T) (valueobjects.StateHash, valueobjects.NonceHash) {
@@ -27,7 +27,7 @@ func newTestTransaction(t *testing.T) (*AuthTransaction, time.Time) {
 	binding, err := valueobjects.NewBrowserBindingHash(bytes.Repeat([]byte{3}, valueobjects.HashSize))
 	require.NoError(t, err)
 	transaction, err := NewAuthTransaction(AuthTransactionParams{
-		ID: sharedvalueobjects.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
+		ID: identity.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
 		CodeVerifier: "verifier", RedirectURI: "https://example.com/callback", CreatedAt: created,
 		ExpiresAt: created.Add(5 * time.Minute),
 	})
@@ -62,7 +62,7 @@ func TestNewAuthTransactionRejectsInvalidTimestamps(t *testing.T) {
 	binding, err := valueobjects.NewBrowserBindingHash(bytes.Repeat([]byte{3}, valueobjects.HashSize))
 	require.NoError(t, err)
 	_, err = NewAuthTransaction(AuthTransactionParams{
-		ID: sharedvalueobjects.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
+		ID: identity.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
 		CodeVerifier: "verifier", RedirectURI: "https://example.com/callback", CreatedAt: created,
 		ExpiresAt: created,
 	})

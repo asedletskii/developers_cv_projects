@@ -3,9 +3,10 @@ package profile
 import (
 	"bytes"
 	"context"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,8 +14,8 @@ import (
 
 	"developers-cv/backend/internal/modules/user/application/commands"
 	"developers-cv/backend/internal/modules/user/application/queries"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type stubReplaceProfileHandler struct {

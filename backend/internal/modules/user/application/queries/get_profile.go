@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GetProfileQuery struct{ UserID valueobjects.ID }

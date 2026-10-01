@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/domain"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewReaderStub struct {
@@ -25,25 +25,25 @@ func (s *contactViewReaderStub) GetContactForView(_ context.Context, query Conta
 }
 
 func TestContactViewQueryHandlerReturnsContact(t *testing.T) {
-	reader := &contactViewReaderStub{view: ContactView{Contact: enums.ContactKeyEmail, Value: "person@example.com"}}
-	resumeID := valueobjects.NewID()
+	reader := &contactViewReaderStub{view: ContactView{Contact: domain.ContactKeyEmail, Value: "person@example.com"}}
+	resumeID := identity.NewID()
 
 	result, err := NewContactViewQueryHandler(reader).Handle(context.Background(), ContactViewQuery{
 		ResumeID: resumeID,
-		Contact:  enums.ContactKeyEmail,
+		Contact:  domain.ContactKeyEmail,
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, reader.view, result)
 	require.Equal(t, resumeID, reader.query.ResumeID)
-	require.Equal(t, enums.ContactKeyEmail, reader.query.Contact)
+	require.Equal(t, domain.ContactKeyEmail, reader.query.Contact)
 }
 
 func TestContactViewQueryHandlerRejectsInvalidQuery(t *testing.T) {
 	reader := &contactViewReaderStub{}
 
 	_, err := NewContactViewQueryHandler(reader).Handle(context.Background(), ContactViewQuery{
-		ResumeID: valueobjects.NewID(),
+		ResumeID: identity.NewID(),
 		Contact:  "invalid",
 	})
 
@@ -56,8 +56,8 @@ func TestContactViewQueryHandlerPropagatesReaderError(t *testing.T) {
 	reader := &contactViewReaderStub{err: want}
 
 	_, err := NewContactViewQueryHandler(reader).Handle(context.Background(), ContactViewQuery{
-		ResumeID: valueobjects.NewID(),
-		Contact:  enums.ContactKeyEmail,
+		ResumeID: identity.NewID(),
+		Contact:  domain.ContactKeyEmail,
 	})
 
 	require.ErrorIs(t, err, want)

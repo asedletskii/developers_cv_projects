@@ -3,21 +3,21 @@ package http
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type statisticsHTTPLinkReader struct {
@@ -71,7 +71,7 @@ func newStatisticsHTTPServer(handler *Handler, userID uuid.UUID) *gin.Engine {
 func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 	userID := uuid.New()
 	linkID := valueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumeID.String()}},
 		statisticsHTTPOwnershipReader{},
@@ -88,7 +88,7 @@ func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 
 func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumevalueobjects.NewID().String()}},
+		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: valueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{result: queries.ResumeLinkStatistics{}},
 	), uuid.New())
@@ -103,7 +103,7 @@ func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 
 func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumevalueobjects.NewID().String()}},
+		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: valueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{err: resumequeries.ErrResumeNotFound},
 		statisticsHTTPReader{},
 	), uuid.New())
@@ -145,7 +145,7 @@ func TestStatisticsHandlerReturnsBadRequestForInvalidUUID(t *testing.T) {
 
 func TestStatisticsHandlerReturnsInternalErrorForReaderFailure(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumevalueobjects.NewID().String()}},
+		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: valueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{err: errors.New("db down")},
 	), uuid.New())

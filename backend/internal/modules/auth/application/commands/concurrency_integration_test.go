@@ -4,16 +4,17 @@ package commands
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
+
+	"crypto/sha256"
+	"path/filepath"
+	"sync/atomic"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,7 @@ import (
 	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userrepo "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type integrationTokenGenerator struct{ counter atomic.Uint64 }
@@ -76,7 +77,7 @@ func (r *blockingIdentityRepository) FindByProviderSubject(ctx context.Context, 
 func (r *blockingIdentityRepository) Create(ctx context.Context, identity *domain.Identity) error {
 	return r.inner.Create(ctx, identity)
 }
-func (r *blockingIdentityRepository) UpdateLastLogin(ctx context.Context, identityID sharedvalueobjects.ID, at time.Time) error {
+func (r *blockingIdentityRepository) UpdateLastLogin(ctx context.Context, identityID identity.ID, at time.Time) error {
 	return r.inner.UpdateLastLogin(ctx, identityID, at)
 }
 
@@ -103,14 +104,14 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 	transactions := repository.NewAuthTransactionRepository(db)
 	users := userrepo.NewUserRepository(db)
 	provisioner := usercommands.NewCreateUserHandler(users)
-	identity := func() valueobjects.ProviderSubject {
+	providerSubject := func() valueobjects.ProviderSubject {
 		subject, err := valueobjects.NewProviderSubject("same-telegram-subject")
 		require.NoError(t, err)
 		return subject
 	}()
 	blockedIdentities := &blockingIdentityRepository{inner: identities, barrier: make(chan struct{})}
 	generator := &integrationTokenGenerator{}
-	oidc := integrationOIDCStub{subject: identity}
+	oidc := integrationOIDCStub{subject: providerSubject}
 
 	handler := NewCompleteTelegramLoginHandler(transactions, blockedIdentities, sessions, oidc, provisioner, generator, uow, time.Hour)
 	now := time.Now().UTC().Truncate(time.Microsecond)
@@ -125,7 +126,7 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 		bindingHash, err := valueobjects.NewBrowserBindingHash(generator.Hash([]byte("binding-" + state)))
 		require.NoError(t, err)
 		tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{
-			ID: sharedvalueobjects.NewID(), Provider: testIntegrationProvider(), StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: bindingHash,
+			ID: identity.NewID(), Provider: testIntegrationProvider(), StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: bindingHash,
 			CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: now, ExpiresAt: now.Add(5 * time.Minute),
 		})
 		require.NoError(t, err)

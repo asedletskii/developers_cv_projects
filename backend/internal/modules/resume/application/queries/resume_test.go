@@ -4,10 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-
 	"github.com/stretchr/testify/require"
+
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type stubResumeReader struct{ view ResumeView }
@@ -18,30 +17,30 @@ func (s stubResumeReader) GetOwned(context.Context, GetResumeQuery) (ResumeView,
 
 func TestGetResumeQueryHandlerDelegatesToOwnedReader(t *testing.T) {
 	expected := ResumeView{ID: "resume-1", Title: "Backend Developer", Language: "en"}
-	got, err := NewGetResumeQueryHandler(stubResumeReader{view: expected}).Handle(context.Background(), GetResumeQuery{ResumeID: valueobjects.NewID(), UserID: useridentity.NewID()})
+	got, err := NewGetResumeQueryHandler(stubResumeReader{view: expected}).Handle(context.Background(), GetResumeQuery{ResumeID: identity.NewID(), UserID: identity.NewID()})
 	require.NoError(t, err)
 	require.Equal(t, expected, got)
 }
 
 func TestGetResumeQueryHandlerRejectsMissingUserID(t *testing.T) {
-	_, err := NewGetResumeQueryHandler(stubResumeReader{}).Handle(context.Background(), GetResumeQuery{ResumeID: valueobjects.NewID()})
+	_, err := NewGetResumeQueryHandler(stubResumeReader{}).Handle(context.Background(), GetResumeQuery{ResumeID: identity.NewID()})
 	require.Error(t, err)
 }
 
 func TestGetResumeQueryHandlerRejectsMissingResumeID(t *testing.T) {
-	_, err := NewGetResumeQueryHandler(stubResumeReader{}).Handle(context.Background(), GetResumeQuery{UserID: useridentity.NewID()})
+	_, err := NewGetResumeQueryHandler(stubResumeReader{}).Handle(context.Background(), GetResumeQuery{UserID: identity.NewID()})
 	require.Error(t, err)
 }
 
 func TestGetResumeQueryHandlerRejectsNilReader(t *testing.T) {
-	_, err := NewGetResumeQueryHandler(nil).Handle(context.Background(), GetResumeQuery{ResumeID: valueobjects.NewID(), UserID: useridentity.NewID()})
+	_, err := NewGetResumeQueryHandler(nil).Handle(context.Background(), GetResumeQuery{ResumeID: identity.NewID(), UserID: identity.NewID()})
 	require.Error(t, err)
 }
 
 func TestGetResumeQueryHandlerPropagatesReaderError(t *testing.T) {
 	want := context.Canceled
 	reader := resumeReaderErrorStub{err: want}
-	_, err := NewGetResumeQueryHandler(reader).Handle(context.Background(), GetResumeQuery{ResumeID: valueobjects.NewID(), UserID: useridentity.NewID()})
+	_, err := NewGetResumeQueryHandler(reader).Handle(context.Background(), GetResumeQuery{ResumeID: identity.NewID(), UserID: identity.NewID()})
 	require.ErrorIs(t, err, want)
 }
 

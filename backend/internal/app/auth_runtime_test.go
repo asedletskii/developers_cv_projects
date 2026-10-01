@@ -2,9 +2,10 @@ package app
 
 import (
 	"context"
-	"net/http/httptest"
 	"testing"
 	"time"
+
+	"net/http/httptest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/infrastructure/session"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/http/middleware"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type runtimeSessionRepositoryStub struct{}
@@ -25,13 +26,13 @@ func (runtimeSessionRepositoryStub) Create(context.Context, *domain.Session) err
 func (runtimeSessionRepositoryStub) FindActiveByTokenHash(context.Context, valueobjects.SessionTokenHash) (*domain.Session, error) {
 	return nil, domain.ErrEntityNotFound
 }
-func (runtimeSessionRepositoryStub) Revoke(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (runtimeSessionRepositoryStub) Revoke(context.Context, identity.ID, time.Time) error {
 	return nil
 }
-func (runtimeSessionRepositoryStub) RevokeAllByUserID(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (runtimeSessionRepositoryStub) RevokeAllByUserID(context.Context, identity.ID, time.Time) error {
 	return nil
 }
-func (runtimeSessionRepositoryStub) Touch(context.Context, sharedvalueobjects.ID, time.Time) error {
+func (runtimeSessionRepositoryStub) Touch(context.Context, identity.ID, time.Time) error {
 	return nil
 }
 func (runtimeSessionRepositoryStub) DeleteExpiredBatch(context.Context, time.Time, int) (int, error) {

@@ -15,19 +15,16 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/entities"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type phase6PostgresFixture struct {
 	ctx    context.Context
 	dsn    string
 	gorm   *gorm.DB
-	owner  useridentity.ID
+	owner  identity.ID
 	resume *domain.Resume
 	uow    *database.UnitOfWork
 }
@@ -58,10 +55,10 @@ func newPhase6PostgresFixture(t *testing.T) *phase6PostgresFixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	owner := useridentity.NewID()
+	owner := identity.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	resume := newTestResume(t, owner)
-	overview := domain.ResumeOverviewParams{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{}), Sections: []valueobjects.SectionSettings{}}
+	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{}), Sections: []domain.SectionSettings{}}
 	require.NoError(t, resume.ReplaceOverview(overview))
 	uow := database.NewUnitOfWork(gormDB)
 	resumeRepo := repository.NewResumeRepository(gormDB)
@@ -72,23 +69,16 @@ func newPhase6PostgresFixture(t *testing.T) *phase6PostgresFixture {
 	return &phase6PostgresFixture{ctx: ctx, dsn: dsn, gorm: gormDB, owner: owner, resume: resume, uow: uow}
 }
 
-func phase6YearMonth(t *testing.T, value string) valueobjects.YearMonth {
+func phase6YearMonth(t *testing.T, value string) domain.YearMonth {
 	t.Helper()
-	result, err := valueobjects.ParseYearMonth(value)
+	result, err := domain.ParseYearMonth(value)
 	require.NoError(t, err)
 	return result
 }
 
-func phase6Year(t *testing.T, value string) valueobjects.Year {
+func phase6Technology(t *testing.T, name string) domain.Technology {
 	t.Helper()
-	result, err := valueobjects.ParseYear(value)
-	require.NoError(t, err)
-	return result
-}
-
-func phase6Technology(t *testing.T, name string) entities.Technology {
-	t.Helper()
-	technology, err := entities.NewTechnology(entities.TechnologyParams{Name: name})
+	technology, err := domain.NewTechnology(domain.TechnologyParams{Name: name})
 	require.NoError(t, err)
 	return technology
 }
@@ -98,24 +88,24 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	ctx := fixture.ctx
 	resume := fixture.resume
 
-	primary, err := valueobjects.NewColor("#112233")
+	primary, err := domain.NewColor("#112233")
 	require.NoError(t, err)
-	secondary, err := valueobjects.NewColor("#abc")
+	secondary, err := domain.NewColor("#abc")
 	require.NoError(t, err)
-	theme, err := valueobjects.NewThemeSettings(valueobjects.ThemeSettingsParams{Primary: &primary, Secondary: &secondary})
+	theme, err := domain.NewThemeSettings(domain.ThemeSettingsParams{Primary: &primary, Secondary: &secondary})
 	require.NoError(t, err)
-	availability, err := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: enums.AvailabilityStatusOpen})
+	availability, err := domain.NewAvailability(domain.AvailabilityParams{Status: domain.AvailabilityStatusOpen})
 	require.NoError(t, err)
-	section, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: enums.SectionAbout, Enabled: true, Collapsed: false})
+	section, err := domain.NewSectionSettings(domain.SectionSettingsParams{ID: domain.SectionAbout, Enabled: true, Collapsed: false})
 	require.NoError(t, err)
-	link, err := valueobjects.NewExternalURL("https://example.com/cv.pdf")
+	link, err := domain.NewExternalURL("https://example.com/cv.pdf")
 	require.NoError(t, err)
 	overview := domain.ResumeOverviewParams{
 		Theme:        &theme,
-		Greeting:     valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
+		Greeting:     domain.NewGreeting(domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
 		Availability: &availability,
 		ResumeLink:   &link,
-		Sections:     []valueobjects.SectionSettings{section},
+		Sections:     []domain.SectionSettings{section},
 	}
 	require.NoError(t, resume.ReplaceOverview(overview))
 
@@ -130,21 +120,21 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	require.Equal(t, "Hello", loaded.Overview().Greeting().First())
 	require.Equal(t, "#112233", loaded.Overview().Theme().Primary.String())
 	require.Len(t, loaded.Overview().Sections(), 1)
-	require.Equal(t, enums.SectionAbout, loaded.Overview().Sections()[0].ID())
+	require.Equal(t, domain.SectionAbout, loaded.Overview().Sections()[0].ID())
 	require.Equal(t, int64(2), loaded.Version())
 
 	stale, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 	require.NoError(t, err)
 	require.Equal(t, int64(2), stale.Version())
 
-	updatedSection, err := valueobjects.NewSectionSettings(valueobjects.SectionSettingsParams{ID: enums.SectionProjects, Enabled: true, Collapsed: true})
+	updatedSection, err := domain.NewSectionSettings(domain.SectionSettingsParams{ID: domain.SectionProjects, Enabled: true, Collapsed: true})
 	require.NoError(t, err)
-	updatedAvailability, err := valueobjects.NewAvailability(valueobjects.AvailabilityParams{Status: enums.AvailabilityStatusBusy, Note: stringPtr("Not available")})
+	updatedAvailability, err := domain.NewAvailability(domain.AvailabilityParams{Status: domain.AvailabilityStatusBusy, Note: stringPtr("Not available")})
 	require.NoError(t, err)
 	updatedOverview := domain.ResumeOverviewParams{
-		Greeting:     valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Updated", Second: "I build", SecondHighlight: "systems", Third: ""}),
+		Greeting:     domain.NewGreeting(domain.GreetingParams{First: "Updated", Second: "I build", SecondHighlight: "systems", Third: ""}),
 		Availability: &updatedAvailability,
-		Sections:     []valueobjects.SectionSettings{updatedSection},
+		Sections:     []domain.SectionSettings{updatedSection},
 	}
 	require.NoError(t, loaded.ReplaceOverview(updatedOverview))
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
@@ -157,9 +147,9 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	require.Equal(t, "Updated", loaded.Overview().Greeting().First())
 	require.Nil(t, loaded.Overview().Theme())
 	require.Nil(t, loaded.Overview().ResumeLink())
-	require.Equal(t, enums.AvailabilityStatusBusy, loaded.Overview().Availability().Status())
+	require.Equal(t, domain.AvailabilityStatusBusy, loaded.Overview().Availability().Status())
 	require.Len(t, loaded.Overview().Sections(), 1)
-	require.Equal(t, enums.SectionProjects, loaded.Overview().Sections()[0].ID())
+	require.Equal(t, domain.SectionProjects, loaded.Overview().Sections()[0].ID())
 	require.True(t, loaded.Overview().Sections()[0].Collapsed())
 
 	require.ErrorIs(t, fixture.uow.Do(ctx, func(tx context.Context) error {
@@ -172,16 +162,16 @@ func TestPostgresResumeAggregateContactsReplacement(t *testing.T) {
 	ctx := fixture.ctx
 	resumeRepo := repository.NewResumeRepository(fixture.gorm)
 
-	email, err := valueobjects.NewEmail("first@example.com")
+	email, err := domain.NewEmail("first@example.com")
 	require.NoError(t, err)
-	contactEntity, err := entities.NewContacts(entities.ContactsParams{Phone: "+33123456789", Email: &email})
+	contactEntity, err := domain.NewContactMethods(domain.ContactMethodsParams{Phone: "+33123456789", Email: &email})
 	require.NoError(t, err)
 	title := "Contacts"
-	contactsText, err := valueobjects.NewContactsText(valueobjects.ContactsTextParams{Title: &title})
+	contactsText, err := domain.NewContactsText(domain.ContactsTextParams{Title: &title})
 	require.NoError(t, err)
 	require.NoError(t, fixture.resume.ReplaceContacts(domain.ContactsParams{
 		Contacts:       contactEntity,
-		HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+		HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
 		Text:           &contactsText,
 	}))
 	firstID := fixture.resume.Contacts().ID()
@@ -196,16 +186,16 @@ func TestPostgresResumeAggregateContactsReplacement(t *testing.T) {
 	require.NotNil(t, loaded.Contacts())
 	require.Equal(t, firstID, loaded.Contacts().ID())
 	require.Equal(t, "+33123456789", *loaded.Contacts().Contacts().Phone())
-	require.Equal(t, []enums.ContactKey{enums.ContactKeyEmail}, loaded.Contacts().HiddenContacts())
+	require.Equal(t, []domain.ContactKey{domain.ContactKeyEmail}, loaded.Contacts().HiddenContacts())
 	require.Equal(t, "Contacts", *loaded.Contacts().Text().Title())
 
 	stale, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
 	require.NoError(t, err)
 	require.Equal(t, int64(2), stale.Version())
 
-	updatedEmail, err := valueobjects.NewEmail("second@example.com")
+	updatedEmail, err := domain.NewEmail("second@example.com")
 	require.NoError(t, err)
-	updatedEntity, err := entities.NewContacts(entities.ContactsParams{Email: &updatedEmail})
+	updatedEntity, err := domain.NewContactMethods(domain.ContactMethodsParams{Email: &updatedEmail})
 	require.NoError(t, err)
 	require.NoError(t, loaded.ReplaceContacts(domain.ContactsParams{Contacts: updatedEntity}))
 	require.Equal(t, firstID, loaded.Contacts().ID())
@@ -236,17 +226,17 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	profileID := valueobjects.NewID()
-	contactsID := valueobjects.NewID()
-	skillsID := valueobjects.NewID()
-	languageID := valueobjects.NewID()
-	technologyID := valueobjects.NewID()
-	experienceID := valueobjects.NewID()
-	educationID := valueobjects.NewID()
-	courseID := valueobjects.NewID()
-	activityID := valueobjects.NewID()
-	projectID := valueobjects.NewID()
-	contributorID := valueobjects.NewID()
+	profileID := identity.NewID()
+	contactsID := identity.NewID()
+	skillsID := identity.NewID()
+	languageID := identity.NewID()
+	technologyID := identity.NewID()
+	experienceID := identity.NewID()
+	educationID := identity.NewID()
+	courseID := identity.NewID()
+	activityID := identity.NewID()
+	projectID := identity.NewID()
+	contributorID := identity.NewID()
 	now := time.Now().UTC()
 
 	statements := []struct {
@@ -283,7 +273,7 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 
 	resumeRepo := repository.NewResumeRepository(fixture.gorm)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
-		return resumeRepo.Delete(tx, ports.DeleteResumeParams{ResumeID: resumeID, UserID: fixture.owner})
+		return resumeRepo.Delete(tx, ports.DeleteResumeParams{ResumeID: resumeID, UserID: fixture.owner, Version: fixture.resume.Version()})
 	}))
 
 	tables := []string{
@@ -300,6 +290,26 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 	}
 }
 
+func TestPostgresResumeDeleteRejectsStaleVersion(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	ctx := fixture.ctx
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+
+	err := fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.Delete(tx, ports.DeleteResumeParams{
+			ResumeID: fixture.resume.ID(),
+			UserID:   fixture.owner,
+			Version:  fixture.resume.Version() - 1,
+		})
+	})
+
+	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
+
+	var count int64
+	require.NoError(t, fixture.gorm.WithContext(ctx).Table("resumes").Where("id = ?", fixture.resume.ID().UUID()).Count(&count).Error)
+	require.Equal(t, int64(1), count)
+}
+
 func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	fixture := newPhase6PostgresFixture(t)
 	ctx := fixture.ctx
@@ -308,12 +318,12 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	gormDB := fixture.gorm
 	resumeRepo := repository.NewResumeRepository(gormDB)
 
-	secondResume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: owner, Title: "Second resume", Language: enums.ResumeLanguageEN})
+	secondResume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: owner, Title: "Second resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, secondResume)
 	}))
-	duplicateLanguageResume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: owner, Title: "Duplicate language", Language: enums.ResumeLanguageRU})
+	duplicateLanguageResume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: owner, Title: "Duplicate language", Language: domain.ResumeLanguageRU})
 	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, duplicateLanguageResume)
@@ -355,9 +365,7 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	}
 }
 
-func stringPtr(value string) *string                     { return &value }
-func intPtr(value int) *int                              { return &value }
-func ptrYear(value valueobjects.Year) *valueobjects.Year { return &value }
+func stringPtr(value string) *string { return &value }
 
 func experienceStackParams(item *domain.Experience) []domain.ExperienceStackParams {
 	stack := item.Stack()
@@ -435,7 +443,7 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Experiences()[0].ID(), loaded.Experiences()[1].ID()})
+		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Experiences()[0].ID(), loaded.Experiences()[1].ID()})
 	})
 
 	t.Run("educations", func(t *testing.T) {
@@ -443,8 +451,8 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, err)
 		resumeVersion := resume.Version()
 		require.NoError(t, resume.ReplaceEducations([]domain.EducationParams{
-			{Location: "Paris", University: "First University", Grade: enums.EducationLevelBachelor, ProgramName: "Computer Science", Faculty: "Engineering"},
-			{Location: "Lyon", University: "Second University", Grade: enums.EducationLevelMaster, ProgramName: "Software Engineering", Faculty: "Engineering"},
+			{Location: "Paris", University: "First University", Grade: domain.EducationLevelBachelor, ProgramName: "Computer Science", Faculty: "Engineering"},
+			{Location: "Lyon", University: "Second University", Grade: domain.EducationLevelMaster, ProgramName: "Software Engineering", Faculty: "Engineering"},
 		}))
 		require.Equal(t, resumeVersion, resume.Version())
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
@@ -453,13 +461,13 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		firstID, secondID := loaded.Educations()[0].ID(), loaded.Educations()[1].ID()
 
 		require.NoError(t, loaded.ReplaceEducations([]domain.EducationParams{
-			{ID: secondID, Location: "Lyon", University: "Second University", Grade: enums.EducationLevelMaster, ProgramName: "Software Engineering", Faculty: "Engineering"},
-			{ID: firstID, Location: "Paris", University: "First University", Grade: enums.EducationLevelBachelor, ProgramName: "Computer Science", Faculty: "Engineering"},
+			{ID: secondID, Location: "Lyon", University: "Second University", Grade: domain.EducationLevelMaster, ProgramName: "Software Engineering", Faculty: "Engineering"},
+			{ID: firstID, Location: "Paris", University: "First University", Grade: domain.EducationLevelBachelor, ProgramName: "Computer Science", Faculty: "Engineering"},
 		}))
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Educations()[0].ID(), loaded.Educations()[1].ID()})
+		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Educations()[0].ID(), loaded.Educations()[1].ID()})
 	})
 
 	t.Run("courses", func(t *testing.T) {
@@ -481,15 +489,15 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Courses()[0].ID(), loaded.Courses()[1].ID()})
+		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Courses()[0].ID(), loaded.Courses()[1].ID()})
 	})
 
 	t.Run("activities", func(t *testing.T) {
 		resume, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
 		require.NoError(t, resume.ReplaceActivities([]domain.ActivityParams{
-			{Type: enums.ActivityTypeOpenSource, Title: "First Activity"},
-			{Type: enums.ActivityTypeSpeaker, Title: "Second Activity"},
+			{Type: domain.ActivityTypeOpenSource, Title: "First Activity"},
+			{Type: domain.ActivityTypeSpeaker, Title: "Second Activity"},
 		}))
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
 		loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
@@ -497,13 +505,13 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		firstID, secondID := loaded.Activities()[0].ID(), loaded.Activities()[1].ID()
 
 		require.NoError(t, loaded.ReplaceActivities([]domain.ActivityParams{
-			{ID: secondID, Type: enums.ActivityTypeSpeaker, Title: "Second Activity"},
-			{ID: firstID, Type: enums.ActivityTypeOpenSource, Title: "First Activity"},
+			{ID: secondID, Type: domain.ActivityTypeSpeaker, Title: "Second Activity"},
+			{ID: firstID, Type: domain.ActivityTypeOpenSource, Title: "First Activity"},
 		}))
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Activities()[0].ID(), loaded.Activities()[1].ID()})
+		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Activities()[0].ID(), loaded.Activities()[1].ID()})
 	})
 
 	t.Run("technologies", func(t *testing.T) {
@@ -528,19 +536,19 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
 		entries = loaded.Technologies().Entries()
-		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{entries[0].ID(), entries[1].ID()})
+		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{entries[0].ID(), entries[1].ID()})
 	})
 
 	t.Run("projects", func(t *testing.T) {
 		resume, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		firstScreenshot, err := valueobjects.NewExternalURL("https://example.com/first.png")
+		firstScreenshot, err := domain.NewExternalURL("https://example.com/first.png")
 		require.NoError(t, err)
-		secondScreenshot, err := valueobjects.NewExternalURL("https://example.com/second.png")
+		secondScreenshot, err := domain.NewExternalURL("https://example.com/second.png")
 		require.NoError(t, err)
 		require.NoError(t, resume.ReplaceProjects([]domain.ProjectParams{
-			{Name: "First Project", Screenshots: []valueobjects.ExternalURL{firstScreenshot}, Stack: []entities.Technology{phase6Technology(t, "Go")}},
-			{Name: "Second Project", Screenshots: []valueobjects.ExternalURL{secondScreenshot}, Stack: []entities.Technology{phase6Technology(t, "PostgreSQL")}},
+			{Name: "First Project", Screenshots: []domain.ExternalURL{firstScreenshot}, Stack: []domain.Technology{phase6Technology(t, "Go")}},
+			{Name: "Second Project", Screenshots: []domain.ExternalURL{secondScreenshot}, Stack: []domain.Technology{phase6Technology(t, "PostgreSQL")}},
 		}))
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, resume) }))
 		loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
@@ -554,7 +562,7 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []valueobjects.ID{secondID, firstID}, []valueobjects.ID{loaded.Projects()[0].ID(), loaded.Projects()[1].ID()})
+		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Projects()[0].ID(), loaded.Projects()[1].ID()})
 		require.Len(t, loaded.Projects()[0].Screenshots(), 1)
 		require.Len(t, loaded.Projects()[0].Stack(), 1)
 		require.Equal(t, "PostgreSQL", loaded.Projects()[0].Stack()[0].Name())

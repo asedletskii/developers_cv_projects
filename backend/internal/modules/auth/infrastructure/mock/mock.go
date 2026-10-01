@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
+
+	"net/http"
 
 	"github.com/google/uuid"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 const MockUserIDHeader = "X-Mock-User-ID"

@@ -5,7 +5,6 @@ package persistence_test
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,11 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"path/filepath"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/platform/database"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresUserReaderGetUser(t *testing.T) {

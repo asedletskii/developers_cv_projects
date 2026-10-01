@@ -2,10 +2,11 @@ package domain
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	"net/url"
+
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ProfileLanguage string

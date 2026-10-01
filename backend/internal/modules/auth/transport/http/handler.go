@@ -3,9 +3,13 @@ package http
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 	"time"
+
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"developers-cv/backend/internal/modules/auth/application"
 	"developers-cv/backend/internal/modules/auth/application/commands"
@@ -14,10 +18,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
-
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type startTelegramLogin interface {
@@ -273,10 +274,10 @@ func (h *Handler) failureRedirect(reason string) string {
 	return base + "?reason=" + reason
 }
 
-func userIDFromUUID(value uuid.UUID) sharedvalueobjects.ID {
-	id, err := sharedvalueobjects.IDFromUUID(value)
+func userIDFromUUID(value uuid.UUID) identity.ID {
+	id, err := identity.IDFromUUID(value)
 	if err != nil {
-		return sharedvalueobjects.ID{}
+		return identity.ID{}
 	}
 	return id
 }

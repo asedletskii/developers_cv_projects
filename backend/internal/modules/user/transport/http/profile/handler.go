@@ -3,6 +3,7 @@ package profile
 import (
 	"context"
 	"errors"
+
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,9 +11,9 @@ import (
 	"developers-cv/backend/internal/modules/user/application/commands"
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type profileReplacer interface {

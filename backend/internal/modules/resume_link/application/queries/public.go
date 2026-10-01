@@ -7,10 +7,9 @@ import (
 	"github.com/google/uuid"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type PublicResumeLinkQuery struct {
@@ -64,7 +63,7 @@ func (h *PublicResumeLinkQueryHandler) Handle(ctx context.Context, query PublicR
 	if err != nil {
 		return resumequeries.ResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
-	resumeID, err := resumevalueobjects.IDFromUUID(resumeUUID)
+	resumeID, err := valueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
 		return resumequeries.ResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}

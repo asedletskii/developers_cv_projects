@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func newSessionHash(t *testing.T) valueobjects.SessionTokenHash {
@@ -22,7 +22,7 @@ func newTestSession(t *testing.T) (*Session, time.Time) {
 	t.Helper()
 	created := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
 	session, err := NewSession(SessionParams{
-		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), TokenHash: newSessionHash(t),
+		ID: identity.NewID(), UserID: identity.NewID(), TokenHash: newSessionHash(t),
 		CreatedAt: created, LastSeenAt: created, ExpiresAt: created.Add(30 * 24 * time.Hour),
 	})
 	require.NoError(t, err)
@@ -38,7 +38,7 @@ func TestNewSession(t *testing.T) {
 func TestNewSessionRejectsInvalidTimestampOrder(t *testing.T) {
 	created := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
 	_, err := NewSession(SessionParams{
-		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), TokenHash: newSessionHash(t),
+		ID: identity.NewID(), UserID: identity.NewID(), TokenHash: newSessionHash(t),
 		CreatedAt: created, LastSeenAt: created.Add(-time.Second), ExpiresAt: created.Add(time.Hour),
 	})
 	require.ErrorIs(t, err, ErrInvalidSession)

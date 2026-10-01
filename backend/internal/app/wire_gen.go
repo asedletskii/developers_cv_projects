@@ -20,17 +20,6 @@ import (
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
-	activitieshttp "developers-cv/backend/internal/modules/resume/transport/http/activities"
-	contactshandler "developers-cv/backend/internal/modules/resume/transport/http/contacts"
-	courseshttp "developers-cv/backend/internal/modules/resume/transport/http/courses"
-	educationshttp "developers-cv/backend/internal/modules/resume/transport/http/educations"
-	experienceshttp "developers-cv/backend/internal/modules/resume/transport/http/experiences"
-	languageshttp "developers-cv/backend/internal/modules/resume/transport/http/languages"
-	overviewhandler "developers-cv/backend/internal/modules/resume/transport/http/overview"
-	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
-	projectshttp "developers-cv/backend/internal/modules/resume/transport/http/projects"
-	skillshttp "developers-cv/backend/internal/modules/resume/transport/http/skills"
-	technologieshttp "developers-cv/backend/internal/modules/resume/transport/http/technologies"
 	resumelinkcommands "developers-cv/backend/internal/modules/resume_link/application/commands"
 	resumelinkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
 	resumelinkanalytics "developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
@@ -146,17 +135,6 @@ func Initialize() (*Application, error) {
 	replaceCoursesHandlerValue := resumecommands.NewReplaceCoursesHandler(resumeRepositoryValue, unitOfWorkValue)
 	replaceActivitiesHandlerValue := resumecommands.NewReplaceActivitiesHandler(resumeRepositoryValue, unitOfWorkValue)
 	replaceProjectsHandlerValue := resumecommands.NewReplaceProjectsHandler(resumeRepositoryValue, unitOfWorkValue)
-	skillsHandlerValue := skillshttp.NewHandler(replaceSkillsHandlerValue)
-	languagesHandlerValue := languageshttp.NewHandler(replaceLanguagesHandlerValue)
-	technologiesHandlerValue := technologieshttp.NewHandler(replaceTechnologiesHandlerValue)
-	experiencesHandlerValue := experienceshttp.NewHandler(replaceExperiencesHandlerValue)
-	educationsHandlerValue := educationshttp.NewHandler(replaceEducationsHandlerValue)
-	coursesHandlerValue := courseshttp.NewHandler(replaceCoursesHandlerValue)
-	activitiesHandlerValue := activitieshttp.NewHandler(replaceActivitiesHandlerValue)
-	projectsHandlerValue := projectshttp.NewHandler(replaceProjectsHandlerValue)
-	overviewHandlerValue := overviewhandler.NewHandler(replaceOverviewHandlerValue)
-	profileHandlerValue := profilehandler.NewHandler(replaceProfileHandlerValue)
-	contactsHandlerValue := contactshandler.NewHandler(replaceContactsHandlerValue)
 	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(resumeReaderValue)
 	publicResumeLinkQueryHandlerValue := resumelinkqueries.NewPublicResumeLinkQueryHandler(resumeLinkReaderValue, publicResumeQueryHandlerValue, resumeLinkEventRecorderValue)
 	resumeLinkStatisticsQueryHandlerValue := resumelinkqueries.NewGetResumeLinkStatisticsQueryHandler(resumeLinkReaderValue, resumeReaderValue, resumeLinkReaderValue)
@@ -168,26 +146,23 @@ func Initialize() (*Application, error) {
 	replaceUserProfileHandlerValue := usercommands.NewReplaceProfileHandler(profileRepositoryValue, unitOfWorkValue)
 	userHandlerValue := userhttp.NewHandler(getProfileHandlerValue, replaceUserProfileHandlerValue)
 	resumeHandlerDependencies := http.HandlerDependencies{
-		ListResumes:        listResumesHandlerValue,
-		CreateResume:       createResumeHandlerValue,
-		GetResume:          getResumeQueryHandlerValue,
-		ReplaceResumeTitle: replaceResumeTitleHandlerValue,
-		ChangeResumeStatus: changeResumeStatusHandlerValue,
-		DeleteResume:       deleteResumeHandlerValue,
-		ReplaceOverview:    replaceOverviewHandlerValue,
-		ReplaceProfile:     replaceProfileHandlerValue,
-		ReplaceContacts:    replaceContactsHandlerValue,
-		Overview:           overviewHandlerValue,
-		Profile:            profileHandlerValue,
-		Contacts:           contactsHandlerValue,
-		Skills:             skillsHandlerValue,
-		Languages:          languagesHandlerValue,
-		Technologies:       technologiesHandlerValue,
-		Experiences:        experiencesHandlerValue,
-		Educations:         educationsHandlerValue,
-		Courses:            coursesHandlerValue,
-		Activities:         activitiesHandlerValue,
-		Projects:           projectsHandlerValue,
+		ListResumes:         listResumesHandlerValue,
+		CreateResume:        createResumeHandlerValue,
+		GetResume:           getResumeQueryHandlerValue,
+		ReplaceResumeTitle:  replaceResumeTitleHandlerValue,
+		ChangeResumeStatus:  changeResumeStatusHandlerValue,
+		DeleteResume:        deleteResumeHandlerValue,
+		ReplaceOverview:     replaceOverviewHandlerValue,
+		ReplaceProfile:      replaceProfileHandlerValue,
+		ReplaceContacts:     replaceContactsHandlerValue,
+		ReplaceSkills:       replaceSkillsHandlerValue,
+		ReplaceLanguages:    replaceLanguagesHandlerValue,
+		ReplaceTechnologies: replaceTechnologiesHandlerValue,
+		ReplaceExperiences:  replaceExperiencesHandlerValue,
+		ReplaceEducations:   replaceEducationsHandlerValue,
+		ReplaceCourses:      replaceCoursesHandlerValue,
+		ReplaceActivities:   replaceActivitiesHandlerValue,
+		ReplaceProjects:     replaceProjectsHandlerValue,
 	}
 	resumeHandlerValue := http.NewHandler(resumeHandlerDependencies)
 	resumeLinkHandlerValue := resumelinkhttp.NewHandler(resumelinkhttp.HandlerDependencies{

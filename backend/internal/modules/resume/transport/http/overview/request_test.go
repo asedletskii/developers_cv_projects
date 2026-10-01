@@ -2,13 +2,13 @@ package overview
 
 import (
 	"bytes"
-	"encoding/json"
 	"testing"
+
+	"encoding/json"
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestOverviewRequestAcceptsRootFields(t *testing.T) {
@@ -23,7 +23,7 @@ func TestOverviewRequestAcceptsRootFields(t *testing.T) {
 		},
 		ResumeLink: stringPtr("https://example.com/cv.pdf"),
 		Sections:   []sectionRequest{{ID: "about", Enabled: true, Collapsed: false}},
-	}).ToCommand(useridentity.NewID(), valueobjects.NewID())
+	}).ToCommand(identity.NewID(), identity.NewID())
 
 	require.NoError(t, err)
 	require.Equal(t, int64(7), command.Version)
@@ -40,7 +40,7 @@ func TestOverviewRequestRejectsRelativeResumePath(t *testing.T) {
 		Greeting:   greetingRequest{First: "A", Second: "B", SecondHighlight: "C", Third: "D"},
 		ResumeLink: stringPtr("/cv.pdf"),
 		Sections:   []sectionRequest{},
-	}).ToCommand(useridentity.NewID(), valueobjects.NewID())
+	}).ToCommand(identity.NewID(), identity.NewID())
 
 	require.Error(t, err)
 }

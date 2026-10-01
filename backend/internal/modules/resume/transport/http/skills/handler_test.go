@@ -3,9 +3,10 @@ package skills
 import (
 	"bytes"
 	"context"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -13,9 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeSkillsHTTPRepository struct {
@@ -39,8 +38,8 @@ func (fakeSkillsHTTPUnitOfWork) Do(ctx context.Context, fn func(context.Context)
 
 func TestReplaceSkillsBindsFullSnapshot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	uid := useridentity.NewID()
-	resume, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: uid, Title: "Resume", Language: enums.ResumeLanguageEN})
+	uid := identity.NewID()
+	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &fakeSkillsHTTPRepository{resume: resume}
 	handler := NewHandler(commands.NewReplaceSkillsHandler(repo, fakeSkillsHTTPUnitOfWork{}))
@@ -56,6 +55,6 @@ func TestReplaceSkillsBindsFullSnapshot(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, w.Code)
 	require.NotNil(t, resume.Skills())
-	require.Equal(t, []enums.HardSkill{enums.HardSkillTesting}, resume.Skills().HardSkills())
-	require.Equal(t, []enums.SoftSkill{enums.SoftSkillTeamwork}, resume.Skills().SoftSkills())
+	require.Equal(t, []domain.HardSkill{domain.HardSkillTesting}, resume.Skills().HardSkills())
+	require.Equal(t, []domain.SoftSkill{domain.SoftSkillTeamwork}, resume.Skills().SoftSkills())
 }

@@ -2,10 +2,11 @@ package projects
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -13,9 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type projectHTTPRepoStub struct {
@@ -44,8 +43,8 @@ func (projectHTTPUOWStub) Do(ctx context.Context, fn func(context.Context) error
 func TestReplaceProjectsReturnsNoContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: valueobjects.NewID(), UserID: useridentity.NewID(),
-		Title: "Resume", Language: enums.ResumeLanguageEN,
+		ID: identity.NewID(), UserID: identity.NewID(),
+		Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 
@@ -62,4 +61,28 @@ func TestReplaceProjectsReturnsNoContent(t *testing.T) {
 	engine.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusNoContent, recorder.Code)
+}
+
+func TestReplaceProjectsRejectsNonPositiveVersion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resume, err := domain.NewResume(domain.ResumeParams{
+		ID: identity.NewID(), UserID: identity.NewID(),
+		Title: "Resume", Language: domain.ResumeLanguageEN,
+	})
+	require.NoError(t, err)
+
+	h := NewHandler(commands.NewReplaceProjectsHandler(&projectHTTPRepoStub{resume: resume}, projectHTTPUOWStub{}))
+	engine := gin.New()
+	engine.PUT("/resume/:resumeId/projects", func(c *gin.Context) {
+		c.Set("user_id", resume.UserID().UUID())
+		h.Replace(c)
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/resume/"+resume.ID().String()+"/projects", strings.NewReader(`{"version":0,"items":[]}`))
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"code":"BAD_REQUEST"`)
 }

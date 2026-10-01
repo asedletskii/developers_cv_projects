@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type SessionRepository struct{ db *gorm.DB }
@@ -52,7 +51,7 @@ func (r *SessionRepository) FindActiveByTokenHash(ctx context.Context, tokenHash
 	return sessionFromModel(model)
 }
 
-func (r *SessionRepository) Revoke(ctx context.Context, sessionID sharedvalueobjects.ID, at time.Time) error {
+func (r *SessionRepository) Revoke(ctx context.Context, sessionID identity.ID, at time.Time) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("revoke session: %w", err)
@@ -73,7 +72,7 @@ func (r *SessionRepository) Revoke(ctx context.Context, sessionID sharedvalueobj
 	return nil
 }
 
-func (r *SessionRepository) RevokeAllByUserID(ctx context.Context, userID sharedvalueobjects.ID, at time.Time) error {
+func (r *SessionRepository) RevokeAllByUserID(ctx context.Context, userID identity.ID, at time.Time) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("revoke all sessions: %w", err)
@@ -84,7 +83,7 @@ func (r *SessionRepository) RevokeAllByUserID(ctx context.Context, userID shared
 	return nil
 }
 
-func (r *SessionRepository) Touch(ctx context.Context, sessionID sharedvalueobjects.ID, at time.Time) error {
+func (r *SessionRepository) Touch(ctx context.Context, sessionID identity.ID, at time.Time) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("touch session: %w", err)
@@ -125,11 +124,11 @@ func sessionModel(s *domain.Session) gormmodel.AuthSession {
 	return gormmodel.AuthSession{ID: s.ID().UUID(), UserID: s.UserID().UUID(), TokenHash: s.TokenHash().Bytes(), CreatedAt: s.CreatedAt(), LastSeenAt: s.LastSeenAt(), ExpiresAt: s.ExpiresAt(), RevokedAt: s.RevokedAt(), UserAgent: s.UserAgent(), IPAddress: s.IPAddress()}
 }
 func sessionFromModel(m gormmodel.AuthSession) (*domain.Session, error) {
-	id, err := sharedvalueobjects.IDFromUUID(m.ID)
+	id, err := identity.IDFromUUID(m.ID)
 	if err != nil {
 		return nil, err
 	}
-	uid, err := sharedvalueobjects.IDFromUUID(m.UserID)
+	uid, err := identity.IDFromUUID(m.UserID)
 	if err != nil {
 		return nil, err
 	}

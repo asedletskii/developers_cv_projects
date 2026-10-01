@@ -1,16 +1,14 @@
 package profile
 
 import (
-	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	apperrors "developers-cv/backend/internal/platform/http/errors"
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"developers-cv/backend/internal/modules/resume/application/commands"
+	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/transport/http/common"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -34,34 +32,30 @@ type profileRequest struct {
 }
 
 func (r profileRequest) input() (commands.ProfileInput, error) {
-	var id valueobjects.ID
+	var id identity.ID
 	if r.ID != "" {
-		parsed, err := valueobjects.ParseID(r.ID)
+		parsed, err := identity.ParseID(r.ID)
 		if err != nil {
 			return commands.ProfileInput{}, err
 		}
 		id = parsed
 	}
-	photo, err := valueobjects.NewExternalURL(r.PhotoPath)
+	photo, err := domain.NewExternalURL(r.PhotoPath)
 	if err != nil {
 		return commands.ProfileInput{}, err
 	}
-	dob, err := valueobjects.ParseDate(r.DateOfBirth)
+	dob, err := domain.ParseDate(r.DateOfBirth)
 	if err != nil {
 		return commands.ProfileInput{}, err
 	}
-	formats := make([]enums.WorkFormat, len(r.WorkFormat))
+	formats := make([]domain.WorkFormat, len(r.WorkFormat))
 	for i, v := range r.WorkFormat {
-		formats[i] = enums.WorkFormat(v)
+		formats[i] = domain.WorkFormat(v)
 	}
 	return commands.ProfileInput{ID: id, Name: r.Name, Surname: r.Surname, Patronymic: r.Patronymic, Position: r.Position, PhotoPath: photo, DateOfBirth: dob, Location: r.Location, Relocation: r.Relocation, WorkFormats: formats}, nil
 }
 func (h *Handler) Replace(c *gin.Context) {
-	uid, ok := common.RequireUserID(c)
-	if !ok {
-		return
-	}
-	rid, ok := common.ParseResumeID(c)
+	uid, rid, ok := common.RequireResumeContext(c)
 	if !ok {
 		return
 	}
@@ -70,8 +64,7 @@ func (h *Handler) Replace(c *gin.Context) {
 		common.WriteBindError(c, err)
 		return
 	}
-	if body.Version < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "version must be positive"})
+	if !common.RequirePositiveVersion(c, body.Version) {
 		return
 	}
 	input, err := body.input()
@@ -81,19 +74,8 @@ func (h *Handler) Replace(c *gin.Context) {
 	}
 	err = h.replace.Handle(c.Request.Context(), commands.ReplaceProfileCommand{ResumeID: rid, UserID: uid, Version: body.Version, Input: input})
 	if err != nil {
-		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			c.Status(http.StatusPreconditionFailed)
-			return
-		}
-		writeProfileError(c, err)
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-func writeProfileError(c *gin.Context, err error) {
-	if errors.Is(err, domain.ErrDuplicateEntity) {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume profile has duplicate values"))
-		return
-	}
-	common.WriteCommandError(c, err)
 }

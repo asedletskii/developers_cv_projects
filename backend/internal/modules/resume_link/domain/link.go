@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	"developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ResumeLinkParams struct {
 	ID       valueobjects.ID
-	ResumeID resumevalueobjects.ID
+	ResumeID valueobjects.ID
 	Name     string
 	Version  int64
 }
@@ -25,7 +24,7 @@ const (
 
 type ResumeLink struct {
 	id       valueobjects.ID
-	resumeID resumevalueobjects.ID
+	resumeID valueobjects.ID
 	name     string
 	active   bool
 	version  int64
@@ -67,9 +66,9 @@ func (l *ResumeLink) ID() valueobjects.ID {
 	return l.id
 }
 
-func (l *ResumeLink) ResumeID() resumevalueobjects.ID {
+func (l *ResumeLink) ResumeID() valueobjects.ID {
 	if l == nil {
-		return resumevalueobjects.ID{}
+		return valueobjects.ID{}
 	}
 	return l.resumeID
 }

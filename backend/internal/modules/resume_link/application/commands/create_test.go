@@ -8,10 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeUnitOfWork struct{ called bool }
@@ -60,7 +58,7 @@ func (r *fakeRepository) Delete(context.Context, valueobjects.ID) error         
 func (r *fakeRepository) RecordEvent(context.Context, *domain.ResumeLinkEvent) error { return r.err }
 
 func validCreateCommand() CreateResumeLinkCommand {
-	return CreateResumeLinkCommand{UserID: uservalueobjects.NewID(), ResumeID: resumevalueobjects.NewID(), Name: "  HH  "}
+	return CreateResumeLinkCommand{UserID: valueobjects.NewID(), ResumeID: valueobjects.NewID(), Name: "  HH  "}
 }
 
 func TestCreateResumeLinkHandlerCreatesLinkAfterOwnershipValidation(t *testing.T) {
@@ -123,7 +121,7 @@ func TestCreateResumeLinkHandlerPropagatesRepositoryFailure(t *testing.T) {
 func TestCreateResumeLinkHandlerRejectsInvalidIdentifiers(t *testing.T) {
 	handler := NewCreateResumeLinkHandler(&fakeRepository{}, &fakeResumeReader{}, &fakeUnitOfWork{})
 	command := validCreateCommand()
-	command.UserID = uservalueobjects.ID{}
+	command.UserID = valueobjects.ID{}
 
 	_, err := handler.Handle(context.Background(), command)
 

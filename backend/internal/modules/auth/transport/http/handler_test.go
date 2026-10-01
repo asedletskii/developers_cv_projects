@@ -2,12 +2,13 @@ package http
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
+
+	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -19,7 +20,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/token"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeStartTelegramLogin struct {
@@ -104,7 +105,7 @@ func TestHandlerStartTelegramMapsApplicationError(t *testing.T) {
 }
 
 func TestHandlerCompleteTelegramSetsSecureSessionCookieAndRedirects(t *testing.T) {
-	userID := sharedvalueobjects.NewID()
+	userID := identity.NewID()
 	handler := newTestHandler(nil, &fakeCompleteTelegramLogin{session: commands.AuthenticatedSession{
 		UserID:          userID,
 		RawSessionToken: "test-session-value",

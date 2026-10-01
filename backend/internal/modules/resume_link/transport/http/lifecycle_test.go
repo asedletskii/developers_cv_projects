@@ -2,24 +2,23 @@ package http
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type lifecycleReaderStub struct {
@@ -90,8 +89,8 @@ func (lifecycleUnitOfWork) Do(ctx context.Context, fn func(context.Context) erro
 }
 
 func TestReplaceStatusHandlerDeactivatesOwnedLink(t *testing.T) {
-	userID := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	userID := valueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 3})
 	require.NoError(t, err)
 	repo := &lifecycleRepositoryStub{link: link}
@@ -171,7 +170,7 @@ func TestReplaceStatusHandlerRejectsInvalidBody(t *testing.T) {
 }
 
 func TestReplaceStatusHandlerRejectsStaleVersion(t *testing.T) {
-	resumeID := resumevalueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 4})
 	require.NoError(t, err)
 	repo := &lifecycleRepositoryStub{link: link}
@@ -199,7 +198,7 @@ func newAuthenticatedEngine(handler *Handler, userID uuid.UUID) *gin.Engine {
 
 func TestListHandlerReturnsLinks(t *testing.T) {
 	userID := uuid.New()
-	resumeID := resumevalueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	h := newLifecycleHandler(lifecycleReaderStub{
 		items: []queries.ResumeLinkListItem{{ID: uuid.NewString(), Name: "HH", Status: "active", Version: 1}},
 	}, lifecycleOwnershipStub{}, &lifecycleRepositoryStub{})
@@ -226,8 +225,8 @@ func TestListHandlerReturnsNotFoundForForeignResume(t *testing.T) {
 }
 
 func TestDeleteHandlerDeletesOwnedLink(t *testing.T) {
-	userID := uservalueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	userID := valueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
 	require.NoError(t, err)
 	repo := &lifecycleRepositoryStub{link: link}
@@ -254,7 +253,7 @@ func TestDeleteHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 }
 
 func TestReplaceStatusHandlerReturnsPreconditionFailedEnvelope(t *testing.T) {
-	resumeID := resumevalueobjects.NewID()
+	resumeID := valueobjects.NewID()
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 4})
 	require.NoError(t, err)
 	repo := &lifecycleRepositoryStub{link: link}

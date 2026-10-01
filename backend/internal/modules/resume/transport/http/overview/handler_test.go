@@ -3,9 +3,10 @@ package overview
 import (
 	"bytes"
 	"context"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,10 +15,8 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type handlerAggregateRepository struct {
@@ -43,9 +42,9 @@ func (handlerUOW) Do(ctx context.Context, fn func(context.Context) error) error 
 
 func newOverviewTestResume(t *testing.T) *domain.Resume {
 	t.Helper()
-	resume, err := domain.NewResume(domain.ResumeParams{UserID: useridentity.NewID(), Title: "Resume", Language: enums.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
-	overview := domain.ResumeOverviewParams{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{}), Sections: []valueobjects.SectionSettings{}}
+	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{}), Sections: []domain.SectionSettings{}}
 	require.NoError(t, resume.ReplaceOverview(overview))
 	return resume
 }

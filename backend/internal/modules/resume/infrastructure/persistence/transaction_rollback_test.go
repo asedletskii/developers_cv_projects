@@ -8,20 +8,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
+	testcontainers "github.com/testcontainers/testcontainers-go"
+	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/entities"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-
-	"github.com/jackc/pgx/v5"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	identity "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
@@ -42,28 +38,28 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	owner := useridentity.NewID()
+	owner := identity.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	resumeRepo := repository.NewResumeRepository(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
 
 	resume := newTestResume(t, owner)
 	require.NoError(t, resume.ReplaceOverview(domain.ResumeOverviewParams{
-		Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
+		Greeting: domain.NewGreeting(domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
 	}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, resume)
 	}))
 
-	photo, err := valueobjects.NewExternalURL("https://example.com/assets/profile.svg")
+	photo, err := domain.NewExternalURL("https://example.com/assets/profile.svg")
 	require.NoError(t, err)
-	date, err := valueobjects.NewDate(time.Date(1998, time.April, 12, 0, 0, 0, 0, time.UTC))
+	date, err := domain.NewDate(time.Date(1998, time.April, 12, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
-	start, err := valueobjects.NewYearMonth(time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC))
+	start, err := domain.NewYearMonth(time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
-	email, err := valueobjects.NewEmail("rollback@example.com")
+	email, err := domain.NewEmail("rollback@example.com")
 	require.NoError(t, err)
-	contactEntity, err := entities.NewContacts(entities.ContactsParams{Email: &email})
+	contactEntity, err := domain.NewContactMethods(domain.ContactMethodsParams{Email: &email})
 	require.NoError(t, err)
 
 	rollbackErr := errors.New("force rollback after aggregate writes")
@@ -75,13 +71,13 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 			PhotoPath:   photo,
 			DateOfBirth: date,
 			Location:    "Paris",
-			WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote},
+			WorkFormats: []domain.WorkFormat{domain.WorkFormatRemote},
 		}); err != nil {
 			return err
 		}
 		if err := resume.ReplaceSkills(domain.SkillsParams{
-			Hard: []enums.HardSkill{enums.HardSkillArchitecture, enums.HardSkillTesting},
-			Soft: []enums.SoftSkill{enums.SoftSkillCommunication},
+			Hard: []domain.HardSkill{domain.HardSkillArchitecture, domain.HardSkillTesting},
+			Soft: []domain.SoftSkill{domain.SoftSkillCommunication},
 		}); err != nil {
 			return err
 		}
@@ -96,13 +92,13 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		}
 		if err := resume.ReplaceProjects([]domain.ProjectParams{{
 			Name:        "Rollback project",
-			Screenshots: []valueobjects.ExternalURL{photo},
+			Screenshots: []domain.ExternalURL{photo},
 		}}); err != nil {
 			return err
 		}
 		if err := resume.ReplaceContacts(domain.ContactsParams{
 			Contacts:       contactEntity,
-			HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+			HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
 		}); err != nil {
 			return err
 		}
@@ -130,14 +126,14 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 			DateOfBirth: updatedProfile.DateOfBirth(),
 			Location:    updatedProfile.Location(),
 			Relocation:  updatedProfile.Relocation(),
-			WorkFormats: []enums.WorkFormat{enums.WorkFormatOffice, enums.WorkFormatHybrid},
+			WorkFormats: []domain.WorkFormat{domain.WorkFormatOffice, domain.WorkFormatHybrid},
 		}); err != nil {
 			return err
 		}
 		if err := reloaded.ReplaceContacts(domain.ContactsParams{
 			ID:             reloaded.Contacts().ID(),
 			Contacts:       contactEntity,
-			HiddenContacts: []enums.ContactKey{enums.ContactKeyEmail},
+			HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
 		}); err != nil {
 			return err
 		}
