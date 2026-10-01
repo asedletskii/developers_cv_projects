@@ -89,9 +89,8 @@ export const SECTION_DEFINITIONS: Record<SectionId, SectionDefinition> = {
     inNav: true,
     hasContent: ({ contacts = EMPTY_CONTACTS }) =>
       !!(contacts.phone || contacts.telegram || contacts.email || contacts.hiddenContacts.length),
-    render: ({ id, contacts = EMPTY_CONTACTS }) => (
+    render: ({ contacts = EMPTY_CONTACTS }) => (
       <ContactsSection
-        resumeId={id}
         contacts={contacts}
         text={contacts.contactsText}
         hidden={contacts.hiddenContacts}

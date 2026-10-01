@@ -3,21 +3,24 @@ import { ContactKey, Contacts, ContactsText, SectionId } from '@features/curricu
 import { getContactLinks } from '@features/curriculumVitae/utils'
 import { Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
+import { useParams } from 'react-router'
 import { Actions } from './Actions'
 import { DRIFT } from './constants'
 import { Headline } from './Headline'
 
 type Props = {
-  resumeId: string
   contacts: Contacts
   text?: ContactsText
   hidden?: ContactKey[]
 }
 
-export const ContactsSection = ({ resumeId, contacts, text, hidden = [] }: Props) => {
+export const ContactsSection = ({ contacts, text, hidden = [] }: Props) => {
   const translate = useTranslate('CurriculumVitae.Contacts')
+  const { cvId } = useParams()
 
   const links = getContactLinks(contacts, hidden)
+
+  if (!cvId) return null
 
   if (!links.length) return null
 
@@ -51,7 +54,7 @@ export const ContactsSection = ({ resumeId, contacts, text, hidden = [] }: Props
         subtitle={text?.subtitle ?? translate('subtitle')}
       />
 
-      <Actions resumeId={resumeId} links={links} />
+      <Actions resumeId={cvId} links={links} />
     </Stack>
   )
 }
