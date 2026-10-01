@@ -2,22 +2,21 @@ package commands
 
 import (
 	"context"
+	"fmt"
+
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
-	"fmt"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type EducationInput struct {
-	ID                   valueobjects.ID
+	ID                   sharedvalueobjects.ID
 	Location, University string
-	Grade                enums.EducationLevel
+	Grade                domain.EducationLevel
 	ProgramName, Faculty string
 	ProfileName          *string
 	Course               *int
-	EndDate              *valueobjects.Year
+	EndDate              *domain.Year
 }
 type EducationsInput struct{ Items []EducationInput }
 
@@ -30,37 +29,25 @@ func (i EducationsInput) toDomain() []domain.EducationParams {
 }
 
 type ReplaceEducationsCommand struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    EducationsInput
 }
 type ReplaceEducationsHandler struct {
 	repository ports.ResumeRepository
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewReplaceEducationsHandler(repository ports.ResumeRepository, uow UnitOfWork) *ReplaceEducationsHandler {
+func NewReplaceEducationsHandler(repository ports.ResumeRepository, uow ports.UnitOfWork) *ReplaceEducationsHandler {
 	return &ReplaceEducationsHandler{repository: repository, uow: uow}
 }
 func (h *ReplaceEducationsHandler) Handle(ctx context.Context, c ReplaceEducationsCommand) error {
-	if h == nil || h.repository == nil || h.uow == nil {
+	if h == nil {
 		return fmt.Errorf("replace educations handler dependencies are nil")
 	}
-	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
-		return fmt.Errorf("invalid replace educations command")
-	}
-	return h.uow.Do(ctx, func(tx context.Context) error {
-		r, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
-		if err != nil {
-			return err
-		}
-		if r.Version() != c.Version {
-			return domain.ErrConcurrencyConflict
-		}
-		if err := r.ReplaceEducations(c.Input.toDomain()); err != nil {
-			return err
-		}
-		return h.repository.Save(tx, r)
+
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace educations", func(resume *domain.Resume) error {
+		return resume.ReplaceEducations(c.Input.toDomain())
 	})
 }

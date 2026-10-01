@@ -2,9 +2,10 @@ package app
 
 import (
 	"context"
-	"net/http/httptest"
 	"testing"
 	"time"
+
+	"net/http/httptest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

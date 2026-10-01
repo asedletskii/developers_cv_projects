@@ -6,14 +6,14 @@ import (
 
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 const linkEventRecordTimeout = 2 * time.Second
 
-func recordLinkEvent(ctx context.Context, recorder ports.LinkEventRecorder, linkID valueobjects.ID, eventType domain.EventType) {
+func recordLinkEvent(ctx context.Context, recorder ports.LinkEventRecorder, linkID sharedvalueobjects.ID, eventType domain.EventType) {
 	event, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{
-		ID:         valueobjects.NewID(),
+		ID:         sharedvalueobjects.NewID(),
 		LinkID:     linkID,
 		Type:       eventType,
 		OccurredAt: time.Now().UTC(),

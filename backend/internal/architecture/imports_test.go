@@ -28,6 +28,7 @@ func TestResumeLayerImports(t *testing.T) {
 		{name: "commands", dir: filepath.Join(root, "modules", "resume", "application", "commands"), forbidden: []string{modulePath + "/internal/modules/resume/application/queries", modulePath + "/internal/modules/resume/infrastructure/persistence/readers"}},
 		{name: "domain", dir: filepath.Join(root, "modules", "resume", "domain"), forbidden: []string{modulePath + "/internal/modules/resume/application", modulePath + "/internal/modules/resume/infrastructure", modulePath + "/internal/modules/resume/transport"}},
 		{name: "transport", dir: filepath.Join(root, "modules", "resume", "transport"), forbidden: []string{modulePath + "/internal/modules/resume/infrastructure"}},
+		{name: "infrastructure", dir: filepath.Join(root, "modules", "resume", "infrastructure"), forbidden: []string{modulePath + "/internal/modules/resume/transport"}},
 	}
 
 	for _, tc := range cases {

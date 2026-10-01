@@ -4,18 +4,18 @@ import (
 	"context"
 
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GetResumeParams struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 }
 
 type DeleteResumeParams struct {
-	ResumeID valueobjects.ID
-	UserID   useridentity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
+	Version  int64
 }
 
 type ResumeRepository interface {

@@ -143,7 +143,7 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 		if h.observer != nil {
 			identityCtx, finishIdentitySpan = h.observer.StartSpan(tx, "auth.resolve_identity", verified.Provider)
 		}
-		identity, err := h.identities.FindByProviderSubject(identityCtx, verified.Provider, verified.ProviderSubject)
+		authIdentity, err := h.identities.FindByProviderSubject(identityCtx, verified.Provider, verified.ProviderSubject)
 		if err != nil && !errors.Is(err, domain.ErrEntityNotFound) {
 			finishIdentitySpan(err)
 			return err
@@ -162,22 +162,22 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 			if err != nil {
 				return err
 			}
-			identity, err = domain.NewIdentity(domain.IdentityParams{
+			authIdentity, err = domain.NewIdentity(domain.IdentityParams{
 				ID: sharedvalueobjects.NewID(), UserID: userID, Provider: verified.Provider,
 				ProviderSubject: verified.ProviderSubject, CreatedAt: loginAt, UpdatedAt: loginAt, LastLoginAt: loginAt,
 			})
 			if err != nil {
 				return err
 			}
-			if err := h.identities.Create(tx, identity); err != nil {
+			if err := h.identities.Create(tx, authIdentity); err != nil {
 				if errors.Is(err, domain.ErrDuplicateEntity) {
 					return fmt.Errorf("%w: %w", errIdentityCreationConflict, err)
 				}
 				return err
 			}
 		} else {
-			userID = identity.UserID()
-			if err := h.identities.UpdateLastLogin(tx, identity.ID(), loginAt); err != nil {
+			userID = authIdentity.UserID()
+			if err := h.identities.UpdateLastLogin(tx, authIdentity.ID(), loginAt); err != nil {
 				return err
 			}
 		}

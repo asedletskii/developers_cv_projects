@@ -550,7 +550,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	lk.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return currentUser, nil
 	}))
-	resumehttp.RegisterRoutes(resumeHandler, api, lk)
+	resumehttp.RegisterRoutes(resumeHandler, lk)
 	RegisterRoutes(linkHandler, api, lk)
 
 	do := func(method, path, body string) *httptest.ResponseRecorder {
@@ -661,7 +661,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, response.Code)
 	require.Equal(t, http.StatusOK, getPublic(linkAHH).Code)
 
-	response = do(http.MethodDelete, "/api/v1/lk/resume/"+resumeA.String(), "")
+	response = do(http.MethodDelete, "/api/v1/lk/resume/"+resumeA.String(), `{"version":3}`)
 	require.Equal(t, http.StatusNoContent, response.Code)
 
 	var linksAfterDelete, eventsAfterDelete int

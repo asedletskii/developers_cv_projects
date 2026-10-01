@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type GetProfileQuery struct{ UserID valueobjects.ID }
+type GetProfileQuery struct{ UserID sharedvalueobjects.ID }
 
-type LocalizedProfile struct {
+type LocalizedProfileView struct {
 	Name       *string `json:"name,omitempty"`
 	Surname    *string `json:"surname,omitempty"`
 	Patronymic *string `json:"patronymic,omitempty"`
@@ -17,15 +17,15 @@ type LocalizedProfile struct {
 	Location   *string `json:"location,omitempty"`
 }
 
-type Profile struct {
-	ID        string           `json:"userId"`
-	RU        LocalizedProfile `json:"ru"`
-	EN        LocalizedProfile `json:"en"`
-	PhotoPath *string          `json:"photoPath,omitempty"`
+type ProfileView struct {
+	ID        string               `json:"userId"`
+	RU        LocalizedProfileView `json:"ru"`
+	EN        LocalizedProfileView `json:"en"`
+	PhotoPath *string              `json:"photoPath,omitempty"`
 }
 
 type GetProfileReader interface {
-	GetProfile(ctx context.Context, query GetProfileQuery) (Profile, error)
+	GetProfile(context.Context, GetProfileQuery) (ProfileView, error)
 }
 
 type GetProfileHandler struct{ reader GetProfileReader }
@@ -34,12 +34,12 @@ func NewGetProfileHandler(reader GetProfileReader) *GetProfileHandler {
 	return &GetProfileHandler{reader: reader}
 }
 
-func (h *GetProfileHandler) Handle(ctx context.Context, query GetProfileQuery) (Profile, error) {
+func (h *GetProfileHandler) Handle(ctx context.Context, query GetProfileQuery) (ProfileView, error) {
 	if h == nil || h.reader == nil {
-		return Profile{}, fmt.Errorf("get profile handler dependencies are nil")
+		return ProfileView{}, fmt.Errorf("get profile handler dependencies are nil")
 	}
 	if query.UserID.IsZero() {
-		return Profile{}, fmt.Errorf("invalid profile user id")
+		return ProfileView{}, fmt.Errorf("invalid profile user id")
 	}
 	return h.reader.GetProfile(ctx, query)
 }

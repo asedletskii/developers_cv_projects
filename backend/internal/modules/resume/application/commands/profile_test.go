@@ -2,14 +2,13 @@ package commands
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/ports"
-	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"developers-cv/backend/internal/modules/resume/application/ports"
+	"developers-cv/backend/internal/modules/resume/domain"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeProfileAggregateRepository struct {
@@ -31,28 +30,28 @@ func (r *fakeProfileAggregateRepository) Create(context.Context, *domain.Resume)
 func (r *fakeProfileAggregateRepository) Delete(context.Context, ports.DeleteResumeParams) error {
 	return nil
 }
-func newTestResumeForCommand(t *testing.T, uid useridentity.ID) *domain.Resume {
+func newTestResumeForCommand(t *testing.T, uid sharedvalueobjects.ID) *domain.Resume {
 	t.Helper()
-	r, err := domain.NewResume(domain.ResumeParams{ID: valueobjects.NewID(), UserID: uid, Title: "Resume", Language: enums.ResumeLanguageEN, Version: 1})
+	r, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
 	require.NoError(t, err)
 	return r
 }
 
 func TestReplaceProfileHandlerUsesVersionAndAggregate(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeProfileAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
 	photo := testURL(t)
 	birth := testDate(t)
-	err := NewReplaceProfileHandler(repo, uow).Handle(context.Background(), ReplaceProfileCommand{ResumeID: resume.ID(), UserID: uid, Version: 1, Input: ProfileInput{Name: "John", Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: birth, Location: "Paris", WorkFormats: []enums.WorkFormat{enums.WorkFormatRemote}}})
+	err := NewReplaceProfileHandler(repo, uow).Handle(context.Background(), ReplaceProfileCommand{ResumeID: resume.ID(), UserID: uid, Version: 1, Input: ProfileInput{Name: "John", Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: birth, Location: "Paris", WorkFormats: []domain.WorkFormat{domain.WorkFormatRemote}}})
 	require.NoError(t, err)
 	require.True(t, repo.saved)
 	require.Equal(t, int64(1), repo.version)
 	require.NotNil(t, repo.resume.Profile())
 }
 func TestReplaceProfileHandlerRejectsStaleVersion(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeProfileAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}

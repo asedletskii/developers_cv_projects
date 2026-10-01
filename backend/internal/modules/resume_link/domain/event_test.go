@@ -6,13 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func validResumeLinkEventParams() ResumeLinkEventParams {
 	return ResumeLinkEventParams{
-		ID:         valueobjects.NewID(),
-		LinkID:     valueobjects.NewID(),
+		ID:         sharedvalueobjects.NewID(),
+		LinkID:     sharedvalueobjects.NewID(),
 		Type:       EventTypeView,
 		OccurredAt: time.Date(2026, 9, 28, 10, 0, 0, 0, time.FixedZone("test", 2*60*60)),
 	}
@@ -42,12 +42,12 @@ func TestNewResumeLinkEventRejectsUnknownType(t *testing.T) {
 
 func TestNewResumeLinkEventRejectsZeroIdentity(t *testing.T) {
 	params := validResumeLinkEventParams()
-	params.ID = valueobjects.ID{}
+	params.ID = sharedvalueobjects.ID{}
 	_, err := NewResumeLinkEvent(params)
 	require.ErrorIs(t, err, ErrInvalidResumeLinkEvent)
 
 	params = validResumeLinkEventParams()
-	params.LinkID = valueobjects.ID{}
+	params.LinkID = sharedvalueobjects.ID{}
 	_, err = NewResumeLinkEvent(params)
 	require.ErrorIs(t, err, ErrInvalidResumeLinkEvent)
 }

@@ -5,13 +5,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
+func statusOf(link *domain.ResumeLink) string {
+	return string(link.Status())
+}
+
 func TestStatusOf(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumevalueobjects.NewID(), Name: "GitHub"})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "GitHub"})
 	require.NoError(t, err)
 	require.Equal(t, "active", statusOf(link))
 	require.NoError(t, link.Deactivate())

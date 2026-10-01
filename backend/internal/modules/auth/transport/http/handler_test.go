@@ -2,12 +2,13 @@ package http
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
+
+	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

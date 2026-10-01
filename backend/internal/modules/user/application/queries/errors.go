@@ -2,4 +2,7 @@ package queries
 
 import "errors"
 
-var ErrProfileNotFound = errors.New("profile not found")
+var (
+	ErrUserNotFound    = errors.New("user not found")
+	ErrProfileNotFound = errors.New("profile not found")
+)

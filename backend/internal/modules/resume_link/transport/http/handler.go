@@ -5,19 +5,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume_link/transport/http/common"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/public"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
-	jsonhttp "developers-cv/backend/internal/platform/http/json"
-	"developers-cv/backend/internal/platform/http/middleware"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -41,7 +35,10 @@ type HandlerDependencies struct {
 }
 
 func NewHandler(deps HandlerDependencies) *Handler {
-	return &Handler{create: deps.Create, list: deps.List, delete: deps.Delete, public: deps.Public, contactView: deps.ContactView, statistics: deps.Statistics, lifecycle: deps.Lifecycle}
+	return &Handler{
+		create: deps.Create, list: deps.List, delete: deps.Delete, public: deps.Public,
+		contactView: deps.ContactView, statistics: deps.Statistics, lifecycle: deps.Lifecycle,
+	}
 }
 
 type createRequest struct {
@@ -49,8 +46,9 @@ type createRequest struct {
 	Name     string `json:"name"`
 }
 
-type createdResponse struct {
-	ID string `json:"id"`
+type replaceStatusRequest struct {
+	Status  domain.ResumeLinkStatus `json:"status"`
+	Version int64                   `json:"version"`
 }
 
 func (h *Handler) Create(c *gin.Context) {
@@ -58,43 +56,25 @@ func (h *Handler) Create(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.Internal(errors.New("create resume link handler is not configured")))
 		return
 	}
-
-	userUUID, ok := middleware.GetUserID(c)
+	userID, ok := common.RequireUserID(c)
 	if !ok {
-		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
-	if err != nil {
-		apperrors.WriteError(c, apperrors.Internal(err))
-		return
-	}
-
 	var body createRequest
-	if err := jsonhttp.BindJSON(c, &body); err != nil {
-		writeBindError(c, err)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
-	resumeUUID, err := uuid.Parse(body.ResumeID)
+	resumeID, ok := common.ParseResumeIDValue(c, body.ResumeID)
+	if !ok {
+		return
+	}
+	id, err := h.create.Handle(c.Request.Context(), commands.CreateResumeLinkCommand{UserID: userID, ResumeID: resumeID, Name: body.Name})
 	if err != nil {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
+		common.WriteCreateError(c, err)
 		return
 	}
-	resumeID, err := resumevalueobjects.IDFromUUID(resumeUUID)
-	if err != nil {
-		apperrors.WriteError(c, apperrors.Internal(err))
-		return
-	}
-
-	id, err := h.create.Handle(c.Request.Context(), commands.CreateResumeLinkCommand{
-		UserID: userID, ResumeID: resumeID, Name: body.Name,
-	})
-	if err != nil {
-		writeCreateError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusCreated, createdResponse{ID: id.String()})
+	c.JSON(http.StatusCreated, common.CreatedIDResponse{ID: id.String()})
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -102,36 +82,17 @@ func (h *Handler) List(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.Internal(errors.New("list resume links handler is not configured")))
 		return
 	}
-	userUUID, ok := middleware.GetUserID(c)
+	userID, ok := common.RequireUserID(c)
 	if !ok {
-		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
-	if err != nil {
-		apperrors.WriteError(c, apperrors.Internal(err))
+	resumeID, ok := common.ParseResumeID(c)
+	if !ok {
 		return
 	}
-	resumeUUID, err := uuid.Parse(c.Query("resumeId"))
+	items, err := h.list.Handle(c.Request.Context(), queries.ListResumeLinksQuery{UserID: userID, ResumeID: resumeID})
 	if err != nil {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
-		return
-	}
-	resumeID, err := resumevalueobjects.IDFromUUID(resumeUUID)
-	if err != nil {
-		apperrors.WriteError(c, apperrors.Internal(err))
-		return
-	}
-
-	items, err := h.list.Handle(c.Request.Context(), queries.ListResumeLinksQuery{
-		UserID: userID, ResumeID: resumeID,
-	})
-	if err != nil {
-		if errors.Is(err, resumequeries.ErrResumeNotFound) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
-			return
-		}
-		apperrors.WriteError(c, apperrors.Internal(err))
+		common.WriteListError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, items)
@@ -142,42 +103,20 @@ func (h *Handler) Statistics(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.Internal(errors.New("resume link statistics handler is not configured")))
 		return
 	}
-
-	userUUID, ok := middleware.GetUserID(c)
+	userID, ok := common.RequireUserID(c)
 	if !ok {
-		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
+	linkID, ok := common.ParseLinkID(c)
+	if !ok {
+		return
+	}
+	statistics, err := h.statistics.Handle(c.Request.Context(), queries.GetResumeLinkStatisticsQuery{UserID: userID, LinkID: linkID})
 	if err != nil {
-		apperrors.WriteError(c, apperrors.Internal(err))
+		common.WriteStatisticsError(c, err)
 		return
 	}
-	linkID, err := valueobjects.ParseID(c.Param("linkId"))
-	if err != nil {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
-		return
-	}
-
-	statistics, err := h.statistics.Handle(c.Request.Context(), queries.GetResumeLinkStatisticsQuery{
-		UserID: userID,
-		LinkID: linkID,
-	})
-	if err != nil {
-		if errors.Is(err, domain.ErrEntityNotFound) || errors.Is(err, resumequeries.ErrResumeNotFound) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume link not found"))
-			return
-		}
-		apperrors.WriteError(c, apperrors.Internal(err))
-		return
-	}
-
 	c.JSON(http.StatusOK, statistics)
-}
-
-type replaceStatusRequest struct {
-	Status  string `json:"status"`
-	Version int64  `json:"version"`
 }
 
 func (h *Handler) ReplaceStatus(c *gin.Context) {
@@ -185,53 +124,29 @@ func (h *Handler) ReplaceStatus(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.Internal(errors.New("replace resume link status handler is not configured")))
 		return
 	}
-	userUUID, ok := middleware.GetUserID(c)
+	userID, ok := common.RequireUserID(c)
 	if !ok {
-		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
-	if err != nil {
-		apperrors.WriteError(c, apperrors.Internal(err))
-		return
-	}
-	linkID, err := valueobjects.ParseID(c.Param("linkId"))
-	if err != nil {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
+	linkID, ok := common.ParseLinkID(c)
+	if !ok {
 		return
 	}
 	var body replaceStatusRequest
-	if err := jsonhttp.BindJSON(c, &body); err != nil {
-		writeBindError(c, err)
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
 		return
 	}
-	if body.Version < 1 {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Version must be positive"))
+	if !common.RequirePositiveVersion(c, body.Version) {
 		return
 	}
-	var active bool
-	switch body.Status {
-	case domain.ResumeLinkStatusActive:
-		active = true
-	case domain.ResumeLinkStatusInactive:
-		active = false
-	default:
+	if !body.Status.IsValid() {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid status"))
 		return
 	}
-	err = h.lifecycle.Handle(c.Request.Context(), commands.ReplaceStatusResumeLinkCommand{
-		UserID: userID, LinkID: linkID, Active: active, Version: body.Version,
-	})
-	if err != nil {
-		if errors.Is(err, domain.ErrConcurrencyConflict) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodePreconditionFailed, http.StatusPreconditionFailed, "Resume link was modified"))
-			return
-		}
-		if errors.Is(err, domain.ErrEntityNotFound) || errors.Is(err, resumequeries.ErrResumeNotFound) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume link not found"))
-			return
-		}
-		apperrors.WriteError(c, apperrors.Internal(err))
+	active := body.Status == domain.ResumeLinkStatusActive
+	if err := h.lifecycle.Handle(c.Request.Context(), commands.ReplaceStatusResumeLinkCommand{UserID: userID, LinkID: linkID, Active: active, Version: body.Version}); err != nil {
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -250,33 +165,16 @@ func (h *Handler) Delete(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.Internal(errors.New("delete resume link handler is not configured")))
 		return
 	}
-	userUUID, ok := middleware.GetUserID(c)
+	userID, ok := common.RequireUserID(c)
 	if !ok {
-		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := uservalueobjects.IDFromUUID(userUUID)
-	if err != nil {
-		apperrors.WriteError(c, apperrors.Internal(err))
+	linkID, ok := common.ParseLinkID(c)
+	if !ok {
 		return
 	}
-	linkID, err := valueobjects.ParseID(c.Param("linkId"))
-	if err != nil {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
-		return
-	}
-
-	err = h.delete.Handle(c.Request.Context(), commands.DeleteResumeLinkCommand{UserID: userID, LinkID: linkID})
-	if err != nil {
-		if errors.Is(err, domain.ErrEntityNotFound) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume link not found"))
-			return
-		}
-		if errors.Is(err, resumequeries.ErrResumeNotFound) {
-			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume link not found"))
-			return
-		}
-		apperrors.WriteError(c, apperrors.Internal(err))
+	if err := h.delete.Handle(c.Request.Context(), commands.DeleteResumeLinkCommand{UserID: userID, LinkID: linkID}); err != nil {
+		common.WriteCommandError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -290,35 +188,4 @@ func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup)
 	lk.DELETE("/link/:linkId", handler.Delete)
 	lk.GET("/link/:linkId/statistics", handler.Statistics)
 	lk.PUT("/link/:linkId/status", handler.ReplaceStatus)
-}
-
-func writeBindError(c *gin.Context, err error) {
-	if err == nil {
-		return
-	}
-	apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid request body"))
-}
-
-func writeCreateError(c *gin.Context, err error) {
-	if errors.Is(err, resumequeries.ErrResumeNotFound) || errors.Is(err, domain.ErrEntityNotFound) {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
-		return
-	}
-	if errors.Is(err, domain.ErrDuplicateResumeLink) {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume link already exists"))
-		return
-	}
-	if errors.Is(err, domain.ErrResumeLinkLimitExceeded) {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume link limit exceeded"))
-		return
-	}
-	if errors.Is(err, domain.ErrInvalidResumeLinkName) {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link name"))
-		return
-	}
-	if errors.Is(err, domain.ErrInvalidResumeLink) {
-		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume link"))
-		return
-	}
-	apperrors.WriteError(c, apperrors.Internal(err))
 }

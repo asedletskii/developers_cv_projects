@@ -3,21 +3,20 @@ package http
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/platform/http/middleware"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type statisticsHTTPLinkReader struct {
@@ -70,8 +69,8 @@ func newStatisticsHTTPServer(handler *Handler, userID uuid.UUID) *gin.Engine {
 
 func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 	userID := uuid.New()
-	linkID := valueobjects.NewID()
-	resumeID := resumevalueobjects.NewID()
+	linkID := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumeID.String()}},
 		statisticsHTTPOwnershipReader{},
@@ -88,12 +87,12 @@ func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 
 func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumevalueobjects.NewID().String()}},
+		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{result: queries.ResumeLinkStatistics{}},
 	), uuid.New())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+valueobjects.NewID().String()+"/statistics", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/statistics", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -103,12 +102,12 @@ func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 
 func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumevalueobjects.NewID().String()}},
+		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{err: resumequeries.ErrResumeNotFound},
 		statisticsHTTPReader{},
 	), uuid.New())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+valueobjects.NewID().String()+"/statistics", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/statistics", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -117,12 +116,12 @@ func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 
 func TestStatisticsHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{err: domain.ErrEntityNotFound},
+		statisticsHTTPLinkReader{err: queries.ErrResumeLinkNotFound},
 		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{},
 	), uuid.New())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+valueobjects.NewID().String()+"/statistics", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/statistics", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 
@@ -145,12 +144,12 @@ func TestStatisticsHandlerReturnsBadRequestForInvalidUUID(t *testing.T) {
 
 func TestStatisticsHandlerReturnsInternalErrorForReaderFailure(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumevalueobjects.NewID().String()}},
+		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{err: errors.New("db down")},
 	), uuid.New())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+valueobjects.NewID().String()+"/statistics", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/statistics", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 

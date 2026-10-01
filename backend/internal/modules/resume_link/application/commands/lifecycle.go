@@ -7,13 +7,12 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ReplaceStatusResumeLinkCommand struct {
-	UserID  uservalueobjects.ID
-	LinkID  valueobjects.ID
+	UserID  sharedvalueobjects.ID
+	LinkID  sharedvalueobjects.ID
 	Active  bool
 	Version int64
 }
@@ -21,10 +20,10 @@ type ReplaceStatusResumeLinkCommand struct {
 type ReplaceStatusResumeLinkHandler struct {
 	repository ports.ResumeLinkRepository
 	resumes    ports.ResumeOwnershipReader
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewReplaceStatusResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow UnitOfWork) *ReplaceStatusResumeLinkHandler {
+func NewReplaceStatusResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow ports.UnitOfWork) *ReplaceStatusResumeLinkHandler {
 	return &ReplaceStatusResumeLinkHandler{repository: repository, resumes: resumes, uow: uow}
 }
 

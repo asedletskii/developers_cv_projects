@@ -2,15 +2,13 @@ package commands
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/ports"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeOverviewAggregateRepository struct {
@@ -40,9 +38,9 @@ func (overviewUnitOfWork) Do(ctx context.Context, fn func(context.Context) error
 }
 
 func TestReplaceOverviewHandlerLoadsReplacesAndSavesAggregate(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{UserID: useridentity.NewID(), Title: "Resume", Language: enums.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
-	overview := domain.ResumeOverviewParams{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{First: "Old"}), Sections: []valueobjects.SectionSettings{}}
+	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{First: "Old"}), Sections: []domain.SectionSettings{}}
 	require.NoError(t, resume.ReplaceOverview(overview))
 	repo := &fakeOverviewAggregateRepository{resume: resume}
 	h := NewReplaceOverviewHandler(repo, overviewUnitOfWork{})
@@ -54,9 +52,9 @@ func TestReplaceOverviewHandlerLoadsReplacesAndSavesAggregate(t *testing.T) {
 }
 
 func TestReplaceOverviewHandlerRejectsStaleVersionBeforeSave(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{UserID: useridentity.NewID(), Title: "Resume", Language: enums.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
-	overview := domain.ResumeOverviewParams{Greeting: valueobjects.NewGreeting(valueobjects.GreetingParams{}), Sections: []valueobjects.SectionSettings{}}
+	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{}), Sections: []domain.SectionSettings{}}
 	require.NoError(t, resume.ReplaceOverview(overview))
 	repo := &fakeOverviewAggregateRepository{resume: resume}
 	h := NewReplaceOverviewHandler(repo, overviewUnitOfWork{})

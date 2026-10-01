@@ -11,3 +11,5 @@ type User struct {
 	CreatedAt time.Time `gorm:"not null"`
 	UpdatedAt time.Time `gorm:"not null"`
 }
+
+func (User) TableName() string { return "users" }

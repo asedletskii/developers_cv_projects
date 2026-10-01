@@ -13,7 +13,6 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/platform/http/requestid"
 	"developers-cv/backend/internal/platform/telemetry"
-
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 

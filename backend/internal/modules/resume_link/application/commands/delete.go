@@ -6,22 +6,21 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type DeleteResumeLinkCommand struct {
-	UserID uservalueobjects.ID
-	LinkID valueobjects.ID
+	UserID sharedvalueobjects.ID
+	LinkID sharedvalueobjects.ID
 }
 
 type DeleteResumeLinkHandler struct {
 	repository ports.ResumeLinkRepository
 	resumes    ports.ResumeOwnershipReader
-	uow        UnitOfWork
+	uow        ports.UnitOfWork
 }
 
-func NewDeleteResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow UnitOfWork) *DeleteResumeLinkHandler {
+func NewDeleteResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow ports.UnitOfWork) *DeleteResumeLinkHandler {
 	return &DeleteResumeLinkHandler{repository: repository, resumes: resumes, uow: uow}
 }
 

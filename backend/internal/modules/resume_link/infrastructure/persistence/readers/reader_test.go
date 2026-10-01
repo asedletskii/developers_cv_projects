@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/gormmodel"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestMapView(t *testing.T) {
@@ -35,7 +34,7 @@ func TestGetStatisticsReturnsErrorWhenReaderDatabaseIsUnavailable(t *testing.T) 
 	reader := NewResumeLinkReader(nil)
 
 	_, err := reader.GetStatistics(context.Background(), queries.GetResumeLinkStatisticsQuery{
-		LinkID: valueobjects.NewID(),
+		LinkID: sharedvalueobjects.NewID(),
 	})
 	require.Error(t, err)
 }

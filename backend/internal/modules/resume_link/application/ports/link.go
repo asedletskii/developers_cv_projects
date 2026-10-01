@@ -4,14 +4,17 @@ import (
 	"context"
 
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ResumeLinkRepository interface {
 	Create(context.Context, *domain.ResumeLink) error
-	GetByID(context.Context, valueobjects.ID) (*domain.ResumeLink, error)
-	Delete(context.Context, valueobjects.ID) error
-	ReplaceStatus(context.Context, valueobjects.ID, bool, int64) error
+	GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error)
+	Delete(context.Context, sharedvalueobjects.ID) error
+	ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error
+}
+
+type ResumeLinkEventRepository interface {
 	RecordEvent(context.Context, *domain.ResumeLinkEvent) error
 }
 

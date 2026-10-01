@@ -2,15 +2,13 @@ package commands
 
 import (
 	"context"
-	"developers-cv/backend/internal/modules/resume/application/ports"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeExperiencesAggregateRepository struct {
@@ -35,18 +33,18 @@ func (r *fakeExperiencesAggregateRepository) Delete(context.Context, ports.Delet
 
 func experienceCommandItem(t *testing.T, company string) ExperienceInput {
 	t.Helper()
-	start, err := valueobjects.ParseYearMonth("2024-01")
+	start, err := domain.ParseYearMonth("2024-01")
 	require.NoError(t, err)
 	return ExperienceInput{
 		Company: company, Position: "Go Developer", StartDate: start,
 		Achievements: []string{"Built API"},
 		Tasks:        []string{"Implement backend", "Review PRs"},
-		Stack:        []ExperienceStackItemInput{{Name: "Go", Grade: ptr(enums.TechnologyGradeSenior)}},
+		Stack:        []ExperienceStackItemInput{{Name: "Go", Grade: ptr(domain.TechnologyGradeSenior)}},
 	}
 }
 
 func TestReplaceExperiencesHandlerUsesVersionAndAggregate(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeExperiencesAggregateRepository{resume: resume}
 
@@ -62,7 +60,7 @@ func TestReplaceExperiencesHandlerUsesVersionAndAggregate(t *testing.T) {
 }
 
 func TestReplaceExperiencesHandlerRejectsStaleVersion(t *testing.T) {
-	uid := useridentity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeExperiencesAggregateRepository{resume: resume}
 

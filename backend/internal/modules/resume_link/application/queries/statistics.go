@@ -5,14 +5,12 @@ import (
 	"fmt"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumevalueobjects "developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	"developers-cv/backend/internal/modules/resume_link/domain/valueobjects"
-	uservalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GetResumeLinkStatisticsQuery struct {
-	UserID uservalueobjects.ID
-	LinkID valueobjects.ID
+	UserID sharedvalueobjects.ID
+	LinkID sharedvalueobjects.ID
 }
 
 type ResumeLinkStatistics struct {
@@ -54,7 +52,7 @@ func (h *GetResumeLinkStatisticsQueryHandler) Handle(
 		return ResumeLinkStatistics{}, err
 	}
 
-	resumeID, err := resumevalueobjects.ParseID(link.ResumeID)
+	resumeID, err := sharedvalueobjects.ParseID(link.ResumeID)
 	if err != nil {
 		return ResumeLinkStatistics{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}

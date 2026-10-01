@@ -11,6 +11,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/gormmodel"
+	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/mappers"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -32,7 +33,7 @@ func (r *IdentityRepository) FindByProviderSubject(ctx context.Context, provider
 	if err != nil {
 		return nil, fmt.Errorf("find identity: %w", mapDBError(err))
 	}
-	return identityFromModel(model)
+	return mappers.IdentityToDomain(model)
 }
 
 func (r *IdentityRepository) Create(ctx context.Context, identity *domain.Identity) error {
@@ -43,7 +44,10 @@ func (r *IdentityRepository) Create(ctx context.Context, identity *domain.Identi
 	if err != nil {
 		return fmt.Errorf("create identity: %w", err)
 	}
-	model := gormmodel.UserIdentity{ID: identity.ID().UUID(), UserID: identity.UserID().UUID(), Provider: identity.Provider().String(), ProviderSubject: identity.ProviderSubject().String(), CreatedAt: identity.CreatedAt(), UpdatedAt: identity.UpdatedAt(), LastLoginAt: identity.LastLoginAt()}
+	model, err := mappers.IdentityToDB(identity)
+	if err != nil {
+		return fmt.Errorf("create identity: %w", err)
+	}
 	if err := tx.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("create identity: %w", mapDBError(err))
 	}
@@ -64,28 +68,4 @@ func (r *IdentityRepository) UpdateLastLogin(ctx context.Context, identityID sha
 		return domain.ErrEntityNotFound
 	}
 	return nil
-}
-
-func identityFromModel(model gormmodel.UserIdentity) (*domain.Identity, error) {
-	id, err := sharedvalueobjects.IDFromUUID(model.ID)
-	if err != nil {
-		return nil, fmt.Errorf("map identity id: %w", err)
-	}
-	userID, err := sharedvalueobjects.IDFromUUID(model.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("map identity user id: %w", err)
-	}
-	provider, err := domain.NewProvider(model.Provider)
-	if err != nil {
-		return nil, err
-	}
-	subject, err := valueobjects.NewProviderSubject(model.ProviderSubject)
-	if err != nil {
-		return nil, err
-	}
-	identity, err := domain.NewIdentity(domain.IdentityParams{ID: id, UserID: userID, Provider: provider, ProviderSubject: subject, CreatedAt: model.CreatedAt, UpdatedAt: model.UpdatedAt, LastLoginAt: model.LastLoginAt})
-	if err != nil {
-		return nil, err
-	}
-	return identity, nil
 }

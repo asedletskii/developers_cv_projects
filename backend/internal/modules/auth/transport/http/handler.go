@@ -3,9 +3,13 @@ package http
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 	"time"
+
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"developers-cv/backend/internal/modules/auth/application"
 	"developers-cv/backend/internal/modules/auth/application/commands"
@@ -15,9 +19,6 @@ import (
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
-
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type startTelegramLogin interface {

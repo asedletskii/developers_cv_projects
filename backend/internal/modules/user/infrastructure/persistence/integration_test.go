@@ -5,7 +5,6 @@ package persistence_test
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,11 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"path/filepath"
 
 	"developers-cv/backend/internal/modules/user/application/queries"
-	"developers-cv/backend/internal/modules/user/domain/valueobjects"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/platform/database"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresUserReaderGetUser(t *testing.T) {
@@ -57,7 +57,7 @@ func TestPostgresUserReaderGetUser(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	identity, err := valueobjects.IDFromUUID(userID)
+	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
 	user, err := readers.NewUserReader(gormDB).GetUser(ctx, queries.GetUserQuery{ID: identity})
@@ -65,6 +65,27 @@ func TestPostgresUserReaderGetUser(t *testing.T) {
 	require.Equal(t, identity, user.ID())
 	require.Equal(t, createdAt, user.CreatedAt())
 	require.Equal(t, createdAt, user.UpdatedAt())
+}
+
+func TestPostgresUserReaderReturnsNotFound(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx := context.Background()
+	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, container.Terminate(ctx)) })
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	applyUsersMigration(t, ctx, dsn)
+	gormDB, err := database.NewGORM(dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+
+	identity := sharedvalueobjects.NewID()
+	_, err = readers.NewUserReader(gormDB).GetUser(ctx, queries.GetUserQuery{ID: identity})
+	require.ErrorIs(t, err, queries.ErrUserNotFound)
 }
 
 func applyUsersMigration(t *testing.T, ctx context.Context, dsn string) {

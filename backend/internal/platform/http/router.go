@@ -116,7 +116,7 @@ func (r *Router) registerRoutes(
 	lk := api.Group("/lk")
 	lk.Use(middleware.Authentication(authenticate))
 	userhttp.RegisterRoutes(userHandler, lk)
-	resumehttp.RegisterRoutes(resumeHandler, api, lk)
+	resumehttp.RegisterRoutes(resumeHandler, lk)
 	resumelinkhttp.RegisterRoutes(resumeLinkHandler, api, lk)
 	engine.NoRoute(func(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))

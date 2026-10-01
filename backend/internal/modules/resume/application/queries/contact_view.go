@@ -4,18 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
+	"developers-cv/backend/internal/modules/resume/domain"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactViewQuery struct {
-	ResumeID valueobjects.ID
-	Contact  enums.ContactKey
+	ResumeID sharedvalueobjects.ID
+	Contact  domain.ContactKey
 }
 
 type ContactView struct {
-	Contact enums.ContactKey `json:"contact"`
-	Value   string           `json:"value"`
+	Contact domain.ContactKey `json:"contact"`
+	Value   string            `json:"value"`
 }
 
 type ContactViewReader interface {

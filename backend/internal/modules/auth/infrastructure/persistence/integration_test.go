@@ -4,14 +4,15 @@ package persistence_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"crypto/sha256"
+	"path/filepath"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"

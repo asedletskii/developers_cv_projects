@@ -46,7 +46,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
@@ -81,7 +81,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
@@ -127,7 +127,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		nil,
 		func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -146,10 +146,10 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 
 type routerGetProfileReader struct{}
 
-func (routerGetProfileReader) GetProfile(_ context.Context, query userqueries.GetProfileQuery) (userqueries.Profile, error) {
-	return userqueries.Profile{
+func (routerGetProfileReader) GetProfile(_ context.Context, query userqueries.GetProfileQuery) (userqueries.ProfileView, error) {
+	return userqueries.ProfileView{
 		ID: query.UserID.String(),
-		RU: userqueries.LocalizedProfile{Name: stringPtr("Anton"), Surname: stringPtr("User")},
+		RU: userqueries.LocalizedProfileView{Name: stringPtr("Anton"), Surname: stringPtr("User")},
 	}, nil
 }
 
@@ -173,7 +173,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(userqueries.NewGetProfileHandler(routerGetProfileReader{}), nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{GetProfile: userqueries.NewGetProfileHandler(routerGetProfileReader{})}),
 		testResumeLinkHandler(),
 		nil,
 		func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -207,7 +207,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
@@ -269,7 +269,7 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
@@ -332,7 +332,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 				health.NewService(),
 				nil,
 				resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-				userhttp.NewHandler(nil, nil),
+				userhttp.NewHandler(userhttp.HandlerDependencies{}),
 				testResumeLinkHandler(),
 				nil,
 				func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -381,7 +381,7 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 				health.NewService(),
 				nil,
 				resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-				userhttp.NewHandler(nil, nil),
+				userhttp.NewHandler(userhttp.HandlerDependencies{}),
 				testResumeLinkHandler(),
 				nil,
 				fakeAuthenticate,
@@ -423,7 +423,7 @@ func TestRouterReadinessReturnsUnavailableWhenDependencyFails(t *testing.T) {
 		health.NewService(routerHealthChecker{name: "postgres", err: context.DeadlineExceeded}),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
@@ -452,7 +452,7 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 		health.NewService(routerHealthChecker{name: "postgres"}),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
@@ -483,7 +483,7 @@ func TestRouterRateLimitCoversPublicResumeLinkRoutes(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
@@ -513,7 +513,7 @@ func TestRouterRegistersAuthPublicAndProtectedRoutes(t *testing.T) {
 	router, err := NewRouter(
 		cfg, log, health.NewService(), nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil), testResumeLinkHandler(), authHandler, func(context.Context, *http.Request) (uuid.UUID, error) {
+		userhttp.NewHandler(userhttp.HandlerDependencies{}), testResumeLinkHandler(), authHandler, func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
 	)
@@ -553,7 +553,7 @@ func TestRouterAppliesDedicatedAuthRateLimitToTelegramStart(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		authhttp.NewHandler(authhttp.HandlerDependencies{}),
 		unauthenticatedAuthenticate,
@@ -596,7 +596,7 @@ func TestRouterAppliesDedicatedAuthRateLimitToTelegramCallback(t *testing.T) {
 		health.NewService(),
 		nil,
 		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
-		userhttp.NewHandler(nil, nil),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
 		testResumeLinkHandler(),
 		authhttp.NewHandler(authhttp.HandlerDependencies{}),
 		fakeAuthenticate,

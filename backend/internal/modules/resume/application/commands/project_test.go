@@ -8,9 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume/domain/enums"
-	"developers-cv/backend/internal/modules/resume/domain/valueobjects"
-	useridentity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type projectRepoStub struct {
@@ -34,8 +32,8 @@ func (projectUOWStub) Do(ctx context.Context, fn func(context.Context) error) er
 
 func TestReplaceProjectsHandlerUsesAggregateRepository(t *testing.T) {
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: valueobjects.NewID(), UserID: useridentity.NewID(),
-		Title: "Resume", Language: enums.ResumeLanguageEN,
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(),
+		Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 
@@ -51,8 +49,8 @@ func TestReplaceProjectsHandlerUsesAggregateRepository(t *testing.T) {
 
 func TestReplaceProjectsHandlerRejectsStaleVersion(t *testing.T) {
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: valueobjects.NewID(), UserID: useridentity.NewID(),
-		Title: "Resume", Language: enums.ResumeLanguageEN,
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(),
+		Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 
