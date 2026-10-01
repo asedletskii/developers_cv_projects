@@ -8,6 +8,8 @@
 {$FRONTEND_ADDRESS:80} {
 	root * /srv
 	encode zstd gzip
+
+	log
 	
 	handle /api/* {
 		reverse_proxy backend:8080
