@@ -37,7 +37,7 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 			WorkFormat: []string{"remote"},
 		},
 		Contacts: &ResumeContactsView{HiddenContacts: []string{"email"}},
-		Skills:   &SkillsView{HardSkills: []string{"Go"}},
+		Skills:   &SkillsView{HardSkills: []string{"Go"}, SoftSkills: []string{}},
 		Projects: []ProjectView{{
 			ID:           "project-1",
 			Name:         "CV",
@@ -167,6 +167,50 @@ func TestPublicResumeQueryHandlerPropagatesReaderError(t *testing.T) {
 		PublicResumeQuery{ID: sharedvalueobjects.NewID()},
 	)
 	require.ErrorIs(t, err, want)
+}
+
+func TestPublicResumeJSONNormalizesNilCollectionsToEmptyArrays(t *testing.T) {
+	view := ResumeView{
+		Profile:  &ResumeProfileView{},
+		Contacts: &ResumeContactsView{},
+		Skills:   &SkillsView{},
+		Projects: []ProjectView{{}},
+	}
+
+	payload, err := json.Marshal(toPublic(view))
+	require.NoError(t, err)
+
+	var object map[string]any
+	require.NoError(t, json.Unmarshal(payload, &object))
+	require.Equal(t, []any{}, object["languages"])
+	require.Equal(t, []any{}, object["technologies"])
+	require.Equal(t, []any{}, object["experiences"])
+	require.Equal(t, []any{}, object["educations"])
+	require.Equal(t, []any{}, object["courses"])
+	require.Equal(t, []any{}, object["activities"])
+	projects, ok := object["projects"].([]any)
+	require.True(t, ok)
+	require.Len(t, projects, 1)
+	project, ok := projects[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, []any{}, project["screenshots"])
+	require.Equal(t, []any{}, project["stack"])
+	require.Equal(t, []any{}, project["contributors"])
+
+	overview, ok := object["overview"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, []any{}, overview["sections"])
+
+	profile, ok := object["profile"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, []any{}, profile["workFormat"])
+	skills, ok := object["skills"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, []any{}, skills["hardSkills"])
+	require.Equal(t, []any{}, skills["softSkills"])
+	contacts, ok := object["contacts"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, []any{}, contacts["hiddenContacts"])
 }
 
 func TestPublicResumeJSONUsesCanonicalNestedShape(t *testing.T) {
