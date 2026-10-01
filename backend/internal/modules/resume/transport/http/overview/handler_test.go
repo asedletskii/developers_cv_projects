@@ -16,7 +16,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type handlerAggregateRepository struct {
@@ -42,7 +42,7 @@ func (handlerUOW) Do(ctx context.Context, fn func(context.Context) error) error 
 
 func newOverviewTestResume(t *testing.T) *domain.Resume {
 	t.Helper()
-	resume, err := domain.NewResume(domain.ResumeParams{UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{}), Sections: []domain.SectionSettings{}}
 	require.NoError(t, resume.ReplaceOverview(overview))

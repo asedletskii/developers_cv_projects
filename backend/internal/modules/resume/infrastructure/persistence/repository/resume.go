@@ -13,7 +13,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/mappers"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func (r *ResumeRepository) Get(ctx context.Context, params ports.GetResumeParams) (*domain.Resume, error) {
@@ -183,7 +183,7 @@ func (r *ResumeRepository) Delete(ctx context.Context, params ports.DeleteResume
 	return nil
 }
 
-func (r *ResumeRepository) loadResume(ctx context.Context, resumeID identity.ID, userID identity.ID) (*domain.Resume, error) {
+func (r *ResumeRepository) loadResume(ctx context.Context, resumeID sharedvalueobjects.ID, userID sharedvalueobjects.ID) (*domain.Resume, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get resume: repository dependencies are nil")
 	}

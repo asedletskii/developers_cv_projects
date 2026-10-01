@@ -12,7 +12,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type IdentityRepository struct{ db *gorm.DB }
@@ -50,7 +50,7 @@ func (r *IdentityRepository) Create(ctx context.Context, identity *domain.Identi
 	return nil
 }
 
-func (r *IdentityRepository) UpdateLastLogin(ctx context.Context, identityID identity.ID, at time.Time) error {
+func (r *IdentityRepository) UpdateLastLogin(ctx context.Context, identityID sharedvalueobjects.ID, at time.Time) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("update identity last login: %w", err)
@@ -67,11 +67,11 @@ func (r *IdentityRepository) UpdateLastLogin(ctx context.Context, identityID ide
 }
 
 func identityFromModel(model gormmodel.UserIdentity) (*domain.Identity, error) {
-	id, err := identity.IDFromUUID(model.ID)
+	id, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return nil, fmt.Errorf("map identity id: %w", err)
 	}
-	userID, err := identity.IDFromUUID(model.UserID)
+	userID, err := sharedvalueobjects.IDFromUUID(model.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("map identity user id: %w", err)
 	}

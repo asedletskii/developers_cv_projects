@@ -9,10 +9,10 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/mappers"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func loadExperiences(tx *gorm.DB, resumeID identity.ID) ([]*domain.Experience, error) {
+func loadExperiences(tx *gorm.DB, resumeID sharedvalueobjects.ID) ([]*domain.Experience, error) {
 	var models []gormmodel.ResumeExperience
 	if err := tx.Where("resume_id = ?", resumeID.UUID()).Order("sort_order").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("load resume experiences: %w", mapDBError(err))
@@ -121,7 +121,7 @@ func replaceExperienceChildren(tx *gorm.DB, experienceID uuid.UUID, item *domain
 	if item == nil {
 		return fmt.Errorf("experience is required")
 	}
-	experienceIdentity, err := identity.IDFromUUID(experienceID)
+	experienceIdentity, err := sharedvalueobjects.IDFromUUID(experienceID)
 	if err != nil {
 		return fmt.Errorf("parse experience id: %w", err)
 	}

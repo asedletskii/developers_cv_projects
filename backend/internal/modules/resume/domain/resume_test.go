@@ -6,14 +6,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func newTestResume(t *testing.T) *Resume {
 	t.Helper()
 	resume, err := NewResume(ResumeParams{
-		ID:       identity.NewID(),
-		UserID:   identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		UserID:   sharedvalueobjects.NewID(),
 		Title:    "Resume",
 		Language: ResumeLanguageEN,
 		Version:  1,
@@ -24,7 +24,7 @@ func newTestResume(t *testing.T) *Resume {
 
 func validResumeParams() ResumeParams {
 	return ResumeParams{
-		ID: identity.NewID(), UserID: identity.NewID(), Title: "Frontend Developer",
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Frontend Developer",
 		Language: ResumeLanguageEN,
 	}
 }
@@ -55,7 +55,7 @@ func TestResumeReplaceTitleKeepsLanguageImmutable(t *testing.T) {
 }
 
 func TestNewResumeGeneratesIDAndStartsAtVersionOne(t *testing.T) {
-	resume, err := NewResume(ResumeParams{UserID: identity.NewID(), Title: "Backend Developer", Language: ResumeLanguageEN})
+	resume, err := NewResume(ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Backend Developer", Language: ResumeLanguageEN})
 	require.NoError(t, err)
 	require.False(t, resume.ID().IsZero())
 	require.Equal(t, int64(1), resume.Version())
@@ -64,7 +64,7 @@ func TestNewResumeGeneratesIDAndStartsAtVersionOne(t *testing.T) {
 func TestNewResumeRejectsInvalidUserAndTitle(t *testing.T) {
 	tests := []ResumeParams{
 		{Title: "Backend Developer", Language: ResumeLanguageEN},
-		{UserID: identity.NewID(), Language: ResumeLanguageEN},
+		{UserID: sharedvalueobjects.NewID(), Language: ResumeLanguageEN},
 	}
 	for _, params := range tests {
 		_, err := NewResume(params)
@@ -73,14 +73,14 @@ func TestNewResumeRejectsInvalidUserAndTitle(t *testing.T) {
 }
 
 func TestNewResumeRejectsInvalidVersion(t *testing.T) {
-	_, err := NewResume(ResumeParams{UserID: identity.NewID(), Title: "Backend Developer", Language: ResumeLanguageEN, Version: -1})
+	_, err := NewResume(ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Backend Developer", Language: ResumeLanguageEN, Version: -1})
 	require.ErrorIs(t, err, ErrInvalidResume)
 }
 
 func TestReconstructResumeAllowsAbsentOptionalChildren(t *testing.T) {
 	resume, err := ReconstructResume(ResumeSnapshot{
-		ID:       identity.NewID(),
-		UserID:   identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		UserID:   sharedvalueobjects.NewID(),
 		Title:    "Backend",
 		Language: ResumeLanguageEN,
 		Status:   ResumeStatusDraft,
@@ -96,23 +96,23 @@ func TestReconstructResumeAllowsAbsentOptionalChildren(t *testing.T) {
 }
 
 func TestReconstructResumeRejectsForeignOwnedChildren(t *testing.T) {
-	resumeID := identity.NewID()
-	foreignResumeID := identity.NewID()
+	resumeID := sharedvalueobjects.NewID()
+	foreignResumeID := sharedvalueobjects.NewID()
 	photoPath, err := NewExternalURL("https://example.com/photo.jpg")
 	require.NoError(t, err)
 	dob, err := NewDate(time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	profile, err := NewProfile(ProfileParams{
-		ID: identity.NewID(), ResumeID: foreignResumeID, Name: "John", Surname: "Doe", Position: "Developer",
+		ID: sharedvalueobjects.NewID(), ResumeID: foreignResumeID, Name: "John", Surname: "Doe", Position: "Developer",
 		PhotoPath: photoPath, DateOfBirth: dob, Location: "Paris",
 	})
 	require.NoError(t, err)
-	_, err = ReconstructResume(ResumeSnapshot{ID: resumeID, UserID: identity.NewID(), Title: "Backend", Language: ResumeLanguageEN, Status: ResumeStatusDraft, Version: 1, Profile: profile})
+	_, err = ReconstructResume(ResumeSnapshot{ID: resumeID, UserID: sharedvalueobjects.NewID(), Title: "Backend", Language: ResumeLanguageEN, Status: ResumeStatusDraft, Version: 1, Profile: profile})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 }
 
 func TestResumeReplaceTitleTrimsAndValidates(t *testing.T) {
-	resume, err := NewResume(ResumeParams{UserID: identity.NewID(), Title: "Old", Language: ResumeLanguage("en")})
+	resume, err := NewResume(ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Old", Language: ResumeLanguage("en")})
 	require.NoError(t, err)
 
 	require.NoError(t, resume.ReplaceTitle("  New title  "))
@@ -124,7 +124,7 @@ func TestResumeReplaceTitleTrimsAndValidates(t *testing.T) {
 
 func TestNewResumeStartsAsDraft(t *testing.T) {
 	resume, err := NewResume(ResumeParams{
-		UserID: identity.NewID(), Title: "Backend", Language: ResumeLanguageEN,
+		UserID: sharedvalueobjects.NewID(), Title: "Backend", Language: ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 	require.Equal(t, ResumeStatusDraft, resume.Status())
@@ -132,7 +132,7 @@ func TestNewResumeStartsAsDraft(t *testing.T) {
 
 func TestResumeStatusTransitions(t *testing.T) {
 	resume, err := NewResume(ResumeParams{
-		UserID: identity.NewID(), Title: "Backend", Language: ResumeLanguageEN,
+		UserID: sharedvalueobjects.NewID(), Title: "Backend", Language: ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 
@@ -147,7 +147,7 @@ func TestResumeStatusTransitions(t *testing.T) {
 
 func TestResumeCannotCloseDraft(t *testing.T) {
 	resume, err := NewResume(ResumeParams{
-		UserID: identity.NewID(), Title: "Backend", Language: ResumeLanguageEN,
+		UserID: sharedvalueobjects.NewID(), Title: "Backend", Language: ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 	require.ErrorIs(t, resume.Close(), ErrInvalidResumeStatusTransition)

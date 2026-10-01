@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeLanguagesAggregateRepository struct {
@@ -30,7 +30,7 @@ func (r *fakeLanguagesAggregateRepository) Delete(context.Context, ports.DeleteR
 }
 
 func TestReplaceLanguagesHandlerUsesAggregateAndVersion(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeLanguagesAggregateRepository{resume: resume}
 	err := NewReplaceLanguagesHandler(repo, &fakeCommandUnitOfWork{}).Handle(context.Background(), ReplaceLanguagesCommand{
@@ -44,7 +44,7 @@ func TestReplaceLanguagesHandlerUsesAggregateAndVersion(t *testing.T) {
 }
 
 func TestReplaceLanguagesHandlerRejectsStaleVersion(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeLanguagesAggregateRepository{resume: resume}
 	err := NewReplaceLanguagesHandler(repo, &fakeCommandUnitOfWork{}).Handle(context.Background(), ReplaceLanguagesCommand{

@@ -6,11 +6,11 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ProfileInput struct {
-	ID          identity.ID
+	ID          sharedvalueobjects.ID
 	Name        string
 	Surname     string
 	Patronymic  *string
@@ -22,13 +22,13 @@ type ProfileInput struct {
 	WorkFormats []domain.WorkFormat
 }
 
-func (i ProfileInput) toDomain(resumeID identity.ID) domain.ProfileParams {
+func (i ProfileInput) toDomain(resumeID sharedvalueobjects.ID) domain.ProfileParams {
 	return domain.ProfileParams{ID: i.ID, ResumeID: resumeID, Name: i.Name, Surname: i.Surname, Patronymic: i.Patronymic, Position: i.Position, PhotoPath: i.PhotoPath, DateOfBirth: i.DateOfBirth, Location: i.Location, Relocation: i.Relocation, WorkFormats: append([]domain.WorkFormat(nil), i.WorkFormats...)}
 }
 
 type ReplaceProfileCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    ProfileInput
 }

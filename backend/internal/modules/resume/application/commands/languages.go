@@ -6,11 +6,11 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type LanguageInput struct {
-	ID       identity.ID
+	ID       sharedvalueobjects.ID
 	Language domain.SpokenLanguage
 	Grade    *domain.LanguageGrade
 	Position int
@@ -31,8 +31,8 @@ func (i LanguagesInput) toDomain() domain.ResumeLanguagesParams {
 }
 
 type ReplaceLanguagesCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    LanguagesInput
 }

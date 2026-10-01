@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeSkillsAggregateRepository struct {
@@ -30,7 +30,7 @@ func (r *fakeSkillsAggregateRepository) Delete(context.Context, ports.DeleteResu
 }
 
 func TestReplaceSkillsHandlerUsesVersionAndAggregate(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeSkillsAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
@@ -46,7 +46,7 @@ func TestReplaceSkillsHandlerUsesVersionAndAggregate(t *testing.T) {
 }
 
 func TestReplaceSkillsHandlerRejectsStaleVersion(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeSkillsAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}

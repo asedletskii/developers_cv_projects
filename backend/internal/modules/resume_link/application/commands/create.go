@@ -7,12 +7,12 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CreateResumeLinkCommand struct {
-	UserID   valueobjects.ID
-	ResumeID valueobjects.ID
+	UserID   sharedvalueobjects.ID
+	ResumeID sharedvalueobjects.ID
 	Name     string
 }
 
@@ -30,21 +30,21 @@ func NewCreateResumeLinkHandler(repository ports.ResumeLinkRepository, resumes p
 	return &CreateResumeLinkHandler{repository: repository, resumes: resumes, uow: uow}
 }
 
-func (h *CreateResumeLinkHandler) Handle(ctx context.Context, c CreateResumeLinkCommand) (valueobjects.ID, error) {
+func (h *CreateResumeLinkHandler) Handle(ctx context.Context, c CreateResumeLinkCommand) (sharedvalueobjects.ID, error) {
 	if h == nil || h.repository == nil || h.resumes == nil || h.uow == nil {
-		return valueobjects.ID{}, fmt.Errorf("create resume link handler dependencies are nil")
+		return sharedvalueobjects.ID{}, fmt.Errorf("create resume link handler dependencies are nil")
 	}
 	if c.UserID.IsZero() || c.ResumeID.IsZero() {
-		return valueobjects.ID{}, fmt.Errorf("invalid create resume link command")
+		return sharedvalueobjects.ID{}, fmt.Errorf("invalid create resume link command")
 	}
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID:       valueobjects.NewID(),
+		ID:       sharedvalueobjects.NewID(),
 		ResumeID: c.ResumeID,
 		Name:     c.Name,
 	})
 	if err != nil {
-		return valueobjects.ID{}, err
+		return sharedvalueobjects.ID{}, err
 	}
 
 	linkID := link.ID()
@@ -55,7 +55,7 @@ func (h *CreateResumeLinkHandler) Handle(ctx context.Context, c CreateResumeLink
 		return h.repository.Create(tx, link)
 	})
 	if err != nil {
-		return valueobjects.ID{}, err
+		return sharedvalueobjects.ID{}, err
 	}
 	return linkID, nil
 }

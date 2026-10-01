@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type createUserRepositoryStub struct {
@@ -48,7 +48,7 @@ func TestCreateUserHandlerPropagatesRepositoryError(t *testing.T) {
 
 func TestCreateUserHandlerImplementsAuthProvisionerShape(t *testing.T) {
 	var provisioner interface {
-		CreateUser(context.Context) (valueobjects.ID, error)
+		CreateUser(context.Context) (sharedvalueobjects.ID, error)
 	} = NewCreateUserHandler(&createUserRepositoryStub{})
 
 	id, err := provisioner.CreateUser(context.Background())

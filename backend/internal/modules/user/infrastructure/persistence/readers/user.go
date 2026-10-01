@@ -11,7 +11,7 @@ import (
 	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type UserReader struct {
@@ -43,7 +43,7 @@ func (r *UserReader) GetUser(ctx context.Context, query queries.GetUserQuery) (*
 }
 
 func fromModel(model gormmodel.User) (*domain.User, error) {
-	id, err := valueobjects.IDFromUUID(model.ID)
+	id, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return nil, fmt.Errorf("map user id: %w", err)
 	}

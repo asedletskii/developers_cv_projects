@@ -27,7 +27,7 @@ import (
 	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userrepo "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type integrationTokenGenerator struct{ counter atomic.Uint64 }
@@ -77,7 +77,7 @@ func (r *blockingIdentityRepository) FindByProviderSubject(ctx context.Context, 
 func (r *blockingIdentityRepository) Create(ctx context.Context, identity *domain.Identity) error {
 	return r.inner.Create(ctx, identity)
 }
-func (r *blockingIdentityRepository) UpdateLastLogin(ctx context.Context, identityID identity.ID, at time.Time) error {
+func (r *blockingIdentityRepository) UpdateLastLogin(ctx context.Context, identityID sharedvalueobjects.ID, at time.Time) error {
 	return r.inner.UpdateLastLogin(ctx, identityID, at)
 }
 
@@ -126,7 +126,7 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 		bindingHash, err := valueobjects.NewBrowserBindingHash(generator.Hash([]byte("binding-" + state)))
 		require.NoError(t, err)
 		tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{
-			ID: identity.NewID(), Provider: testIntegrationProvider(), StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: bindingHash,
+			ID: sharedvalueobjects.NewID(), Provider: testIntegrationProvider(), StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: bindingHash,
 			CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: now, ExpiresAt: now.Add(5 * time.Minute),
 		})
 		require.NoError(t, err)

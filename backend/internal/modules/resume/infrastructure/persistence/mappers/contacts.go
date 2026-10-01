@@ -5,7 +5,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func ContactsToDBModels(c *domain.Contacts) (
@@ -99,11 +99,11 @@ func ContactsToDomain(
 		}
 		text = &x
 	}
-	id, err := identity.IDFromUUID(m.ID)
+	id, err := sharedvalueobjects.IDFromUUID(m.ID)
 	if err != nil {
 		return nil, err
 	}
-	rid, err := identity.IDFromUUID(m.ResumeID)
+	rid, err := sharedvalueobjects.IDFromUUID(m.ResumeID)
 	if err != nil {
 		return nil, err
 	}

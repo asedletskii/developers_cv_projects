@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ResumeStatus string
@@ -46,8 +46,8 @@ func (v ResumeLanguage) IsValid() bool {
 }
 
 type Resume struct {
-	id           identity.ID
-	userID       identity.ID
+	id           sharedvalueobjects.ID
+	userID       sharedvalueobjects.ID
 	title        string
 	language     ResumeLanguage
 	status       ResumeStatus
@@ -66,16 +66,16 @@ type Resume struct {
 }
 
 type ResumeParams struct {
-	ID       identity.ID
-	UserID   identity.ID
+	ID       sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Title    string
 	Language ResumeLanguage
 	Version  int64
 }
 
 type ResumeSnapshot struct {
-	ID           identity.ID
-	UserID       identity.ID
+	ID           sharedvalueobjects.ID
+	UserID       sharedvalueobjects.ID
 	Title        string
 	Language     ResumeLanguage
 	Status       ResumeStatus
@@ -96,7 +96,7 @@ type ResumeSnapshot struct {
 func NewResume(params ResumeParams) (*Resume, error) {
 	title := strings.TrimSpace(params.Title)
 	if params.ID.IsZero() {
-		params.ID = identity.NewID()
+		params.ID = sharedvalueobjects.NewID()
 	}
 	if params.UserID.IsZero() || title == "" {
 		return nil, fmt.Errorf("%w: invalid resume identity or title", ErrInvalidResume)
@@ -147,7 +147,7 @@ func ReconstructResume(snapshot ResumeSnapshot) (*Resume, error) {
 }
 
 func (r *Resume) validateOwnedState(snapshot ResumeSnapshot) error {
-	check := func(id identity.ID) error {
+	check := func(id sharedvalueobjects.ID) error {
 		if id.IsZero() || id != r.id {
 			return fmt.Errorf("%w: child does not belong to resume", ErrResumeInvariant)
 		}
@@ -221,12 +221,12 @@ func (r *Resume) validateOwnedState(snapshot ResumeSnapshot) error {
 	return nil
 }
 
-func (r *Resume) ID() identity.ID          { return r.id }
-func (r *Resume) UserID() identity.ID      { return r.userID }
-func (r *Resume) Title() string            { return r.title }
-func (r *Resume) Language() ResumeLanguage { return r.language }
-func (r *Resume) Version() int64           { return r.version }
-func (r *Resume) Status() ResumeStatus     { return r.status }
+func (r *Resume) ID() sharedvalueobjects.ID     { return r.id }
+func (r *Resume) UserID() sharedvalueobjects.ID { return r.userID }
+func (r *Resume) Title() string                 { return r.title }
+func (r *Resume) Language() ResumeLanguage      { return r.language }
+func (r *Resume) Version() int64                { return r.version }
+func (r *Resume) Status() ResumeStatus          { return r.status }
 
 func (r *Resume) Publish() error {
 	if r == nil {

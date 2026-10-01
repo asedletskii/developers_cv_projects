@@ -10,11 +10,11 @@ import (
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactViewThroughLinkQuery struct {
-	LinkID  identity.ID
+	LinkID  sharedvalueobjects.ID
 	Contact resumedomain.ContactKey
 }
 
@@ -55,7 +55,7 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(ctx context.Context, query C
 	if err != nil {
 		return resumequeries.ContactView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
-	resumeID, err := identity.IDFromUUID(resumeUUID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
 		return resumequeries.ContactView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}

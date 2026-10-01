@@ -3,7 +3,7 @@ package projects
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type technologyRequest struct {
@@ -42,9 +42,9 @@ type replaceProjectsRequest struct {
 }
 
 func projectInput(body projectRequest) (commands.ProjectInput, error) {
-	var id identity.ID
+	var id sharedvalueobjects.ID
 	if body.ID != "" {
-		parsed, err := identity.ParseID(body.ID)
+		parsed, err := sharedvalueobjects.ParseID(body.ID)
 		if err != nil {
 			return commands.ProjectInput{}, err
 		}

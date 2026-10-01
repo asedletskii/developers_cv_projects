@@ -10,12 +10,12 @@ import (
 	"developers-cv/backend/internal/modules/auth/application/ports"
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CurrentSessionView struct {
-	UserID     identity.ID
-	SessionID  identity.ID
+	UserID     sharedvalueobjects.ID
+	SessionID  sharedvalueobjects.ID
 	CreatedAt  time.Time
 	LastSeenAt time.Time
 	ExpiresAt  time.Time

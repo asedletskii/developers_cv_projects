@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -38,9 +38,9 @@ type educationsRequest struct {
 func (r educationsRequest) input() (commands.EducationsInput, error) {
 	out := make([]commands.EducationInput, 0, len(r.Items))
 	for _, x := range r.Items {
-		var id identity.ID
+		var id sharedvalueobjects.ID
 		if x.ID != "" {
-			v, e := identity.ParseID(x.ID)
+			v, e := sharedvalueobjects.ParseID(x.ID)
 			if e != nil {
 				return commands.EducationsInput{}, e
 			}

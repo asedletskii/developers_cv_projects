@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/mappers"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func persistEducations(tx *gorm.DB, resume *domain.Resume) error {
@@ -38,7 +38,7 @@ func persistEducations(tx *gorm.DB, resume *domain.Resume) error {
 	}
 	return nil
 }
-func loadEducations(tx *gorm.DB, resumeID identity.ID) ([]*domain.Education, error) {
+func loadEducations(tx *gorm.DB, resumeID sharedvalueobjects.ID) ([]*domain.Education, error) {
 	var rows []gormmodel.ResumeEducation
 	if err := tx.Where("resume_id = ?", resumeID.UUID()).Order("sort_order").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("get resume educations: %w", mapDBError(err))

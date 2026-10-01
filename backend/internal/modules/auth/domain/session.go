@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Session struct {
-	id         identity.ID
-	userID     identity.ID
+	id         sharedvalueobjects.ID
+	userID     sharedvalueobjects.ID
 	tokenHash  valueobjects.SessionTokenHash
 	createdAt  time.Time
 	lastSeenAt time.Time
@@ -21,8 +21,8 @@ type Session struct {
 }
 
 type SessionParams struct {
-	ID         identity.ID
-	UserID     identity.ID
+	ID         sharedvalueobjects.ID
+	UserID     sharedvalueobjects.ID
 	TokenHash  valueobjects.SessionTokenHash
 	CreatedAt  time.Time
 	LastSeenAt time.Time
@@ -56,8 +56,8 @@ func NewSession(params SessionParams) (*Session, error) {
 	return &Session{id: params.ID, userID: params.UserID, tokenHash: params.TokenHash, createdAt: createdAt, lastSeenAt: lastSeenAt, expiresAt: expiresAt, revokedAt: revokedAt, userAgent: cloneString(params.UserAgent), ipAddress: cloneString(params.IPAddress)}, nil
 }
 
-func (s *Session) ID() identity.ID                          { return s.id }
-func (s *Session) UserID() identity.ID                      { return s.userID }
+func (s *Session) ID() sharedvalueobjects.ID                { return s.id }
+func (s *Session) UserID() sharedvalueobjects.ID            { return s.userID }
 func (s *Session) TokenHash() valueobjects.SessionTokenHash { return s.tokenHash }
 func (s *Session) CreatedAt() time.Time                     { return s.createdAt }
 func (s *Session) LastSeenAt() time.Time                    { return s.lastSeenAt }

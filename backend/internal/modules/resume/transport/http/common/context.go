@@ -6,17 +6,17 @@ import (
 	"github.com/gin-gonic/gin"
 
 	apperrors "developers-cv/backend/internal/platform/http/errors"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func RequireResumeContext(c *gin.Context) (identity.ID, identity.ID, bool) {
+func RequireResumeContext(c *gin.Context) (sharedvalueobjects.ID, sharedvalueobjects.ID, bool) {
 	userID, ok := RequireUserID(c)
 	if !ok {
-		return identity.ID{}, identity.ID{}, false
+		return sharedvalueobjects.ID{}, sharedvalueobjects.ID{}, false
 	}
 	resumeID, ok := ParseResumeID(c)
 	if !ok {
-		return identity.ID{}, identity.ID{}, false
+		return sharedvalueobjects.ID{}, sharedvalueobjects.ID{}, false
 	}
 	return userID, resumeID, true
 }

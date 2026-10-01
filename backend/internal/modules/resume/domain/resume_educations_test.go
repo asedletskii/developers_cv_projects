@@ -5,12 +5,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestEducationValidation(t *testing.T) {
-	id := identity.NewID()
-	resumeID := identity.NewID()
+	id := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	endDate, err := ParseYear("2024")
 	require.NoError(t, err)
 
@@ -27,16 +27,16 @@ func TestEducationValidation(t *testing.T) {
 	require.Error(t, err)
 }
 
-func educationParams(r *Resume, id identity.ID, name string) *EducationParams {
+func educationParams(r *Resume, id sharedvalueobjects.ID, name string) *EducationParams {
 	return &EducationParams{ID: id, ResumeID: r.ID(), Location: "Berlin", University: name, Grade: EducationLevelMaster, ProgramName: "Computer Science", Faculty: "Engineering"}
 }
 
 func TestResumeReplaceEducations(t *testing.T) {
 	r := newTestResume(t)
-	p := educationParams(r, identity.ID{}, "First")
+	p := educationParams(r, sharedvalueobjects.ID{}, "First")
 	require.NoError(t, r.ReplaceEducations([]EducationParams{*p}))
 	id := r.Educations()[0].ID()
-	require.NotEqual(t, identity.ID{}, id)
+	require.NotEqual(t, sharedvalueobjects.ID{}, id)
 	p = educationParams(r, id, "Updated")
 	require.NoError(t, r.ReplaceEducations([]EducationParams{*p}))
 	require.Equal(t, id, r.Educations()[0].ID())
@@ -47,13 +47,13 @@ func TestResumeReplaceEducations(t *testing.T) {
 
 func TestResumeReplaceEducationsRejectsUnknownID(t *testing.T) {
 	r := newTestResume(t)
-	err := r.ReplaceEducations([]EducationParams{*educationParams(r, identity.NewID(), "Unknown")})
+	err := r.ReplaceEducations([]EducationParams{*educationParams(r, sharedvalueobjects.NewID(), "Unknown")})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 }
 
 func TestResumeReplaceEducationsRejectsDuplicateID(t *testing.T) {
 	r := newTestResume(t)
-	p := educationParams(r, identity.ID{}, "First")
+	p := educationParams(r, sharedvalueobjects.ID{}, "First")
 	require.NoError(t, r.ReplaceEducations([]EducationParams{*p}))
 	id := r.Educations()[0].ID()
 	a := educationParams(r, id, "A")
@@ -63,8 +63,8 @@ func TestResumeReplaceEducationsRejectsDuplicateID(t *testing.T) {
 
 func TestResumeReplaceEducationsPreservesInputOrder(t *testing.T) {
 	r := newTestResume(t)
-	a := educationParams(r, identity.ID{}, "A")
-	b := educationParams(r, identity.ID{}, "B")
+	a := educationParams(r, sharedvalueobjects.ID{}, "A")
+	b := educationParams(r, sharedvalueobjects.ID{}, "B")
 	require.NoError(t, r.ReplaceEducations([]EducationParams{*a, *b}))
 	items := r.Educations()
 	require.Len(t, items, 2)

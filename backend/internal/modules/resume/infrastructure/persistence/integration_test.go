@@ -19,17 +19,17 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func languageGradePtr(value domain.LanguageGrade) *domain.LanguageGrade {
 	return &value
 }
 
-func newTestResume(t *testing.T, userID identity.ID) *domain.Resume {
+func newTestResume(t *testing.T, userID sharedvalueobjects.ID) *domain.Resume {
 	t.Helper()
 	root, err := domain.NewResume(domain.ResumeParams{
-		ID: identity.NewID(), UserID: userID, Title: "Test Resume", Language: domain.ResumeLanguageRU,
+		ID: sharedvalueobjects.NewID(), UserID: userID, Title: "Test Resume", Language: domain.ResumeLanguageRU,
 	})
 	require.NoError(t, err)
 	return root
@@ -101,7 +101,7 @@ func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
 	}
 }
 
-func insertResumeTestUser(t *testing.T, ctx context.Context, dsn string, userID identity.ID) {
+func insertResumeTestUser(t *testing.T, ctx context.Context, dsn string, userID sharedvalueobjects.ID) {
 	t.Helper()
 
 	conn, err := pgx.Connect(ctx, dsn)
@@ -136,8 +136,8 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	owner := identity.NewID()
-	foreign := identity.NewID()
+	owner := sharedvalueobjects.NewID()
+	foreign := sharedvalueobjects.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	insertResumeTestUser(t, ctx, dsn, foreign)
 

@@ -5,29 +5,29 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestNewProfileRejectsWhitespaceOnlyName(t *testing.T) {
-	_, err := NewProfile(valueobjects.NewID(), LocalizedProfile{Name: stringPtr("   ")}, LocalizedProfile{}, nil)
+	_, err := NewProfile(sharedvalueobjects.NewID(), LocalizedProfile{Name: stringPtr("   ")}, LocalizedProfile{}, nil)
 	require.ErrorIs(t, err, ErrInvalidProfile)
 }
 
 func TestNewProfileRejectsWhitespaceOnlySurname(t *testing.T) {
-	_, err := NewProfile(valueobjects.NewID(), LocalizedProfile{Surname: stringPtr("	")}, LocalizedProfile{}, nil)
+	_, err := NewProfile(sharedvalueobjects.NewID(), LocalizedProfile{Surname: stringPtr("	")}, LocalizedProfile{}, nil)
 	require.ErrorIs(t, err, ErrInvalidProfile)
 }
 
 func TestNewProfileAllowsPartialLocalization(t *testing.T) {
 	name := "Dmitry"
-	profile, err := NewProfile(valueobjects.NewID(), LocalizedProfile{Name: &name}, LocalizedProfile{}, nil)
+	profile, err := NewProfile(sharedvalueobjects.NewID(), LocalizedProfile{Name: &name}, LocalizedProfile{}, nil)
 	require.NoError(t, err)
 	require.Equal(t, &name, profile.RU.Name)
 }
 
 func TestNewProfileRejectsRelativePhotoPath(t *testing.T) {
 	photoPath := "/profiles/dmitry.svg"
-	_, err := NewProfile(valueobjects.NewID(), LocalizedProfile{}, LocalizedProfile{}, &photoPath)
+	_, err := NewProfile(sharedvalueobjects.NewID(), LocalizedProfile{}, LocalizedProfile{}, &photoPath)
 	require.ErrorIs(t, err, ErrInvalidProfile)
 }
 
@@ -38,7 +38,7 @@ func TestValidatePhotoPathRejectsEmptyPhotoPath(t *testing.T) {
 
 func TestNewProfileAcceptsHTTPSPhotoPath(t *testing.T) {
 	photoPath := "https://example.com/profiles/dmitry.svg"
-	profile, err := NewProfile(valueobjects.NewID(), LocalizedProfile{}, LocalizedProfile{}, &photoPath)
+	profile, err := NewProfile(sharedvalueobjects.NewID(), LocalizedProfile{}, LocalizedProfile{}, &photoPath)
 	require.NoError(t, err)
 	require.Equal(t, &photoPath, profile.PhotoPath)
 }

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"developers-cv/backend/internal/modules/auth/application/ports"
-	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type LogoutAllHandler struct {
@@ -18,7 +18,7 @@ func NewLogoutAllHandler(sessions ports.SessionRepository, uow ports.UnitOfWork)
 	return &LogoutAllHandler{sessions: sessions, uow: uow}
 }
 
-func (h *LogoutAllHandler) Handle(ctx context.Context, userID valueobjects.ID, now time.Time) error {
+func (h *LogoutAllHandler) Handle(ctx context.Context, userID sharedvalueobjects.ID, now time.Time) error {
 	if h == nil || h.sessions == nil || h.uow == nil {
 		return fmt.Errorf("logout all handler dependencies are nil")
 	}

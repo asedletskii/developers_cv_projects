@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type GetUserQuery struct {
-	ID valueobjects.ID
+	ID sharedvalueobjects.ID
 }
 
 type UserReader interface {

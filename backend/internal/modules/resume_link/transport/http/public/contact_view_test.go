@@ -15,7 +15,7 @@ import (
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	linkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewQueryStub struct {
@@ -34,7 +34,7 @@ func (s *contactViewQueryStub) Handle(_ context.Context, query linkqueries.Conta
 
 func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	linkID := identity.NewID()
+	linkID := sharedvalueobjects.NewID()
 	query := &contactViewQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 	engine := gin.New()
 	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
@@ -83,7 +83,7 @@ func TestContactViewHandlerMapsMissingOrInactiveLink(t *testing.T) {
 			engine := gin.New()
 			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+identity.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			engine.ServeHTTP(w, req)
@@ -109,7 +109,7 @@ func TestContactViewHandlerMapsResumeContactErrors(t *testing.T) {
 			engine := gin.New()
 			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+identity.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			engine.ServeHTTP(w, req)

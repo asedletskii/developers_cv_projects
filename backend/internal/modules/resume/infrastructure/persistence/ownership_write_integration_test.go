@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresResumeRepositoryEnforcesOwnership(t *testing.T) {
@@ -35,8 +35,8 @@ func TestPostgresResumeRepositoryEnforcesOwnership(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	owner := identity.NewID()
-	foreign := identity.NewID()
+	owner := sharedvalueobjects.NewID()
+	foreign := sharedvalueobjects.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	insertResumeTestUser(t, ctx, dsn, foreign)
 

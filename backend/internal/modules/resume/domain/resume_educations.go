@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type EducationLevel int
@@ -24,8 +24,8 @@ func (v EducationLevel) IsValid() bool {
 }
 
 type EducationParams struct {
-	ID          identity.ID
-	ResumeID    identity.ID
+	ID          sharedvalueobjects.ID
+	ResumeID    sharedvalueobjects.ID
 	Location    string
 	University  string
 	Grade       EducationLevel
@@ -37,8 +37,8 @@ type EducationParams struct {
 }
 
 type Education struct {
-	id          identity.ID
-	resumeID    identity.ID
+	id          sharedvalueobjects.ID
+	resumeID    sharedvalueobjects.ID
 	location    string
 	university  string
 	grade       EducationLevel
@@ -78,33 +78,33 @@ func (e *Education) Replace(params EducationParams) error {
 	return nil
 }
 
-func (e *Education) ID() identity.ID       { return e.id }
-func (e *Education) ResumeID() identity.ID { return e.resumeID }
-func (e *Education) Location() string      { return e.location }
-func (e *Education) University() string    { return e.university }
-func (e *Education) Grade() EducationLevel { return e.grade }
-func (e *Education) ProgramName() string   { return e.programName }
-func (e *Education) ProfileName() *string  { return cloneString(e.profileName) }
-func (e *Education) Faculty() string       { return e.faculty }
-func (e *Education) Course() *int          { return cloneInt(e.course) }
-func (e *Education) EndDate() *Year        { return cloneYear(e.endDate) }
+func (e *Education) ID() sharedvalueobjects.ID       { return e.id }
+func (e *Education) ResumeID() sharedvalueobjects.ID { return e.resumeID }
+func (e *Education) Location() string                { return e.location }
+func (e *Education) University() string              { return e.university }
+func (e *Education) Grade() EducationLevel           { return e.grade }
+func (e *Education) ProgramName() string             { return e.programName }
+func (e *Education) ProfileName() *string            { return cloneString(e.profileName) }
+func (e *Education) Faculty() string                 { return e.faculty }
+func (e *Education) Course() *int                    { return cloneInt(e.course) }
+func (e *Education) EndDate() *Year                  { return cloneYear(e.endDate) }
 
 func (r *Resume) ReplaceEducations(params []EducationParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	existing := make(map[identity.ID]struct{}, len(r.educations))
+	existing := make(map[sharedvalueobjects.ID]struct{}, len(r.educations))
 	for _, item := range r.educations {
 		if item == nil {
 			return fmt.Errorf("%w: nil education", ErrResumeInvariant)
 		}
 		existing[item.ID()] = struct{}{}
 	}
-	seen := make(map[identity.ID]struct{}, len(params))
+	seen := make(map[sharedvalueobjects.ID]struct{}, len(params))
 	replaced := make([]*Education, 0, len(params))
 	for _, item := range params {
 		if item.ID.IsZero() {
-			item.ID = identity.NewID()
+			item.ID = sharedvalueobjects.NewID()
 		} else if _, ok := existing[item.ID]; !ok {
 			return fmt.Errorf("%w: education does not belong to resume", ErrResumeInvariant)
 		}

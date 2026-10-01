@@ -9,7 +9,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/mappers"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func persistSkills(tx *gorm.DB, resume *domain.Resume) error {
@@ -70,7 +70,7 @@ func persistSkills(tx *gorm.DB, resume *domain.Resume) error {
 	return nil
 }
 
-func loadSkills(tx *gorm.DB, resumeID identity.ID) (*domain.Skills, error) {
+func loadSkills(tx *gorm.DB, resumeID sharedvalueobjects.ID) (*domain.Skills, error) {
 	var m gormmodel.ResumeSkills
 	err := tx.Where("resume_id = ?", resumeID.UUID()).First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

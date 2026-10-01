@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeProfileRepository struct {
@@ -25,7 +25,7 @@ type fakeUnitOfWork struct{}
 func (fakeUnitOfWork) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestReplaceProfileHandlerPersistsBothLocales(t *testing.T) {
-	id := valueobjects.NewID()
+	id := sharedvalueobjects.NewID()
 	name := "Дмитрий"
 	enName := "Dmitry"
 	repo := &fakeProfileRepository{}
@@ -40,7 +40,7 @@ func TestReplaceProfileHandlerPersistsBothLocales(t *testing.T) {
 func TestReplaceProfileHandlerAllowsEmptyLocales(t *testing.T) {
 	repo := &fakeProfileRepository{}
 	h := NewReplaceProfileHandler(repo, fakeUnitOfWork{})
-	err := h.Handle(context.Background(), ReplaceProfileCommand{UserID: valueobjects.NewID()})
+	err := h.Handle(context.Background(), ReplaceProfileCommand{UserID: sharedvalueobjects.NewID()})
 	require.NoError(t, err)
 	require.NotNil(t, repo.profile)
 }

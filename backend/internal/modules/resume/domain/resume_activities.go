@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ActivityType string
@@ -29,8 +29,8 @@ func (v ActivityType) IsValid() bool {
 }
 
 type ActivityParams struct {
-	ID          identity.ID
-	ResumeID    identity.ID
+	ID          sharedvalueobjects.ID
+	ResumeID    sharedvalueobjects.ID
 	Type        ActivityType
 	Title       string
 	Description *string
@@ -39,8 +39,8 @@ type ActivityParams struct {
 }
 
 type Activity struct {
-	id          identity.ID
-	resumeID    identity.ID
+	id          sharedvalueobjects.ID
+	resumeID    sharedvalueobjects.ID
 	typeValue   ActivityType
 	title       string
 	description *string
@@ -69,30 +69,30 @@ func (a *Activity) Replace(params ActivityParams) error {
 	return nil
 }
 
-func (a *Activity) ID() identity.ID       { return a.id }
-func (a *Activity) ResumeID() identity.ID { return a.resumeID }
-func (a *Activity) Type() ActivityType    { return a.typeValue }
-func (a *Activity) Title() string         { return a.title }
-func (a *Activity) Description() *string  { return cloneString(a.description) }
-func (a *Activity) Date() *YearMonth      { return cloneYearMonth(a.date) }
-func (a *Activity) Link() *ExternalURL    { return cloneExternalURL(a.link) }
+func (a *Activity) ID() sharedvalueobjects.ID       { return a.id }
+func (a *Activity) ResumeID() sharedvalueobjects.ID { return a.resumeID }
+func (a *Activity) Type() ActivityType              { return a.typeValue }
+func (a *Activity) Title() string                   { return a.title }
+func (a *Activity) Description() *string            { return cloneString(a.description) }
+func (a *Activity) Date() *YearMonth                { return cloneYearMonth(a.date) }
+func (a *Activity) Link() *ExternalURL              { return cloneExternalURL(a.link) }
 
 func (r *Resume) ReplaceActivities(params []ActivityParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	existing := make(map[identity.ID]*Activity, len(r.activities))
+	existing := make(map[sharedvalueobjects.ID]*Activity, len(r.activities))
 	for _, item := range r.activities {
 		if item == nil {
 			return fmt.Errorf("%w: nil activity", ErrResumeInvariant)
 		}
 		existing[item.ID()] = item
 	}
-	seen := make(map[identity.ID]struct{}, len(params))
+	seen := make(map[sharedvalueobjects.ID]struct{}, len(params))
 	replaced := make([]*Activity, 0, len(params))
 	for _, item := range params {
 		if item.ID.IsZero() {
-			item.ID = identity.NewID()
+			item.ID = sharedvalueobjects.NewID()
 		} else if _, ok := existing[item.ID]; !ok {
 			return fmt.Errorf("%w: activity %s does not belong to resume", ErrResumeInvariant, item.ID.String())
 		}

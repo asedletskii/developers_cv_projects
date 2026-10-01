@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ResumeLinkParams struct {
-	ID       valueobjects.ID
-	ResumeID valueobjects.ID
+	ID       sharedvalueobjects.ID
+	ResumeID sharedvalueobjects.ID
 	Name     string
 	Version  int64
 }
@@ -23,8 +23,8 @@ const (
 )
 
 type ResumeLink struct {
-	id       valueobjects.ID
-	resumeID valueobjects.ID
+	id       sharedvalueobjects.ID
+	resumeID sharedvalueobjects.ID
 	name     string
 	active   bool
 	version  int64
@@ -59,16 +59,16 @@ func NewResumeLink(params ResumeLinkParams) (*ResumeLink, error) {
 	}, nil
 }
 
-func (l *ResumeLink) ID() valueobjects.ID {
+func (l *ResumeLink) ID() sharedvalueobjects.ID {
 	if l == nil {
-		return valueobjects.ID{}
+		return sharedvalueobjects.ID{}
 	}
 	return l.id
 }
 
-func (l *ResumeLink) ResumeID() valueobjects.ID {
+func (l *ResumeLink) ResumeID() sharedvalueobjects.ID {
 	if l == nil {
-		return valueobjects.ID{}
+		return sharedvalueobjects.ID{}
 	}
 	return l.resumeID
 }

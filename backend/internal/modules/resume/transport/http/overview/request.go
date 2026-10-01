@@ -3,7 +3,7 @@ package overview
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type overviewRequest struct {
@@ -36,7 +36,7 @@ type sectionRequest struct {
 	Collapsed bool   `json:"collapsed"`
 }
 
-func (r overviewRequest) ToCommand(uid identity.ID, id identity.ID) (commands.ReplaceOverviewCommand, error) {
+func (r overviewRequest) ToCommand(uid sharedvalueobjects.ID, id sharedvalueobjects.ID) (commands.ReplaceOverviewCommand, error) {
 	input := commands.OverviewInput{Greeting: commands.GreetingInput{First: r.Greeting.First, Second: r.Greeting.Second, SecondHighlight: r.Greeting.SecondHighlight, Third: r.Greeting.Third}}
 	if r.ResumeLink != nil {
 		link, err := domain.NewExternalURL(*r.ResumeLink)

@@ -6,7 +6,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func ResumeToDB(resume *domain.Resume, createdAt, updatedAt time.Time) (gormmodel.Resume, error) {
@@ -39,11 +39,11 @@ func ResumeToDomainSnapshot(
 	activities []*domain.Activity,
 	projects []*domain.Project,
 ) (domain.ResumeSnapshot, error) {
-	id, err := identity.IDFromUUID(model.ID)
+	id, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return domain.ResumeSnapshot{}, err
 	}
-	userID, err := identity.IDFromUUID(model.UserID)
+	userID, err := sharedvalueobjects.IDFromUUID(model.UserID)
 	if err != nil {
 		return domain.ResumeSnapshot{}, err
 	}

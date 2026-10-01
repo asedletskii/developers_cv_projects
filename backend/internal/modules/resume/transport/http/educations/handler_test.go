@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type repoStub struct{ resume *domain.Resume }
@@ -31,7 +31,7 @@ type uowStub struct{}
 func (uowStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 func TestReplaceEducationsHandlerReturnsNoContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	r, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	uid := r.UserID()
 	rid := r.ID()

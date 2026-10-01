@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ProjectParams struct {
-	ID           identity.ID
-	ResumeID     identity.ID
+	ID           sharedvalueobjects.ID
+	ResumeID     sharedvalueobjects.ID
 	Name         string
 	Description  *string
 	Role         *string
@@ -21,8 +21,8 @@ type ProjectParams struct {
 }
 
 type Project struct {
-	id           identity.ID
-	resumeID     identity.ID
+	id           sharedvalueobjects.ID
+	resumeID     sharedvalueobjects.ID
 	name         string
 	description  *string
 	role         *string
@@ -62,14 +62,14 @@ func (p *Project) Replace(params ProjectParams) error {
 	return nil
 }
 
-func (p *Project) ID() identity.ID            { return p.id }
-func (p *Project) ResumeID() identity.ID      { return p.resumeID }
-func (p *Project) Name() string               { return p.name }
-func (p *Project) Description() *string       { return cloneString(p.description) }
-func (p *Project) Role() *string              { return cloneString(p.role) }
-func (p *Project) Screenshots() []ExternalURL { return cloneExternalURLs(p.screenshots) }
-func (p *Project) Link() *ExternalURL         { return cloneExternalURL(p.link) }
-func (p *Project) GitLink() *ExternalURL      { return cloneExternalURL(p.gitLink) }
+func (p *Project) ID() sharedvalueobjects.ID       { return p.id }
+func (p *Project) ResumeID() sharedvalueobjects.ID { return p.resumeID }
+func (p *Project) Name() string                    { return p.name }
+func (p *Project) Description() *string            { return cloneString(p.description) }
+func (p *Project) Role() *string                   { return cloneString(p.role) }
+func (p *Project) Screenshots() []ExternalURL      { return cloneExternalURLs(p.screenshots) }
+func (p *Project) Link() *ExternalURL              { return cloneExternalURL(p.link) }
+func (p *Project) GitLink() *ExternalURL           { return cloneExternalURL(p.gitLink) }
 func (p *Project) Stack() []Technology {
 	return append([]Technology(nil), p.stack...)
 }
@@ -81,18 +81,18 @@ func (r *Resume) ReplaceProjects(params []ProjectParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	existing := make(map[identity.ID]struct{}, len(r.projects))
+	existing := make(map[sharedvalueobjects.ID]struct{}, len(r.projects))
 	for _, item := range r.projects {
 		if item == nil {
 			return fmt.Errorf("%w: nil project", ErrResumeInvariant)
 		}
 		existing[item.ID()] = struct{}{}
 	}
-	seen := make(map[identity.ID]struct{}, len(params))
+	seen := make(map[sharedvalueobjects.ID]struct{}, len(params))
 	replaced := make([]*Project, 0, len(params))
 	for _, item := range params {
 		if item.ID.IsZero() {
-			item.ID = identity.NewID()
+			item.ID = sharedvalueobjects.NewID()
 		} else if _, ok := existing[item.ID]; !ok {
 			return fmt.Errorf("%w: project %s does not belong to resume", ErrResumeInvariant, item.ID.String())
 		}

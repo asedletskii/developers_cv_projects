@@ -9,7 +9,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/mappers"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func persistProjects(tx *gorm.DB, resume *domain.Resume) error {
@@ -45,7 +45,7 @@ func persistProjects(tx *gorm.DB, resume *domain.Resume) error {
 	return nil
 }
 
-func loadProjects(tx *gorm.DB, resumeID identity.ID) ([]*domain.Project, error) {
+func loadProjects(tx *gorm.DB, resumeID sharedvalueobjects.ID) ([]*domain.Project, error) {
 	var rows []gormmodel.ResumeProject
 	if err := tx.Where("resume_id = ?", resumeID.UUID()).Order("sort_order").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("get resume projects: %w", mapDBError(err))
@@ -119,7 +119,7 @@ func loadProjectContributors(tx *gorm.DB, projectIDs []uuid.UUID) (map[uuid.UUID
 }
 
 func writeProjectChildrenFromDomain(tx *gorm.DB, model *gormmodel.ResumeProject, project *domain.Project) error {
-	projectID, err := identity.IDFromUUID(model.ID)
+	projectID, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return fmt.Errorf("parse project id: %w", err)
 	}

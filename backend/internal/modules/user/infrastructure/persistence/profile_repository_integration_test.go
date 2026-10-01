@@ -16,7 +16,7 @@ import (
 	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresProfileRepositoryReplacesLocalizedProfile(t *testing.T) {
@@ -37,7 +37,7 @@ func TestPostgresProfileRepositoryReplacesLocalizedProfile(t *testing.T) {
 
 	userID := uuid.New()
 	insertProfileRepositoryUser(t, ctx, dsn, userID)
-	identity, err := valueobjects.IDFromUUID(userID)
+	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 	name, enName, position := "Дмитрий", "Dmitry", "Backend Developer"
 	profile, err := domain.NewProfile(identity, domain.LocalizedProfile{Name: &name}, domain.LocalizedProfile{Name: &enName, Position: &position}, nil)

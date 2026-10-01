@@ -6,12 +6,12 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ReplaceProjectsCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    ProjectsInput
 }

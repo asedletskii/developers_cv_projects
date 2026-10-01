@@ -18,7 +18,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
-	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type lifecycleReaderStub struct {
@@ -53,20 +53,20 @@ type lifecycleRepositoryStub struct {
 }
 
 func (s *lifecycleRepositoryStub) Create(context.Context, *domain.ResumeLink) error { return nil }
-func (s *lifecycleRepositoryStub) GetByID(context.Context, valueobjects.ID) (*domain.ResumeLink, error) {
+func (s *lifecycleRepositoryStub) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
 	return s.link, nil
 }
-func (s *lifecycleRepositoryStub) ReplaceStatus(_ context.Context, _ valueobjects.ID, active bool, version int64) error {
+func (s *lifecycleRepositoryStub) ReplaceStatus(_ context.Context, _ sharedvalueobjects.ID, active bool, version int64) error {
 	s.replaced = true
 	s.replaceActive = active
 	s.replaceVersion = version
 	return s.replaceErr
 }
 
-func (s *lifecycleRepositoryStub) Delete(context.Context, valueobjects.ID) error {
+func (s *lifecycleRepositoryStub) Delete(context.Context, sharedvalueobjects.ID) error {
 	s.deleted = true
 	return s.delErr
 }
@@ -89,9 +89,9 @@ func (lifecycleUnitOfWork) Do(ctx context.Context, fn func(context.Context) erro
 }
 
 func TestReplaceStatusHandlerDeactivatesOwnedLink(t *testing.T) {
-	userID := valueobjects.NewID()
-	resumeID := valueobjects.NewID()
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 3})
+	userID := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 3})
 	require.NoError(t, err)
 	repo := &lifecycleRepositoryStub{link: link}
 	ownership := lifecycleOwnershipStub{}
@@ -170,8 +170,8 @@ func TestReplaceStatusHandlerRejectsInvalidBody(t *testing.T) {
 }
 
 func TestReplaceStatusHandlerRejectsStaleVersion(t *testing.T) {
-	resumeID := valueobjects.NewID()
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 4})
+	resumeID := sharedvalueobjects.NewID()
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 4})
 	require.NoError(t, err)
 	repo := &lifecycleRepositoryStub{link: link}
 	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, lifecycleOwnershipStub{}, lifecycleUnitOfWork{})})
@@ -198,7 +198,7 @@ func newAuthenticatedEngine(handler *Handler, userID uuid.UUID) *gin.Engine {
 
 func TestListHandlerReturnsLinks(t *testing.T) {
 	userID := uuid.New()
-	resumeID := valueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	h := newLifecycleHandler(lifecycleReaderStub{
 		items: []queries.ResumeLinkListItem{{ID: uuid.NewString(), Name: "HH", Status: "active", Version: 1}},
 	}, lifecycleOwnershipStub{}, &lifecycleRepositoryStub{})
@@ -225,9 +225,9 @@ func TestListHandlerReturnsNotFoundForForeignResume(t *testing.T) {
 }
 
 func TestDeleteHandlerDeletesOwnedLink(t *testing.T) {
-	userID := valueobjects.NewID()
-	resumeID := valueobjects.NewID()
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
+	userID := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
 	require.NoError(t, err)
 	repo := &lifecycleRepositoryStub{link: link}
 	h := newLifecycleHandler(lifecycleReaderStub{}, lifecycleOwnershipStub{}, repo)
@@ -253,8 +253,8 @@ func TestDeleteHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 }
 
 func TestReplaceStatusHandlerReturnsPreconditionFailedEnvelope(t *testing.T) {
-	resumeID := valueobjects.NewID()
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: valueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 4})
+	resumeID := sharedvalueobjects.NewID()
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 4})
 	require.NoError(t, err)
 	repo := &lifecycleRepositoryStub{link: link}
 	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, lifecycleOwnershipStub{}, lifecycleUnitOfWork{})})

@@ -5,23 +5,23 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func LanguagesToDomain(
 	rows []gormmodel.ResumeLanguage,
-	resumeID identity.ID,
+	resumeID sharedvalueobjects.ID,
 ) (*domain.ResumeLanguages, error) {
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	collectionID, err := identity.IDFromUUID(rows[0].ID)
+	collectionID, err := sharedvalueobjects.IDFromUUID(rows[0].ID)
 	if err != nil {
 		return nil, err
 	}
 	entries := make([]domain.ResumeLanguageEntryParams, 0, len(rows))
 	for _, row := range rows {
-		id, err := identity.IDFromUUID(row.ID)
+		id, err := sharedvalueobjects.IDFromUUID(row.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +53,7 @@ func LanguagesToDomain(
 
 func LanguageToDB(
 	x domain.ResumeLanguageEntry,
-	resumeID identity.ID,
+	resumeID sharedvalueobjects.ID,
 ) (gormmodel.ResumeLanguage, error) {
 	if x.ID().IsZero() {
 		return gormmodel.ResumeLanguage{}, fmt.Errorf("language id is required")

@@ -6,25 +6,25 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CreateResumeCommand struct {
-	UserID   identity.ID
+	UserID   sharedvalueobjects.ID
 	Title    string
 	Language domain.ResumeLanguage
 }
 
 type ReplaceResumeTitleCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Title    string
 }
 
 type DeleteResumeCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 }
 
@@ -37,11 +37,11 @@ func NewCreateResumeHandler(repository ports.ResumeRepository, uow ports.UnitOfW
 	return &CreateResumeHandler{repository: repository, uow: uow}
 }
 
-func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand) (identity.ID, error) {
+func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand) (sharedvalueobjects.ID, error) {
 	if h == nil || h.repository == nil || h.uow == nil {
-		return identity.ID{}, fmt.Errorf("create resume handler dependencies are nil")
+		return sharedvalueobjects.ID{}, fmt.Errorf("create resume handler dependencies are nil")
 	}
-	var resumeID identity.ID
+	var resumeID sharedvalueobjects.ID
 	err := h.uow.Do(ctx, func(tx context.Context) error {
 		r, e := domain.NewResume(domain.ResumeParams{UserID: c.UserID, Title: c.Title, Language: c.Language})
 		if e != nil {
@@ -58,14 +58,14 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand)
 		return h.repository.Create(tx, r)
 	})
 	if err != nil {
-		return identity.ID{}, err
+		return sharedvalueobjects.ID{}, err
 	}
 	return resumeID, nil
 }
 
 type ChangeResumeStatusCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Status   domain.ResumeStatus
 	Version  int64
 }

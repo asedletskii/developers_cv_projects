@@ -5,12 +5,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestNewProjectBuildsOwnedChildren(t *testing.T) {
-	id := identity.NewID()
-	resumeID := identity.NewID()
+	id := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	grade := TechnologyGradeSenior
 	technology, err := NewTechnology(TechnologyParams{Name: " Go ", Grade: &grade})
 	require.NoError(t, err)
@@ -36,7 +36,7 @@ func TestNewProjectBuildsOwnedChildren(t *testing.T) {
 }
 
 func TestNewProjectRejectsMissingIdentity(t *testing.T) {
-	_, err := NewProject(ProjectParams{Name: "Project", ResumeID: identity.NewID()})
+	_, err := NewProject(ProjectParams{Name: "Project", ResumeID: sharedvalueobjects.NewID()})
 	require.ErrorIs(t, err, ErrInvalidEntity)
 }
 
@@ -63,7 +63,7 @@ func TestResumeReplaceProjectsRejectsUnknownAndDuplicateIDs(t *testing.T) {
 	require.NoError(t, resume.ReplaceProjects([]ProjectParams{{Name: "Existing"}}))
 	existing := resume.Projects()[0].ID()
 
-	err := resume.ReplaceProjects([]ProjectParams{{ID: identity.NewID(), Name: "Unknown"}})
+	err := resume.ReplaceProjects([]ProjectParams{{ID: sharedvalueobjects.NewID(), Name: "Unknown"}})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 
 	err = resume.ReplaceProjects([]ProjectParams{

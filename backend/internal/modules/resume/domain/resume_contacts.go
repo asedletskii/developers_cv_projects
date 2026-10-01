@@ -5,20 +5,20 @@ import (
 	"net/mail"
 	"strings"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactsParams struct {
-	ID             identity.ID
-	ResumeID       identity.ID
+	ID             sharedvalueobjects.ID
+	ResumeID       sharedvalueobjects.ID
 	Contacts       ContactMethods
 	HiddenContacts []ContactKey
 	Text           *ContactsText
 }
 
 type Contacts struct {
-	id             identity.ID
-	resumeID       identity.ID
+	id             sharedvalueobjects.ID
+	resumeID       sharedvalueobjects.ID
 	contacts       ContactMethods
 	hiddenContacts []ContactKey
 	text           *ContactsText
@@ -57,9 +57,9 @@ func (c *Contacts) Replace(params ContactsParams) error {
 	return nil
 }
 
-func (c *Contacts) ID() identity.ID          { return c.id }
-func (c *Contacts) ResumeID() identity.ID    { return c.resumeID }
-func (c *Contacts) Contacts() ContactMethods { return c.contacts }
+func (c *Contacts) ID() sharedvalueobjects.ID       { return c.id }
+func (c *Contacts) ResumeID() sharedvalueobjects.ID { return c.resumeID }
+func (c *Contacts) Contacts() ContactMethods        { return c.contacts }
 func (c *Contacts) HiddenContacts() []ContactKey {
 	return append([]ContactKey(nil), c.hiddenContacts...)
 }
@@ -81,7 +81,7 @@ func (r *Resume) ReplaceContacts(params ContactsParams) error {
 		if r.contacts != nil {
 			params.ID = r.contacts.ID()
 		} else {
-			params.ID = identity.NewID()
+			params.ID = sharedvalueobjects.NewID()
 		}
 	} else if r.contacts == nil || params.ID != r.contacts.ID() {
 		return fmt.Errorf("%w: contacts do not belong to resume", ErrResumeInvariant)

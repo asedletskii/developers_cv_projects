@@ -6,11 +6,11 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactsInput struct {
-	ID             identity.ID
+	ID             sharedvalueobjects.ID
 	Phone          *string
 	Telegram       *domain.Telegram
 	Email          *domain.Email
@@ -51,8 +51,8 @@ func (i ContactsInput) toDomain() (domain.ContactsParams, error) {
 }
 
 type ReplaceContactsCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    ContactsInput
 }

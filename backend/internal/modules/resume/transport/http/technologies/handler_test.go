@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeTechnologiesHTTPRepository struct{ resume *domain.Resume }
@@ -38,9 +38,9 @@ func (fakeTechnologiesHTTPUnitOfWork) Do(ctx context.Context, fn func(context.Co
 
 func TestReplaceTechnologiesBindsFullSnapshot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: identity.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN,
+		ID: sharedvalueobjects.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 

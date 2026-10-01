@@ -13,7 +13,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
@@ -75,7 +75,7 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 	require.Empty(t, public.Projects[0].Screenshots)
 	require.Empty(t, public.Projects[0].Contributors)
 
-	foreign := identity.NewID()
+	foreign := sharedvalueobjects.NewID()
 	_, err = reader.GetOwned(ctx, queries.GetResumeQuery{ResumeID: fixture.resume.ID(), UserID: foreign})
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
 }

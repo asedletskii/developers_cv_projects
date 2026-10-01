@@ -6,12 +6,12 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
-	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type DeleteResumeLinkCommand struct {
-	UserID valueobjects.ID
-	LinkID valueobjects.ID
+	UserID sharedvalueobjects.ID
+	LinkID sharedvalueobjects.ID
 }
 
 type DeleteResumeLinkHandler struct {

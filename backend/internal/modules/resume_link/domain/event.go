@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type EventType string
@@ -24,15 +24,15 @@ func (v EventType) IsValid() bool {
 }
 
 type ResumeLinkEventParams struct {
-	ID         valueobjects.ID
-	LinkID     valueobjects.ID
+	ID         sharedvalueobjects.ID
+	LinkID     sharedvalueobjects.ID
 	Type       EventType
 	OccurredAt time.Time
 }
 
 type ResumeLinkEvent struct {
-	id         valueobjects.ID
-	linkID     valueobjects.ID
+	id         sharedvalueobjects.ID
+	linkID     sharedvalueobjects.ID
 	typeValue  EventType
 	occurredAt time.Time
 }
@@ -56,16 +56,16 @@ func NewResumeLinkEvent(params ResumeLinkEventParams) (*ResumeLinkEvent, error) 
 	}, nil
 }
 
-func (e *ResumeLinkEvent) ID() valueobjects.ID {
+func (e *ResumeLinkEvent) ID() sharedvalueobjects.ID {
 	if e == nil {
-		return valueobjects.ID{}
+		return sharedvalueobjects.ID{}
 	}
 	return e.id
 }
 
-func (e *ResumeLinkEvent) LinkID() valueobjects.ID {
+func (e *ResumeLinkEvent) LinkID() sharedvalueobjects.ID {
 	if e == nil {
-		return valueobjects.ID{}
+		return sharedvalueobjects.ID{}
 	}
 	return e.linkID
 }

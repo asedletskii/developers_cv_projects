@@ -5,11 +5,11 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func OverviewToDBModels(
-	id identity.ID,
+	id sharedvalueobjects.ID,
 	o *domain.ResumeOverview,
 ) (gormmodel.ResumeOverview, []gormmodel.ResumeOverviewSection, error) {
 	if o == nil {

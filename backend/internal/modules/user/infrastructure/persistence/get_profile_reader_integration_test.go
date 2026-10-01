@@ -16,7 +16,7 @@ import (
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/platform/database"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
@@ -50,9 +50,9 @@ func TestPostgresGetProfileReaderReturnsUserProfile(t *testing.T) {
 	insertProfile(t, ctx, dsn, secondID, "Second", "User", "Backend", "Москва")
 
 	getProfileReader := readers.NewGetProfileReader(gormDB)
-	firstIdentity, err := valueobjects.IDFromUUID(firstID)
+	firstIdentity, err := sharedvalueobjects.IDFromUUID(firstID)
 	require.NoError(t, err)
-	secondIdentity, err := valueobjects.IDFromUUID(secondID)
+	secondIdentity, err := sharedvalueobjects.IDFromUUID(secondID)
 	require.NoError(t, err)
 
 	firstProfile, err := getProfileReader.GetProfile(ctx, queries.GetProfileQuery{UserID: firstIdentity})
@@ -91,7 +91,7 @@ func TestPostgresGetProfileReaderReturnsNotFoundForMissingProfile(t *testing.T) 
 
 	userID := uuid.New()
 	insertUser(t, ctx, dsn, userID)
-	identity, err := valueobjects.IDFromUUID(userID)
+	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
 	_, err = readers.NewGetProfileReader(gormDB).GetProfile(ctx, queries.GetProfileQuery{UserID: identity})
@@ -170,11 +170,11 @@ func TestPostgresGetProfileReaderReturnsSeededDemoProfiles(t *testing.T) {
 	require.Equal(t, "Profile Owner", *profile.RU.Position)
 }
 
-func mustUserID(t *testing.T, value string) valueobjects.ID {
+func mustUserID(t *testing.T, value string) sharedvalueobjects.ID {
 	t.Helper()
 	id, err := uuid.Parse(value)
 	require.NoError(t, err)
-	identity, err := valueobjects.IDFromUUID(id)
+	identity, err := sharedvalueobjects.IDFromUUID(id)
 	require.NoError(t, err)
 	return identity
 }

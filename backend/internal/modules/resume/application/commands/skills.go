@@ -6,16 +6,16 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type SkillsInput struct {
-	ID   identity.ID
+	ID   sharedvalueobjects.ID
 	Hard []domain.HardSkill
 	Soft []domain.SoftSkill
 }
 
-func (i SkillsInput) toDomain(resumeID identity.ID) domain.SkillsParams {
+func (i SkillsInput) toDomain(resumeID sharedvalueobjects.ID) domain.SkillsParams {
 	return domain.SkillsParams{
 		ID: i.ID, ResumeID: resumeID,
 		Hard: append([]domain.HardSkill(nil), i.Hard...),
@@ -24,8 +24,8 @@ func (i SkillsInput) toDomain(resumeID identity.ID) domain.SkillsParams {
 }
 
 type ReplaceSkillsCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    SkillsInput
 }

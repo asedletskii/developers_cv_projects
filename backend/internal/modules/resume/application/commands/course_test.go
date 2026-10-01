@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type courseRepoStub struct {
@@ -31,7 +31,7 @@ type courseUOWStub struct{}
 func (courseUOWStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestReplaceCoursesHandlerUsesAggregateRepository(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &courseRepoStub{resume: resume}
 	end, err := domain.ParseYearMonth("2024-06")
@@ -42,7 +42,7 @@ func TestReplaceCoursesHandlerUsesAggregateRepository(t *testing.T) {
 	require.Len(t, resume.Courses(), 1)
 }
 func TestReplaceCoursesHandlerRejectsStaleVersion(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &courseRepoStub{resume: resume}
 	end, err := domain.ParseYearMonth("2024-06")

@@ -16,7 +16,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeRepo struct {
@@ -39,9 +39,9 @@ func TestHandlerReplaceContacts(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rid := uuid.New()
 	uid := uuid.New()
-	resumeID, err := identity.IDFromUUID(rid)
+	resumeID, err := sharedvalueobjects.IDFromUUID(rid)
 	require.NoError(t, err)
-	owner, err := identity.IDFromUUID(uid)
+	owner, err := sharedvalueobjects.IDFromUUID(uid)
 	require.NoError(t, err)
 	resume, err := domain.NewResume(domain.ResumeParams{ID: resumeID, UserID: owner, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
 	require.NoError(t, err)

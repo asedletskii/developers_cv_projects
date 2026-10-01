@@ -13,7 +13,7 @@ import (
 	"developers-cv/backend/internal/modules/user/domain"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type profileReplacer interface {
@@ -35,7 +35,7 @@ func (h *Handler) Get(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	identity, err := valueobjects.IDFromUUID(userID)
+	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	if err != nil {
 		apperrors.WriteError(c, err)
 		return
@@ -72,7 +72,7 @@ func (h *Handler) Replace(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	identity, err := valueobjects.IDFromUUID(userID)
+	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	if err != nil {
 		apperrors.WriteError(c, err)
 		return

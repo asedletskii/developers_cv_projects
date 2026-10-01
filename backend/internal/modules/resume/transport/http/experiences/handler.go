@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -68,9 +68,9 @@ func (h *Handler) Replace(c *gin.Context) {
 func experienceInputs(values []experienceRequest) ([]commands.ExperienceInput, error) {
 	out := make([]commands.ExperienceInput, 0, len(values))
 	for _, body := range values {
-		var id identity.ID
+		var id sharedvalueobjects.ID
 		if body.ID != "" {
-			parsed, err := identity.ParseID(body.ID)
+			parsed, err := sharedvalueobjects.ParseID(body.ID)
 			if err != nil {
 				return nil, err
 			}

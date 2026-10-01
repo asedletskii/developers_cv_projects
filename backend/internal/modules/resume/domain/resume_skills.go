@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type SoftSkill string
@@ -53,12 +53,12 @@ func (v HardSkill) IsValid() bool {
 }
 
 type Skills struct {
-	id, resumeID identity.ID
+	id, resumeID sharedvalueobjects.ID
 	hard         []HardSkill
 	soft         []SoftSkill
 }
 type SkillsParams struct {
-	ID, ResumeID identity.ID
+	ID, ResumeID sharedvalueobjects.ID
 	Hard         []HardSkill
 	Soft         []SoftSkill
 }
@@ -99,10 +99,10 @@ func (s *Skills) Replace(params SkillsParams) error {
 	return nil
 }
 
-func (s *Skills) ID() identity.ID         { return s.id }
-func (s *Skills) ResumeID() identity.ID   { return s.resumeID }
-func (s *Skills) HardSkills() []HardSkill { return append([]HardSkill(nil), s.hard...) }
-func (s *Skills) SoftSkills() []SoftSkill { return append([]SoftSkill(nil), s.soft...) }
+func (s *Skills) ID() sharedvalueobjects.ID       { return s.id }
+func (s *Skills) ResumeID() sharedvalueobjects.ID { return s.resumeID }
+func (s *Skills) HardSkills() []HardSkill         { return append([]HardSkill(nil), s.hard...) }
+func (s *Skills) SoftSkills() []SoftSkill         { return append([]SoftSkill(nil), s.soft...) }
 
 func (r *Resume) ReplaceSkills(params SkillsParams) error {
 	if r == nil {
@@ -112,7 +112,7 @@ func (r *Resume) ReplaceSkills(params SkillsParams) error {
 		if r.skills != nil {
 			params.ID = r.skills.ID()
 		} else {
-			params.ID = identity.NewID()
+			params.ID = sharedvalueobjects.NewID()
 		}
 	} else if r.skills == nil || params.ID != r.skills.ID() {
 		return fmt.Errorf("%w: skills do not belong to resume", ErrResumeInvariant)

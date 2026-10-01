@@ -13,7 +13,7 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type queryStub struct {
@@ -29,7 +29,7 @@ func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuer
 
 func TestHandlerReturnsPublicResume(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	linkID := valueobjects.NewID()
+	linkID := sharedvalueobjects.NewID()
 	query := &queryStub{view: resumequeries.ResumeView{ID: "resume-id"}}
 
 	engine := gin.New()
@@ -63,7 +63,7 @@ func TestHandlerMapsInactiveLinkToGone(t *testing.T) {
 	engine := gin.New()
 	engine.GET("/api/v1/cv/:linkId", NewHandler(query).Handle)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+valueobjects.NewID().String(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+sharedvalueobjects.NewID().String(), nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 

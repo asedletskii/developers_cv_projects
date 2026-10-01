@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type publicResumeReaderStub struct {
@@ -52,7 +52,7 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 
 	result, err := NewPublicResumeQueryHandler(publicResumeReaderStub{view: view}).Handle(
 		context.Background(),
-		PublicResumeQuery{ID: identity.NewID()},
+		PublicResumeQuery{ID: sharedvalueobjects.NewID()},
 	)
 	require.NoError(t, err)
 	require.Equal(t, view.ID, result.ID)
@@ -164,7 +164,7 @@ func TestPublicResumeQueryHandlerPropagatesReaderError(t *testing.T) {
 	want := context.Canceled
 	_, err := NewPublicResumeQueryHandler(publicResumeReaderStub{err: want}).Handle(
 		context.Background(),
-		PublicResumeQuery{ID: identity.NewID()},
+		PublicResumeQuery{ID: sharedvalueobjects.NewID()},
 	)
 	require.ErrorIs(t, err, want)
 }

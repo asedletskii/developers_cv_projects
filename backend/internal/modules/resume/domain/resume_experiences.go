@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ExperienceStackParams struct {
@@ -13,7 +13,7 @@ type ExperienceStackParams struct {
 }
 
 type ExperienceParams struct {
-	ID, ResumeID      identity.ID
+	ID, ResumeID      sharedvalueobjects.ID
 	Company, Position string
 	Location          *string
 	StartDate         YearMonth
@@ -25,8 +25,8 @@ type ExperienceParams struct {
 }
 
 type Experience struct {
-	id           identity.ID
-	resumeID     identity.ID
+	id           sharedvalueobjects.ID
+	resumeID     sharedvalueobjects.ID
 	company      string
 	position     string
 	location     *string
@@ -96,16 +96,16 @@ func (e *Experience) Replace(params ExperienceParams) error {
 	return nil
 }
 
-func (e *Experience) ID() identity.ID        { return e.id }
-func (e *Experience) ResumeID() identity.ID  { return e.resumeID }
-func (e *Experience) Company() string        { return e.company }
-func (e *Experience) Position() string       { return e.position }
-func (e *Experience) Location() *string      { return cloneString(e.location) }
-func (e *Experience) StartDate() YearMonth   { return e.startDate }
-func (e *Experience) EndDate() *YearMonth    { return cloneYearMonth(e.endDate) }
-func (e *Experience) Description() *string   { return cloneString(e.description) }
-func (e *Experience) Achievements() []string { return append([]string(nil), e.achievements...) }
-func (e *Experience) Tasks() []string        { return append([]string(nil), e.tasks...) }
+func (e *Experience) ID() sharedvalueobjects.ID       { return e.id }
+func (e *Experience) ResumeID() sharedvalueobjects.ID { return e.resumeID }
+func (e *Experience) Company() string                 { return e.company }
+func (e *Experience) Position() string                { return e.position }
+func (e *Experience) Location() *string               { return cloneString(e.location) }
+func (e *Experience) StartDate() YearMonth            { return e.startDate }
+func (e *Experience) EndDate() *YearMonth             { return cloneYearMonth(e.endDate) }
+func (e *Experience) Description() *string            { return cloneString(e.description) }
+func (e *Experience) Achievements() []string          { return append([]string(nil), e.achievements...) }
+func (e *Experience) Tasks() []string                 { return append([]string(nil), e.tasks...) }
 func (e *Experience) Stack() []Technology {
 	return append([]Technology(nil), e.stack...)
 }
@@ -114,18 +114,18 @@ func (r *Resume) ReplaceExperiences(params []ExperienceParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	existing := make(map[identity.ID]*Experience, len(r.experiences))
+	existing := make(map[sharedvalueobjects.ID]*Experience, len(r.experiences))
 	for _, item := range r.experiences {
 		if item == nil {
 			return fmt.Errorf("%w: nil experience", ErrResumeInvariant)
 		}
 		existing[item.ID()] = item
 	}
-	seen := make(map[identity.ID]struct{}, len(params))
+	seen := make(map[sharedvalueobjects.ID]struct{}, len(params))
 	replaced := make([]*Experience, 0, len(params))
 	for _, item := range params {
 		if item.ID.IsZero() {
-			item.ID = identity.NewID()
+			item.ID = sharedvalueobjects.NewID()
 		} else if _, ok := existing[item.ID]; !ok {
 			return fmt.Errorf("%w: experience does not belong to resume", ErrResumeInvariant)
 		}

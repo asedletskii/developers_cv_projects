@@ -5,7 +5,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func ExperienceToDB(item *domain.Experience) (gormmodel.ResumeExperience, error) {
@@ -37,11 +37,11 @@ func ExperienceToDomain(
 	tasks []gormmodel.ResumeExperienceTask,
 	stack []gormmodel.ResumeExperienceStack,
 ) (*domain.Experience, error) {
-	id, err := identity.IDFromUUID(model.ID)
+	id, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return nil, err
 	}
-	resumeID, err := identity.IDFromUUID(model.ResumeID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(model.ResumeID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func ExperienceToDomain(
 	})
 }
 
-func ExperienceAchievementsToDB(experienceID identity.ID, values []string) []gormmodel.ResumeExperienceAchievement {
+func ExperienceAchievementsToDB(experienceID sharedvalueobjects.ID, values []string) []gormmodel.ResumeExperienceAchievement {
 	models := make([]gormmodel.ResumeExperienceAchievement, 0, len(values))
 	for position, value := range values {
 		models = append(models, gormmodel.ResumeExperienceAchievement{
@@ -107,7 +107,7 @@ func ExperienceAchievementsToDB(experienceID identity.ID, values []string) []gor
 	return models
 }
 
-func ExperienceTasksToDB(experienceID identity.ID, values []string) []gormmodel.ResumeExperienceTask {
+func ExperienceTasksToDB(experienceID sharedvalueobjects.ID, values []string) []gormmodel.ResumeExperienceTask {
 	models := make([]gormmodel.ResumeExperienceTask, 0, len(values))
 	for position, value := range values {
 		models = append(models, gormmodel.ResumeExperienceTask{
@@ -119,7 +119,7 @@ func ExperienceTasksToDB(experienceID identity.ID, values []string) []gormmodel.
 	return models
 }
 
-func ExperienceStackToDB(experienceID identity.ID, values []domain.Technology) []gormmodel.ResumeExperienceStack {
+func ExperienceStackToDB(experienceID sharedvalueobjects.ID, values []domain.Technology) []gormmodel.ResumeExperienceStack {
 	models := make([]gormmodel.ResumeExperienceStack, 0, len(values))
 	for position, value := range values {
 		models = append(models, gormmodel.ResumeExperienceStack{

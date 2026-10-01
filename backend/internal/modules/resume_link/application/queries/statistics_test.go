@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type statisticsLinkReaderStub struct {
@@ -43,9 +43,9 @@ func (s *statisticsReaderStub) GetStatistics(_ context.Context, query GetResumeL
 }
 
 func TestGetResumeLinkStatisticsChecksOwnershipBeforeAggregation(t *testing.T) {
-	userID := valueobjects.NewID()
-	linkID := valueobjects.NewID()
-	resumeID := valueobjects.NewID()
+	userID := sharedvalueobjects.NewID()
+	linkID := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	reader := &statisticsReaderStub{result: ResumeLinkStatistics{Views: 2, ContactViews: 1}}
 
 	handler := NewGetResumeLinkStatisticsQueryHandler(
@@ -71,15 +71,15 @@ func TestGetResumeLinkStatisticsRejectsForeignResume(t *testing.T) {
 	reader := &statisticsReaderStub{}
 	handler := NewGetResumeLinkStatisticsQueryHandler(
 		statisticsLinkReaderStub{view: ResumeLinkPublicView{
-			ID: valueobjects.NewID().String(), ResumeID: valueobjects.NewID().String(), Status: "active",
+			ID: sharedvalueobjects.NewID().String(), ResumeID: sharedvalueobjects.NewID().String(), Status: "active",
 		}},
 		statisticsOwnershipStub{err: resumequeries.ErrResumeNotFound},
 		reader,
 	)
 
 	_, err := handler.Handle(context.Background(), GetResumeLinkStatisticsQuery{
-		UserID: valueobjects.NewID(),
-		LinkID: valueobjects.NewID(),
+		UserID: sharedvalueobjects.NewID(),
+		LinkID: sharedvalueobjects.NewID(),
 	})
 	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
 	require.True(t, reader.query.LinkID.IsZero())
@@ -94,8 +94,8 @@ func TestGetResumeLinkStatisticsPropagatesMissingLink(t *testing.T) {
 	)
 
 	_, err := handler.Handle(context.Background(), GetResumeLinkStatisticsQuery{
-		UserID: valueobjects.NewID(),
-		LinkID: valueobjects.NewID(),
+		UserID: sharedvalueobjects.NewID(),
+		LinkID: sharedvalueobjects.NewID(),
 	})
 	require.EqualError(t, err, "missing")
 	require.True(t, reader.query.LinkID.IsZero())

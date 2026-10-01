@@ -16,7 +16,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeRepo struct {
@@ -38,9 +38,9 @@ func TestHandlerReplaceProfile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	uid := uuid.New()
 	rid := uuid.New()
-	id, err := identity.IDFromUUID(rid)
+	id, err := sharedvalueobjects.IDFromUUID(rid)
 	require.NoError(t, err)
-	owner, err := identity.IDFromUUID(uid)
+	owner, err := sharedvalueobjects.IDFromUUID(uid)
 	require.NoError(t, err)
 	resume, err := domain.NewResume(domain.ResumeParams{ID: id, UserID: owner, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
 	require.NoError(t, err)

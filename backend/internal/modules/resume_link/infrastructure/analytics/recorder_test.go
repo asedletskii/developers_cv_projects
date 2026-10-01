@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type repositoryStub struct {
@@ -19,14 +19,14 @@ type repositoryStub struct {
 }
 
 func (s *repositoryStub) Create(context.Context, *domain.ResumeLink) error { return nil }
-func (s *repositoryStub) GetByID(context.Context, valueobjects.ID) (*domain.ResumeLink, error) {
+func (s *repositoryStub) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	return nil, nil
 }
-func (s *repositoryStub) ReplaceStatus(context.Context, valueobjects.ID, bool, int64) error {
+func (s *repositoryStub) ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error {
 	return nil
 }
 
-func (s *repositoryStub) Delete(context.Context, valueobjects.ID) error { return nil }
+func (s *repositoryStub) Delete(context.Context, sharedvalueobjects.ID) error { return nil }
 func (s *repositoryStub) RecordEvent(_ context.Context, event *domain.ResumeLinkEvent) error {
 	s.event = event
 	return s.err
@@ -36,7 +36,7 @@ func TestRecorderPersistsEvent(t *testing.T) {
 	repository := &repositoryStub{}
 	recorder := NewRecorder(repository, zaptest.NewLogger(t))
 	event, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{
-		ID: valueobjects.NewID(), LinkID: valueobjects.NewID(), Type: domain.EventTypeView,
+		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), Type: domain.EventTypeView,
 		OccurredAt: testTime(),
 	})
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestRecorderReturnsAndLogsPersistenceFailure(t *testing.T) {
 	repository := &repositoryStub{err: want}
 	recorder := NewRecorder(repository, zaptest.NewLogger(t))
 	event, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{
-		ID: valueobjects.NewID(), LinkID: valueobjects.NewID(), Type: domain.EventTypeContactView,
+		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), Type: domain.EventTypeContactView,
 		OccurredAt: testTime(),
 	})
 	require.NoError(t, err)

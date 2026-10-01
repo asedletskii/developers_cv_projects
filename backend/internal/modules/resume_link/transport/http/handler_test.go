@@ -18,7 +18,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeResumeOwnershipReader struct{ err error }
@@ -34,14 +34,14 @@ type fakeRepository struct{ err error }
 
 func (r *fakeRepository) Create(context.Context, *domain.ResumeLink) error { return r.err }
 
-func (r *fakeRepository) GetByID(context.Context, valueobjects.ID) (*domain.ResumeLink, error) {
+func (r *fakeRepository) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	return nil, r.err
 }
-func (r *fakeRepository) ReplaceStatus(context.Context, valueobjects.ID, bool, int64) error {
+func (r *fakeRepository) ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error {
 	return r.err
 }
 
-func (r *fakeRepository) Delete(context.Context, valueobjects.ID) error              { return r.err }
+func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error        { return r.err }
 func (r *fakeRepository) RecordEvent(context.Context, *domain.ResumeLinkEvent) error { return r.err }
 
 var _ ports.ResumeLinkRepository = (*fakeRepository)(nil)

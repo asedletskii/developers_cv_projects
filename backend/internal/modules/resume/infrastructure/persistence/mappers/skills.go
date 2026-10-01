@@ -5,16 +5,16 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func SkillsToDomain(
 	model gormmodel.ResumeSkills,
 	hardRows []gormmodel.ResumeSkillHard,
 	softRows []gormmodel.ResumeSkillSoft,
-	resumeID identity.ID,
+	resumeID sharedvalueobjects.ID,
 ) (*domain.Skills, error) {
-	id, err := identity.IDFromUUID(model.ID)
+	id, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return nil, err
 	}

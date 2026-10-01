@@ -3,7 +3,7 @@ package domain
 import (
 	"fmt"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type LanguageGrade string
@@ -48,23 +48,23 @@ func (v SpokenLanguage) IsValid() bool {
 }
 
 type ResumeLanguageEntry struct {
-	id       identity.ID
+	id       sharedvalueobjects.ID
 	language SpokenLanguage
 	grade    *LanguageGrade
 	position int
 }
 type ResumeLanguagesParams struct {
-	ID, ResumeID identity.ID
+	ID, ResumeID sharedvalueobjects.ID
 	Entries      []ResumeLanguageEntryParams
 }
 type ResumeLanguageEntryParams struct {
-	ID       identity.ID
+	ID       sharedvalueobjects.ID
 	Language SpokenLanguage
 	Grade    *LanguageGrade
 	Position int
 }
 type ResumeLanguages struct {
-	id, resumeID identity.ID
+	id, resumeID sharedvalueobjects.ID
 	entries      []ResumeLanguageEntry
 }
 
@@ -88,7 +88,7 @@ func NewResumeLanguages(p ResumeLanguagesParams) (*ResumeLanguages, error) {
 	}
 	out := make([]ResumeLanguageEntry, 0, len(p.Entries))
 	seenLanguages := make(map[string]struct{}, len(p.Entries))
-	seenIDs := make(map[identity.ID]struct{}, len(p.Entries))
+	seenIDs := make(map[sharedvalueobjects.ID]struct{}, len(p.Entries))
 	seenPositions := make(map[int]struct{}, len(p.Entries))
 	for _, x := range p.Entries {
 		e, err := NewResumeLanguageEntry(x)
@@ -126,8 +126,8 @@ func (l *ResumeLanguageEntry) Replace(params ResumeLanguageEntryParams) error {
 	return nil
 }
 
-func (l ResumeLanguageEntry) ID() identity.ID          { return l.id }
-func (l ResumeLanguageEntry) Language() SpokenLanguage { return l.language }
+func (l ResumeLanguageEntry) ID() sharedvalueobjects.ID { return l.id }
+func (l ResumeLanguageEntry) Language() SpokenLanguage  { return l.language }
 func (l ResumeLanguageEntry) Grade() *LanguageGrade {
 	if l.grade == nil {
 		return nil
@@ -135,9 +135,9 @@ func (l ResumeLanguageEntry) Grade() *LanguageGrade {
 	x := *l.grade
 	return &x
 }
-func (l ResumeLanguageEntry) Position() int      { return l.position }
-func (l *ResumeLanguages) ID() identity.ID       { return l.id }
-func (l *ResumeLanguages) ResumeID() identity.ID { return l.resumeID }
+func (l ResumeLanguageEntry) Position() int                { return l.position }
+func (l *ResumeLanguages) ID() sharedvalueobjects.ID       { return l.id }
+func (l *ResumeLanguages) ResumeID() sharedvalueobjects.ID { return l.resumeID }
 func (l *ResumeLanguages) Entries() []ResumeLanguageEntry {
 	return append([]ResumeLanguageEntry(nil), l.entries...)
 }
@@ -150,23 +150,23 @@ func (r *Resume) ReplaceLanguages(params ResumeLanguagesParams) error {
 		if r.languages != nil {
 			params.ID = r.languages.ID()
 		} else {
-			params.ID = identity.NewID()
+			params.ID = sharedvalueobjects.NewID()
 		}
 	} else if r.languages == nil || params.ID != r.languages.ID() {
 		return fmt.Errorf("%w: languages do not belong to resume", ErrResumeInvariant)
 	}
 
-	existing := make(map[identity.ID]struct{})
+	existing := make(map[sharedvalueobjects.ID]struct{})
 	if r.languages != nil {
 		for _, entry := range r.languages.Entries() {
 			existing[entry.ID()] = struct{}{}
 		}
 	}
-	seen := make(map[identity.ID]struct{}, len(params.Entries))
+	seen := make(map[sharedvalueobjects.ID]struct{}, len(params.Entries))
 	entries := make([]ResumeLanguageEntryParams, 0, len(params.Entries))
 	for _, entry := range params.Entries {
 		if entry.ID.IsZero() {
-			entry.ID = identity.NewID()
+			entry.ID = sharedvalueobjects.NewID()
 		} else {
 			if _, ok := existing[entry.ID]; !ok {
 				return fmt.Errorf("%w: language does not belong to resume", ErrResumeInvariant)

@@ -12,7 +12,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -33,7 +33,7 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	linkID, err := valueobjects.ParseID(c.Param("linkId"))
+	linkID, err := sharedvalueobjects.ParseID(c.Param("linkId"))
 	if err != nil {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
 		return

@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeLanguagesHTTPRepository struct{ resume *domain.Resume }
@@ -36,8 +36,8 @@ func (fakeLanguagesHTTPUnitOfWork) Do(ctx context.Context, fn func(context.Conte
 
 func TestReplaceLanguagesBindsFullSnapshot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	uid := identity.NewID()
-	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN})
+	uid := sharedvalueobjects.NewID()
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &fakeLanguagesHTTPRepository{resume: resume}
 	handler := NewHandler(commands.NewReplaceLanguagesHandler(repo, fakeLanguagesHTTPUnitOfWork{}))

@@ -5,17 +5,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestResumeLanguagesRejectsDuplicateLanguages(t *testing.T) {
 	language := SpokenLanguage("en")
 	_, err := NewResumeLanguages(ResumeLanguagesParams{
-		ID:       identity.NewID(),
-		ResumeID: identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Entries: []ResumeLanguageEntryParams{
-			{ID: identity.NewID(), Language: language, Position: 0},
-			{ID: identity.NewID(), Language: language, Position: 1},
+			{ID: sharedvalueobjects.NewID(), Language: language, Position: 0},
+			{ID: sharedvalueobjects.NewID(), Language: language, Position: 1},
 		},
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
@@ -23,7 +23,7 @@ func TestResumeLanguagesRejectsDuplicateLanguages(t *testing.T) {
 
 func TestResumeLanguageEntryRejectsInvalidPosition(t *testing.T) {
 	_, err := NewResumeLanguageEntry(ResumeLanguageEntryParams{
-		ID:       identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
 		Language: SpokenLanguage("en"),
 		Position: -1,
 	})
@@ -31,10 +31,10 @@ func TestResumeLanguageEntryRejectsInvalidPosition(t *testing.T) {
 }
 
 func TestResumeLanguagesRejectsDuplicateIDs(t *testing.T) {
-	id := identity.NewID()
+	id := sharedvalueobjects.NewID()
 	_, err := NewResumeLanguages(ResumeLanguagesParams{
-		ID:       identity.NewID(),
-		ResumeID: identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Entries: []ResumeLanguageEntryParams{
 			{ID: id, Language: SpokenLanguageEN, Position: 0},
 			{ID: id, Language: SpokenLanguageFR, Position: 1},
@@ -45,11 +45,11 @@ func TestResumeLanguagesRejectsDuplicateIDs(t *testing.T) {
 
 func TestResumeLanguagesRejectsDuplicatePositions(t *testing.T) {
 	_, err := NewResumeLanguages(ResumeLanguagesParams{
-		ID:       identity.NewID(),
-		ResumeID: identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Entries: []ResumeLanguageEntryParams{
-			{ID: identity.NewID(), Language: SpokenLanguageEN, Position: 0},
-			{ID: identity.NewID(), Language: SpokenLanguageFR, Position: 0},
+			{ID: sharedvalueobjects.NewID(), Language: SpokenLanguageEN, Position: 0},
+			{ID: sharedvalueobjects.NewID(), Language: SpokenLanguageFR, Position: 0},
 		},
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
@@ -64,7 +64,7 @@ func TestResumeReplaceLanguagesCreatesAndReplacesOrderedSnapshot(t *testing.T) {
 	}}))
 	first := resume.Languages().Entries()
 	require.Len(t, first, 2)
-	require.NotEqual(t, identity.ID{}, first[0].ID())
+	require.NotEqual(t, sharedvalueobjects.ID{}, first[0].ID())
 
 	firstID := first[0].ID()
 	secondID := first[1].ID()
@@ -87,7 +87,7 @@ func TestResumeReplaceLanguagesRejectsUnknownAndDuplicateIDs(t *testing.T) {
 	known := resume.Languages().Entries()[0].ID()
 
 	err := resume.ReplaceLanguages(ResumeLanguagesParams{Entries: []ResumeLanguageEntryParams{
-		{ID: identity.NewID(), Language: SpokenLanguageFR, Position: 0},
+		{ID: sharedvalueobjects.NewID(), Language: SpokenLanguageFR, Position: 0},
 	}})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 
@@ -113,7 +113,7 @@ func TestResumeReplaceLanguagesRejectsCollectionIdentityFromAnotherState(t *test
 		{Language: SpokenLanguageEN, Position: 0},
 	}}))
 	collectionID := resume.Languages().ID()
-	err := resume.ReplaceLanguages(ResumeLanguagesParams{ID: identity.NewID(), Entries: []ResumeLanguageEntryParams{
+	err := resume.ReplaceLanguages(ResumeLanguagesParams{ID: sharedvalueobjects.NewID(), Entries: []ResumeLanguageEntryParams{
 		{ID: resume.Languages().Entries()[0].ID(), Language: SpokenLanguageFR, Position: 0},
 	}})
 	require.ErrorIs(t, err, ErrResumeInvariant)
@@ -121,7 +121,7 @@ func TestResumeReplaceLanguagesRejectsCollectionIdentityFromAnotherState(t *test
 }
 
 func TestResumeLanguageEntryReplacePreservesID(t *testing.T) {
-	id := identity.NewID()
+	id := sharedvalueobjects.NewID()
 	entry, err := NewResumeLanguageEntry(ResumeLanguageEntryParams{ID: id, Language: SpokenLanguageEN, Position: 0})
 	require.NoError(t, err)
 	err = entry.Replace(ResumeLanguageEntryParams{Language: SpokenLanguageFR, Position: 2})

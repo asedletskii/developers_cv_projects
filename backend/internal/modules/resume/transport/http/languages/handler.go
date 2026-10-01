@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -34,9 +34,9 @@ type languageRequest struct {
 func (r languagesRequest) input() (commands.LanguagesInput, error) {
 	items := make([]commands.LanguageInput, 0, len(r.Items))
 	for _, item := range r.Items {
-		var id identity.ID
+		var id sharedvalueobjects.ID
 		if item.ID != "" {
-			parsed, err := identity.ParseID(item.ID)
+			parsed, err := sharedvalueobjects.ParseID(item.ID)
 			if err != nil {
 				return commands.LanguagesInput{}, err
 			}

@@ -17,7 +17,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/infrastructure/session"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/http/middleware"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type runtimeSessionRepositoryStub struct{}
@@ -26,13 +26,13 @@ func (runtimeSessionRepositoryStub) Create(context.Context, *domain.Session) err
 func (runtimeSessionRepositoryStub) FindActiveByTokenHash(context.Context, valueobjects.SessionTokenHash) (*domain.Session, error) {
 	return nil, domain.ErrEntityNotFound
 }
-func (runtimeSessionRepositoryStub) Revoke(context.Context, identity.ID, time.Time) error {
+func (runtimeSessionRepositoryStub) Revoke(context.Context, sharedvalueobjects.ID, time.Time) error {
 	return nil
 }
-func (runtimeSessionRepositoryStub) RevokeAllByUserID(context.Context, identity.ID, time.Time) error {
+func (runtimeSessionRepositoryStub) RevokeAllByUserID(context.Context, sharedvalueobjects.ID, time.Time) error {
 	return nil
 }
-func (runtimeSessionRepositoryStub) Touch(context.Context, identity.ID, time.Time) error {
+func (runtimeSessionRepositoryStub) Touch(context.Context, sharedvalueobjects.ID, time.Time) error {
 	return nil
 }
 func (runtimeSessionRepositoryStub) DeleteExpiredBatch(context.Context, time.Time, int) (int, error) {

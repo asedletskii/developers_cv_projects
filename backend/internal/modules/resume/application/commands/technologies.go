@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type TechnologyInput struct {
-	ID       identity.ID
+	ID       sharedvalueobjects.ID
 	Name     string
 	Grade    *domain.TechnologyGrade
 	Position int
@@ -31,8 +31,8 @@ func (i TechnologiesInput) toDomain() domain.ResumeTechnologiesParams {
 }
 
 type ReplaceTechnologiesCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    TechnologiesInput
 }

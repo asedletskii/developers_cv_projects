@@ -6,7 +6,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ExperienceStackItemInput struct {
@@ -15,7 +15,7 @@ type ExperienceStackItemInput struct {
 }
 
 type ExperienceInput struct {
-	ID                identity.ID
+	ID                sharedvalueobjects.ID
 	Company, Position string
 	Location          *string
 	StartDate         domain.YearMonth
@@ -28,7 +28,7 @@ type ExperienceInput struct {
 
 type ExperiencesInput struct{ Items []ExperienceInput }
 
-func (i ExperienceInput) toDomain(resumeID identity.ID) domain.ExperienceParams {
+func (i ExperienceInput) toDomain(resumeID sharedvalueobjects.ID) domain.ExperienceParams {
 	stack := make([]domain.ExperienceStackParams, 0, len(i.Stack))
 	for _, item := range i.Stack {
 		stack = append(stack, domain.ExperienceStackParams{Name: item.Name, Grade: item.Grade})
@@ -37,8 +37,8 @@ func (i ExperienceInput) toDomain(resumeID identity.ID) domain.ExperienceParams 
 }
 
 type ReplaceExperiencesCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    ExperiencesInput
 }

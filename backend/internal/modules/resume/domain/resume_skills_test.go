@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestSkillsKeepsHardAndSoftSkillTypesSeparate(t *testing.T) {
@@ -13,8 +13,8 @@ func TestSkillsKeepsHardAndSoftSkillTypesSeparate(t *testing.T) {
 	soft := []SoftSkill{SoftSkillCommunication, SoftSkillTeamwork}
 
 	skills, err := NewSkills(SkillsParams{
-		ID:       identity.NewID(),
-		ResumeID: identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Hard:     hard,
 		Soft:     soft,
 	})
@@ -25,15 +25,15 @@ func TestSkillsKeepsHardAndSoftSkillTypesSeparate(t *testing.T) {
 
 func TestSkillsRejectsDuplicatesWithinEachCategory(t *testing.T) {
 	_, err := NewSkills(SkillsParams{
-		ID:       identity.NewID(),
-		ResumeID: identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Hard:     []HardSkill{HardSkillTesting, HardSkillTesting},
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
 
 	_, err = NewSkills(SkillsParams{
-		ID:       identity.NewID(),
-		ResumeID: identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Soft:     []SoftSkill{SoftSkillTeamwork, SoftSkillTeamwork},
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
@@ -61,7 +61,7 @@ func TestResumeReplaceSkillsCreatesAndReplaces(t *testing.T) {
 func TestResumeReplaceSkillsRejectsUnknownID(t *testing.T) {
 	resume := newTestResume(t)
 	require.NoError(t, resume.ReplaceSkills(SkillsParams{Hard: []HardSkill{HardSkillTesting}}))
-	err := resume.ReplaceSkills(SkillsParams{ID: identity.NewID(), Hard: []HardSkill{HardSkillArchitecture}})
+	err := resume.ReplaceSkills(SkillsParams{ID: sharedvalueobjects.NewID(), Hard: []HardSkill{HardSkillArchitecture}})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 }
 

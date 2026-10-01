@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type repoStub struct {
@@ -35,7 +35,7 @@ func (uowStub) Do(ctx context.Context, fn func(context.Context) error) error { r
 
 func TestReplaceActivitiesReturnsNoContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	h := NewHandler(commands.NewReplaceActivitiesHandler(&repoStub{resume: resume}, uowStub{}))
 	e := gin.New()

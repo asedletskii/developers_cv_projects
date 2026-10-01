@@ -8,7 +8,7 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type publicLinkReaderStub struct {
@@ -34,8 +34,8 @@ func (s *publicResumeQueryStub) Handle(_ context.Context, query resumequeries.Pu
 }
 
 func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
-	linkID := valueobjects.NewID()
-	resumeID := valueobjects.NewID()
+	linkID := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive}}
 	resume := &publicResumeQueryStub{view: resumequeries.ResumeView{ID: resumeID.String()}}
 	events := &linkEventRecorderStub{}
@@ -52,8 +52,8 @@ func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 }
 
 func TestPublicResumeLinkQueryIgnoresAnalyticsFailure(t *testing.T) {
-	linkID := valueobjects.NewID()
-	resumeID := valueobjects.NewID()
+	linkID := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: domain.ResumeLinkStatusActive}}
 	resume := &publicResumeQueryStub{view: resumequeries.ResumeView{ID: resumeID.String()}}
 	events := &linkEventRecorderStub{err: context.Canceled}
@@ -66,9 +66,9 @@ func TestPublicResumeLinkQueryIgnoresAnalyticsFailure(t *testing.T) {
 }
 
 func TestPublicResumeLinkQueryDoesNotRecordInactiveLink(t *testing.T) {
-	linkID := valueobjects.NewID()
+	linkID := sharedvalueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{
-		ResumeID: valueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive,
+		ResumeID: sharedvalueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive,
 	}}
 	resume := &publicResumeQueryStub{}
 	events := &linkEventRecorderStub{}
@@ -81,9 +81,9 @@ func TestPublicResumeLinkQueryDoesNotRecordInactiveLink(t *testing.T) {
 
 func TestPublicResumeLinkQueryRejectsInactiveLink(t *testing.T) {
 	resume := &publicResumeQueryStub{}
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ResumeID: valueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive}}
+	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String(), Status: domain.ResumeLinkStatusInactive}}
 
-	_, err := NewPublicResumeLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), PublicResumeLinkQuery{LinkID: valueobjects.NewID()})
+	_, err := NewPublicResumeLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 
 	require.ErrorIs(t, err, domain.ErrResumeLinkInactive)
 	require.True(t, resume.query.ID.IsZero())
@@ -94,7 +94,7 @@ func TestPublicResumeLinkQueryDoesNotRecordFailedLookup(t *testing.T) {
 	resume := &publicResumeQueryStub{}
 	events := &linkEventRecorderStub{}
 
-	_, err := NewPublicResumeLinkQueryHandler(links, resume, events).Handle(context.Background(), PublicResumeLinkQuery{LinkID: valueobjects.NewID()})
+	_, err := NewPublicResumeLinkQueryHandler(links, resume, events).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 	require.Nil(t, events.event)
@@ -104,7 +104,7 @@ func TestPublicResumeLinkQueryPropagatesMissingLink(t *testing.T) {
 	resume := &publicResumeQueryStub{}
 	links := &publicLinkReaderStub{err: domain.ErrEntityNotFound}
 
-	_, err := NewPublicResumeLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), PublicResumeLinkQuery{LinkID: valueobjects.NewID()})
+	_, err := NewPublicResumeLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 	require.True(t, resume.query.ID.IsZero())
@@ -119,7 +119,7 @@ func TestPublicResumeLinkQueryRejectsInvalidResolvedResumeID(t *testing.T) {
 
 	_, err := NewPublicResumeLinkQueryHandler(links, resume, &linkEventRecorderStub{}).Handle(
 		context.Background(),
-		PublicResumeLinkQuery{LinkID: valueobjects.NewID()},
+		PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()},
 	)
 
 	require.Error(t, err)

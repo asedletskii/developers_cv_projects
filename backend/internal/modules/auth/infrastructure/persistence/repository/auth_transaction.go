@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type AuthTransactionRepository struct{ db *gorm.DB }
@@ -76,7 +76,7 @@ func (r *AuthTransactionRepository) find(ctx context.Context, stateHash valueobj
 	return transactionFromModel(model)
 }
 
-func (r *AuthTransactionRepository) Consume(ctx context.Context, transactionID identity.ID, at time.Time) error {
+func (r *AuthTransactionRepository) Consume(ctx context.Context, transactionID sharedvalueobjects.ID, at time.Time) error {
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("consume auth transaction: %w", err)
@@ -117,7 +117,7 @@ func transactionModel(t *domain.AuthTransaction) gormmodel.AuthTransaction {
 	return gormmodel.AuthTransaction{ID: t.ID().UUID(), Provider: t.Provider().String(), StateHash: t.StateHash().Bytes(), NonceHash: t.NonceHash().Bytes(), BrowserBindingHash: t.BrowserBindingHash().Bytes(), CodeVerifier: t.CodeVerifier(), RedirectURI: t.RedirectURI(), CreatedAt: t.CreatedAt(), ExpiresAt: t.ExpiresAt(), ConsumedAt: t.ConsumedAt()}
 }
 func transactionFromModel(m gormmodel.AuthTransaction) (*domain.AuthTransaction, error) {
-	id, err := identity.IDFromUUID(m.ID)
+	id, err := sharedvalueobjects.IDFromUUID(m.ID)
 	if err != nil {
 		return nil, err
 	}

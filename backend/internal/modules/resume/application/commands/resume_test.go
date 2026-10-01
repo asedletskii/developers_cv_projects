@@ -9,7 +9,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeResumeRepository struct {
@@ -96,7 +96,7 @@ func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
 	repository := &fakeResumeRepository{}
 	uow := &fakeCommandUnitOfWork{}
 	handler := NewCreateResumeHandler(repository, uow)
-	userID := identity.NewID()
+	userID := sharedvalueobjects.NewID()
 
 	resumeID, err := handler.Handle(context.Background(), CreateResumeCommand{UserID: userID, Title: "  Senior Go Developer  ", Language: domain.ResumeLanguage("en")})
 	require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
 func newTestResume(t *testing.T, title string, version int64) *domain.Resume {
 	t.Helper()
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: identity.NewID(), UserID: identity.NewID(), Title: title,
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: title,
 		Language: domain.ResumeLanguage("en"), Version: version,
 	})
 	require.NoError(t, err)

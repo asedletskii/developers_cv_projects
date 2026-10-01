@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeGetProfileReader struct {
@@ -22,7 +22,7 @@ func (f *fakeGetProfileReader) GetProfile(_ context.Context, query GetProfileQue
 }
 
 func TestGetProfileHandlerReturnsProfile(t *testing.T) {
-	userID := valueobjects.NewID()
+	userID := sharedvalueobjects.NewID()
 	reader := &fakeGetProfileReader{profile: Profile{
 		ID: userID.String(), RU: LocalizedProfile{Name: stringPtr("Антон"), Surname: stringPtr("Седлецкий"), Position: stringPtr("Frontend")},
 	}}
@@ -39,7 +39,7 @@ func TestGetProfileHandlerPropagatesNotFound(t *testing.T) {
 	reader := &fakeGetProfileReader{err: ErrProfileNotFound}
 	handler := NewGetProfileHandler(reader)
 
-	_, err := handler.Handle(context.Background(), GetProfileQuery{UserID: valueobjects.NewID()})
+	_, err := handler.Handle(context.Background(), GetProfileQuery{UserID: sharedvalueobjects.NewID()})
 
 	require.ErrorIs(t, err, ErrProfileNotFound)
 }

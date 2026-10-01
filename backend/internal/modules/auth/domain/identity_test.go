@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestNewIdentity(t *testing.T) {
@@ -16,7 +16,7 @@ func TestNewIdentity(t *testing.T) {
 	subject, err := valueobjects.NewProviderSubject("123456")
 	require.NoError(t, err)
 	identity, err := NewIdentity(IdentityParams{
-		ID: identity.NewID(), UserID: identity.NewID(), Provider: ProviderTelegram,
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Provider: ProviderTelegram,
 		ProviderSubject: subject, CreatedAt: created, UpdatedAt: updated, LastLoginAt: updated,
 	})
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestNewIdentityRejectsInvalidTimestampOrder(t *testing.T) {
 	subject, err := valueobjects.NewProviderSubject("123456")
 	require.NoError(t, err)
 	_, err = NewIdentity(IdentityParams{
-		ID: identity.NewID(), UserID: identity.NewID(), Provider: ProviderTelegram,
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Provider: ProviderTelegram,
 		ProviderSubject: subject, CreatedAt: now, UpdatedAt: now.Add(-time.Second), LastLoginAt: now,
 	})
 	require.ErrorIs(t, err, ErrInvalidIdentity)
@@ -41,7 +41,7 @@ func TestIdentityTouchLogin(t *testing.T) {
 	subject, err := valueobjects.NewProviderSubject("123456")
 	require.NoError(t, err)
 	identity, err := NewIdentity(IdentityParams{
-		ID: identity.NewID(), UserID: identity.NewID(), Provider: ProviderTelegram,
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Provider: ProviderTelegram,
 		ProviderSubject: subject, CreatedAt: created, UpdatedAt: created, LastLoginAt: created,
 	})
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestIdentityTouchLoginRejectsTimeBeforeCreation(t *testing.T) {
 	subject, err := valueobjects.NewProviderSubject("123456")
 	require.NoError(t, err)
 	identity, err := NewIdentity(IdentityParams{
-		ID: identity.NewID(), UserID: identity.NewID(), Provider: ProviderTelegram,
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Provider: ProviderTelegram,
 		ProviderSubject: subject, CreatedAt: created, UpdatedAt: created, LastLoginAt: created,
 	})
 	require.NoError(t, err)

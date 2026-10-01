@@ -22,7 +22,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func newAuthDatabase(t *testing.T) (context.Context, string, *database.UnitOfWork, *repository.IdentityRepository, *repository.SessionRepository, *repository.AuthTransactionRepository) {
@@ -66,7 +66,7 @@ func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
 	}
 }
 
-func insertUser(t *testing.T, ctx context.Context, dsn string, id identity.ID) {
+func insertUser(t *testing.T, ctx context.Context, dsn string, id sharedvalueobjects.ID) {
 	t.Helper()
 	cfg, err := pgx.ParseConfig(dsn)
 	require.NoError(t, err)
@@ -76,20 +76,20 @@ func insertUser(t *testing.T, ctx context.Context, dsn string, id identity.ID) {
 	require.NoError(t, err)
 }
 
-func testIdentity(t *testing.T, userID identity.ID, subject string, at time.Time) *domain.Identity {
+func testIdentity(t *testing.T, userID sharedvalueobjects.ID, subject string, at time.Time) *domain.Identity {
 	t.Helper()
 	providerSubject, err := valueobjects.NewProviderSubject(subject)
 	require.NoError(t, err)
-	identity, err := domain.NewIdentity(domain.IdentityParams{ID: identity.NewID(), UserID: userID, Provider: domain.ProviderTelegram, ProviderSubject: providerSubject, CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
+	identity, err := domain.NewIdentity(domain.IdentityParams{ID: sharedvalueobjects.NewID(), UserID: userID, Provider: domain.ProviderTelegram, ProviderSubject: providerSubject, CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
 	require.NoError(t, err)
 	return identity
 }
 
-func testSession(t *testing.T, userID identity.ID, at time.Time) *domain.Session {
+func testSession(t *testing.T, userID sharedvalueobjects.ID, at time.Time) *domain.Session {
 	t.Helper()
 	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
 	require.NoError(t, err)
-	session, err := domain.NewSession(domain.SessionParams{ID: identity.NewID(), UserID: userID, TokenHash: hash, CreatedAt: at, LastSeenAt: at, ExpiresAt: at.Add(time.Hour)})
+	session, err := domain.NewSession(domain.SessionParams{ID: sharedvalueobjects.NewID(), UserID: userID, TokenHash: hash, CreatedAt: at, LastSeenAt: at, ExpiresAt: at.Add(time.Hour)})
 	require.NoError(t, err)
 	return session
 }
@@ -105,7 +105,7 @@ func testTransaction(t *testing.T, at time.Time) *domain.AuthTransaction {
 	bindingBytes := sha256.Sum256([]byte("browser-binding"))
 	binding, err := valueobjects.NewBrowserBindingHash(bindingBytes[:])
 	require.NoError(t, err)
-	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{ID: identity.NewID(), Provider: domain.ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding, CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
+	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{ID: sharedvalueobjects.NewID(), Provider: domain.ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding, CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
 	require.NoError(t, err)
 	return tx
 }
@@ -115,7 +115,7 @@ func TestAuthRepositoriesPersistAndCascade(t *testing.T) {
 		t.Skip("integration test")
 	}
 	ctx, dsn, uow, identities, sessions, transactions := newAuthDatabase(t)
-	userID := identity.NewID()
+	userID := sharedvalueobjects.NewID()
 	insertUser(t, ctx, dsn, userID)
 	at := time.Now().UTC().Truncate(time.Microsecond)
 

@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeExperiencesAggregateRepository struct {
@@ -44,7 +44,7 @@ func experienceCommandItem(t *testing.T, company string) ExperienceInput {
 }
 
 func TestReplaceExperiencesHandlerUsesVersionAndAggregate(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeExperiencesAggregateRepository{resume: resume}
 
@@ -60,7 +60,7 @@ func TestReplaceExperiencesHandlerUsesVersionAndAggregate(t *testing.T) {
 }
 
 func TestReplaceExperiencesHandlerRejectsStaleVersion(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeExperiencesAggregateRepository{resume: resume}
 

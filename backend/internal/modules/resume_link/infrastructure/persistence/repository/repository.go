@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ResumeLinkRepository struct {
@@ -65,7 +65,7 @@ func (r *ResumeLinkRepository) Create(ctx context.Context, link *domain.ResumeLi
 	return nil
 }
 
-func (r *ResumeLinkRepository) GetByID(ctx context.Context, id valueobjects.ID) (*domain.ResumeLink, error) {
+func (r *ResumeLinkRepository) GetByID(ctx context.Context, id sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get resume link: repository dependencies are nil")
 	}
@@ -83,7 +83,7 @@ func (r *ResumeLinkRepository) GetByID(ctx context.Context, id valueobjects.ID) 
 	return mapResumeLink(model)
 }
 
-func (r *ResumeLinkRepository) ReplaceStatus(ctx context.Context, id valueobjects.ID, active bool, version int64) error {
+func (r *ResumeLinkRepository) ReplaceStatus(ctx context.Context, id sharedvalueobjects.ID, active bool, version int64) error {
 	if r == nil || r.db == nil {
 		return fmt.Errorf("replace resume link status: repository dependencies are nil")
 	}
@@ -121,7 +121,7 @@ func (r *ResumeLinkRepository) ReplaceStatus(ctx context.Context, id valueobject
 	return nil
 }
 
-func (r *ResumeLinkRepository) Delete(ctx context.Context, id valueobjects.ID) error {
+func (r *ResumeLinkRepository) Delete(ctx context.Context, id sharedvalueobjects.ID) error {
 	if r == nil || r.db == nil {
 		return fmt.Errorf("delete resume link: repository dependencies are nil")
 	}
@@ -165,11 +165,11 @@ func statusOf(link *domain.ResumeLink) string {
 }
 
 func mapResumeLink(model gormmodel.ResumeLink) (*domain.ResumeLink, error) {
-	id, err := valueobjects.IDFromUUID(model.ID)
+	id, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return nil, fmt.Errorf("map resume link id: %w", err)
 	}
-	resumeID, err := valueobjects.IDFromUUID(model.ResumeID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(model.ResumeID)
 	if err != nil {
 		return nil, fmt.Errorf("map resume link resume id: %w", err)
 	}

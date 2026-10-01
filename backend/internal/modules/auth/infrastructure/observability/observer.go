@@ -13,7 +13,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/platform/http/requestid"
 	"developers-cv/backend/internal/platform/telemetry"
-	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 const ProviderTelegram = "telegram"
@@ -43,7 +43,7 @@ func (o *Observer) LoginCallback(ctx context.Context, provider domain.Provider) 
 	o.log(ctx, zap.InfoLevel, "auth.login.callback", zap.String("provider", provider.String()))
 }
 
-func (o *Observer) LoginSucceeded(ctx context.Context, provider domain.Provider, userID valueobjects.ID, duration time.Duration) {
+func (o *Observer) LoginSucceeded(ctx context.Context, provider domain.Provider, userID sharedvalueobjects.ID, duration time.Duration) {
 	providerName := provider.String()
 	if o.metrics != nil {
 		o.metrics.RecordAuthLoginSuccess(providerName, duration)
@@ -67,7 +67,7 @@ func (o *Observer) LoginFailed(ctx context.Context, provider domain.Provider, re
 	)
 }
 
-func (o *Observer) Logout(ctx context.Context, userID valueobjects.ID, success bool) {
+func (o *Observer) Logout(ctx context.Context, userID sharedvalueobjects.ID, success bool) {
 	reason := "success"
 	if !success {
 		reason = "failure"

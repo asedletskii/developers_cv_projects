@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -94,7 +94,7 @@ func (h *Handler) Replace(c *gin.Context) {
 	}
 
 	if body.ID != "" {
-		id, err := identity.ParseID(body.ID)
+		id, err := sharedvalueobjects.ParseID(body.ID)
 		if err != nil {
 			common.WriteCommandError(c, err)
 			return

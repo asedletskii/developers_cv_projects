@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -27,9 +27,9 @@ type skillsRequest struct {
 }
 
 func (r skillsRequest) input() (commands.SkillsInput, error) {
-	var id identity.ID
+	var id sharedvalueobjects.ID
 	if r.ID != "" {
-		parsed, err := identity.ParseID(r.ID)
+		parsed, err := sharedvalueobjects.ParseID(r.ID)
 		if err != nil {
 			return commands.SkillsInput{}, err
 		}

@@ -6,15 +6,15 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func executeResumeMutation(
 	ctx context.Context,
 	repository ports.ResumeRepository,
 	uow ports.UnitOfWork,
-	resumeID identity.ID,
-	userID identity.ID,
+	resumeID sharedvalueobjects.ID,
+	userID sharedvalueobjects.ID,
 	version int64,
 	operation string,
 	mutate func(*domain.Resume) error,

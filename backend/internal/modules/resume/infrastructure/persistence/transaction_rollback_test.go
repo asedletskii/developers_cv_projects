@@ -17,7 +17,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
@@ -38,7 +38,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	owner := identity.NewID()
+	owner := sharedvalueobjects.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	resumeRepo := repository.NewResumeRepository(gormDB)
 	uow := database.NewUnitOfWork(gormDB)

@@ -2,11 +2,11 @@ package commands
 
 import (
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ProjectInput struct {
-	ID           identity.ID
+	ID           sharedvalueobjects.ID
 	Name         string
 	Description  *string
 	Role         *string

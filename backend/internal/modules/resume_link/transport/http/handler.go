@@ -16,7 +16,7 @@ import (
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	jsonhttp "developers-cv/backend/internal/platform/http/json"
 	"developers-cv/backend/internal/platform/http/middleware"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Handler struct {
@@ -63,7 +63,7 @@ func (h *Handler) Create(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := valueobjects.IDFromUUID(userUUID)
+	userID, err := sharedvalueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -79,7 +79,7 @@ func (h *Handler) Create(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
 		return
 	}
-	resumeID, err := valueobjects.IDFromUUID(resumeUUID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -106,7 +106,7 @@ func (h *Handler) List(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := valueobjects.IDFromUUID(userUUID)
+	userID, err := sharedvalueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -116,7 +116,7 @@ func (h *Handler) List(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume id"))
 		return
 	}
-	resumeID, err := valueobjects.IDFromUUID(resumeUUID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
@@ -147,12 +147,12 @@ func (h *Handler) Statistics(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := valueobjects.IDFromUUID(userUUID)
+	userID, err := sharedvalueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
 	}
-	linkID, err := valueobjects.ParseID(c.Param("linkId"))
+	linkID, err := sharedvalueobjects.ParseID(c.Param("linkId"))
 	if err != nil {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
 		return
@@ -189,12 +189,12 @@ func (h *Handler) ReplaceStatus(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := valueobjects.IDFromUUID(userUUID)
+	userID, err := sharedvalueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
 	}
-	linkID, err := valueobjects.ParseID(c.Param("linkId"))
+	linkID, err := sharedvalueobjects.ParseID(c.Param("linkId"))
 	if err != nil {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
 		return
@@ -254,12 +254,12 @@ func (h *Handler) Delete(c *gin.Context) {
 		apperrors.Unauthorized(c)
 		return
 	}
-	userID, err := valueobjects.IDFromUUID(userUUID)
+	userID, err := sharedvalueobjects.IDFromUUID(userUUID)
 	if err != nil {
 		apperrors.WriteError(c, apperrors.Internal(err))
 		return
 	}
-	linkID, err := valueobjects.ParseID(c.Param("linkId"))
+	linkID, err := sharedvalueobjects.ParseID(c.Param("linkId"))
 	if err != nil {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
 		return

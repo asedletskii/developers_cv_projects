@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/mappers"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func persistTechnologies(tx *gorm.DB, resume *domain.Resume) error {
@@ -21,7 +21,7 @@ func persistTechnologies(tx *gorm.DB, resume *domain.Resume) error {
 	}
 
 	models := make([]gormmodel.ResumeTechnology, 0, len(technologies.Entries()))
-	seenIDs := make(map[identity.ID]struct{}, len(technologies.Entries()))
+	seenIDs := make(map[sharedvalueobjects.ID]struct{}, len(technologies.Entries()))
 	for _, entry := range technologies.Entries() {
 		id := entry.ID()
 		if id.IsZero() {
@@ -49,7 +49,7 @@ func persistTechnologies(tx *gorm.DB, resume *domain.Resume) error {
 	return nil
 }
 
-func loadTechnologies(tx *gorm.DB, resumeID identity.ID) (*domain.ResumeTechnologies, error) {
+func loadTechnologies(tx *gorm.DB, resumeID sharedvalueobjects.ID) (*domain.ResumeTechnologies, error) {
 	var rows []gormmodel.ResumeTechnology
 	if err := tx.Where("resume_id = ?", resumeID.UUID()).Order("position").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("get resume technologies: %w", mapDBError(err))

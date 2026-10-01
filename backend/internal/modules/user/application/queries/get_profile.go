@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type GetProfileQuery struct{ UserID valueobjects.ID }
+type GetProfileQuery struct{ UserID sharedvalueobjects.ID }
 
 type LocalizedProfile struct {
 	Name       *string `json:"name,omitempty"`

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewReaderStub struct {
@@ -26,7 +26,7 @@ func (s *contactViewReaderStub) GetContactForView(_ context.Context, query Conta
 
 func TestContactViewQueryHandlerReturnsContact(t *testing.T) {
 	reader := &contactViewReaderStub{view: ContactView{Contact: domain.ContactKeyEmail, Value: "person@example.com"}}
-	resumeID := identity.NewID()
+	resumeID := sharedvalueobjects.NewID()
 
 	result, err := NewContactViewQueryHandler(reader).Handle(context.Background(), ContactViewQuery{
 		ResumeID: resumeID,
@@ -43,7 +43,7 @@ func TestContactViewQueryHandlerRejectsInvalidQuery(t *testing.T) {
 	reader := &contactViewReaderStub{}
 
 	_, err := NewContactViewQueryHandler(reader).Handle(context.Background(), ContactViewQuery{
-		ResumeID: identity.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Contact:  "invalid",
 	})
 
@@ -56,7 +56,7 @@ func TestContactViewQueryHandlerPropagatesReaderError(t *testing.T) {
 	reader := &contactViewReaderStub{err: want}
 
 	_, err := NewContactViewQueryHandler(reader).Handle(context.Background(), ContactViewQuery{
-		ResumeID: identity.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Contact:  domain.ContactKeyEmail,
 	})
 

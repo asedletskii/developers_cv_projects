@@ -5,7 +5,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func ProfileToDBModels(
@@ -37,11 +37,11 @@ func ProfileToDomain(
 	m gormmodel.ResumeProfile,
 	fs []gormmodel.ResumeProfileWorkFormat,
 ) (*domain.Profile, error) {
-	id, e := identity.IDFromUUID(m.ID)
+	id, e := sharedvalueobjects.IDFromUUID(m.ID)
 	if e != nil {
 		return nil, e
 	}
-	rid, e := identity.IDFromUUID(m.ResumeID)
+	rid, e := sharedvalueobjects.IDFromUUID(m.ResumeID)
 	if e != nil {
 		return nil, e
 	}

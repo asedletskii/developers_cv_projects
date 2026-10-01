@@ -17,12 +17,12 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type stubListReader struct {
 	items  []queries.ResumeListItem
-	userID identity.ID
+	userID sharedvalueobjects.ID
 }
 
 func (r *stubListReader) ListResumes(_ context.Context, query queries.ListResumesQuery) ([]queries.ResumeListItem, error) {
@@ -261,9 +261,9 @@ func (stubResumeUnitOfWork) Do(ctx context.Context, fn func(context.Context) err
 
 func newStubResume(t *testing.T, resumeID uuid.UUID, userID uuid.UUID, version int64) *domain.Resume {
 	t.Helper()
-	id, err := identity.IDFromUUID(resumeID)
+	id, err := sharedvalueobjects.IDFromUUID(resumeID)
 	require.NoError(t, err)
-	uid, err := identity.IDFromUUID(userID)
+	uid, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 	resume, err := domain.NewResume(domain.ResumeParams{
 		ID: id, UserID: uid, Title: "Old title", Language: domain.ResumeLanguageEN, Version: version,

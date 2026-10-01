@@ -17,7 +17,7 @@ import (
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/platform/database"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestPostgresUserReaderGetUser(t *testing.T) {
@@ -57,7 +57,7 @@ func TestPostgresUserReaderGetUser(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	identity, err := valueobjects.IDFromUUID(userID)
+	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
 	user, err := readers.NewUserReader(gormDB).GetUser(ctx, queries.GetUserQuery{ID: identity})

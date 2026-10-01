@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeTechnologiesAggregateRepository struct {
@@ -32,7 +32,7 @@ func (r *fakeTechnologiesAggregateRepository) Delete(context.Context, ports.Dele
 }
 
 func TestReplaceTechnologiesHandlerUsesAggregateAndVersion(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeTechnologiesAggregateRepository{resume: resume}
 
@@ -50,7 +50,7 @@ func TestReplaceTechnologiesHandlerUsesAggregateAndVersion(t *testing.T) {
 }
 
 func TestReplaceTechnologiesHandlerRejectsStaleVersion(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeTechnologiesAggregateRepository{resume: resume}
 

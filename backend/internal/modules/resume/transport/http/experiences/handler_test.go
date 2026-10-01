@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type aggregateRepositoryStub struct {
@@ -42,9 +42,9 @@ func (uowStub) Do(_ context.Context, fn func(context.Context) error) error {
 
 func TestReplaceExperiencesMapsConcurrencyConflictToPreconditionFailed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: identity.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 2,
+		ID: sharedvalueobjects.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 2,
 	})
 	require.NoError(t, err)
 	repo := &aggregateRepositoryStub{resume: resume}
@@ -67,8 +67,8 @@ func TestReplaceExperiencesMapsConcurrencyConflictToPreconditionFailed(t *testin
 
 func TestReplaceExperiencesBindsFullSnapshot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	uid := identity.NewID()
-	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
+	uid := sharedvalueobjects.NewID()
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
 	require.NoError(t, err)
 	repo := &aggregateRepositoryStub{resume: resume}
 	handler := NewHandler(commands.NewReplaceExperiencesHandler(repo, uowStub{}))

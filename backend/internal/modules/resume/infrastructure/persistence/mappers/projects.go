@@ -7,7 +7,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func ProjectToDB(project *domain.Project) (gormmodel.ResumeProject, error) {
@@ -31,11 +31,11 @@ func ProjectToDomain(
 	technologies []gormmodel.ResumeProjectTechnology,
 	contributors []gormmodel.ResumeProjectContributor,
 ) (*domain.Project, error) {
-	id, err := identity.IDFromUUID(model.ID)
+	id, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return nil, err
 	}
-	resumeID, err := identity.IDFromUUID(model.ResumeID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(model.ResumeID)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func TechnologyGradeToDB(value *domain.TechnologyGrade) *string {
 	return &text
 }
 
-func ProjectScreenshotsToDB(projectID identity.ID, values []domain.ExternalURL) []gormmodel.ResumeProjectScreenshot {
+func ProjectScreenshotsToDB(projectID sharedvalueobjects.ID, values []domain.ExternalURL) []gormmodel.ResumeProjectScreenshot {
 	models := make([]gormmodel.ResumeProjectScreenshot, 0, len(values))
 	for position, value := range values {
 		models = append(models, gormmodel.ResumeProjectScreenshot{
@@ -153,7 +153,7 @@ func ProjectScreenshotsToDB(projectID identity.ID, values []domain.ExternalURL) 
 	return models
 }
 
-func ProjectTechnologiesToDB(projectID identity.ID, values []domain.Technology) []gormmodel.ResumeProjectTechnology {
+func ProjectTechnologiesToDB(projectID sharedvalueobjects.ID, values []domain.Technology) []gormmodel.ResumeProjectTechnology {
 	models := make([]gormmodel.ResumeProjectTechnology, 0, len(values))
 	for position, value := range values {
 		models = append(models, gormmodel.ResumeProjectTechnology{
@@ -166,7 +166,7 @@ func ProjectTechnologiesToDB(projectID identity.ID, values []domain.Technology) 
 	return models
 }
 
-func ProjectContributorsToDB(projectID identity.ID, values []domain.Contributor) []gormmodel.ResumeProjectContributor {
+func ProjectContributorsToDB(projectID sharedvalueobjects.ID, values []domain.Contributor) []gormmodel.ResumeProjectContributor {
 	models := make([]gormmodel.ResumeProjectContributor, 0, len(values))
 	for position, contributor := range values {
 		item := gormmodel.ResumeProjectContributor{

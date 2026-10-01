@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeOverviewAggregateRepository struct {
@@ -38,7 +38,7 @@ func (overviewUnitOfWork) Do(ctx context.Context, fn func(context.Context) error
 }
 
 func TestReplaceOverviewHandlerLoadsReplacesAndSavesAggregate(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{First: "Old"}), Sections: []domain.SectionSettings{}}
 	require.NoError(t, resume.ReplaceOverview(overview))
@@ -52,7 +52,7 @@ func TestReplaceOverviewHandlerLoadsReplacesAndSavesAggregate(t *testing.T) {
 }
 
 func TestReplaceOverviewHandlerRejectsStaleVersionBeforeSave(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{}), Sections: []domain.SectionSettings{}}
 	require.NoError(t, resume.ReplaceOverview(overview))

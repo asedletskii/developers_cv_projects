@@ -6,7 +6,7 @@ import (
 
 	"net/url"
 
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ProfileLanguage string
@@ -25,13 +25,13 @@ type LocalizedProfile struct {
 }
 
 type Profile struct {
-	UserID    valueobjects.ID
+	UserID    sharedvalueobjects.ID
 	RU        LocalizedProfile
 	EN        LocalizedProfile
 	PhotoPath *string
 }
 
-func NewProfile(userID valueobjects.ID, ru, en LocalizedProfile, photoPath *string) (*Profile, error) {
+func NewProfile(userID sharedvalueobjects.ID, ru, en LocalizedProfile, photoPath *string) (*Profile, error) {
 	if userID.IsZero() {
 		return nil, fmt.Errorf("%w: profile user id is empty", ErrInvalidUser)
 	}

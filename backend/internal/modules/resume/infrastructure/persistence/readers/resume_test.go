@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestResumeReaderRejectsInvalidOwnedQueryBeforeDatabaseAccess(t *testing.T) {
 	reader := NewResumeReader(nil)
 
-	_, err := reader.GetOwned(context.Background(), queries.GetResumeQuery{ResumeID: identity.NewID()})
+	_, err := reader.GetOwned(context.Background(), queries.GetResumeQuery{ResumeID: sharedvalueobjects.NewID()})
 
 	require.Error(t, err)
 }
@@ -30,8 +30,8 @@ func TestResumeReaderRequiresDatabaseForValidQuery(t *testing.T) {
 	reader := NewResumeReader(nil)
 
 	_, err := reader.GetOwned(context.Background(), queries.GetResumeQuery{
-		ResumeID: identity.NewID(),
-		UserID:   identity.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
+		UserID:   sharedvalueobjects.NewID(),
 	})
 
 	require.Error(t, err)

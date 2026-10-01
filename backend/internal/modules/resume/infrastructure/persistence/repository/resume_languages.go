@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/mappers"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func persistLanguages(tx *gorm.DB, resume *domain.Resume) error {
@@ -22,7 +22,7 @@ func persistLanguages(tx *gorm.DB, resume *domain.Resume) error {
 
 	entries := languages.Entries()
 	models := make([]gormmodel.ResumeLanguage, 0, len(entries))
-	seenIDs := make(map[identity.ID]struct{}, len(entries))
+	seenIDs := make(map[sharedvalueobjects.ID]struct{}, len(entries))
 	seenLanguages := make(map[domain.SpokenLanguage]struct{}, len(entries))
 	for _, entry := range entries {
 		id := entry.ID()
@@ -56,7 +56,7 @@ func persistLanguages(tx *gorm.DB, resume *domain.Resume) error {
 	return nil
 }
 
-func loadLanguages(tx *gorm.DB, resumeID identity.ID) (*domain.ResumeLanguages, error) {
+func loadLanguages(tx *gorm.DB, resumeID sharedvalueobjects.ID) (*domain.ResumeLanguages, error) {
 	var rows []gormmodel.ResumeLanguage
 	if err := tx.Where("resume_id = ?", resumeID.UUID()).Order("position").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("get resume languages: %w", mapDBError(err))

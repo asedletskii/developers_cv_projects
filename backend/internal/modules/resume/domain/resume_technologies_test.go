@@ -5,12 +5,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestResumeTechnologyEntryTrimsName(t *testing.T) {
 	entry, err := NewResumeTechnologyEntry(ResumeTechnologyEntryParams{
-		ID:       identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
 		Name:     "  Go  ",
 		Position: 0,
 	})
@@ -21,7 +21,7 @@ func TestResumeTechnologyEntryTrimsName(t *testing.T) {
 func TestResumeTechnologyEntryRejectsInvalidGrade(t *testing.T) {
 	grade := TechnologyGrade("invalid")
 	_, err := NewResumeTechnologyEntry(ResumeTechnologyEntryParams{
-		ID:       identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
 		Name:     "Go",
 		Grade:    &grade,
 		Position: 0,
@@ -30,10 +30,10 @@ func TestResumeTechnologyEntryRejectsInvalidGrade(t *testing.T) {
 }
 
 func TestResumeTechnologiesRejectsDuplicateIDs(t *testing.T) {
-	id := identity.NewID()
+	id := sharedvalueobjects.NewID()
 	_, err := NewResumeTechnologies(ResumeTechnologiesParams{
-		ID:       identity.NewID(),
-		ResumeID: identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Entries: []ResumeTechnologyEntryParams{
 			{ID: id, Name: "Go", Position: 0},
 			{ID: id, Name: "Rust", Position: 1},
@@ -44,11 +44,11 @@ func TestResumeTechnologiesRejectsDuplicateIDs(t *testing.T) {
 
 func TestResumeTechnologiesRejectsDuplicatePositions(t *testing.T) {
 	_, err := NewResumeTechnologies(ResumeTechnologiesParams{
-		ID:       identity.NewID(),
-		ResumeID: identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
 		Entries: []ResumeTechnologyEntryParams{
-			{ID: identity.NewID(), Name: "Go", Position: 0},
-			{ID: identity.NewID(), Name: "Rust", Position: 0},
+			{ID: sharedvalueobjects.NewID(), Name: "Go", Position: 0},
+			{ID: sharedvalueobjects.NewID(), Name: "Rust", Position: 0},
 		},
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
@@ -83,7 +83,7 @@ func TestResumeReplaceTechnologiesRejectsUnknownID(t *testing.T) {
 		Entries: []ResumeTechnologyEntryParams{{Name: "Go", Position: 0}},
 	}))
 	err := resume.ReplaceTechnologies(ResumeTechnologiesParams{
-		Entries: []ResumeTechnologyEntryParams{{ID: identity.NewID(), Name: "Rust", Position: 0}},
+		Entries: []ResumeTechnologyEntryParams{{ID: sharedvalueobjects.NewID(), Name: "Rust", Position: 0}},
 	})
 	require.ErrorIs(t, err, ErrResumeInvariant)
 }
@@ -100,8 +100,8 @@ func TestResumeReplaceTechnologiesRejectsNonContiguousPositions(t *testing.T) {
 }
 
 func TestResumeTechnologiesReplaceAndCloneEntries(t *testing.T) {
-	id, resumeID := identity.NewID(), identity.NewID()
-	entryID := identity.NewID()
+	id, resumeID := sharedvalueobjects.NewID(), sharedvalueobjects.NewID()
+	entryID := sharedvalueobjects.NewID()
 	collection, err := NewResumeTechnologies(ResumeTechnologiesParams{ID: id, ResumeID: resumeID, Entries: []ResumeTechnologyEntryParams{{ID: entryID, Name: " Go ", Position: 0}}})
 	require.NoError(t, err)
 	require.Equal(t, "Go", collection.Entries()[0].Name())
@@ -114,8 +114,8 @@ func TestResumeTechnologiesReplaceAndCloneEntries(t *testing.T) {
 }
 
 func TestResumeLanguagesAndTechnologiesRejectInvalidCollectionIdentity(t *testing.T) {
-	_, err := NewResumeLanguages(ResumeLanguagesParams{ResumeID: identity.NewID()})
+	_, err := NewResumeLanguages(ResumeLanguagesParams{ResumeID: sharedvalueobjects.NewID()})
 	require.Error(t, err)
-	_, err = NewResumeTechnologies(ResumeTechnologiesParams{ID: identity.NewID()})
+	_, err = NewResumeTechnologies(ResumeTechnologiesParams{ID: sharedvalueobjects.NewID()})
 	require.Error(t, err)
 }

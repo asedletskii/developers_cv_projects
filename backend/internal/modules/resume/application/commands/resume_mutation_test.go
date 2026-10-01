@@ -9,7 +9,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type mutationRepositoryStub struct {
@@ -52,8 +52,8 @@ func (u *mutationUnitOfWorkStub) Do(ctx context.Context, fn func(context.Context
 func newMutationTestResume(t *testing.T) *domain.Resume {
 	t.Helper()
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID:       identity.NewID(),
-		UserID:   identity.NewID(),
+		ID:       sharedvalueobjects.NewID(),
+		UserID:   sharedvalueobjects.NewID(),
 		Title:    "Original",
 		Language: domain.ResumeLanguage("en"),
 		Version:  3,
@@ -87,8 +87,8 @@ func TestExecuteResumeMutationRejectsInvalidCommandBeforeTransaction(t *testing.
 
 	cases := []struct {
 		name     string
-		resumeID identity.ID
-		userID   identity.ID
+		resumeID sharedvalueobjects.ID
+		userID   sharedvalueobjects.ID
 		version  int64
 	}{
 		{name: "missing resume id", userID: resume.UserID(), version: 3},

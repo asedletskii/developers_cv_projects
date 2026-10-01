@@ -8,7 +8,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/mappers"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func persistActivities(tx *gorm.DB, resume *domain.Resume) error {
@@ -39,7 +39,7 @@ func persistActivities(tx *gorm.DB, resume *domain.Resume) error {
 	return nil
 }
 
-func loadActivities(tx *gorm.DB, resumeID identity.ID) ([]*domain.Activity, error) {
+func loadActivities(tx *gorm.DB, resumeID sharedvalueobjects.ID) ([]*domain.Activity, error) {
 	var rows []gormmodel.ResumeActivity
 	if err := tx.Where("resume_id = ?", resumeID.UUID()).Order("sort_order").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("get resume activities: %w", mapDBError(err))

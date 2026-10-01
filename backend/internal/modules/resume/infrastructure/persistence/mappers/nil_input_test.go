@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestRepositoryModelMappersRejectNilEntities(t *testing.T) {
@@ -73,7 +73,7 @@ func TestRepositoryModelMappersRejectNilEntities(t *testing.T) {
 		{
 			name: "overview",
 			call: func() error {
-				_, _, err := OverviewToDBModels(identity.ID{}, nil)
+				_, _, err := OverviewToDBModels(sharedvalueobjects.ID{}, nil)
 				return err
 			},
 		},

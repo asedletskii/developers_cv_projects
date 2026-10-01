@@ -6,11 +6,11 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CourseInput struct {
-	ID              identity.ID
+	ID              sharedvalueobjects.ID
 	Name            string
 	Organization    string
 	EndDate         domain.YearMonth
@@ -28,8 +28,8 @@ func (i CoursesInput) toDomain() []domain.CourseParams {
 }
 
 type ReplaceCoursesCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    CoursesInput
 }

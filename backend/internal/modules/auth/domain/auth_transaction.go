@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type AuthTransaction struct {
-	id                 identity.ID
+	id                 sharedvalueobjects.ID
 	provider           Provider
 	stateHash          valueobjects.StateHash
 	nonceHash          valueobjects.NonceHash
@@ -23,7 +23,7 @@ type AuthTransaction struct {
 }
 
 type AuthTransactionParams struct {
-	ID                 identity.ID
+	ID                 sharedvalueobjects.ID
 	Provider           Provider
 	StateHash          valueobjects.StateHash
 	NonceHash          valueobjects.NonceHash
@@ -63,7 +63,7 @@ func NewAuthTransaction(params AuthTransactionParams) (*AuthTransaction, error) 
 	return &AuthTransaction{id: params.ID, provider: params.Provider, stateHash: params.StateHash, nonceHash: params.NonceHash, browserBindingHash: params.BrowserBindingHash, codeVerifier: codeVerifier, redirectURI: redirectURI, createdAt: createdAt, expiresAt: expiresAt, consumedAt: consumedAt}, nil
 }
 
-func (a *AuthTransaction) ID() identity.ID                   { return a.id }
+func (a *AuthTransaction) ID() sharedvalueobjects.ID         { return a.id }
 func (a *AuthTransaction) Provider() Provider                { return a.provider }
 func (a *AuthTransaction) StateHash() valueobjects.StateHash { return a.stateHash }
 func (a *AuthTransaction) NonceHash() valueobjects.NonceHash { return a.nonceHash }

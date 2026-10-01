@@ -6,11 +6,11 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type EducationInput struct {
-	ID                   identity.ID
+	ID                   sharedvalueobjects.ID
 	Location, University string
 	Grade                domain.EducationLevel
 	ProgramName, Faculty string
@@ -29,8 +29,8 @@ func (i EducationsInput) toDomain() []domain.EducationParams {
 }
 
 type ReplaceEducationsCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    EducationsInput
 }

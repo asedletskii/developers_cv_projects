@@ -5,7 +5,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func EducationToDB(item *domain.Education) (gormmodel.ResumeEducation, error) {
@@ -31,11 +31,11 @@ func EducationToDB(item *domain.Education) (gormmodel.ResumeEducation, error) {
 }
 
 func EducationToDomain(model gormmodel.ResumeEducation) (*domain.Education, error) {
-	id, err := identity.IDFromUUID(model.ID)
+	id, err := sharedvalueobjects.IDFromUUID(model.ID)
 	if err != nil {
 		return nil, err
 	}
-	rid, err := identity.IDFromUUID(model.ResumeID)
+	rid, err := sharedvalueobjects.IDFromUUID(model.ResumeID)
 	if err != nil {
 		return nil, err
 	}

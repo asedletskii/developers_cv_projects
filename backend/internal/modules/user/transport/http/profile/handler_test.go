@@ -15,7 +15,7 @@ import (
 	"developers-cv/backend/internal/modules/user/application/commands"
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/platform/http/middleware"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type stubReplaceProfileHandler struct {
@@ -33,7 +33,7 @@ func (s *stubReplaceProfileHandler) Handle(_ context.Context, command commands.R
 type stubGetProfileReader struct {
 	profile queries.Profile
 	err     error
-	userID  valueobjects.ID
+	userID  sharedvalueobjects.ID
 }
 
 func (r *stubGetProfileReader) GetProfile(_ context.Context, query queries.GetProfileQuery) (queries.Profile, error) {
@@ -56,7 +56,7 @@ func newTestEngine(userID uuid.UUID, authErr error, handler *Handler) *gin.Engin
 func TestGetReturnsAuthenticatedUserProfile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uuid.New()
-	identity, err := valueobjects.IDFromUUID(userID)
+	identity, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 
 	reader := &stubGetProfileReader{profile: queries.Profile{

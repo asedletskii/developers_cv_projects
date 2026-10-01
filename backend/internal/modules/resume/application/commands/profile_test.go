@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeProfileAggregateRepository struct {
@@ -30,15 +30,15 @@ func (r *fakeProfileAggregateRepository) Create(context.Context, *domain.Resume)
 func (r *fakeProfileAggregateRepository) Delete(context.Context, ports.DeleteResumeParams) error {
 	return nil
 }
-func newTestResumeForCommand(t *testing.T, uid identity.ID) *domain.Resume {
+func newTestResumeForCommand(t *testing.T, uid sharedvalueobjects.ID) *domain.Resume {
 	t.Helper()
-	r, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
+	r, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
 	require.NoError(t, err)
 	return r
 }
 
 func TestReplaceProfileHandlerUsesVersionAndAggregate(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeProfileAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
@@ -51,7 +51,7 @@ func TestReplaceProfileHandlerUsesVersionAndAggregate(t *testing.T) {
 	require.NotNil(t, repo.resume.Profile())
 }
 func TestReplaceProfileHandlerRejectsStaleVersion(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeProfileAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}

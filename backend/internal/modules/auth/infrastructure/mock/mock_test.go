@@ -11,7 +11,7 @@ import (
 
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeUserReader struct {
@@ -32,7 +32,7 @@ func (r *fakeUserReader) GetUser(_ context.Context, query queries.GetUserQuery) 
 
 func TestMockAuthenticatorAuthenticatesExistingUser(t *testing.T) {
 	userID := uuid.New()
-	id, err := valueobjects.IDFromUUID(userID)
+	id, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
 	user, err := domain.NewUser(domain.UserParams{ID: id})
 	require.NoError(t, err)

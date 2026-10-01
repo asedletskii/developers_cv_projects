@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type Identity struct {
-	id              identity.ID
-	userID          identity.ID
+	id              sharedvalueobjects.ID
+	userID          sharedvalueobjects.ID
 	provider        Provider
 	providerSubject valueobjects.ProviderSubject
 	createdAt       time.Time
@@ -19,8 +19,8 @@ type Identity struct {
 }
 
 type IdentityParams struct {
-	ID              identity.ID
-	UserID          identity.ID
+	ID              sharedvalueobjects.ID
+	UserID          sharedvalueobjects.ID
 	Provider        Provider
 	ProviderSubject valueobjects.ProviderSubject
 	CreatedAt       time.Time
@@ -44,8 +44,8 @@ func NewIdentity(params IdentityParams) (*Identity, error) {
 	return &Identity{id: params.ID, userID: params.UserID, provider: params.Provider, providerSubject: params.ProviderSubject, createdAt: createdAt, updatedAt: updatedAt, lastLoginAt: lastLoginAt}, nil
 }
 
-func (i *Identity) ID() identity.ID                               { return i.id }
-func (i *Identity) UserID() identity.ID                           { return i.userID }
+func (i *Identity) ID() sharedvalueobjects.ID                     { return i.id }
+func (i *Identity) UserID() sharedvalueobjects.ID                 { return i.userID }
 func (i *Identity) Provider() Provider                            { return i.provider }
 func (i *Identity) ProviderSubject() valueobjects.ProviderSubject { return i.providerSubject }
 func (i *Identity) CreatedAt() time.Time                          { return i.createdAt }

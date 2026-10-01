@@ -3,9 +3,9 @@ package ports
 import (
 	"context"
 
-	valueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type UserProvisioner interface {
-	CreateUser(ctx context.Context) (valueobjects.ID, error)
+	CreateUser(ctx context.Context) (sharedvalueobjects.ID, error)
 }

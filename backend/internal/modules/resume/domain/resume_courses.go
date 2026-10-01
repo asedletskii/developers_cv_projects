@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type CourseParams struct {
-	ID              identity.ID
-	ResumeID        identity.ID
+	ID              sharedvalueobjects.ID
+	ResumeID        sharedvalueobjects.ID
 	Name            string
 	Organization    string
 	EndDate         YearMonth
@@ -18,8 +18,8 @@ type CourseParams struct {
 }
 
 type Course struct {
-	id              identity.ID
-	resumeID        identity.ID
+	id              sharedvalueobjects.ID
+	resumeID        sharedvalueobjects.ID
 	name            string
 	organization    string
 	endDate         YearMonth
@@ -52,12 +52,12 @@ func (c *Course) Replace(params CourseParams) error {
 	return nil
 }
 
-func (c *Course) ID() identity.ID       { return c.id }
-func (c *Course) ResumeID() identity.ID { return c.resumeID }
-func (c *Course) Name() string          { return c.name }
-func (c *Course) Organization() string  { return c.organization }
-func (c *Course) EndDate() YearMonth    { return c.endDate }
-func (c *Course) Hours() *int           { return cloneInt(c.hours) }
+func (c *Course) ID() sharedvalueobjects.ID       { return c.id }
+func (c *Course) ResumeID() sharedvalueobjects.ID { return c.resumeID }
+func (c *Course) Name() string                    { return c.name }
+func (c *Course) Organization() string            { return c.organization }
+func (c *Course) EndDate() YearMonth              { return c.endDate }
+func (c *Course) Hours() *int                     { return cloneInt(c.hours) }
 func (c *Course) CertificateLink() *ExternalURL {
 	return cloneExternalURL(c.certificateLink)
 }
@@ -66,18 +66,18 @@ func (r *Resume) ReplaceCourses(params []CourseParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	existing := make(map[identity.ID]struct{}, len(r.courses))
+	existing := make(map[sharedvalueobjects.ID]struct{}, len(r.courses))
 	for _, item := range r.courses {
 		if item == nil {
 			return fmt.Errorf("%w: nil course", ErrResumeInvariant)
 		}
 		existing[item.ID()] = struct{}{}
 	}
-	seen := make(map[identity.ID]struct{}, len(params))
+	seen := make(map[sharedvalueobjects.ID]struct{}, len(params))
 	replaced := make([]*Course, 0, len(params))
 	for _, item := range params {
 		if item.ID.IsZero() {
-			item.ID = identity.NewID()
+			item.ID = sharedvalueobjects.NewID()
 		} else if _, ok := existing[item.ID]; !ok {
 			return fmt.Errorf("%w: course does not belong to resume", ErrResumeInvariant)
 		}

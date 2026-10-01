@@ -12,7 +12,7 @@ import (
 
 	"developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 const MockUserIDHeader = "X-Mock-User-ID"
@@ -42,7 +42,7 @@ func (a *MockAuthenticator) Authenticate(ctx context.Context, request *http.Requ
 		return uuid.Nil, ErrUnauthenticated
 	}
 
-	userID, err := valueobjects.IDFromUUID(id)
+	userID, err := sharedvalueobjects.IDFromUUID(id)
 	if err != nil {
 		return uuid.Nil, ErrUnauthenticated
 	}

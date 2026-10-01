@@ -17,14 +17,14 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type phase6PostgresFixture struct {
 	ctx    context.Context
 	dsn    string
 	gorm   *gorm.DB
-	owner  identity.ID
+	owner  sharedvalueobjects.ID
 	resume *domain.Resume
 	uow    *database.UnitOfWork
 }
@@ -55,7 +55,7 @@ func newPhase6PostgresFixture(t *testing.T) *phase6PostgresFixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
 
-	owner := identity.NewID()
+	owner := sharedvalueobjects.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	resume := newTestResume(t, owner)
 	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{}), Sections: []domain.SectionSettings{}}
@@ -226,17 +226,17 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	profileID := identity.NewID()
-	contactsID := identity.NewID()
-	skillsID := identity.NewID()
-	languageID := identity.NewID()
-	technologyID := identity.NewID()
-	experienceID := identity.NewID()
-	educationID := identity.NewID()
-	courseID := identity.NewID()
-	activityID := identity.NewID()
-	projectID := identity.NewID()
-	contributorID := identity.NewID()
+	profileID := sharedvalueobjects.NewID()
+	contactsID := sharedvalueobjects.NewID()
+	skillsID := sharedvalueobjects.NewID()
+	languageID := sharedvalueobjects.NewID()
+	technologyID := sharedvalueobjects.NewID()
+	experienceID := sharedvalueobjects.NewID()
+	educationID := sharedvalueobjects.NewID()
+	courseID := sharedvalueobjects.NewID()
+	activityID := sharedvalueobjects.NewID()
+	projectID := sharedvalueobjects.NewID()
+	contributorID := sharedvalueobjects.NewID()
 	now := time.Now().UTC()
 
 	statements := []struct {
@@ -318,12 +318,12 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	gormDB := fixture.gorm
 	resumeRepo := repository.NewResumeRepository(gormDB)
 
-	secondResume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: owner, Title: "Second resume", Language: domain.ResumeLanguageEN})
+	secondResume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: owner, Title: "Second resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, secondResume)
 	}))
-	duplicateLanguageResume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: owner, Title: "Duplicate language", Language: domain.ResumeLanguageRU})
+	duplicateLanguageResume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: owner, Title: "Duplicate language", Language: domain.ResumeLanguageRU})
 	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, duplicateLanguageResume)
@@ -443,7 +443,7 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Experiences()[0].ID(), loaded.Experiences()[1].ID()})
+		require.Equal(t, []sharedvalueobjects.ID{secondID, firstID}, []sharedvalueobjects.ID{loaded.Experiences()[0].ID(), loaded.Experiences()[1].ID()})
 	})
 
 	t.Run("educations", func(t *testing.T) {
@@ -467,7 +467,7 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Educations()[0].ID(), loaded.Educations()[1].ID()})
+		require.Equal(t, []sharedvalueobjects.ID{secondID, firstID}, []sharedvalueobjects.ID{loaded.Educations()[0].ID(), loaded.Educations()[1].ID()})
 	})
 
 	t.Run("courses", func(t *testing.T) {
@@ -489,7 +489,7 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Courses()[0].ID(), loaded.Courses()[1].ID()})
+		require.Equal(t, []sharedvalueobjects.ID{secondID, firstID}, []sharedvalueobjects.ID{loaded.Courses()[0].ID(), loaded.Courses()[1].ID()})
 	})
 
 	t.Run("activities", func(t *testing.T) {
@@ -511,7 +511,7 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Activities()[0].ID(), loaded.Activities()[1].ID()})
+		require.Equal(t, []sharedvalueobjects.ID{secondID, firstID}, []sharedvalueobjects.ID{loaded.Activities()[0].ID(), loaded.Activities()[1].ID()})
 	})
 
 	t.Run("technologies", func(t *testing.T) {
@@ -536,7 +536,7 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
 		entries = loaded.Technologies().Entries()
-		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{entries[0].ID(), entries[1].ID()})
+		require.Equal(t, []sharedvalueobjects.ID{secondID, firstID}, []sharedvalueobjects.ID{entries[0].ID(), entries[1].ID()})
 	})
 
 	t.Run("projects", func(t *testing.T) {
@@ -562,7 +562,7 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error { return resumeRepo.Save(tx, loaded) }))
 		loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: fixture.owner})
 		require.NoError(t, err)
-		require.Equal(t, []identity.ID{secondID, firstID}, []identity.ID{loaded.Projects()[0].ID(), loaded.Projects()[1].ID()})
+		require.Equal(t, []sharedvalueobjects.ID{secondID, firstID}, []sharedvalueobjects.ID{loaded.Projects()[0].ID(), loaded.Projects()[1].ID()})
 		require.Len(t, loaded.Projects()[0].Screenshots(), 1)
 		require.Len(t, loaded.Projects()[0].Stack(), 1)
 		require.Equal(t, "PostgreSQL", loaded.Projects()[0].Stack()[0].Name())

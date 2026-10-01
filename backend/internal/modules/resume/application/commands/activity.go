@@ -6,11 +6,11 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ActivityInput struct {
-	ID          identity.ID
+	ID          sharedvalueobjects.ID
 	Type        domain.ActivityType
 	Title       string
 	Description *string
@@ -29,8 +29,8 @@ func (i ActivitiesInput) toDomain() []domain.ActivityParams {
 }
 
 type ReplaceActivitiesCommand struct {
-	ResumeID identity.ID
-	UserID   identity.ID
+	ResumeID sharedvalueobjects.ID
+	UserID   sharedvalueobjects.ID
 	Version  int64
 	Input    ActivitiesInput
 }

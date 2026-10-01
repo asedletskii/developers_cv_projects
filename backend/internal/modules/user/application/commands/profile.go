@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/user/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type LocalizedProfileInput struct {
@@ -17,7 +17,7 @@ type LocalizedProfileInput struct {
 }
 
 type ReplaceProfileCommand struct {
-	UserID    valueobjects.ID
+	UserID    sharedvalueobjects.ID
 	RU        LocalizedProfileInput
 	EN        LocalizedProfileInput
 	PhotoPath *string

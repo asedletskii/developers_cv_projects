@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type WorkFormat string
@@ -28,8 +28,8 @@ func (v WorkFormat) IsValid() bool {
 }
 
 type Profile struct {
-	id          identity.ID
-	resumeID    identity.ID
+	id          sharedvalueobjects.ID
+	resumeID    sharedvalueobjects.ID
 	name        string
 	surname     string
 	patronymic  *string
@@ -42,8 +42,8 @@ type Profile struct {
 }
 
 type ProfileParams struct {
-	ID          identity.ID
-	ResumeID    identity.ID
+	ID          sharedvalueobjects.ID
+	ResumeID    sharedvalueobjects.ID
 	Name        string
 	Surname     string
 	Patronymic  *string
@@ -94,10 +94,10 @@ func (p *Profile) Replace(params ProfileParams) error {
 	return nil
 }
 
-func (p *Profile) ID() identity.ID       { return p.id }
-func (p *Profile) ResumeID() identity.ID { return p.resumeID }
-func (p *Profile) Name() string          { return p.name }
-func (p *Profile) Surname() string       { return p.surname }
+func (p *Profile) ID() sharedvalueobjects.ID       { return p.id }
+func (p *Profile) ResumeID() sharedvalueobjects.ID { return p.resumeID }
+func (p *Profile) Name() string                    { return p.name }
+func (p *Profile) Surname() string                 { return p.surname }
 func (p *Profile) Patronymic() *string {
 	if p.patronymic == nil {
 		return nil
@@ -122,7 +122,7 @@ func (r *Resume) ReplaceProfile(params ProfileParams) error {
 		if r.profile != nil {
 			params.ID = r.profile.ID()
 		} else {
-			params.ID = identity.NewID()
+			params.ID = sharedvalueobjects.NewID()
 		}
 	} else if r.profile == nil || params.ID != r.profile.ID() {
 		return fmt.Errorf("%w: profile does not belong to resume", ErrResumeInvariant)

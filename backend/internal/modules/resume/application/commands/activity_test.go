@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type activityRepoStub struct {
@@ -33,7 +33,7 @@ type activityUOWStub struct{}
 func (activityUOWStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestReplaceActivitiesHandlerUsesAggregateRepository(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &activityRepoStub{resume: resume}
 	err = NewReplaceActivitiesHandler(repo, activityUOWStub{}).Handle(context.Background(), ReplaceActivitiesCommand{
@@ -46,7 +46,7 @@ func TestReplaceActivitiesHandlerUsesAggregateRepository(t *testing.T) {
 }
 
 func TestReplaceActivitiesHandlerRejectsStaleVersion(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: identity.NewID(), UserID: identity.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &activityRepoStub{resume: resume}
 	err = NewReplaceActivitiesHandler(repo, activityUOWStub{}).Handle(context.Background(), ReplaceActivitiesCommand{

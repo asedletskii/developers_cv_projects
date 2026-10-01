@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type fakeContactsAggregateRepository struct {
@@ -30,7 +30,7 @@ func (r *fakeContactsAggregateRepository) Delete(context.Context, ports.DeleteRe
 }
 
 func TestReplaceContactsHandlerUsesVersionAndAggregate(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeContactsAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
@@ -50,7 +50,7 @@ func TestReplaceContactsHandlerUsesVersionAndAggregate(t *testing.T) {
 }
 
 func TestReplaceContactsHandlerRejectsStaleVersion(t *testing.T) {
-	uid := identity.NewID()
+	uid := sharedvalueobjects.NewID()
 	resume := newTestResumeForCommand(t, uid)
 	repo := &fakeContactsAggregateRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}

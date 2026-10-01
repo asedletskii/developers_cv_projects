@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type projectHTTPRepoStub struct {
@@ -43,7 +43,7 @@ func (projectHTTPUOWStub) Do(ctx context.Context, fn func(context.Context) error
 func TestReplaceProjectsReturnsNoContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: identity.NewID(), UserID: identity.NewID(),
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(),
 		Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestReplaceProjectsReturnsNoContent(t *testing.T) {
 func TestReplaceProjectsRejectsNonPositiveVersion(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: identity.NewID(), UserID: identity.NewID(),
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(),
 		Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)

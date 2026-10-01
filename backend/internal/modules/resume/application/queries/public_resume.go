@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type PublicResumeQuery struct {
-	ID identity.ID
+	ID sharedvalueobjects.ID
 }
 
 type PublicResumeReader interface {

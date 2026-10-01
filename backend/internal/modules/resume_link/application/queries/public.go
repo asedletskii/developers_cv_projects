@@ -9,11 +9,11 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	"developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type PublicResumeLinkQuery struct {
-	LinkID valueobjects.ID
+	LinkID sharedvalueobjects.ID
 }
 
 type ResumeLinkPublicView struct {
@@ -63,7 +63,7 @@ func (h *PublicResumeLinkQueryHandler) Handle(ctx context.Context, query PublicR
 	if err != nil {
 		return resumequeries.ResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
-	resumeID, err := valueobjects.IDFromUUID(resumeUUID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
 		return resumequeries.ResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}

@@ -14,7 +14,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	jsonhttp "developers-cv/backend/internal/platform/http/json"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewQuery interface {
@@ -39,7 +39,7 @@ func (h *ContactViewHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	linkID, err := identity.ParseID(c.Param("linkId"))
+	linkID, err := sharedvalueobjects.ParseID(c.Param("linkId"))
 	if err != nil {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid link id"))
 		return

@@ -8,7 +8,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type projectRepoStub struct {
@@ -32,7 +32,7 @@ func (projectUOWStub) Do(ctx context.Context, fn func(context.Context) error) er
 
 func TestReplaceProjectsHandlerUsesAggregateRepository(t *testing.T) {
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: identity.NewID(), UserID: identity.NewID(),
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(),
 		Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
@@ -49,7 +49,7 @@ func TestReplaceProjectsHandlerUsesAggregateRepository(t *testing.T) {
 
 func TestReplaceProjectsHandlerRejectsStaleVersion(t *testing.T) {
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: identity.NewID(), UserID: identity.NewID(),
+		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(),
 		Title: "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)

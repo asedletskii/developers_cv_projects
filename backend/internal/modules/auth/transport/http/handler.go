@@ -18,7 +18,7 @@ import (
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
-	identity "developers-cv/backend/internal/shared/domain/valueobjects"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type startTelegramLogin interface {
@@ -274,10 +274,10 @@ func (h *Handler) failureRedirect(reason string) string {
 	return base + "?reason=" + reason
 }
 
-func userIDFromUUID(value uuid.UUID) identity.ID {
-	id, err := identity.IDFromUUID(value)
+func userIDFromUUID(value uuid.UUID) sharedvalueobjects.ID {
+	id, err := sharedvalueobjects.IDFromUUID(value)
 	if err != nil {
-		return identity.ID{}
+		return sharedvalueobjects.ID{}
 	}
 	return id
 }
