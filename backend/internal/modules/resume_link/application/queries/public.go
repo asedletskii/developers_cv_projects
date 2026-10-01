@@ -28,7 +28,7 @@ type ResumeLinkPublicReader interface {
 }
 
 type ResumePublicQuery interface {
-	Handle(context.Context, resumequeries.PublicResumeQuery) (resumequeries.ResumeView, error)
+	Handle(context.Context, resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error)
 }
 
 type PublicResumeLinkQueryHandler struct {
@@ -41,40 +41,40 @@ func NewPublicResumeLinkQueryHandler(links ResumeLinkPublicReader, resume Resume
 	return &PublicResumeLinkQueryHandler{links: links, resume: resume, events: events}
 }
 
-func (h *PublicResumeLinkQueryHandler) Handle(ctx context.Context, query PublicResumeLinkQuery) (resumequeries.ResumeView, error) {
+func (h *PublicResumeLinkQueryHandler) Handle(ctx context.Context, query PublicResumeLinkQuery) (resumequeries.PublicResumeView, error) {
 	if h == nil || h.links == nil || h.resume == nil || h.events == nil {
-		return resumequeries.ResumeView{}, fmt.Errorf("public resume link query handler dependencies are nil")
+		return resumequeries.PublicResumeView{}, fmt.Errorf("public resume link query handler dependencies are nil")
 	}
 	if query.LinkID.IsZero() {
-		return resumequeries.ResumeView{}, fmt.Errorf("invalid resume link id")
+		return resumequeries.PublicResumeView{}, fmt.Errorf("invalid resume link id")
 	}
 
 	link, err := h.links.GetByID(ctx, query)
 	if err != nil {
 		if errors.Is(err, domain.ErrEntityNotFound) {
-			return resumequeries.ResumeView{}, ErrResumeLinkNotFound
+			return resumequeries.PublicResumeView{}, ErrResumeLinkNotFound
 		}
-		return resumequeries.ResumeView{}, err
+		return resumequeries.PublicResumeView{}, err
 	}
 	if domain.ResumeLinkStatus(link.Status) == domain.ResumeLinkStatusInactive {
-		return resumequeries.ResumeView{}, domain.ErrResumeLinkInactive
+		return resumequeries.PublicResumeView{}, domain.ErrResumeLinkInactive
 	}
 	if domain.ResumeLinkStatus(link.Status) != domain.ResumeLinkStatusActive {
-		return resumequeries.ResumeView{}, ErrResumeLinkNotFound
+		return resumequeries.PublicResumeView{}, ErrResumeLinkNotFound
 	}
 
 	resumeUUID, err := uuid.Parse(link.ResumeID)
 	if err != nil {
-		return resumequeries.ResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
+		return resumequeries.PublicResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
 	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
 	if err != nil {
-		return resumequeries.ResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
+		return resumequeries.PublicResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
 
 	view, err := h.resume.Handle(ctx, resumequeries.PublicResumeQuery{ID: resumeID})
 	if err != nil {
-		return resumequeries.ResumeView{}, err
+		return resumequeries.PublicResumeView{}, err
 	}
 	recordLinkEvent(ctx, h.events, query.LinkID, domain.EventTypeView)
 	return view, nil

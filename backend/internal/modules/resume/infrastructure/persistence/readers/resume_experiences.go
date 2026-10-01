@@ -12,16 +12,16 @@ import (
 )
 
 type experienceRow struct {
-	ID, ResumeID, Company, Position string
-	Location                        *string
-	StartDate                       string
-	EndDate                         *string
-	Description                     *string
+	ID, Company, Position string
+	Location              *string
+	StartDate             string
+	EndDate               *string
+	Description           *string
 }
 
 func (r *ResumeReader) loadExperiences(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, view *queries.ResumeView) error {
 	var rows []experienceRow
-	if err := db.WithContext(ctx).Table("resume_experiences AS e").Select("e.id::text AS id, e.resume_id::text AS resume_id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Where("e.resume_id = ?", resumeID).Order("e.sort_order").Scan(&rows).Error; err != nil {
+	if err := db.WithContext(ctx).Table("resume_experiences AS e").Select("e.id::text AS id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Where("e.resume_id = ?", resumeID).Order("e.sort_order").Scan(&rows).Error; err != nil {
 		return fmt.Errorf("list experiences: %w", err)
 	}
 	result := make([]queries.ExperienceView, 0, len(rows))
@@ -66,7 +66,7 @@ func (r *ResumeReader) loadExperiences(ctx context.Context, db *gorm.DB, resumeI
 		if err != nil {
 			return err
 		}
-		result = append(result, queries.ExperienceView{ID: row.ID, ResumeID: row.ResumeID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description, Achievements: append([]string(nil), achievements[id]...), Tasks: append([]string(nil), tasks[id]...), Stack: append([]queries.ExperienceStackItemView(nil), stacks[id]...)})
+		result = append(result, queries.ExperienceView{ID: row.ID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description, Achievements: append([]string(nil), achievements[id]...), Tasks: append([]string(nil), tasks[id]...), Stack: append([]queries.ExperienceStackItemView(nil), stacks[id]...)})
 	}
 	for i := range result {
 		if result[i].Achievements == nil {

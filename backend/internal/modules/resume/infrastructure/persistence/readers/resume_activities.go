@@ -18,7 +18,7 @@ func (r *ResumeReader) loadActivities(ctx context.Context, db *gorm.DB, resumeID
 	}
 	result := make([]queries.ActivityView, 0, len(models))
 	for _, model := range models {
-		result = append(result, queries.ActivityView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Type: model.Type, Title: model.Title, Description: model.Description, Date: optionalYearMonth(model.Date), Link: model.Link})
+		result = append(result, queries.ActivityView{ID: model.ID.String(), Type: model.Type, Title: model.Title, Description: model.Description, Date: optionalYearMonth(model.Date), Link: model.Link})
 	}
 	view.Activities = result
 	return nil

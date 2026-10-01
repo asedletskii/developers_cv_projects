@@ -6,7 +6,6 @@ type ExperienceStackItemView struct {
 }
 type ExperienceView struct {
 	ID           string                    `json:"id"`
-	ResumeID     string                    `json:"resumeId"`
 	Company      string                    `json:"company"`
 	Position     string                    `json:"position"`
 	Location     *string                   `json:"location,omitempty"`

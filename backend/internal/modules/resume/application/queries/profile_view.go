@@ -2,7 +2,6 @@ package queries
 
 type ResumeProfileView struct {
 	ID          string   `json:"id"`
-	ResumeID    string   `json:"resumeId"`
 	Name        string   `json:"name"`
 	Surname     string   `json:"surname"`
 	Patronymic  *string  `json:"patronymic,omitempty"`

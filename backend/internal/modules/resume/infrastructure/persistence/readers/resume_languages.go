@@ -18,7 +18,7 @@ func (r *ResumeReader) loadLanguages(ctx context.Context, db *gorm.DB, resumeID 
 	}
 	result := make([]queries.LanguageView, 0, len(models))
 	for _, model := range models {
-		result = append(result, queries.LanguageView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Language: model.Language, Grade: model.Grade, Position: model.Position})
+		result = append(result, queries.LanguageView{ID: model.ID.String(), Language: model.Language, Grade: model.Grade, Position: model.Position})
 	}
 	view.Languages = result
 	return nil

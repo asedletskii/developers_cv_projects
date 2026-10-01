@@ -4,6 +4,7 @@ package persistence_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -65,7 +66,7 @@ func TestPostgresOwnedAndPublicResumeReadContracts(t *testing.T) {
 	publicHandler := queries.NewPublicResumeQueryHandler(reader)
 	public, err := publicHandler.Handle(ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
 	require.NoError(t, err)
-	require.Nil(t, public.Version)
+	require.NotContains(t, mustMarshalResumeView(t, public), `"resumeId"`)
 	require.NotNil(t, public.Contacts)
 	require.Nil(t, public.Contacts.Email)
 	require.Equal(t, "+33123456789", *public.Contacts.Phone)
@@ -139,4 +140,11 @@ func TestPostgresPublicResumeRequiresOpenedStatus(t *testing.T) {
 
 	_, err = reader.GetPublic(fixture.ctx, queries.PublicResumeQuery{ID: fixture.resume.ID()})
 	require.ErrorIs(t, err, queries.ErrResumeNotFound)
+}
+
+func mustMarshalResumeView(t *testing.T, view queries.PublicResumeView) string {
+	t.Helper()
+	payload, err := json.Marshal(view)
+	require.NoError(t, err)
+	return string(payload)
 }

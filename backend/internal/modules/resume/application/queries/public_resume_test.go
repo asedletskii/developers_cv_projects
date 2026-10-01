@@ -40,7 +40,6 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 		Skills:   &SkillsView{HardSkills: []string{"Go"}},
 		Projects: []ProjectView{{
 			ID:           "project-1",
-			ResumeID:     "resume-1",
 			Name:         "CV",
 			Role:         stringPtr("Backend engineer"),
 			GitLink:      stringPtr("https://github.com/example/cv"),
@@ -55,15 +54,16 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 		PublicResumeQuery{ID: sharedvalueobjects.NewID()},
 	)
 	require.NoError(t, err)
-	require.Equal(t, view.ID, result.ID)
-	require.Nil(t, result.Version)
+	payload := resultJSON(t, result)
+	var object map[string]any
+	require.NoError(t, json.Unmarshal([]byte(payload), &object))
+	require.NotContains(t, object, "id")
 	require.Equal(t, view.Title, result.Title)
 	require.Equal(t, view.Profile, result.Profile)
 	require.Equal(t, view.Contacts, result.Contacts)
 	require.Equal(t, view.Skills, result.Skills)
 	require.Len(t, result.Projects, 1)
 	require.Equal(t, "project-1", result.Projects[0].ID)
-	require.Equal(t, "resume-1", result.Projects[0].ResumeID)
 	require.Nil(t, result.Projects[0].Role)
 	require.Nil(t, result.Projects[0].GitLink)
 	require.NotNil(t, result.Projects[0].Screenshots)
@@ -190,6 +190,7 @@ func TestPublicResumeJSONUsesCanonicalNestedShape(t *testing.T) {
 	var object map[string]any
 	require.NoError(t, json.Unmarshal(payload, &object))
 	require.Contains(t, object, "overview")
+	require.NotContains(t, object, "id")
 	require.NotContains(t, object, "version")
 	require.Contains(t, object, "experiences")
 	require.Contains(t, object, "educations")
@@ -202,11 +203,43 @@ func TestPublicResumeJSONUsesCanonicalNestedShape(t *testing.T) {
 	require.NotContains(t, object, "softSkills")
 }
 
-func TestToPublicOmitsResumeStatus(t *testing.T) {
-	view := ResumeView{Status: "opened", Version: int64Ptr(3)}
-	public := toPublic(view)
-	require.Empty(t, public.Status)
-	require.Nil(t, public.Version)
+func TestPublicContractContainsChildIDsButNoResumeID(t *testing.T) {
+	view := ResumeView{
+		ID:        "resume-1",
+		Projects:  []ProjectView{{ID: "project-1"}},
+		Languages: []LanguageView{{ID: "language-1", Language: "en"}},
+	}
+
+	payload, err := json.Marshal(toPublic(view))
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"id":"project-1"`)
+	require.Contains(t, string(payload), `"id":"language-1"`)
+	require.NotContains(t, string(payload), `"resumeId"`)
+	require.NotContains(t, string(payload), `"id":"resume-1"`)
 }
 
-func int64Ptr(value int64) *int64 { return &value }
+func TestPrivateContractKeepsOnlyRootResumeID(t *testing.T) {
+	view := ResumeView{
+		ID:       "resume-1",
+		Profile:  &ResumeProfileView{ID: "profile-1"},
+		Contacts: &ResumeContactsView{ID: "contacts-1"},
+		Skills:   &SkillsView{ID: "skills-1"},
+		Projects: []ProjectView{{ID: "project-1"}},
+	}
+
+	payload, err := json.Marshal(view)
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"id":"resume-1"`)
+	require.Contains(t, string(payload), `"id":"profile-1"`)
+	require.Contains(t, string(payload), `"id":"contacts-1"`)
+	require.Contains(t, string(payload), `"id":"skills-1"`)
+	require.Contains(t, string(payload), `"id":"project-1"`)
+	require.NotContains(t, string(payload), `"resumeId"`)
+}
+
+func resultJSON(t *testing.T, result PublicResumeView) string {
+	t.Helper()
+	payload, err := json.Marshal(result)
+	require.NoError(t, err)
+	return string(payload)
+}

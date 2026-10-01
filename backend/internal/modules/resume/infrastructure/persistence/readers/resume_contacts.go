@@ -33,8 +33,8 @@ func (r *ResumeReader) loadContacts(ctx context.Context, db *gorm.DB, resumeID u
 	}
 
 	result := queries.ResumeContactsView{
-		ID:             model.ID.String(),
-		ResumeID:       model.ResumeID.String(),
+		ID: model.ID.String(),
+
 		Phone:          model.Phone,
 		Telegram:       model.Telegram,
 		Email:          model.Email,

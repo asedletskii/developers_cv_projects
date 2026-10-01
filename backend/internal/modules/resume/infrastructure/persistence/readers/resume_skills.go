@@ -28,7 +28,7 @@ func (r *ResumeReader) loadSkills(ctx context.Context, db *gorm.DB, resumeID uui
 	if err := db.WithContext(ctx).Where("skills_id = ?", model.ID).Order("position").Find(&soft).Error; err != nil {
 		return fmt.Errorf("get soft skills: %w", err)
 	}
-	result := queries.SkillsView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), HardSkills: make([]string, 0, len(hard)), SoftSkills: make([]string, 0, len(soft))}
+	result := queries.SkillsView{ID: model.ID.String(), HardSkills: make([]string, 0, len(hard)), SoftSkills: make([]string, 0, len(soft))}
 	for _, item := range hard {
 		result.HardSkills = append(result.HardSkills, item.Value)
 	}

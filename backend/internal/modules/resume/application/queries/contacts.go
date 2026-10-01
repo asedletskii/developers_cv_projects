@@ -2,7 +2,6 @@ package queries
 
 type ResumeContactsView struct {
 	ID             string                  `json:"id"`
-	ResumeID       string                  `json:"resumeId"`
 	Phone          *string                 `json:"phone,omitempty"`
 	Telegram       *string                 `json:"telegram,omitempty"`
 	Email          *string                 `json:"email,omitempty"`

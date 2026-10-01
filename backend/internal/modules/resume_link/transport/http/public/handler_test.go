@@ -17,12 +17,12 @@ import (
 )
 
 type queryStub struct {
-	view  resumequeries.ResumeView
+	view  resumequeries.PublicResumeView
 	err   error
 	query queries.PublicResumeLinkQuery
 }
 
-func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.ResumeView, error) {
+func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, error) {
 	s.query = query
 	return s.view, s.err
 }
@@ -30,7 +30,7 @@ func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuer
 func TestHandlerReturnsPublicResume(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	linkID := sharedvalueobjects.NewID()
-	query := &queryStub{view: resumequeries.ResumeView{ID: "resume-id"}}
+	query := &queryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
 
 	engine := gin.New()
 	engine.GET("/api/v1/cv/:linkId", NewHandler(query).Handle)
@@ -40,7 +40,9 @@ func TestHandlerReturnsPublicResume(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Contains(t, w.Body.String(), `"id":"resume-id"`)
+	require.NotContains(t, w.Body.String(), `"resumeId"`)
+	require.NotContains(t, w.Body.String(), `"id":"resume-id"`)
+	require.Contains(t, w.Body.String(), `"title":"CV"`)
 	require.Equal(t, linkID, query.query.LinkID)
 }
 

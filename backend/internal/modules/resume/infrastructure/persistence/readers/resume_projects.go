@@ -12,7 +12,7 @@ import (
 )
 
 type projectRow struct {
-	ID, ResumeID, Name               string
+	ID, Name                         string
 	Description, Role, Link, GitLink *string
 }
 
@@ -20,7 +20,7 @@ func int64Ptr(value int64) *int64 { return &value }
 
 func (r *ResumeReader) loadProjects(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, view *queries.ResumeView) error {
 	var rows []projectRow
-	if err := db.WithContext(ctx).Table("resume_projects AS p").Select("p.id::text AS id, p.resume_id::text AS resume_id, p.name, p.description, p.role, p.link, p.git_link").Where("p.resume_id = ?", resumeID).Order("p.sort_order").Scan(&rows).Error; err != nil {
+	if err := db.WithContext(ctx).Table("resume_projects AS p").Select("p.id::text AS id, p.name, p.description, p.role, p.link, p.git_link").Where("p.resume_id = ?", resumeID).Order("p.sort_order").Scan(&rows).Error; err != nil {
 		return fmt.Errorf("list projects: %w", err)
 	}
 	result := make([]queries.ProjectView, 0, len(rows))
@@ -65,7 +65,7 @@ func (r *ResumeReader) loadProjects(ctx context.Context, db *gorm.DB, resumeID u
 		if err != nil {
 			return err
 		}
-		result = append(result, queries.ProjectView{ID: row.ID, ResumeID: row.ResumeID, Name: row.Name, Description: row.Description, Role: row.Role, Link: row.Link, GitLink: row.GitLink, Screenshots: append([]string(nil), screenshots[id]...), Stack: append([]queries.ProjectTechnologyView(nil), stacks[id]...), Contributors: append([]queries.ProjectContributorView(nil), contributors[id]...)})
+		result = append(result, queries.ProjectView{ID: row.ID, Name: row.Name, Description: row.Description, Role: row.Role, Link: row.Link, GitLink: row.GitLink, Screenshots: append([]string(nil), screenshots[id]...), Stack: append([]queries.ProjectTechnologyView(nil), stacks[id]...), Contributors: append([]queries.ProjectContributorView(nil), contributors[id]...)})
 	}
 	for i := range result {
 		if result[i].Screenshots == nil {

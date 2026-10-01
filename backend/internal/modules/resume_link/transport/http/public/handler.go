@@ -16,7 +16,7 @@ import (
 type Handler struct{ query publicResumeLinkQuery }
 
 type publicResumeLinkQuery interface {
-	Handle(context.Context, queries.PublicResumeLinkQuery) (resumequeries.ResumeView, error)
+	Handle(context.Context, queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, error)
 }
 
 func NewHandler(query publicResumeLinkQuery) *Handler { return &Handler{query: query} }

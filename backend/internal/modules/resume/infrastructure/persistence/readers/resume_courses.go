@@ -18,7 +18,7 @@ func (r *ResumeReader) loadCourses(ctx context.Context, db *gorm.DB, resumeID uu
 	}
 	result := make([]queries.CourseView, 0, len(models))
 	for _, model := range models {
-		result = append(result, queries.CourseView{ID: model.ID.String(), ResumeID: model.ResumeID.String(), Name: model.Name, Organization: model.Organization, EndDate: yearMonth(model.EndDate), Hours: model.Hours, CertificateLink: model.CertificateLink})
+		result = append(result, queries.CourseView{ID: model.ID.String(), Name: model.Name, Organization: model.Organization, EndDate: yearMonth(model.EndDate), Hours: model.Hours, CertificateLink: model.CertificateLink})
 	}
 	view.Courses = result
 	return nil

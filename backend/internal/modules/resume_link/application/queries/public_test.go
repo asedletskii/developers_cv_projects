@@ -23,12 +23,12 @@ func (s *publicLinkReaderStub) GetByID(_ context.Context, query PublicResumeLink
 }
 
 type publicResumeQueryStub struct {
-	view  resumequeries.ResumeView
+	view  resumequeries.PublicResumeView
 	err   error
 	query resumequeries.PublicResumeQuery
 }
 
-func (s *publicResumeQueryStub) Handle(_ context.Context, query resumequeries.PublicResumeQuery) (resumequeries.ResumeView, error) {
+func (s *publicResumeQueryStub) Handle(_ context.Context, query resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error) {
 	s.query = query
 	return s.view, s.err
 }
@@ -37,13 +37,13 @@ func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive)}}
-	resume := &publicResumeQueryStub{view: resumequeries.ResumeView{ID: resumeID.String()}}
+	resume := &publicResumeQueryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
 	events := &linkEventRecorderStub{}
 
 	view, err := NewPublicResumeLinkQueryHandler(links, resume, events).Handle(context.Background(), PublicResumeLinkQuery{LinkID: linkID})
 
 	require.NoError(t, err)
-	require.Equal(t, resumeID.String(), view.ID)
+	require.Equal(t, "CV", view.Title)
 	require.Equal(t, linkID, links.query.LinkID)
 	require.Equal(t, resumeID, resume.query.ID)
 	require.NotNil(t, events.event)
@@ -55,13 +55,13 @@ func TestPublicResumeLinkQueryIgnoresAnalyticsFailure(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive)}}
-	resume := &publicResumeQueryStub{view: resumequeries.ResumeView{ID: resumeID.String()}}
+	resume := &publicResumeQueryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
 	events := &linkEventRecorderStub{err: context.Canceled}
 
 	view, err := NewPublicResumeLinkQueryHandler(links, resume, events).Handle(context.Background(), PublicResumeLinkQuery{LinkID: linkID})
 
 	require.NoError(t, err)
-	require.Equal(t, resumeID.String(), view.ID)
+	require.Equal(t, "CV", view.Title)
 	require.NotNil(t, events.event)
 }
 

@@ -3,6 +3,7 @@ package queries
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -10,6 +11,24 @@ import (
 
 type PublicResumeQuery struct {
 	ID sharedvalueobjects.ID
+}
+
+type PublicResumeView struct {
+	Title        string              `json:"title"`
+	Language     string              `json:"language"`
+	CreatedAt    time.Time           `json:"createdAt"`
+	UpdatedAt    time.Time           `json:"updatedAt"`
+	Overview     ResumeOverviewView  `json:"overview"`
+	Profile      *ResumeProfileView  `json:"profile,omitempty"`
+	Contacts     *ResumeContactsView `json:"contacts,omitempty"`
+	Skills       *SkillsView         `json:"skills,omitempty"`
+	Languages    []LanguageView      `json:"languages"`
+	Technologies []TechnologyView    `json:"technologies"`
+	Experiences  []ExperienceView    `json:"experiences"`
+	Educations   []EducationView     `json:"educations"`
+	Courses      []CourseView        `json:"courses"`
+	Activities   []ActivityView      `json:"activities"`
+	Projects     []ProjectView       `json:"projects"`
 }
 
 type PublicResumeReader interface {
@@ -24,26 +43,49 @@ func NewPublicResumeQueryHandler(reader PublicResumeReader) *PublicResumeQueryHa
 	return &PublicResumeQueryHandler{reader: reader}
 }
 
-func (h *PublicResumeQueryHandler) Handle(ctx context.Context, query PublicResumeQuery) (ResumeView, error) {
+func (h *PublicResumeQueryHandler) Handle(ctx context.Context, query PublicResumeQuery) (PublicResumeView, error) {
 	if h == nil || h.reader == nil {
-		return ResumeView{}, fmt.Errorf("public resume query handler dependencies are nil")
+		return PublicResumeView{}, fmt.Errorf("public resume query handler dependencies are nil")
 	}
 	if query.ID.IsZero() {
-		return ResumeView{}, fmt.Errorf("invalid resume id")
+		return PublicResumeView{}, fmt.Errorf("invalid resume id")
 	}
 
 	view, err := h.reader.GetPublic(ctx, query)
 	if err != nil {
-		return ResumeView{}, err
+		return PublicResumeView{}, err
 	}
 
 	return toPublic(view), nil
 }
 
-func toPublic(view ResumeView) ResumeView {
-	result := view
-	result.Version = nil
-	result.Status = ""
+func toPublic(view ResumeView) PublicResumeView {
+	result := PublicResumeView{
+		Title:        view.Title,
+		Language:     view.Language,
+		CreatedAt:    view.CreatedAt,
+		UpdatedAt:    view.UpdatedAt,
+		Overview:     view.Overview,
+		Languages:    append([]LanguageView(nil), view.Languages...),
+		Technologies: append([]TechnologyView(nil), view.Technologies...),
+		Experiences:  append([]ExperienceView(nil), view.Experiences...),
+		Educations:   append([]EducationView(nil), view.Educations...),
+		Courses:      append([]CourseView(nil), view.Courses...),
+		Activities:   append([]ActivityView(nil), view.Activities...),
+		Projects:     make([]ProjectView, len(view.Projects)),
+	}
+
+	if view.Profile != nil {
+		profile := *view.Profile
+		profile.WorkFormat = append([]string(nil), view.Profile.WorkFormat...)
+		result.Profile = &profile
+	}
+	if view.Skills != nil {
+		skills := *view.Skills
+		skills.HardSkills = append([]string(nil), view.Skills.HardSkills...)
+		skills.SoftSkills = append([]string(nil), view.Skills.SoftSkills...)
+		result.Skills = &skills
+	}
 	if view.Contacts != nil {
 		contacts := *view.Contacts
 		contacts.HiddenContacts = append([]string(nil), view.Contacts.HiddenContacts...)
@@ -54,7 +96,6 @@ func toPublic(view ResumeView) ResumeView {
 		redactHiddenContacts(&contacts)
 		result.Contacts = &contacts
 	}
-	result.Projects = make([]ProjectView, len(view.Projects))
 
 	for index, project := range view.Projects {
 		result.Projects[index] = project
@@ -62,6 +103,7 @@ func toPublic(view ResumeView) ResumeView {
 		result.Projects[index].GitLink = nil
 		result.Projects[index].Screenshots = make([]string, 0)
 		result.Projects[index].Contributors = make([]ProjectContributorView, 0)
+		result.Projects[index].Stack = append([]ProjectTechnologyView(nil), project.Stack...)
 	}
 
 	return result
@@ -71,7 +113,6 @@ func redactHiddenContacts(contacts *ResumeContactsView) {
 	if contacts == nil {
 		return
 	}
-
 	for _, key := range contacts.HiddenContacts {
 		switch domain.ContactKey(key) {
 		case domain.ContactKeyPhone:
