@@ -30,7 +30,3 @@ func testURL(t *testing.T) domain.ExternalURL {
 	require.NoError(t, err)
 	return v
 }
-
-func ptr[T any](value T) *T {
-	return &value
-}

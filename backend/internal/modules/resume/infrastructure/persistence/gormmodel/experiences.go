@@ -36,7 +36,6 @@ type ResumeExperienceStack struct {
 	ExperienceID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position     int       `gorm:"primaryKey"`
 	Name         string    `gorm:"not null"`
-	Grade        *string
 }
 
 func (ResumeExperienceStack) TableName() string { return "resume_experience_stack" }

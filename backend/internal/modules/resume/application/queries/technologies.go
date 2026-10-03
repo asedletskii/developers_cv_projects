@@ -1,8 +1,7 @@
 package queries
 
 type TechnologyView struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Grade    *string `json:"grade,omitempty"`
-	Position int     `json:"position"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Position int    `json:"position"`
 }

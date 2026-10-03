@@ -8,8 +8,7 @@ import (
 )
 
 type ExperienceStackParams struct {
-	Name  string
-	Grade *TechnologyGrade
+	Name string
 }
 
 type ExperienceParams struct {

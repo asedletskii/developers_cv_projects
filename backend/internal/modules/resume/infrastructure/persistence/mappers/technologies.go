@@ -25,18 +25,9 @@ func TechnologiesToDomain(
 		if err != nil {
 			return nil, err
 		}
-		var grade *domain.TechnologyGrade
-		if row.Grade != nil {
-			value := domain.TechnologyGrade(*row.Grade)
-			if !value.IsValid() {
-				return nil, domain.ErrInvalidEntity
-			}
-			grade = &value
-		}
 		entries = append(entries, domain.ResumeTechnologyEntryParams{
 			ID:       id,
 			Name:     row.Name,
-			Grade:    grade,
 			Position: row.Position,
 		})
 	}
@@ -54,18 +45,10 @@ func TechnologyToDB(
 	if x.ID().IsZero() {
 		return gormmodel.ResumeTechnology{}, fmt.Errorf("technology id is required")
 	}
-	m := gormmodel.ResumeTechnology{
+	return gormmodel.ResumeTechnology{
 		ID:       x.ID().UUID(),
 		ResumeID: resumeID.UUID(),
 		Name:     x.Name(),
 		Position: x.Position(),
-	}
-	if g := x.Grade(); g != nil {
-		if !g.IsValid() {
-			return gormmodel.ResumeTechnology{}, fmt.Errorf("invalid technology grade")
-		}
-		value := string(*g)
-		m.Grade = &value
-	}
-	return m, nil
+	}, nil
 }

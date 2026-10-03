@@ -17,7 +17,6 @@ func TestResumeEnumValidationContracts(t *testing.T) {
 		{"resume language", func() bool { return ResumeLanguageEN.IsValid() }, func() bool { return ResumeLanguage("invalid").IsValid() }},
 		{"spoken language", func() bool { return SpokenLanguageEN.IsValid() }, func() bool { return SpokenLanguage("invalid").IsValid() }},
 		{"language grade", func() bool { return LanguageGradeC1.IsValid() }, func() bool { return LanguageGrade("invalid").IsValid() }},
-		{"technology grade", func() bool { return TechnologyGradeSenior.IsValid() }, func() bool { return TechnologyGrade("invalid").IsValid() }},
 		{"education level", func() bool { return EducationLevelMaster.IsValid() }, func() bool { return EducationLevel(99).IsValid() }},
 		{"contact key", func() bool { return ContactKeyEmail.IsValid() }, func() bool { return ContactKey("invalid").IsValid() }},
 		{"activity type", func() bool { return ActivityTypeOpenSource.IsValid() }, func() bool { return ActivityType("invalid").IsValid() }},
