@@ -2,6 +2,7 @@ import { lazy } from 'react'
 import { ROUTES } from '@shared/constants'
 import { Navigate, Route, useLocation, useParams } from 'react-router'
 
+const AboutScreen = lazy(() => import('./screens/AboutScreen'))
 const AuthErrorScreen = lazy(() => import('@features/auth/screens/AuthErrorScreen'))
 const CurriculumVitaeScreen = lazy(
   () => import('./screens/CurriculumVitaeScreen/CurriculumVitaeScreen'),
@@ -20,6 +21,8 @@ const LegacyLkRedirect = () => {
 export const curriculumVitaeRoutes = {
   pages: (
     <>
+      <Route path={ROUTES.about} element={<AboutScreen />} />
+
       <Route path={ROUTES.cv} element={<Navigate to={ROUTES.home} replace />} />
       <Route path={ROUTES.cvResume} element={<CurriculumVitaeScreen />} />
 
