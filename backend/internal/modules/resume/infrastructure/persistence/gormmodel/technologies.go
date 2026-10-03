@@ -9,7 +9,6 @@ type ResumeTechnology struct {
 	ResumeID uuid.UUID `gorm:"type:uuid;not null;index"`
 	Name     string    `gorm:"type:text;not null"`
 	Position int       `gorm:"not null"`
-	Grade    *string
 }
 
 func (ResumeTechnology) TableName() string { return "resume_technologies" }

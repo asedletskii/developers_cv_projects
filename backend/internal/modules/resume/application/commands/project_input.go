@@ -22,8 +22,7 @@ type ProjectsInput struct {
 }
 
 type ProjectTechnologyInput struct {
-	Name  string
-	Grade *domain.TechnologyGrade
+	Name string
 }
 
 type ProjectContributorInput struct {
@@ -51,7 +50,7 @@ func projectInputToDomain(input ProjectInput) (domain.ProjectParams, error) {
 
 	stack := make([]domain.Technology, 0, len(input.Stack))
 	for _, item := range input.Stack {
-		technology, err := domain.NewTechnology(domain.TechnologyParams{Name: item.Name, Grade: item.Grade})
+		technology, err := domain.NewTechnology(domain.TechnologyParams{Name: item.Name})
 		if err != nil {
 			return domain.ProjectParams{}, err
 		}

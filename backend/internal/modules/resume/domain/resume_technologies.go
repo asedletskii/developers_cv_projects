@@ -10,13 +10,11 @@ import (
 type ResumeTechnologyEntry struct {
 	id       sharedvalueobjects.ID
 	name     string
-	grade    *TechnologyGrade
 	position int
 }
 type ResumeTechnologyEntryParams struct {
 	ID       sharedvalueobjects.ID
 	Name     string
-	Grade    *TechnologyGrade
 	Position int
 }
 type ResumeTechnologiesParams struct {
@@ -33,15 +31,7 @@ func NewResumeTechnologyEntry(p ResumeTechnologyEntryParams) (ResumeTechnologyEn
 	if p.ID.IsZero() || n == "" || p.Position < 0 {
 		return ResumeTechnologyEntry{}, fmt.Errorf("%w: invalid technology entry", ErrInvalidEntity)
 	}
-	if p.Grade != nil && !p.Grade.IsValid() {
-		return ResumeTechnologyEntry{}, fmt.Errorf("%w: invalid technology grade", ErrInvalidEntity)
-	}
-	g := p.Grade
-	if g != nil {
-		x := *g
-		g = &x
-	}
-	return ResumeTechnologyEntry{id: p.ID, name: n, grade: g, position: p.Position}, nil
+	return ResumeTechnologyEntry{id: p.ID, name: n, position: p.Position}, nil
 }
 func NewResumeTechnologies(p ResumeTechnologiesParams) (*ResumeTechnologies, error) {
 	if p.ID.IsZero() || p.ResumeID.IsZero() {
@@ -82,15 +72,8 @@ func (t *ResumeTechnologyEntry) Replace(params ResumeTechnologyEntryParams) erro
 	return nil
 }
 
-func (t ResumeTechnologyEntry) ID() sharedvalueobjects.ID { return t.id }
-func (t ResumeTechnologyEntry) Name() string              { return t.name }
-func (t ResumeTechnologyEntry) Grade() *TechnologyGrade {
-	if t.grade == nil {
-		return nil
-	}
-	x := *t.grade
-	return &x
-}
+func (t ResumeTechnologyEntry) ID() sharedvalueobjects.ID     { return t.id }
+func (t ResumeTechnologyEntry) Name() string                  { return t.name }
 func (t ResumeTechnologyEntry) Position() int                 { return t.position }
 func (t *ResumeTechnologies) ID() sharedvalueobjects.ID       { return t.id }
 func (t *ResumeTechnologies) ResumeID() sharedvalueobjects.ID { return t.resumeID }
@@ -154,32 +137,12 @@ func (r *Resume) Technologies() *ResumeTechnologies {
 	return &copy
 }
 
-type TechnologyGrade string
-
-const (
-	TechnologyGradeIntern TechnologyGrade = "intern"
-	TechnologyGradeJunior TechnologyGrade = "junior"
-	TechnologyGradeMiddle TechnologyGrade = "middle"
-	TechnologyGradeSenior TechnologyGrade = "senior"
-)
-
-func (v TechnologyGrade) IsValid() bool {
-	switch v {
-	case TechnologyGradeIntern, TechnologyGradeJunior, TechnologyGradeMiddle, TechnologyGradeSenior:
-		return true
-	default:
-		return false
-	}
-}
-
 type TechnologyParams struct {
-	Name  string
-	Grade *TechnologyGrade
+	Name string
 }
 
 type Technology struct {
-	name  string
-	grade *TechnologyGrade
+	name string
 }
 
 func NewTechnology(params TechnologyParams) (Technology, error) {
@@ -187,19 +150,7 @@ func NewTechnology(params TechnologyParams) (Technology, error) {
 	if name == "" {
 		return Technology{}, fmt.Errorf("%w: technology name is empty", ErrInvalidValue)
 	}
-	if params.Grade != nil && !params.Grade.IsValid() {
-		return Technology{}, fmt.Errorf("%w: invalid technology grade", ErrInvalidValue)
-	}
-	return Technology{name: name, grade: cloneTechnologyGrade(params.Grade)}, nil
+	return Technology{name: name}, nil
 }
 
-func (t Technology) Name() string            { return t.name }
-func (t Technology) Grade() *TechnologyGrade { return cloneTechnologyGrade(t.grade) }
-
-func cloneTechnologyGrade(value *TechnologyGrade) *TechnologyGrade {
-	if value == nil {
-		return nil
-	}
-	copy := *value
-	return &copy
-}
+func (t Technology) Name() string { return t.name }
