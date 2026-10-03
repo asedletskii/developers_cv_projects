@@ -140,15 +140,10 @@ func TestContactsValidationAndReplacement(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestTechnologyTrimsAndDefensivelyCopiesGrade(t *testing.T) {
-	grade := TechnologyGradeSenior
-	technology, err := NewTechnology(TechnologyParams{Name: " Go ", Grade: &grade})
+func TestTechnologyTrimsName(t *testing.T) {
+	technology, err := NewTechnology(TechnologyParams{Name: " Go "})
 	require.NoError(t, err)
 	require.Equal(t, "Go", technology.Name())
-	got := technology.Grade()
-	require.NotNil(t, got)
-	*got = TechnologyGradeJunior
-	require.Equal(t, TechnologyGradeSenior, *technology.Grade())
 
 	_, err = NewTechnology(TechnologyParams{Name: "   "})
 	require.Error(t, err)

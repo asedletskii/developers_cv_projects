@@ -25,7 +25,6 @@ type ResumeProjectTechnology struct {
 	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position  int       `gorm:"primaryKey"`
 	Name      string    `gorm:"not null"`
-	Grade     *string
 }
 
 type ResumeProjectContributor struct {

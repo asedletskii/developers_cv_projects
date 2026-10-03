@@ -18,17 +18,6 @@ func TestResumeTechnologyEntryTrimsName(t *testing.T) {
 	require.Equal(t, "Go", entry.Name())
 }
 
-func TestResumeTechnologyEntryRejectsInvalidGrade(t *testing.T) {
-	grade := TechnologyGrade("invalid")
-	_, err := NewResumeTechnologyEntry(ResumeTechnologyEntryParams{
-		ID:       sharedvalueobjects.NewID(),
-		Name:     "Go",
-		Grade:    &grade,
-		Position: 0,
-	})
-	require.ErrorIs(t, err, ErrInvalidEntity)
-}
-
 func TestResumeTechnologiesRejectsDuplicateIDs(t *testing.T) {
 	id := sharedvalueobjects.NewID()
 	_, err := NewResumeTechnologies(ResumeTechnologiesParams{

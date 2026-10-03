@@ -11,8 +11,7 @@ import (
 func TestNewProjectBuildsOwnedChildren(t *testing.T) {
 	id := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	grade := TechnologyGradeSenior
-	technology, err := NewTechnology(TechnologyParams{Name: " Go ", Grade: &grade})
+	technology, err := NewTechnology(TechnologyParams{Name: " Go "})
 	require.NoError(t, err)
 	email, err := NewEmail("jane@example.com")
 	require.NoError(t, err)

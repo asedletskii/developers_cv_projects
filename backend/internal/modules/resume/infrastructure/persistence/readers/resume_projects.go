@@ -50,7 +50,7 @@ func (r *ResumeReader) loadProjects(ctx context.Context, db *gorm.DB, resumeID u
 		return fmt.Errorf("list project technologies: %w", err)
 	}
 	for _, item := range stackRows {
-		stacks[item.ProjectID] = append(stacks[item.ProjectID], queries.ProjectTechnologyView{Name: item.Name, Grade: item.Grade})
+		stacks[item.ProjectID] = append(stacks[item.ProjectID], queries.ProjectTechnologyView{Name: item.Name})
 	}
 	contributors := make(map[uuid.UUID][]queries.ProjectContributorView, len(ids))
 	var contributorRows []gormmodel.ResumeProjectContributor

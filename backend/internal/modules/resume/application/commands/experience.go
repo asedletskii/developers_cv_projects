@@ -10,8 +10,7 @@ import (
 )
 
 type ExperienceStackItemInput struct {
-	Name  string
-	Grade *domain.TechnologyGrade
+	Name string
 }
 
 type ExperienceInput struct {
@@ -31,7 +30,7 @@ type ExperiencesInput struct{ Items []ExperienceInput }
 func (i ExperienceInput) toDomain(resumeID sharedvalueobjects.ID) domain.ExperienceParams {
 	stack := make([]domain.ExperienceStackParams, 0, len(i.Stack))
 	for _, item := range i.Stack {
-		stack = append(stack, domain.ExperienceStackParams{Name: item.Name, Grade: item.Grade})
+		stack = append(stack, domain.ExperienceStackParams{Name: item.Name})
 	}
 	return domain.ExperienceParams{ID: i.ID, ResumeID: resumeID, Company: i.Company, Position: i.Position, Location: i.Location, StartDate: i.StartDate, EndDate: i.EndDate, Description: i.Description, Achievements: append([]string(nil), i.Achievements...), Tasks: append([]string(nil), i.Tasks...), Stack: stack}
 }

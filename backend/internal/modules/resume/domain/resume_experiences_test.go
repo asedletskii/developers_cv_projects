@@ -28,13 +28,12 @@ func TestNewExperienceTrimsValuesAndBuildsChildren(t *testing.T) {
 	resumeID := sharedvalueobjects.NewID()
 	start, err := ParseYearMonth("2024-01")
 	require.NoError(t, err)
-	grade := TechnologyGradeSenior
 	item, err := NewExperience(ExperienceParams{
 		ID: id, ResumeID: resumeID, Company: " Acme ", Position: " Developer ",
 		StartDate:    start,
 		Achievements: []string{" shipped v2 ", "reduced latency"},
 		Tasks:        []string{" own backend ", "review PRs "},
-		Stack:        []ExperienceStackParams{{Name: " Go ", Grade: &grade}},
+		Stack:        []ExperienceStackParams{{Name: " Go "}},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "Acme", item.Company())
@@ -43,7 +42,6 @@ func TestNewExperienceTrimsValuesAndBuildsChildren(t *testing.T) {
 	require.Equal(t, []string{"own backend", "review PRs"}, item.Tasks())
 	require.Len(t, item.Stack(), 1)
 	require.Equal(t, "Go", item.Stack()[0].Name())
-	require.Equal(t, &grade, item.Stack()[0].Grade())
 }
 
 func TestNewExperienceRejectsZeroStartDate(t *testing.T) {

@@ -39,7 +39,7 @@ func experienceCommandItem(t *testing.T, company string) ExperienceInput {
 		Company: company, Position: "Go Developer", StartDate: start,
 		Achievements: []string{"Built API"},
 		Tasks:        []string{"Implement backend", "Review PRs"},
-		Stack:        []ExperienceStackItemInput{{Name: "Go", Grade: ptr(domain.TechnologyGradeSenior)}},
+		Stack:        []ExperienceStackItemInput{{Name: "Go"}},
 	}
 }
 

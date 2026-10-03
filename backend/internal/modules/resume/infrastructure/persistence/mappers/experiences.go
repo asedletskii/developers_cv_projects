@@ -59,18 +59,7 @@ func ExperienceToDomain(
 	}
 	stackValues := make([]domain.ExperienceStackParams, 0, len(stack))
 	for _, technology := range stack {
-		var grade *domain.TechnologyGrade
-		if technology.Grade != nil {
-			value := domain.TechnologyGrade(*technology.Grade)
-			if !value.IsValid() {
-				return nil, domain.ErrInvalidEntity
-			}
-			grade = &value
-		}
-		stackValues = append(stackValues, domain.ExperienceStackParams{
-			Name:  technology.Name,
-			Grade: grade,
-		})
+		stackValues = append(stackValues, domain.ExperienceStackParams{Name: technology.Name})
 	}
 	achievementValues := make([]string, len(achievements))
 	for i, achievement := range achievements {
@@ -126,7 +115,6 @@ func ExperienceStackToDB(experienceID sharedvalueobjects.ID, values []domain.Tec
 			ExperienceID: experienceID.UUID(),
 			Position:     position,
 			Name:         value.Name(),
-			Grade:        TechnologyGradeToDB(value.Grade()),
 		})
 	}
 	return models

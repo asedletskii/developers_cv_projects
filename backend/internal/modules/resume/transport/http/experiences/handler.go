@@ -20,8 +20,7 @@ func NewHandler(replace *commands.ReplaceExperiencesHandler) *Handler {
 }
 
 type technologyRequest struct {
-	Name  string  `json:"name"`
-	Grade *string `json:"grade,omitempty"`
+	Name string `json:"name"`
 }
 type experienceRequest struct {
 	ID           string              `json:"id,omitempty"`
@@ -90,12 +89,7 @@ func experienceInputs(values []experienceRequest) ([]commands.ExperienceInput, e
 		}
 		stack := make([]commands.ExperienceStackItemInput, len(body.Stack))
 		for i, item := range body.Stack {
-			var grade *domain.TechnologyGrade
-			if item.Grade != nil {
-				value := domain.TechnologyGrade(*item.Grade)
-				grade = &value
-			}
-			stack[i] = commands.ExperienceStackItemInput{Name: item.Name, Grade: grade}
+			stack[i] = commands.ExperienceStackItemInput{Name: item.Name}
 		}
 		out = append(out, commands.ExperienceInput{ID: id, Company: body.Company, Position: body.Position, Location: body.Location, StartDate: start, EndDate: end, Description: body.Description, Achievements: append([]string(nil), body.Achievements...), Tasks: append([]string(nil), body.Tasks...), Stack: stack})
 	}

@@ -55,7 +55,7 @@ func TestReplaceTechnologiesBindsFullSnapshot(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/resume/"+resume.ID().String()+"/technologies",
-		strings.NewReader(`{"version":1,"items":[{"name":" Go ","grade":"senior","position":0},{"name":"Rust","position":1}]}`))
+		strings.NewReader(`{"version":1,"items":[{"name":" Go ","position":0},{"name":"Rust","position":1}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	engine.ServeHTTP(w, req)
 

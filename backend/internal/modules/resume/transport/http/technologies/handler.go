@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/transport/http/common"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -25,10 +24,9 @@ type technologiesRequest struct {
 }
 
 type technologyRequest struct {
-	ID       string  `json:"id,omitempty"`
-	Name     string  `json:"name"`
-	Grade    *string `json:"grade,omitempty"`
-	Position int     `json:"position"`
+	ID       string `json:"id,omitempty"`
+	Name     string `json:"name"`
+	Position int    `json:"position"`
 }
 
 func (r technologiesRequest) input() (commands.TechnologiesInput, error) {
@@ -42,13 +40,8 @@ func (r technologiesRequest) input() (commands.TechnologiesInput, error) {
 			}
 			id = parsed
 		}
-		var grade *domain.TechnologyGrade
-		if item.Grade != nil {
-			value := domain.TechnologyGrade(*item.Grade)
-			grade = &value
-		}
 		items = append(items, commands.TechnologyInput{
-			ID: id, Name: item.Name, Grade: grade, Position: item.Position,
+			ID: id, Name: item.Name, Position: item.Position,
 		})
 	}
 	return commands.TechnologiesInput{Entries: items}, nil
