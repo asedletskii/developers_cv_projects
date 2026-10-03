@@ -20,12 +20,13 @@ CREATE TABLE resume_link_views (
     referrer_host   text,                             -- только хост: t.me, linkedin.com, hh.ru
     traffic         text NOT NULL DEFAULT 'human',    -- human | bot | owner | suspect
     traffic_reason  text,                             -- ua:googlebot, owner, burst, ...
+    layout          jsonb NOT NULL,                   -- снимок страницы на момент визита, см. «Снимок раскладки»
     started_at      timestamptz NOT NULL,
     -- этап 2, заполняет батч
     confirmed_at    timestamptz,                      -- первый батч с active_ms >= 5000 → «прочтение»
     last_seen_at    timestamptz,
     active_ms       integer NOT NULL DEFAULT 0,       -- время видимой вкладки
-    max_section     smallint,                         -- индекс самой дальней секции в порядке страницы
+    max_section     text,                             -- SectionId самой дальней секции; «дальше» считается по layout.order этого визита
     exit_section    text,                             -- секция в viewport в момент ухода
     ended_at        timestamptz,
     CONSTRAINT resume_link_views_device_check  CHECK (device  IN ('desktop','mobile','tablet','unknown')),
@@ -37,7 +38,25 @@ CREATE INDEX idx_resume_link_views_link_started ON resume_link_views (link_id, s
 CREATE INDEX idx_resume_link_views_link_visitor ON resume_link_views (link_id, visitor_id);
 ```
 
-### Этап 1–2: события
+#### Снимок раскладки
+
+Владелец меняет страницу уже после того, как по ссылке ходили: переставляет секции, добавляет проекты. Поэтому всё, что зависит от устройства страницы, считается по **снимку на момент визита**, а не по текущему состоянию резюме. Снимок пишется в `layout` при `GET /cv/:linkId` (резюме в этот момент уже загружено, дополнительных запросов нет):
+
+```json
+{
+  "order": ["about", "experience", "skills", "projects", "contacts"],
+  "hashes": { "about": "9f2c41aa", "experience": "03be77d1", "projects": "c4410be2" }
+}
+```
+
+- `order` — видимые секции в том порядке, в котором их увидел посетитель (`enabled` и не пустые, как в `getVisibleSections` на фронте).
+- `hashes` — `layout_hash` каждой секции: первые 8 байт SHA-256 от канонического JSON содержимого секции (поля, влияющие на вёрстку, без служебных `id`/`updatedAt`) плюс язык резюме. Перестановка секций, смена темы и правка *других* секций хеш не меняют; добавленный проект, правка текста или язык — меняют.
+
+Зачем это нужно:
+
+1. **Порядок.** «Дошёл до секции N» нельзя сравнивать по текущему порядку: после перестановки старые визиты окажутся «дальше» или «ближе», чем были. Поэтому `max_section` хранится как id секции и сравнивается по индексу в `layout.order` *этого же* визита. Отчёт «до какой секции дочитывают» ([ниже](#get-apiv1lklinklinkidstatisticssections-этап-2)) вообще не зависит от порядка: считает по множеству событий `section_view`.
+2. **Карта кликов.** Клик хранится в процентах внутри секции. Если секция после этого изменилась (добавили проект, высота выросла), те же проценты указывают уже на другое место. Клик получает `layout_hash` секции из снимка своего визита, а карта по умолчанию строится только по кликам с **текущим** хешем секции: то, что на экране, соответствует тому, где кликали.
+
 
 Расширяем существующую `resume_link_events`, а не заводим новую:
 
@@ -79,13 +98,14 @@ CREATE TABLE resume_link_clicks (
     x_pct        smallint NOT NULL,              -- 0..10000, сотые доли процента ширины секции
     y_pct        smallint NOT NULL,              -- 0..10000, от верха секции
     viewport_w   smallint NOT NULL,              -- для разбивки heatmap по брейкпоинтам
+    layout_hash  text NOT NULL,                  -- хеш секции из views.layout на момент визита; сервер берёт сам, клиент не шлёт
     target       text,                           -- data-analytics-id элемента, если есть
     occurred_at  timestamptz NOT NULL
 );
-CREATE INDEX idx_resume_link_clicks_link_section ON resume_link_clicks (link_id, section, occurred_at);
+CREATE INDEX idx_resume_link_clicks_link_section ON resume_link_clicks (link_id, section, layout_hash, occurred_at);
 ```
 
-Замечание к TODO: координаты нормализуем **относительно секции**, а не viewport. Нормализация по viewport не даёт свести клики между визитами — вертикаль зависит от прокрутки, а высота страницы разная на разных экранах. Точка «секция + процент внутри неё» сравнима между устройствами одного брейкпоинта.
+Замечание к TODO: координаты нормализуем **относительно секции**, а не viewport. Нормализация по viewport не даёт свести клики между визитами — вертикаль зависит от прокрутки, а высота страницы разная на разных экранах. Точка «секция + процент внутри неё» сравнима между устройствами одного брейкпоинта, **пока секция не менялась**: за это отвечает `layout_hash` (см. «Снимок раскладки»).
 
 ### Уведомления (этап 3)
 
@@ -192,7 +212,7 @@ CREATE TABLE user_notification_settings (
 - **Content-Type:** принимать `application/json` **и** `text/plain`. `navigator.sendBeacon` со строкой шлёт `text/plain`, а Blob с `application/json` на части браузеров отправляется с ошибкой. Парсим тело как JSON независимо от заголовка.
 - **Ответ:** `204` без тела. `404`, если ссылки нет или резюме не опубликовано; `410`, если ссылка выключена — как у `GET /cv/:linkId`. `400` — только на невалидный JSON. Ручка не требует сессии и не читает её. Отдельные битые события молча отбрасываются: клиент не ретраит, так что отвечать ему ошибкой бесполезно.
 - **Проверки:** `viewId` принадлежит `linkId`, визит начат не более 12 ч назад, не больше 100 событий и 200 кликов, тело не больше 32 КБ (`http.MaxBytesReader`). Рейт-лимит по IP через существующий `middleware/rate_limit`.
-- **`state`** применяется монотонно: `active_ms = GREATEST(active_ms, $1)`, `max_section = GREATEST(...)`, `exit_section` и `last_seen_at` — последним значением по `seq`. `final: true` ставит `ended_at`. Поэтому повтор или перестановка батчей ничего не ломают.
+- **`state`** применяется монотонно: `active_ms = GREATEST(active_ms, $1)`, `max_section` — «дальше» по индексу в `layout.order` визита, `exit_section` и `last_seen_at` — последним значением по `seq`. `final: true` ставит `ended_at`. Поэтому повтор или перестановка батчей ничего не ломают.
 - **Идемпотентность событий:** `INSERT ... ON CONFLICT (view_id, client_event_id) DO NOTHING`. Периодический флаш и `pagehide` могут прислать одно и то же — дубликатов не будет.
 - **`at`** с клиента не доверяем: пишем `occurred_at = now()` сервера, а `at` используем только для порядка внутри батча.
 - **`section_view`** пишется один раз за визит на секцию (частичный уникальный индекс или проверка в запросе).
@@ -278,7 +298,7 @@ CREATE TABLE user_notification_settings (
 }
 ```
 
-`reached` — прочтения, в которых был `section_view`; `exits` — прочтения с таким `exit_section`. Порядок — как на странице (берём из `sections` резюме). Считается только по прочтениям: у открытий без JS нет данных о секциях.
+`reached` — прочтения, в которых был `section_view`; `exits` — прочтения с таким `exit_section`. Считается только по прочтениям: у открытий без JS нет данных о секциях. Порядок строк — текущий порядок секций на странице, но клиент всё равно пересортировывает ответ по порядку из открытого резюме (владелец мог переставить секции, пока шёл запрос), а секции, которых на странице уже нет, показывает в конце.
 
 #### `GET /api/v1/lk/link/:linkId/statistics/technologies` (этап 2)
 
@@ -290,13 +310,15 @@ CREATE TABLE user_notification_settings (
 
 Та же структура, что у статистики ссылки, плюс разбивка `links: [{ id, name, views, reads, lastViewAt }]`. Нужна для сводки на «Главной» резюме и в списке резюме.
 
-#### `GET /api/v1/lk/link/:linkId/clicks?section&breakpoint` (этап 4)
+#### `GET /api/v1/lk/link/:linkId/clicks?section&breakpoint&includeStale` (этап 4)
 
 Сервер отдаёт сетку, а не сырые клики: бакеты 20×20 по секции, отфильтрованные по брейкпоинту (`xs` < 600, `md` < 1200, `lg`). Агрегация при чтении, как и задумано в TODO.
 
 ```json
-{ "section": "projects", "grid": 20, "cells": [ { "x": 4, "y": 7, "count": 5 } ], "total": 31 }
+{ "section": "projects", "grid": 20, "cells": [ { "x": 4, "y": 7, "count": 5 } ], "total": 31, "staleTotal": 12 }
 ```
+
+По умолчанию в сетку попадают только клики с **текущим** `layout_hash` секции (сервер считает его по резюме в момент запроса). `staleTotal` — сколько кликов пришло на прошлые версии секции и в сетку не вошло. `includeStale=true` добавляет и их: проценты прошлых версий могут указывать мимо, поэтому на фронте это явный переключатель с оговоркой, а не поведение по умолчанию.
 
 #### Уведомления (этап 3)
 
