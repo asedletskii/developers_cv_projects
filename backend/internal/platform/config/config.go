@@ -16,6 +16,7 @@ type Config struct {
 	App        AppConfig
 	Auth       AuthConfig
 	HTTP       HTTPConfig
+	Turnstile  TurnstileConfig
 	Log        LogConfig
 	CORS       CORSConfig
 	Telemetry  TelemetryConfig
@@ -72,17 +73,18 @@ type AppConfig struct {
 }
 
 type HTTPConfig struct {
-	Host              string
-	Port              int
-	ReadTimeout       time.Duration
-	ReadHeaderTimeout time.Duration
-	WriteTimeout      time.Duration
-	IdleTimeout       time.Duration
-	ShutdownTimeout   time.Duration
-	MaxBodyBytes      int64
-	TLS               TLSConfig
-	TrustedProxies    []string
-	RateLimit         RateLimitConfig
+	Host                 string
+	Port                 int
+	ReadTimeout          time.Duration
+	ReadHeaderTimeout    time.Duration
+	WriteTimeout         time.Duration
+	IdleTimeout          time.Duration
+	ShutdownTimeout      time.Duration
+	MaxBodyBytes         int64
+	TLS                  TLSConfig
+	TrustedProxies       []string
+	RateLimit            RateLimitConfig
+	ContactViewRateLimit RateLimitConfig
 }
 
 type TLSConfig struct {
@@ -95,6 +97,15 @@ type RateLimitConfig struct {
 	Enabled bool
 	Rate    float64
 	Burst   int
+}
+
+type TurnstileConfig struct {
+	Enabled        bool
+	SiteKey        string
+	SecretKey      string
+	ExpectedHost   string
+	ExpectedAction string
+	Timeout        time.Duration
 }
 
 type LogConfig struct {
@@ -292,6 +303,43 @@ func parse() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	contactViewRateLimitEnabled, err := envBool("CONTACT_VIEW_RATE_LIMIT_ENABLED", true)
+	if err != nil {
+		return Config{}, err
+	}
+	contactViewRateLimitPerMinute, err := envFloat("CONTACT_VIEW_RATE_LIMIT_PER_MINUTE", 3)
+	if err != nil {
+		return Config{}, err
+	}
+	contactViewRateLimitBurst, err := envInt("CONTACT_VIEW_RATE_LIMIT_BURST", 2)
+	if err != nil {
+		return Config{}, err
+	}
+
+	turnstileEnabled, err := envBool("TURNSTILE_ENABLED", false)
+	if err != nil {
+		return Config{}, err
+	}
+	turnstileSiteKey, err := envString("TURNSTILE_SITE_KEY", "")
+	if err != nil {
+		return Config{}, err
+	}
+	turnstileSecretKey, err := envString("TURNSTILE_SECRET_KEY", "")
+	if err != nil {
+		return Config{}, err
+	}
+	turnstileExpectedHost, err := envString("TURNSTILE_EXPECTED_HOSTNAME", "")
+	if err != nil {
+		return Config{}, err
+	}
+	turnstileExpectedAction, err := envString("TURNSTILE_EXPECTED_ACTION", "contact_view")
+	if err != nil {
+		return Config{}, err
+	}
+	turnstileTimeout, err := envDuration("TURNSTILE_TIMEOUT", 5*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
 
 	logLevel, err := envString("LOG_LEVEL", "info")
 	if err != nil {
@@ -401,6 +449,19 @@ func parse() (Config, error) {
 				Rate:    rateLimitRate,
 				Burst:   rateLimitBurst,
 			},
+			ContactViewRateLimit: RateLimitConfig{
+				Enabled: contactViewRateLimitEnabled,
+				Rate:    contactViewRateLimitPerMinute,
+				Burst:   contactViewRateLimitBurst,
+			},
+		},
+		Turnstile: TurnstileConfig{
+			Enabled:        turnstileEnabled,
+			SiteKey:        turnstileSiteKey,
+			SecretKey:      turnstileSecretKey,
+			ExpectedHost:   turnstileExpectedHost,
+			ExpectedAction: turnstileExpectedAction,
+			Timeout:        turnstileTimeout,
 		},
 		Log: LogConfig{
 			Level:  logLevel,
@@ -533,8 +594,18 @@ func validate(cfg Config) error {
 		(cfg.HTTP.RateLimit.Rate <= 0 || cfg.HTTP.RateLimit.Burst <= 0) {
 		return errors.New("RATE_LIMIT_RATE and RATE_LIMIT_BURST must be positive")
 	}
+	if cfg.HTTP.ContactViewRateLimit.Enabled &&
+		(cfg.HTTP.ContactViewRateLimit.Rate <= 0 || cfg.HTTP.ContactViewRateLimit.Burst <= 0) {
+		return errors.New("CONTACT_VIEW_RATE_LIMIT_PER_MINUTE and CONTACT_VIEW_RATE_LIMIT_BURST must be positive")
+	}
 	if cfg.HTTP.MaxBodyBytes <= 0 {
 		return fmt.Errorf("HTTP_MAX_BODY_BYTES must be positive: %d", cfg.HTTP.MaxBodyBytes)
+	}
+	if cfg.Turnstile.Timeout <= 0 {
+		return errors.New("TURNSTILE_TIMEOUT must be positive")
+	}
+	if cfg.Turnstile.Enabled && strings.TrimSpace(cfg.Turnstile.SiteKey) == "" {
+		return errors.New("TURNSTILE_SITE_KEY is required when Turnstile is enabled")
 	}
 	if cfg.CORS.AllowCredentials && len(cfg.CORS.AllowedOrigins) == 0 {
 		return errors.New("CORS_ALLOWED_ORIGINS must be configured when credentials are enabled")
@@ -602,11 +673,29 @@ func validateProductionSecurity(cfg Config) error {
 	if !cfg.HTTP.RateLimit.Enabled {
 		return errors.New("RATE_LIMIT_ENABLED must be true in production")
 	}
+	if !cfg.HTTP.ContactViewRateLimit.Enabled {
+		return errors.New("CONTACT_VIEW_RATE_LIMIT_ENABLED must be true in production")
+	}
 	if !cfg.Auth.RateLimit.Enabled {
 		return errors.New("AUTH_RATE_LIMIT_ENABLED must be true in production")
 	}
 	if !cfg.Prometheus.Enabled {
 		return errors.New("PROMETHEUS_ENABLED must be true in production")
+	}
+	if !cfg.Turnstile.Enabled {
+		return errors.New("TURNSTILE_ENABLED must be true in production")
+	}
+	if strings.TrimSpace(cfg.Turnstile.SiteKey) == "" {
+		return errors.New("TURNSTILE_SITE_KEY is required in production")
+	}
+	if strings.TrimSpace(cfg.Turnstile.SecretKey) == "" {
+		return errors.New("TURNSTILE_SECRET_KEY is required in production")
+	}
+	if strings.TrimSpace(cfg.Turnstile.ExpectedHost) == "" {
+		return errors.New("TURNSTILE_EXPECTED_HOSTNAME is required in production")
+	}
+	if strings.TrimSpace(cfg.Turnstile.ExpectedAction) == "" {
+		return errors.New("TURNSTILE_EXPECTED_ACTION is required in production")
 	}
 	if cfg.Telemetry.Enabled && cfg.Telemetry.Insecure {
 		return errors.New("OTEL_EXPORTER_OTLP_INSECURE must be false in production")

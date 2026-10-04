@@ -61,6 +61,14 @@ func NewRouter(
 	}
 
 	var authStartRateLimiter, authCallbackRateLimiter gin.HandlerFunc
+	var contactViewRateLimiter gin.HandlerFunc
+	if cfg.HTTP.ContactViewRateLimit.Enabled {
+		contactViewRateLimiter = middleware.NewRateLimiter(
+			cfg.HTTP.ContactViewRateLimit.Rate/60,
+			cfg.HTTP.ContactViewRateLimit.Burst,
+		).Middleware()
+	}
+
 	if cfg.Auth.RateLimit.Enabled {
 		authStartRateLimiter = middleware.NewRateLimiter(
 			cfg.Auth.RateLimit.StartRatePerMinute/60,
@@ -81,6 +89,7 @@ func NewRouter(
 		authenticate,
 		authStartRateLimiter,
 		authCallbackRateLimiter,
+		contactViewRateLimiter,
 	)
 	return router, nil
 }
@@ -97,6 +106,7 @@ func (r *Router) registerRoutes(
 	authenticate middleware.AuthenticateFunc,
 	authStartRateLimiter gin.HandlerFunc,
 	authCallbackRateLimiter gin.HandlerFunc,
+	contactViewRateLimiter gin.HandlerFunc,
 ) {
 	engine := r.engine
 	engine.GET("/health", r.healthHandler)
@@ -117,7 +127,7 @@ func (r *Router) registerRoutes(
 	lk.Use(middleware.Authentication(authenticate))
 	userhttp.RegisterRoutes(userHandler, lk)
 	resumehttp.RegisterRoutes(resumeHandler, lk)
-	resumelinkhttp.RegisterRoutes(resumeLinkHandler, api, lk)
+	resumelinkhttp.RegisterRoutes(resumeLinkHandler, api, lk, contactViewRateLimiter)
 	engine.NoRoute(func(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})
