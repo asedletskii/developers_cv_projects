@@ -157,6 +157,8 @@ jobs:
         with:
           context: ./frontend
           push: true
+          build-args: |
+            VITE_TURNSTILE_SITE_KEY=${{ vars.TURNSTILE_SITE_KEY }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
