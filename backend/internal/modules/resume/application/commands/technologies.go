@@ -12,7 +12,6 @@ import (
 type TechnologyInput struct {
 	ID       sharedvalueobjects.ID
 	Name     string
-	Grade    *domain.TechnologyGrade
 	Position int
 }
 
@@ -24,7 +23,7 @@ func (i TechnologiesInput) toDomain() domain.ResumeTechnologiesParams {
 	entries := make([]domain.ResumeTechnologyEntryParams, 0, len(i.Entries))
 	for _, entry := range i.Entries {
 		entries = append(entries, domain.ResumeTechnologyEntryParams{
-			ID: entry.ID, Name: entry.Name, Grade: entry.Grade, Position: entry.Position,
+			ID: entry.ID, Name: entry.Name, Position: entry.Position,
 		})
 	}
 	return domain.ResumeTechnologiesParams{Entries: entries}

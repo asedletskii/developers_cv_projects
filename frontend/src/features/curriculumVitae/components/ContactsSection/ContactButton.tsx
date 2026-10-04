@@ -13,12 +13,13 @@ import { useContactButton } from './hooks'
 type Props = {
   resumeId: string
   link: ContactLink
+  getToken: () => Promise<string | undefined>
 }
 
-export const ContactButton = ({ resumeId, link }: Props) => {
+export const ContactButton = ({ resumeId, link, getToken }: Props) => {
   const translate = useTranslate('CurriculumVitae.Contacts')
   const { key, icon, isHidden } = link
-  const { value, isRevealing, reveal, copy } = useContactButton(resumeId, link)
+  const { value, isRevealing, reveal, copy } = useContactButton(resumeId, link, getToken)
 
   if (!value) {
     return (

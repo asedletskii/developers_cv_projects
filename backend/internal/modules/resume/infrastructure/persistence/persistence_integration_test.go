@@ -252,17 +252,17 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 		{`INSERT INTO resume_skill_hard (skills_id,value,position) VALUES ($1,'architecture',0)`, []any{skillsID.UUID()}},
 		{`INSERT INTO resume_skill_soft (skills_id,value,position) VALUES ($1,'communication',0)`, []any{skillsID.UUID()}},
 		{`INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, []any{languageID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_technologies (id,resume_id,name,position,grade) VALUES ($1,$2,'Go',0,'senior')`, []any{technologyID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume_technologies (id,resume_id,name,position) VALUES ($1,$2,'Go',0)`, []any{technologyID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2024-01-01')`, []any{experienceID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, []any{experienceID.UUID()}},
 		{`INSERT INTO resume_experience_tasks (experience_id,position,value) VALUES ($1,0,'Implement backend')`, []any{experienceID.UUID()}},
-		{`INSERT INTO resume_experience_stack (experience_id,position,name,grade) VALUES ($1,0,'Go','senior')`, []any{experienceID.UUID()}},
+		{`INSERT INTO resume_experience_stack (experience_id,position,name) VALUES ($1,0,'Go')`, []any{experienceID.UUID()}},
 		{`INSERT INTO resume_educations (id,resume_id,sort_order,location,university,grade,program_name,faculty) VALUES ($1,$2,0,'Paris','University',5,'Computer Science','Engineering')`, []any{educationID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_courses (id,resume_id,sort_order,name,organization,end_date) VALUES ($1,$2,0,'Go Course','Academy','2025-01-01')`, []any{courseID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_activities (id,resume_id,sort_order,type,title) VALUES ($1,$2,0,'openSource','Contributor')`, []any{activityID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_projects (id,resume_id,sort_order,name) VALUES ($1,$2,0,'CV')`, []any{projectID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_project_screenshots (project_id,position,path) VALUES ($1,0,'https://example.com/shot.png')`, []any{projectID.UUID()}},
-		{`INSERT INTO resume_project_technologies (project_id,position,name,grade) VALUES ($1,0,'Go','senior')`, []any{projectID.UUID()}},
+		{`INSERT INTO resume_project_technologies (project_id,position,name) VALUES ($1,0,'Go')`, []any{projectID.UUID()}},
 		{`INSERT INTO resume_project_contributors (id,project_id,position,name,surname,role,email) VALUES ($1,$2,0,'Jane','Doe','Developer','jane@example.com')`, []any{contributorID.UUID(), projectID.UUID()}},
 		{`UPDATE resumes SET updated_at = $1 WHERE id = $2`, []any{now, resumeID.UUID()}},
 	}
@@ -371,7 +371,7 @@ func experienceStackParams(item *domain.Experience) []domain.ExperienceStackPara
 	stack := item.Stack()
 	out := make([]domain.ExperienceStackParams, 0, len(stack))
 	for _, technology := range stack {
-		out = append(out, domain.ExperienceStackParams{Name: technology.Name(), Grade: technology.Grade()})
+		out = append(out, domain.ExperienceStackParams{Name: technology.Name()})
 	}
 	return out
 }

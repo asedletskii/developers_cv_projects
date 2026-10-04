@@ -18,7 +18,7 @@ func (r *ResumeReader) loadTechnologies(ctx context.Context, db *gorm.DB, resume
 	}
 	result := make([]queries.TechnologyView, 0, len(models))
 	for _, model := range models {
-		result = append(result, queries.TechnologyView{ID: model.ID.String(), Name: model.Name, Grade: model.Grade, Position: model.Position})
+		result = append(result, queries.TechnologyView{ID: model.ID.String(), Name: model.Name, Position: model.Position})
 	}
 	view.Technologies = result
 	return nil

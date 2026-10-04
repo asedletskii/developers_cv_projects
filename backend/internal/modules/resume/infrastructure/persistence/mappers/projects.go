@@ -49,15 +49,7 @@ func ProjectToDomain(
 	}
 	stack := make([]domain.Technology, 0, len(technologies))
 	for _, technology := range technologies {
-		var grade *domain.TechnologyGrade
-		if technology.Grade != nil {
-			value := domain.TechnologyGrade(*technology.Grade)
-			if !value.IsValid() {
-				return nil, domain.ErrInvalidEntity
-			}
-			grade = &value
-		}
-		item, err := domain.NewTechnology(domain.TechnologyParams{Name: technology.Name, Grade: grade})
+		item, err := domain.NewTechnology(domain.TechnologyParams{Name: technology.Name})
 		if err != nil {
 			return nil, err
 		}
@@ -133,14 +125,6 @@ func ProjectToDomain(
 	})
 }
 
-func TechnologyGradeToDB(value *domain.TechnologyGrade) *string {
-	if value == nil {
-		return nil
-	}
-	text := string(*value)
-	return &text
-}
-
 func ProjectScreenshotsToDB(projectID sharedvalueobjects.ID, values []domain.ExternalURL) []gormmodel.ResumeProjectScreenshot {
 	models := make([]gormmodel.ResumeProjectScreenshot, 0, len(values))
 	for position, value := range values {
@@ -160,7 +144,6 @@ func ProjectTechnologiesToDB(projectID sharedvalueobjects.ID, values []domain.Te
 			ProjectID: projectID.UUID(),
 			Position:  position,
 			Name:      value.Name(),
-			Grade:     TechnologyGradeToDB(value.Grade()),
 		})
 	}
 	return models

@@ -7,8 +7,7 @@ import (
 )
 
 type technologyRequest struct {
-	Name  string  `json:"name"`
-	Grade *string `json:"grade,omitempty"`
+	Name string `json:"name"`
 }
 
 type contributorRequest struct {
@@ -80,12 +79,7 @@ func projectInput(body projectRequest) (commands.ProjectInput, error) {
 
 	stack := make([]commands.ProjectTechnologyInput, len(body.Stack))
 	for i, value := range body.Stack {
-		var grade *domain.TechnologyGrade
-		if value.Grade != nil {
-			parsed := domain.TechnologyGrade(*value.Grade)
-			grade = &parsed
-		}
-		stack[i] = commands.ProjectTechnologyInput{Name: value.Name, Grade: grade}
+		stack[i] = commands.ProjectTechnologyInput{Name: value.Name}
 	}
 
 	contributors := make([]commands.ProjectContributorInput, len(body.Contributors))

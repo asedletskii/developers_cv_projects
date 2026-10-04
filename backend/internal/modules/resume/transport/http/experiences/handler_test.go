@@ -78,7 +78,7 @@ func TestReplaceExperiencesBindsFullSnapshot(t *testing.T) {
 		c.Set("user_id", uid.UUID())
 		handler.Replace(c)
 	})
-	body := `{"version":1,"items":[{"company":"Acme","position":"Go Developer","startDate":"2024-01","achievements":["Built API"],"tasks":["Implement backend","Review PRs"],"stack":[{"name":"Go","grade":"senior"}]}]}`
+	body := `{"version":1,"items":[{"company":"Acme","position":"Go Developer","startDate":"2024-01","achievements":["Built API"],"tasks":["Implement backend","Review PRs"],"stack":[{"name":"Go"}]}]}`
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/resume/"+resume.ID().String()+"/experiences", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

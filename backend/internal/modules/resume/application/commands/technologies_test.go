@@ -39,7 +39,7 @@ func TestReplaceTechnologiesHandlerUsesAggregateAndVersion(t *testing.T) {
 	err := NewReplaceTechnologiesHandler(repo, &fakeCommandUnitOfWork{}).Handle(context.Background(), ReplaceTechnologiesCommand{
 		ResumeID: resume.ID(), UserID: uid, Version: 1,
 		Input: TechnologiesInput{Entries: []TechnologyInput{
-			{Name: "Go", Grade: ptr(domain.TechnologyGradeSenior), Position: 0},
+			{Name: "Go", Position: 0},
 			{Name: "Rust", Position: 1},
 		}},
 	})

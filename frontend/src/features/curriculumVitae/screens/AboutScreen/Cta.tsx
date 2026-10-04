@@ -21,7 +21,7 @@ export const Cta = () => {
           overflow: 'hidden',
           p: { xs: 4, md: 8 },
           borderRadius: 4,
-          color: 'primary.contrastText',
+          color: 'common.black',
           animation: `${DRIFT} 12s ease-in-out infinite`,
           '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
           background: ({ palette }) =>
@@ -31,10 +31,12 @@ export const Cta = () => {
       >
         <SparkleField count={20} tone="white" seed={5} />
 
-        <Typography variant="h3" sx={{ fontSize: 'clamp(1.75rem, 4vw, 2.5rem)' }}>
+        <Typography variant="h3" sx={{ color: 'inherit', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)' }}>
           {translate('title')}
         </Typography>
-        <Typography sx={{ maxWidth: 480, opacity: 0.9 }}>{translate('text')}</Typography>
+        <Typography sx={{ color: 'inherit', maxWidth: 480, opacity: 0.8 }}>
+          {translate('text')}
+        </Typography>
 
         <Button
           component={RouterLink}
@@ -48,7 +50,7 @@ export const Cta = () => {
             textTransform: 'none',
             fontSize: '1rem',
             bgcolor: 'common.white',
-            color: 'primary.dark',
+            color: 'common.black',
             '&:hover': { bgcolor: 'common.white', transform: 'translateY(-2px)' },
             transition: 'transform .2s',
           }}
