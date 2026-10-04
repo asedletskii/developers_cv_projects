@@ -180,9 +180,13 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup) {
+func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup, contactViewRateLimiter gin.HandlerFunc) {
 	api.GET("/cv/:linkId", handler.public.Handle)
-	api.POST("/cv/:linkId/contact-views", handler.ViewContact)
+	if contactViewRateLimiter != nil {
+		api.POST("/cv/:linkId/contact-views", contactViewRateLimiter, handler.ViewContact)
+	} else {
+		api.POST("/cv/:linkId/contact-views", handler.ViewContact)
+	}
 	lk.GET("/links", handler.List)
 	lk.POST("/link", handler.Create)
 	lk.DELETE("/link/:linkId", handler.Delete)

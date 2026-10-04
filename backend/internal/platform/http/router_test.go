@@ -96,6 +96,47 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 	require.Contains(t, w.Body.String(), "NOT_FOUND")
 }
 
+func TestRouterAppliesDedicatedContactViewRateLimitOnlyToContactViewRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App: config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+		HTTP: config.HTTPConfig{
+			ContactViewRateLimit: config.RateLimitConfig{Enabled: true, Rate: 60, Burst: 1},
+		},
+	}
+	log := zaptest.NewLogger(t)
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		nil,
+		fakeAuthenticate,
+	)
+	require.NoError(t, err)
+
+	contactURL := "/api/v1/cv/" + uuid.NewString() + "/contact-views"
+	firstContact := httptest.NewRecorder()
+	router.Handler().ServeHTTP(firstContact, httptest.NewRequest(http.MethodPost, contactURL, strings.NewReader(`{"contact":"email"}`)))
+	require.Equal(t, http.StatusInternalServerError, firstContact.Code)
+
+	secondContact := httptest.NewRecorder()
+	router.Handler().ServeHTTP(secondContact, httptest.NewRequest(http.MethodPost, contactURL, strings.NewReader(`{"contact":"email"}`)))
+	require.Equal(t, http.StatusTooManyRequests, secondContact.Code)
+
+	publicURL := "/api/v1/cv/" + uuid.NewString()
+	public := httptest.NewRecorder()
+	router.Handler().ServeHTTP(public, httptest.NewRequest(http.MethodGet, publicURL, nil))
+	require.NotEqual(t, http.StatusTooManyRequests, public.Code)
+}
+
 func fakeAuthenticate(context.Context, *http.Request) (uuid.UUID, error) {
 	return uuid.New(), nil
 }

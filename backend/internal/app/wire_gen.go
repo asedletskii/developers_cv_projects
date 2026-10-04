@@ -44,6 +44,11 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 
+	turnstileVerifierValue, err := newTurnstileVerifier(configValue)
+	if err != nil {
+		return nil, err
+	}
+
 	loggerValue, err := logger.New(configValue.Log)
 	if err != nil {
 		return nil, err
@@ -140,7 +145,7 @@ func Initialize() (*Application, error) {
 	resumeLinkStatisticsQueryHandlerValue := resumelinkqueries.NewGetResumeLinkStatisticsQueryHandler(resumeLinkReaderValue, resumeReaderValue, resumeLinkReaderValue)
 	contactViewQueryHandlerValue := queries.NewContactViewQueryHandler(resumeReaderValue)
 	contactViewThroughLinkQueryHandlerValue := resumelinkqueries.NewContactViewThroughLinkQueryHandler(resumeLinkReaderValue, contactViewQueryHandlerValue, resumeLinkEventRecorderValue)
-	contactViewHandlerValue := resumelinkpublichandler.NewContactViewHandler(contactViewThroughLinkQueryHandlerValue)
+	contactViewHandlerValue := resumelinkpublichandler.NewContactViewHandler(contactViewThroughLinkQueryHandlerValue, turnstileVerifierValue)
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	replaceUserProfileHandlerValue := usercommands.NewReplaceProfileHandler(profileRepositoryValue, unitOfWorkValue)
