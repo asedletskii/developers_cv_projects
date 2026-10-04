@@ -64,7 +64,11 @@ export const Team = () => {
 
               <Stack spacing={0.25}>
                 <Typography variant="h6">{name}</Typography>
-                <Typography sx={{ color: 'primary.main' }}>
+                <Typography
+                  sx={({ palette }) => ({
+                    color: palette.mode === 'light' ? 'text.secondary' : 'primary.main',
+                  })}
+                >
                   {translateDevelopers(`Roles.${roleKey}`)}
                 </Typography>
               </Stack>
