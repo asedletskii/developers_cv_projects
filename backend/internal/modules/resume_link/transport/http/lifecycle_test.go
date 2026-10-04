@@ -192,7 +192,7 @@ func newAuthenticatedEngine(handler *Handler, userID uuid.UUID) *gin.Engine {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1/lk"))
+	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 	return engine
 }
 

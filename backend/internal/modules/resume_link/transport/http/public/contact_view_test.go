@@ -13,10 +13,23 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
+	resumelinkports "developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
+
+type tokenVerifierStub struct {
+	err   error
+	token string
+	ip    string
+}
+
+func (s *tokenVerifierStub) Verify(_ context.Context, token string, remoteIP string) error {
+	s.token = token
+	s.ip = remoteIP
+	return s.err
+}
 
 type contactViewQueryStub struct {
 	view  resumequeries.ContactView
@@ -36,10 +49,11 @@ func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	linkID := sharedvalueobjects.NewID()
 	query := &contactViewQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
+	verifier := &tokenVerifierStub{}
 	engine := gin.New()
-	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
@@ -49,15 +63,17 @@ func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 	require.Equal(t, resumedomain.ContactKeyEmail, query.query.Contact)
 	require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 	require.JSONEq(t, `{"contact":"email","value":"person@example.com"}`, w.Body.String())
+	require.NotContains(t, w.Body.String(), "test-token")
 }
 
 func TestContactViewHandlerRejectsInvalidLinkID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	query := &contactViewQueryStub{}
+	verifier := &tokenVerifierStub{}
 	engine := gin.New()
-	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/not-a-uuid/contact-views", strings.NewReader(`{"contact":"email"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/not-a-uuid/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
@@ -80,10 +96,11 @@ func TestContactViewHandlerMapsMissingOrInactiveLink(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
 			query := &contactViewQueryStub{err: tt.err}
+			verifier := &tokenVerifierStub{}
 			engine := gin.New()
-			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
+			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			engine.ServeHTTP(w, req)
@@ -106,10 +123,11 @@ func TestContactViewHandlerMapsResumeContactErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
 			query := &contactViewQueryStub{err: tt.err}
+			verifier := &tokenVerifierStub{}
 			engine := gin.New()
-			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query).Handle)
+			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email"}`))
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			engine.ServeHTTP(w, req)
@@ -117,4 +135,40 @@ func TestContactViewHandlerMapsResumeContactErrors(t *testing.T) {
 			require.Equal(t, tt.code, w.Code)
 		})
 	}
+}
+
+func TestContactViewHandlerRejectsInvalidTokenBeforeVerifier(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	query := &contactViewQueryStub{}
+	verifier := &tokenVerifierStub{}
+	engine := gin.New()
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":""}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Empty(t, verifier.token)
+	require.True(t, query.query.LinkID.IsZero())
+}
+
+func TestContactViewHandlerMapsTokenVerificationFailureToForbidden(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	query := &contactViewQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
+	verifier := &tokenVerifierStub{err: resumelinkports.ErrTokenVerificationFailed}
+	engine := gin.New()
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	require.Contains(t, w.Body.String(), "Contact verification failed")
+	require.NotContains(t, w.Body.String(), "test-token")
+	require.NotContains(t, w.Body.String(), "invalid-input-secret")
+	require.True(t, query.query.LinkID.IsZero())
 }
