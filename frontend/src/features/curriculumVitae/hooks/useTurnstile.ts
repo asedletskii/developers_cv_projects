@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import {
+  TURNSTILE_ACTION,
   TURNSTILE_SCRIPT_SRC,
   TURNSTILE_TOKEN_TIMEOUT_MS,
 } from '@features/curriculumVitae/constants'
@@ -41,10 +42,6 @@ const loadTurnstile = () => {
 
 type Pending = { resolve: (token: string) => void; reject: (error: Error) => void }
 
-/** Cloudflare Turnstile в режиме «по требованию»: виджет молчит, пока не позвали `getToken`, и показывает
- *  задачу, только если Cloudflare сам решил, что она нужна (`interaction-only`). Токен одноразовый — на
- *  каждое действие запрашиваем новый. Без `VITE_TURNSTILE_SITE_KEY` защита выключена и `getToken`
- *  возвращает `undefined` (локальная разработка). */
 export const useTurnstile = () => {
   const containerRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | undefined>(undefined)
@@ -61,6 +58,7 @@ export const useTurnstile = () => {
 
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
+          action: TURNSTILE_ACTION,
           execution: 'execute',
           appearance: 'interaction-only',
           theme: 'auto',
@@ -98,7 +96,6 @@ export const useTurnstile = () => {
         reject: (error) => (window.clearTimeout(timer), reject(error)),
       }
 
-      // execute() второй раз без reset() падает, а токен всё равно одноразовый
       turnstile.reset(widgetId)
       turnstile.execute(widgetId)
     }).finally(() => {
