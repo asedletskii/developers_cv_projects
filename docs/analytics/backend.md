@@ -73,7 +73,10 @@ ALTER TABLE resume_link_events ADD CONSTRAINT resume_link_events_type_check CHEC
     'section_view',    -- клиент, payload: {"section":"experience"}
     'download',        -- клиент
     'tech_filter',     -- клиент, payload: {"technology":"Go","action":"select"|"clear"}
-    'external_click'   -- клиент, payload: {"kind":"project"|"git"|"contact","target":"github.com"}
+    'external_click',  -- клиент, payload: {"kind":"project"|"git"|"contact"|"other","target":"github.com"}
+    'print',           -- клиент: печать или «сохранить как PDF» (beforeprint)
+    'contact_copy',    -- клиент, payload: {"contact":"telegram"} — скопировали раскрытый контакт
+    'contact_click'    -- клиент, payload: {"contact":"telegram"} — перешли по контакту (t.me, mailto, tel)
 ));
 
 CREATE UNIQUE INDEX ux_resume_link_events_client_id
@@ -82,6 +85,8 @@ CREATE INDEX idx_resume_link_events_view_id ON resume_link_events (view_id);
 ```
 
 `payload` — `jsonb`, но с жёсткой схемой на каждый тип в домене (`domain/event.go`): неизвестные ключи отбрасываются, строки обрезаются до 64 символов, `section` и `contact` проверяются по существующим enum (`SectionId`, `ContactKey`).
+
+`print` — отдельный тип без payload. Клиент не шлёт его чаще раза в 2 секунды (браузеры иногда стреляют `beforeprint` дважды), но сервер всё равно считает одну печать за визит с интервалом меньше 2 секунд дублем. `contact_copy` и `contact_click` несут `contact` из `ContactKey` и отличаются от серверного `contact_view` (раскрытие) тем, что описывают поведение *после* раскрытия: скопировал ли человек значение и перешёл ли по нему.
 
 Время активности, скролл и точка ухода **не** пишутся отдельными событиями: они обновляют поля визита (`active_ms`, `max_section`, `exit_section`). Отдельное событие на каждую секцию (`section_view`) пишется один раз за визит — для отчёта «до какой секции дочитывают».
 
