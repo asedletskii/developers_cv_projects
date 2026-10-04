@@ -14,6 +14,9 @@ export enum AnalyticsEventType {
   Download = 'download',
   TechFilter = 'tech_filter',
   ExternalClick = 'external_click',
+  Print = 'print',
+  ContactCopy = 'contact_copy',
+  ContactClick = 'contact_click',
   ContactView = 'contact_view', // только в ленте визитов, клиент его не шлёт
 }
 
@@ -54,6 +57,9 @@ export enum TrafficType {
 | **Активное время** | `document.visibilityState` | Таймер тикает, только пока вкладка видима. Уходит в `state.activeMs` (накопительно). |
 | **Дочитывание** | `IntersectionObserver` на корне каждой `Section` | Секция считается просмотренной, если ≥ 40 % её высоты (или ≥ 50 % viewport для высоких секций) видно ≥ 1 с. Один раз за визит на секцию — событие `section_view`. Самая дальняя по порядку — `state.maxSection`. |
 | **Точка ухода** | тот же observer | Секция, занимающая большую часть viewport в момент последнего флаша, — `state.exitSection`. |
+| **Печать** | `window` | `beforeprint` → `track({ type: Print })`, на `afterprint` сразу `flush()` (после диалога вкладку часто закрывают). Повтор в пределах 2 с трекер отбрасывает сам. Захватывает и Ctrl+P, и «сохранить как PDF» из меню браузера. |
+| **Копирование контакта** | `useContactButton` | После успешной записи в буфер → `track({ type: ContactCopy, contact })`. |
+| **Переход по контакту** | `ContactButton` | `onClick` по раскрытой (или открытой) ссылке Telegram, почты, телефона → `track({ type: ContactClick, contact })`. Ссылка не перехватывается. |
 | **Скачивание** | `ResumeButton` | `onClick` → `track({ type: Download })`. Ссылка остаётся `<a download>`, клик не перехватываем. |
 | **Фильтр технологий** | `TechnologyFilterProvider` / `useTechnologyFilter` | При выборе и сбросе → `track({ type: TechFilter, technology, action })`. Дебаунс не нужен — это дискретные клики. |
 | **Внешние ссылки** | `ExternalLink`, ссылки проектов и git | `track({ type: ExternalClick, kind, target: hostname })`. Полный URL не шлём. |
@@ -83,6 +89,10 @@ export enum TrafficType {
 5. В очередь `clicks` трекера; отправка тем же батчем.
 
 Троттлинг: не больше 1 клика в 100 мс и 200 кликов на визит.
+
+### Раскладка и порядок секций
+
+Трекер ничего не знает про порядок секций и версии: `section_view` несёт только id секции, а клик — `section`, проценты внутри неё и `vw`. Снимок раскладки (`layout.order`, `layout_hash`) сервер делает сам при `GET /cv/:linkId`, подробности — в [бэкенде](backend.md#снимок-раскладки).
 
 ### Владелец на своей странице
 
@@ -147,6 +157,7 @@ AnalyticsTab/
 
 ### Click-map (этап 4)
 
+- Карта по умолчанию строится только по кликам на *актуальную* версию секции (`layout_hash`). Если часть кликов пришла на прошлые версии, под картой строка «ещё N кликов по прежней версии секции не показаны» и переключатель «Показать и их» (`includeStale=true`) с пометкой, что положение может быть неточным.
 - Режим «Карта кликов» открывает предпросмотр резюме (те же компоненты, что в `LkResumeScreen`) с переключателем брейкпоинта `xs / md / lg` — ширина контейнера фиксируется под брейкпоинт, чтобы сетка совпала.
 - Для каждой секции `GET /lk/link/:linkId/clicks?section&breakpoint` → сетка 20×20 → `<canvas>` поверх корня секции (`position: absolute`, `pointer-events: none`), ячейки с прозрачностью по `count / max`.
 - Своего рисования хватит. `heatmap.js`, упомянутый в TODO, даёт размытую «тепловую» картинку, но для сетки 20×20 это одна зависимость ради красоты; решение можно принять на этапе 4.
