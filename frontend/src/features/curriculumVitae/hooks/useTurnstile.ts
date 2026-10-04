@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react'
 import {
   TURNSTILE_SCRIPT_SRC,
-  TURNSTILE_SITE_KEY,
   TURNSTILE_TOKEN_TIMEOUT_MS,
 } from '@features/curriculumVitae/constants'
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY
 
 type TurnstileApi = {
   render: (container: HTMLElement, options: Record<string, unknown>) => string
