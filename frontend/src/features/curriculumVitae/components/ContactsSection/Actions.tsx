@@ -1,6 +1,8 @@
 import { useTurnstile } from '@features/curriculumVitae/hooks'
+import { glassCard } from '@features/curriculumVitae/styles'
 import { ContactLink } from '@features/curriculumVitae/utils'
-import { Box, Stack } from '@mui/material'
+import { Box, Dialog, DialogContent, DialogTitle, Stack } from '@mui/material'
+import { useTranslate } from '@shared/hooks'
 import { ContactButton } from './ContactButton'
 
 type Props = {
@@ -9,7 +11,8 @@ type Props = {
 }
 
 export const Actions = ({ resumeId, links }: Props) => {
-  const { containerRef, getToken } = useTurnstile()
+  const translate = useTranslate('CurriculumVitae.Contacts')
+  const { setContainer, getToken, isChallengeVisible, cancel } = useTurnstile()
 
   return (
     <>
@@ -24,10 +27,23 @@ export const Actions = ({ resumeId, links }: Props) => {
         ))}
       </Stack>
 
-      <Box
-        ref={containerRef}
-        sx={{ position: 'relative', display: 'flex', justifyContent: 'center' }}
-      />
+      {/* Cloudflare показывает задачу, только если сочтёт её нужной, — тогда открывается модалка.
+          keepMounted: виджет рисуется в контейнер заранее, а не в момент открытия. Закрыть можно
+          по Esc или клику мимо — это отменяет ожидание токена, отдельная кнопка не нужна */}
+      <Dialog
+        open={isChallengeVisible}
+        onClose={cancel}
+        keepMounted
+        fullWidth
+        maxWidth="xs"
+        slotProps={{ paper: { sx: { ...glassCard, backgroundImage: 'none' } } }}
+      >
+        <DialogTitle>{translate('Challenge.title')}</DialogTitle>
+
+        <DialogContent>
+          <Box ref={setContainer} sx={{ display: 'flex', justifyContent: 'center' }} />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

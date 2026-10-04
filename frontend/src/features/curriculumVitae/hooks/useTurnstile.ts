@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   TURNSTILE_ACTION,
   TURNSTILE_SCRIPT_SRC,
@@ -42,29 +42,46 @@ const loadTurnstile = () => {
 
 type Pending = { resolve: (token: string) => void; reject: (error: Error) => void }
 
+/** Cloudflare Turnstile в режиме «по требованию»: виджет молчит, пока не позвали `getToken`, и показывает
+ *  задачу, только если Cloudflare сам решил, что она нужна (`interaction-only`) — тогда `isChallengeVisible`
+ *  становится `true`, и вызывающий показывает контейнер (`setContainer`), например в модалке. Токен
+ *  одноразовый — на каждое действие запрашиваем новый. Без `VITE_TURNSTILE_SITE_KEY` защита выключена
+ *  и `getToken` возвращает `undefined` (локальная разработка). */
 export const useTurnstile = () => {
-  const containerRef = useRef<HTMLDivElement>(null)
+  // Контейнер лежит в состоянии, а не в ref: он может смонтироваться позже хука (например, внутри Dialog)
+  const [container, setContainer] = useState<HTMLElement | null>(null)
+  const [isChallengeVisible, setIsChallengeVisible] = useState(false)
   const widgetIdRef = useRef<string | undefined>(undefined)
   const pendingRef = useRef<Pending | undefined>(undefined)
 
   useEffect(() => {
-    if (!TURNSTILE_SITE_KEY) return
+    if (!TURNSTILE_SITE_KEY || !container) return
 
     let isCancelled = false
 
+    const fail = (message: string) => {
+      setIsChallengeVisible(false)
+      pendingRef.current?.reject(new Error(message))
+    }
+
     loadTurnstile()
       .then(() => {
-        if (isCancelled || !containerRef.current || !window.turnstile) return
+        if (isCancelled || !window.turnstile) return
 
-        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+        widgetIdRef.current = window.turnstile.render(container, {
           sitekey: TURNSTILE_SITE_KEY,
           action: TURNSTILE_ACTION,
           execution: 'execute',
           appearance: 'interaction-only',
           theme: 'auto',
-          callback: (token: string) => pendingRef.current?.resolve(token),
-          'error-callback': () => pendingRef.current?.reject(new Error('Turnstile error')),
-          'timeout-callback': () => pendingRef.current?.reject(new Error('Turnstile timeout')),
+          'before-interactive-callback': () => setIsChallengeVisible(true),
+          'after-interactive-callback': () => setIsChallengeVisible(false),
+          callback: (token: string) => {
+            setIsChallengeVisible(false)
+            pendingRef.current?.resolve(token)
+          },
+          'error-callback': () => fail('Turnstile error'),
+          'timeout-callback': () => fail('Turnstile timeout'),
         })
       })
       .catch(() => undefined)
@@ -74,7 +91,7 @@ export const useTurnstile = () => {
       if (widgetIdRef.current) window.turnstile?.remove(widgetIdRef.current)
       widgetIdRef.current = undefined
     }
-  }, [])
+  }, [container])
 
   const getToken = useCallback(async (): Promise<string | undefined> => {
     if (!TURNSTILE_SITE_KEY) return undefined
@@ -96,6 +113,7 @@ export const useTurnstile = () => {
         reject: (error) => (window.clearTimeout(timer), reject(error)),
       }
 
+      // execute() второй раз без reset() падает, а токен всё равно одноразовый
       turnstile.reset(widgetId)
       turnstile.execute(widgetId)
     }).finally(() => {
@@ -103,5 +121,11 @@ export const useTurnstile = () => {
     })
   }, [])
 
-  return { containerRef, getToken }
+  /** Человек закрыл задачу, не решив её: отменяем ожидание токена */
+  const cancel = useCallback(() => {
+    setIsChallengeVisible(false)
+    pendingRef.current?.reject(new Error('Turnstile cancelled'))
+  }, [])
+
+  return { setContainer, getToken, isChallengeVisible, cancel }
 }

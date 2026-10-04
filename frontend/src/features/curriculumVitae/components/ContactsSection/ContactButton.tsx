@@ -5,7 +5,7 @@ import {
   getContactHref,
 } from '@features/curriculumVitae/utils'
 import { ContentCopyRounded } from '@mui/icons-material'
-import { Button, IconButton, Stack } from '@mui/material'
+import { Button, CircularProgress, IconButton, Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { CONTACT_BUTTON_SX } from './constants'
 import { useContactButton } from './hooks'
@@ -26,7 +26,7 @@ export const ContactButton = ({ resumeId, link, getToken }: Props) => {
       <Button
         onClick={reveal}
         disabled={isRevealing}
-        startIcon={icon}
+        startIcon={isRevealing ? <CircularProgress size={18} color="inherit" /> : icon}
         size="large"
         sx={CONTACT_BUTTON_SX}
       >
