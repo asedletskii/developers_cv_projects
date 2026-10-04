@@ -1,7 +1,12 @@
 import { API_ROUTES } from '@features/curriculumVitae/constants'
 import {
+  ClickBreakpoint,
+  ClickGrid,
   ContactKey,
+  DailyPoint,
+  LinkStatistics,
   LinkStatus,
+  LinkVisitsPage,
   ListSection,
   LkLocalizedProfile,
   LkProfile,
@@ -9,11 +14,16 @@ import {
   Resume,
   ResumeLanguage,
   ResumeLink,
+  ResumeStatistics,
   ResumeStatus,
+  SectionsStatistics,
   SingletonSection,
+  TechnologyInterest,
 } from '@features/curriculumVitae/types'
 import { api } from '@shared/api'
 import { generatePath } from 'react-router'
+
+type AnalyticsParams = { from: string; to: string; tz: string }
 
 class CurriculumVitaeApi {
   async getPublicResume(resumeId: string, signal?: AbortSignal): Promise<Resume> {
@@ -123,6 +133,92 @@ class CurriculumVitaeApi {
     status: LinkStatus,
   ): Promise<void> {
     await api.put(generatePath(API_ROUTES.lkLinkStatus, { linkId }), { version, status })
+  }
+
+  async getLinkStatistics(
+    linkId: string,
+    params: AnalyticsParams,
+    signal?: AbortSignal,
+  ): Promise<LinkStatistics> {
+    const response = await api.get<LinkStatistics>(
+      generatePath(API_ROUTES.lkLinkStatistics, { linkId }),
+      { params, signal },
+    )
+    return response.data
+  }
+
+  async getLinkDaily(
+    linkId: string,
+    params: AnalyticsParams,
+    signal?: AbortSignal,
+  ): Promise<DailyPoint[]> {
+    const response = await api.get<{ days: DailyPoint[] }>(
+      generatePath(API_ROUTES.lkLinkDaily, { linkId }),
+      { params, signal },
+    )
+    return response.data.days
+  }
+
+  async getLinkVisits(
+    linkId: string,
+    cursor?: string | null,
+    signal?: AbortSignal,
+  ): Promise<LinkVisitsPage> {
+    const response = await api.get<LinkVisitsPage>(
+      generatePath(API_ROUTES.lkLinkVisits, { linkId }),
+      { params: { cursor: cursor ?? undefined, limit: 20 }, signal },
+    )
+    return response.data
+  }
+
+  async getResumeStatistics(
+    resumeId: string,
+    params: AnalyticsParams,
+    signal?: AbortSignal,
+  ): Promise<ResumeStatistics> {
+    const response = await api.get<ResumeStatistics>(
+      generatePath(API_ROUTES.lkResumeStatistics, { resumeId }),
+      { params, signal },
+    )
+    return response.data
+  }
+
+  async getLinkSections(
+    linkId: string,
+    params: AnalyticsParams,
+    signal?: AbortSignal,
+  ): Promise<SectionsStatistics> {
+    const response = await api.get<SectionsStatistics>(
+      generatePath(API_ROUTES.lkLinkSections, { linkId }),
+      { params, signal },
+    )
+    return response.data
+  }
+
+  async getLinkTechnologies(
+    linkId: string,
+    params: AnalyticsParams,
+    signal?: AbortSignal,
+  ): Promise<TechnologyInterest[]> {
+    const response = await api.get<{ technologies: TechnologyInterest[] }>(
+      generatePath(API_ROUTES.lkLinkTechnologies, { linkId }),
+      { params, signal },
+    )
+    return response.data.technologies
+  }
+
+  async getLinkClicks(
+    linkId: string,
+    section: string,
+    breakpoint: ClickBreakpoint,
+    includeStale: boolean,
+    signal?: AbortSignal,
+  ): Promise<ClickGrid> {
+    const response = await api.get<ClickGrid>(generatePath(API_ROUTES.lkLinkClicks, { linkId }), {
+      params: { section, breakpoint, includeStale: includeStale || undefined },
+      signal,
+    })
+    return response.data
   }
 }
 

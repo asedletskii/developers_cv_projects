@@ -88,3 +88,17 @@ export enum SectionId {
   Activities = 'activities',
   Contacts = 'contacts',
 }
+
+export enum DeviceType {
+  Desktop = 'desktop',
+  Mobile = 'mobile',
+  Tablet = 'tablet',
+  Unknown = 'unknown',
+}
+
+export enum TrafficType {
+  Human = 'human',
+  Bot = 'bot',
+  Owner = 'owner',
+  Suspect = 'suspect',
+}

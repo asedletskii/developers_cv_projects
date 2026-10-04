@@ -50,8 +50,105 @@ export const lkDict = {
       },
 
       Analytics: {
-        title: 'Аналитика скоро появится',
-        text: 'Здесь будет статистика просмотров резюме и переходов по ссылкам.',
+        allLinks: 'Все ссылки',
+        period: 'Период',
+        days: '{{count}} дн.',
+        refresh: 'Обновить',
+        loadErrorTitle: 'Не удалось загрузить статистику',
+        loadError: 'Возможно, дело в сети или сбое на сервере — попробуйте ещё раз.',
+        retry: 'Повторить',
+        emptyTitle: 'Пока никто не открывал',
+        emptyText: 'Отправьте ссылку — здесь появятся просмотры.',
+
+        Summary: {
+          views: 'Открытия',
+          reads: 'Прочтения',
+          visitors: 'Посетители',
+          contacts: 'Раскрытия контактов',
+          downloads: 'Скачивания',
+          period: 'за период',
+          firstLast: 'Первый просмотр {{first}} · последний {{last}}',
+          filtered: 'Отфильтровано: ботов {{bot}}, ваших просмотров {{owner}}',
+          readsHint: 'Открытия, где резюме действительно смотрели не меньше 5 секунд',
+        },
+
+        Links: {
+          title: 'По ссылкам',
+          reads: 'прочт.',
+          last: 'последний {{time}}',
+          never: 'не открывали',
+        },
+
+        Chart: {
+          title: 'Просмотры по дням',
+          views: 'Открытия',
+          reads: 'Прочтения',
+          tooShort: 'Данных пока мало — график появится, когда будет хотя бы три открытия.',
+        },
+
+        Feed: {
+          title: 'Лента визитов',
+          loadMore: 'Показать ещё',
+          empty: 'Визитов за это время не было',
+          visitor: 'Посетитель №{{n}}',
+          returning: 'заходил раньше',
+          bounced: 'открыл и закрыл',
+          reached: 'дошёл до «{{section}}»',
+          exit: 'ушёл на «{{section}}»',
+          contact: 'раскрыл {{contact}}',
+          techFilter: 'фильтр «{{technology}}»',
+          download: 'скачал резюме',
+          referrer: 'из {{host}}',
+          direct: 'напрямую',
+        },
+
+        Device: {
+          desktop: 'компьютер',
+          mobile: 'телефон',
+          tablet: 'планшет',
+          unknown: 'устройство неизвестно',
+        },
+
+        Tabs: {
+          overview: 'Обзор',
+          clickMap: 'Карта кликов',
+        },
+
+        Breakdown: {
+          devices: 'Устройства',
+          referrers: 'Откуда пришли',
+          direct: 'Напрямую',
+        },
+
+        Funnel: {
+          title: 'До какой секции дочитывают',
+          hint: 'Считается только по прочтениям: сколько дошло до секции и сколько закончило на ней просмотр.',
+          exits: 'ушли: {{count}}',
+        },
+
+        Tech: {
+          title: 'Что интересовало в стеке',
+          hint: 'Какие технологии выбирали в фильтре на странице резюме.',
+          visitors: '{{count}} чел.',
+          empty: 'Фильтром по технологиям пока не пользовались',
+        },
+
+        ClickMap: {
+          title: 'Карта кликов',
+          hint: 'Цвет клетки показывает, как часто в неё кликали. Раскладка — как у посетителей с экраном выбранной ширины.',
+          legendLow: 'реже',
+          legendHigh: 'чаще',
+          staleHidden:
+            'Ещё {{count}} кликов пришли на прежние версии секций (с тех пор их меняли) — на карте не показаны.',
+          staleIncluded:
+            'Показаны и клики по прежним версиям секций — положение у них может быть неточным.',
+          staleShow: 'Показать и их',
+          staleHide: 'Скрыть',
+          breakpoint: { xs: 'Телефон', md: 'Планшет', lg: 'Компьютер' },
+          clicks: '{{count}} кл.',
+          empty: 'Кликов на этом экране пока нет',
+          loading: 'Загружаем предпросмотр…',
+        },
       },
 
       Profile: {
@@ -318,8 +415,105 @@ export const lkDict = {
       },
 
       Analytics: {
-        title: 'Analytics is coming soon',
-        text: 'Résumé views and link clicks will show up here.',
+        allLinks: 'All links',
+        period: 'Period',
+        days: '{{count}} d',
+        refresh: 'Refresh',
+        loadErrorTitle: "Couldn't load the statistics",
+        loadError: 'It might be the network or a server hiccup — try again.',
+        retry: 'Retry',
+        emptyTitle: 'No one has opened it yet',
+        emptyText: 'Send the link — views will show up here.',
+
+        Summary: {
+          views: 'Opens',
+          reads: 'Reads',
+          visitors: 'Visitors',
+          contacts: 'Contact reveals',
+          downloads: 'Downloads',
+          period: 'in the period',
+          firstLast: 'First view {{first}} · last {{last}}',
+          filtered: 'Filtered out: bots {{bot}}, your own views {{owner}}',
+          readsHint: 'Opens where the résumé was actually looked at for at least 5 seconds',
+        },
+
+        Links: {
+          title: 'By link',
+          reads: 'reads',
+          last: 'last {{time}}',
+          never: 'never opened',
+        },
+
+        Chart: {
+          title: 'Views by day',
+          views: 'Opens',
+          reads: 'Reads',
+          tooShort: 'Not enough data yet — the chart appears after at least three opens.',
+        },
+
+        Feed: {
+          title: 'Visit feed',
+          loadMore: 'Show more',
+          empty: 'No visits in this period',
+          visitor: 'Visitor #{{n}}',
+          returning: 'visited before',
+          bounced: 'opened and closed',
+          reached: 'reached “{{section}}”',
+          exit: 'left on “{{section}}”',
+          contact: 'revealed {{contact}}',
+          techFilter: 'filter “{{technology}}”',
+          download: 'downloaded the résumé',
+          referrer: 'from {{host}}',
+          direct: 'direct',
+        },
+
+        Device: {
+          desktop: 'desktop',
+          mobile: 'phone',
+          tablet: 'tablet',
+          unknown: 'unknown device',
+        },
+
+        Tabs: {
+          overview: 'Overview',
+          clickMap: 'Click map',
+        },
+
+        Breakdown: {
+          devices: 'Devices',
+          referrers: 'Where from',
+          direct: 'Direct',
+        },
+
+        Funnel: {
+          title: 'How far people read',
+          hint: 'Counted over reads only: how many reached a section and how many ended their visit on it.',
+          exits: 'left: {{count}}',
+        },
+
+        Tech: {
+          title: 'What caught their eye in the stack',
+          hint: 'Which technologies were picked in the filter on the résumé page.',
+          visitors: '{{count}} people',
+          empty: 'The technology filter has not been used yet',
+        },
+
+        ClickMap: {
+          title: 'Click map',
+          hint: 'The cell colour shows how often it was clicked. The layout matches visitors with a screen of the chosen width.',
+          legendLow: 'fewer',
+          legendHigh: 'more',
+          staleHidden:
+            '{{count}} more clicks hit earlier versions of the sections (they have been edited since) and are not shown.',
+          staleIncluded:
+            'Clicks on earlier section versions are included too — their position may be off.',
+          staleShow: 'Show them',
+          staleHide: 'Hide',
+          breakpoint: { xs: 'Phone', md: 'Tablet', lg: 'Desktop' },
+          clicks: '{{count}} clicks',
+          empty: 'No clicks on this screen yet',
+          loading: 'Loading the preview…',
+        },
       },
 
       Profile: {

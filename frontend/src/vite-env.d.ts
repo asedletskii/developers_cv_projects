@@ -6,6 +6,9 @@ interface ImportMetaEnv {
 
   /** uuid существующего пользователя — для бэка с AUTH_MODE=mock вместо входа через Telegram. */
   readonly VITE_MOCK_USER_ID?: string
+
+  /** `true` — в dev подменяет ручки аналитики моками (бэкенд их ещё не реализовал). */
+  readonly VITE_MOCK_ANALYTICS?: string
 }
 
 interface ImportMeta {

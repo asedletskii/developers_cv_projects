@@ -11,4 +11,11 @@ export const API_ROUTES = {
   lkLinks: '/lk/link',
   lkLink: '/lk/link/:linkId',
   lkLinkStatus: '/lk/link/:linkId/status',
+  lkLinkStatistics: '/lk/link/:linkId/statistics',
+  lkLinkDaily: '/lk/link/:linkId/statistics/daily',
+  lkLinkSections: '/lk/link/:linkId/statistics/sections',
+  lkLinkTechnologies: '/lk/link/:linkId/statistics/technologies',
+  lkLinkClicks: '/lk/link/:linkId/clicks',
+  lkLinkVisits: '/lk/link/:linkId/views',
+  lkResumeStatistics: '/lk/resume/:resumeId/statistics',
 } as const

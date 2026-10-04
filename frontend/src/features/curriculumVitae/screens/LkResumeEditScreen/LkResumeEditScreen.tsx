@@ -51,7 +51,9 @@ const LkResumeEditScreen = () => {
 
         {section === 'links' && <LinksTab linksState={linksState} />}
 
-        {section === 'analytics' && <AnalyticsTab />}
+        {section === 'analytics' && (
+          <AnalyticsTab resume={view} resumeId={view.id} linksState={linksState} />
+        )}
       </Stack>
     </LocalizationProvider>
   )

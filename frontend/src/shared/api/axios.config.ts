@@ -1,4 +1,5 @@
 import { sessionExpired } from '@features/auth/store/session'
+import { installAnalyticsMocks } from '@features/curriculumVitae/mocks/analyticsMocks'
 import { dispatch } from '@shared/store'
 import axios, { AxiosError } from 'axios'
 
@@ -20,6 +21,11 @@ export const api = axios.create({
 // сессионной cookie. Только для dev-сборки — в проде переменной нет, и ветка не компилируется в бандл.
 if (import.meta.env.DEV && import.meta.env.VITE_MOCK_USER_ID) {
   api.defaults.headers.common['X-Mock-User-ID'] = import.meta.env.VITE_MOCK_USER_ID
+}
+
+// Моки ручек аналитики, пока бэкенд их не сделал (см. docs/analytics). Только dev.
+if (import.meta.env.DEV && import.meta.env.VITE_MOCK_ANALYTICS === 'true') {
+  installAnalyticsMocks(api)
 }
 
 // Сессия — httpOnly cookie, обновить её самим нельзя (нет ручки /auth/refresh — только полный
