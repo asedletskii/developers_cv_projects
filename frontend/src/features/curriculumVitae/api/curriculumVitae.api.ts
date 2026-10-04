@@ -83,10 +83,14 @@ class CurriculumVitaeApi {
     await api.put(generatePath(API_ROUTES.lkSection, { resumeId, section }), body)
   }
 
-  async revealContact(resumeId: string, contact: ContactKey): Promise<string> {
+  async revealContact(
+    resumeId: string,
+    contact: ContactKey,
+    turnstileToken?: string,
+  ): Promise<string> {
     const response = await api.post<{ contact: ContactKey; value: string }>(
       generatePath(API_ROUTES.contactViews, { resumeId }),
-      { contact },
+      { contact, turnstileToken },
     )
     return response.data.value
   }
