@@ -15,4 +15,5 @@ export const CONTACT_BUTTON_SX = {
   color: 'primary.dark',
   '&:hover': { bgcolor: 'common.white', transform: 'translateY(-2px)' },
   transition: 'transform .2s',
+  '&.Mui-disabled': { bgcolor: 'common.white', color: 'primary.dark', opacity: 0.85 },
 } as const
