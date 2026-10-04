@@ -6,6 +6,9 @@ interface ImportMetaEnv {
 
   /** uuid существующего пользователя — для бэка с AUTH_MODE=mock вместо входа через Telegram. */
   readonly VITE_MOCK_USER_ID?: string
+
+  /** Публичный site key Cloudflare Turnstile для раскрытия контактов. Без него защита выключена. */
+  readonly VITE_TURNSTILE_SITE_KEY?: string
 }
 
 interface ImportMeta {
