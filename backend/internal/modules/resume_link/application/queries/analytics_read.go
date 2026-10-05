@@ -56,7 +56,7 @@ func NewAnalyticsPeriod(from, to, tz string, now time.Time) (AnalyticsPeriod, er
 	dayCount := 0
 	for d := fromDate; d.Before(toDate); d = d.AddDate(0, 0, 1) {
 		dayCount++
-		if dayCount > 366 {
+		if dayCount > 365 {
 			return AnalyticsPeriod{}, fmt.Errorf("%w: period exceeds 366 calendar days", ErrInvalidAnalyticsPeriod)
 		}
 	}

@@ -56,16 +56,19 @@ func mustLocation(t *testing.T, name string) *time.Location {
 
 func TestNewAnalyticsPeriodAllowsAtMost366CalendarDays(t *testing.T) {
 	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
-	_, err := NewAnalyticsPeriod("2024-01-01", "2025-01-01", "UTC", now)
-	require.NoError(t, err)
-
-	period, err := NewAnalyticsPeriod("2024-01-01", "2025-01-01", "UTC", now)
+	period, err := NewAnalyticsPeriod("2024-01-01", "2024-12-31", "UTC", now)
 	require.NoError(t, err)
 	require.Len(t, period.Days(), 366)
 
+	_, err = NewAnalyticsPeriod("2024-01-01", "2025-01-01", "UTC", now)
+	require.ErrorIs(t, err, ErrInvalidAnalyticsPeriod)
 	_, err = NewAnalyticsPeriod("2024-01-01", "2025-01-02", "UTC", now)
 	require.ErrorIs(t, err, ErrInvalidAnalyticsPeriod)
-	_, err = NewAnalyticsPeriod("2025-01-01", "2026-01-01", "UTC", now)
+	period, err = NewAnalyticsPeriod("2025-01-01", "2026-01-01", "UTC", now)
+	require.NoError(t, err)
+	require.Len(t, period.Days(), 366)
+
+	_, err = NewAnalyticsPeriod("2025-01-01", "2026-01-02", "UTC", now)
 	require.ErrorIs(t, err, ErrInvalidAnalyticsPeriod)
 }
 
