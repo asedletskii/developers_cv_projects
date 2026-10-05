@@ -46,7 +46,7 @@ func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput
 	} else {
 		secure = false
 	}
-	if !input.DNT && !input.GPC && input.HasCookie && input.VisitorID != (sharedvalueobjects.ID{}) {
+	if input.HasCookie && input.VisitorID != (sharedvalueobjects.ID{}) {
 		return ports.VisitorIdentityResult{VisitorID: input.VisitorID, IPHash: ipHash}, nil
 	}
 	uaHash := i.dailyHMAC(now, "ua", input.UserAgent)
@@ -59,10 +59,6 @@ func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput
 	}
 
 	result := ports.VisitorIdentityResult{VisitorID: visitorID, IPHash: ipHash}
-	if input.DNT || input.GPC {
-		return result, nil
-	}
-
 	result.SetCookie = true
 	if secure {
 		result.Cookie = &http.Cookie{

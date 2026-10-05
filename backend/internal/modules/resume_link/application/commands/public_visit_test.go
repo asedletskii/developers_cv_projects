@@ -59,18 +59,3 @@ func TestCreatePublicVisitPersistsCompleteView(t *testing.T) {
 	require.Equal(t, domain.DeviceDesktop, view.Device())
 	require.Equal(t, []resumedomain.SectionID{resumedomain.SectionAbout}, view.Layout().Order())
 }
-
-func TestCreatePublicVisitRespectsDoNotTrack(t *testing.T) {
-	views := &publicVisitViewsStub{}
-	handler := NewCreatePublicVisitHandler(views, publicVisitIdentityStub{}, publicVisitClassifierStub{}, publicVisitLayoutStub{})
-	view, identity, err := handler.Handle(context.Background(), CreatePublicVisitInput{
-		LinkID:  sharedvalueobjects.NewID(),
-		Visitor: ports.PublicVisitInput{DNT: true},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, view)
-	require.Same(t, view, views.created)
-	require.Equal(t, view.ID(), identity.ViewID)
-	require.False(t, identity.SetCookie)
-	require.Nil(t, identity.Cookie)
-}

@@ -48,8 +48,6 @@ func (h *Handler) Handle(c *gin.Context) {
 			IP:        c.ClientIP(),
 			UserAgent: c.Request.UserAgent(),
 			Referrer:  referrerHost,
-			DNT:       c.GetHeader("DNT") == "1",
-			GPC:       c.GetHeader("Sec-GPC") == "1",
 		},
 	}
 	if userID, ok := middleware.GetUserID(c); ok {
@@ -58,18 +56,16 @@ func (h *Handler) Handle(c *gin.Context) {
 			input.Visitor.OwnerID = ownerID
 		}
 	}
-	if !input.Visitor.DNT && !input.Visitor.GPC {
-		cookieName := "cv_vid"
-		if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
-			cookieName = "__Secure-cv_vid"
-		}
-		if cookie, err := c.Request.Cookie(cookieName); err == nil {
-			if id, err := uuid.Parse(cookie.Value); err == nil && id != uuid.Nil {
-				if visitorID, err := sharedvalueobjects.IDFromUUID(id); err == nil {
-					input.Visitor.VisitorID = visitorID
-				}
-				input.Visitor.HasCookie = true
+	cookieName := "cv_vid"
+	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
+		cookieName = "__Secure-cv_vid"
+	}
+	if cookie, err := c.Request.Cookie(cookieName); err == nil {
+		if id, err := uuid.Parse(cookie.Value); err == nil && id != uuid.Nil {
+			if visitorID, err := sharedvalueobjects.IDFromUUID(id); err == nil {
+				input.Visitor.VisitorID = visitorID
 			}
+			input.Visitor.HasCookie = true
 		}
 	}
 	view, identity, err := h.query.HandleWithVisit(c.Request.Context(), queries.PublicResumeLinkQuery{LinkID: linkID, Visit: input})

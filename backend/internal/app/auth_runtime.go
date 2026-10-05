@@ -81,7 +81,3 @@ func newAnalyticsVisitorIdentifier(cfg config.Config) (*resumelinkanalytics.Visi
 func newAnalyticsTrafficClassifier(cfg config.Config) *resumelinkanalytics.TrafficClassifier {
 	return resumelinkanalytics.NewTrafficClassifier(cfg.Analytics.SuspectBurst, cfg.Analytics.SuspectWindow)
 }
-
-func newAnalyticsRespectDoNotTrack(cfg config.Config) bool {
-	return cfg.Analytics.RespectDoNotTrack
-}

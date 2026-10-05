@@ -122,7 +122,6 @@ func Initialize() (*Application, error) {
 	authenticateValue := newAuthenticate(runtimeAuthenticatorValue)
 	optionalAuthenticateValue := newOptionalAuthenticate(configValue.Auth, runtimeAuthenticatorValue)
 	analyticsVisitorIdentifierValue, err := newAnalyticsVisitorIdentifier(configValue)
-	analyticsRespectDoNotTrackValue := newAnalyticsRespectDoNotTrack(configValue)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +159,7 @@ func Initialize() (*Application, error) {
 	resumeLinkClicksQueryHandlerValue := resumelinkqueries.NewAnalyticsClickQueryHandler(resumeLinkReaderValue, resumeReaderValue, publicResumeQueryHandlerValue, layoutSnapshotBuilderValue, resumeLinkReaderValue)
 	contactViewQueryHandlerValue := queries.NewContactViewQueryHandler(resumeReaderValue)
 	contactViewThroughLinkQueryHandlerValue := resumelinkqueries.NewContactViewThroughLinkQueryHandlerWithAnalytics(resumeLinkReaderValue, contactViewQueryHandlerValue, resumeLinkRepositoryValue, resumeLinkRepositoryValue)
-	contactViewHandlerValue := resumelinkpublichandler.NewContactViewHandler(contactViewThroughLinkQueryHandlerValue, turnstileVerifierValue, analyticsRespectDoNotTrackValue)
+	contactViewHandlerValue := resumelinkpublichandler.NewContactViewHandler(contactViewThroughLinkQueryHandlerValue, turnstileVerifierValue)
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	replaceUserProfileHandlerValue := usercommands.NewReplaceProfileHandler(profileRepositoryValue, unitOfWorkValue)

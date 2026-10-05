@@ -16,8 +16,6 @@ type PublicVisitInput struct {
 	Referrer  string
 	VisitorID sharedvalueobjects.ID
 	ResumeID  string
-	DNT       bool
-	GPC       bool
 	OwnerID   sharedvalueobjects.ID
 	HasCookie bool
 }

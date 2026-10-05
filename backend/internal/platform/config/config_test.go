@@ -54,7 +54,6 @@ func TestLoadParsesConfiguration(t *testing.T) {
 		cfg.CORS.AllowedOrigins,
 	)
 	require.Equal(t, "console", cfg.Log.Format)
-	require.True(t, cfg.Analytics.RespectDoNotTrack)
 }
 
 func TestLoadParsesTurnstileConfiguration(t *testing.T) {
@@ -344,7 +343,7 @@ func TestValidateRejectsInvalidTrustedProxy(t *testing.T) {
 func productionSecurityTestConfig() Config {
 	return Config{
 		App:       AppConfig{Env: "production"},
-		Analytics: AnalyticsConfig{VisitorSecret: "production-test-analytics-secret-32-bytes-minimum", SuspectBurst: 5, SuspectWindow: time.Minute, RespectDoNotTrack: true},
+		Analytics: AnalyticsConfig{VisitorSecret: "production-test-analytics-secret-32-bytes-minimum", SuspectBurst: 5, SuspectWindow: time.Minute},
 		Auth: AuthConfig{
 			Mode:        "telegram",
 			Telegram:    TelegramAuthConfig{ClientID: "client-id", ClientSecret: "client-secret", RedirectURL: "https://example.com/api/v1/auth/telegram/callback", IssuerURL: "https://oauth.telegram.org"},
@@ -438,12 +437,4 @@ func TestValidateRejectsInvalidDedicatedAuthRateLimit(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "auth rate limits")
-}
-
-func TestLoadParsesRespectDoNotTrack(t *testing.T) {
-	setValidConfigEnvironment(t)
-	t.Setenv("RESPECT_DO_NOT_TRACK", "false")
-	cfg, err := parse()
-	require.NoError(t, err)
-	require.False(t, cfg.Analytics.RespectDoNotTrack)
 }

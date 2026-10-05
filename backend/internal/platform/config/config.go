@@ -130,10 +130,9 @@ type TelemetryConfig struct {
 }
 
 type AnalyticsConfig struct {
-	VisitorSecret     string
-	SuspectBurst      int
-	SuspectWindow     time.Duration
-	RespectDoNotTrack bool
+	VisitorSecret string
+	SuspectBurst  int
+	SuspectWindow time.Duration
 }
 
 type PrometheusConfig struct {
@@ -402,11 +401,6 @@ func parse() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	analyticsRespectDoNotTrack, err := envBool("RESPECT_DO_NOT_TRACK", true)
-	if err != nil {
-		return Config{}, err
-	}
-
 	prometheusEnabled, err := envBool("PROMETHEUS_ENABLED", true)
 	if err != nil {
 		return Config{}, err
@@ -525,7 +519,7 @@ func parse() (Config, error) {
 		Prometheus: PrometheusConfig{
 			Enabled: prometheusEnabled,
 		},
-		Analytics: AnalyticsConfig{VisitorSecret: analyticsVisitorSecret, SuspectBurst: analyticsSuspectBurst, SuspectWindow: analyticsSuspectWindow, RespectDoNotTrack: analyticsRespectDoNotTrack},
+		Analytics: AnalyticsConfig{VisitorSecret: analyticsVisitorSecret, SuspectBurst: analyticsSuspectBurst, SuspectWindow: analyticsSuspectWindow},
 		Postgres: PostgresConfig{
 			Host:            postgresHost,
 			Port:            postgresPort,

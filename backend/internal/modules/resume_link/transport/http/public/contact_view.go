@@ -23,13 +23,12 @@ type contactViewQuery interface {
 }
 
 type ContactViewHandler struct {
-	query          contactViewQuery
-	verifier       ports.TokenVerifier
-	respectPrivacy bool
+	query    contactViewQuery
+	verifier ports.TokenVerifier
 }
 
-func NewContactViewHandler(query contactViewQuery, verifier ports.TokenVerifier, respectPrivacy bool) *ContactViewHandler {
-	return &ContactViewHandler{query: query, verifier: verifier, respectPrivacy: respectPrivacy}
+func NewContactViewHandler(query contactViewQuery, verifier ports.TokenVerifier) *ContactViewHandler {
+	return &ContactViewHandler{query: query, verifier: verifier}
 }
 
 type contactViewRequest struct {
@@ -68,9 +67,6 @@ func (h *ContactViewHandler) Handle(c *gin.Context) {
 		}
 	}
 	var viewID sharedvalueobjects.ID
-	if h.respectPrivacy && (c.GetHeader("DNT") == "1" || c.GetHeader("Sec-GPC") == "1") {
-		body.ViewID = ""
-	}
 	if strings.TrimSpace(body.ViewID) != "" {
 		if parsed, err := uuid.Parse(strings.TrimSpace(body.ViewID)); err == nil && parsed != uuid.Nil {
 			parsedID, idErr := sharedvalueobjects.IDFromUUID(parsed)

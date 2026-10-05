@@ -261,7 +261,7 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
 	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(linkReader, contactView, linkRepository, linkRepository)
 	verifier := &integrationTokenVerifierStub{}
-	contactHandler := public.NewContactViewHandler(contactThroughLink, verifier, false)
+	contactHandler := public.NewContactViewHandler(contactThroughLink, verifier)
 
 	engine := gin.New()
 	api := engine.Group("/api/v1")
@@ -371,7 +371,7 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 
 	publicHandler := public.NewHandler(publicLink)
 	verifier := &integrationTokenVerifierStub{}
-	contactHandler := public.NewContactViewHandler(contactThroughLink, verifier, false)
+	contactHandler := public.NewContactViewHandler(contactThroughLink, verifier)
 	linkHandler := NewHandler(HandlerDependencies{
 		Public:      publicHandler,
 		ContactView: contactHandler,
@@ -568,7 +568,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 		List:        listLinks,
 		Delete:      deleteLink,
 		Public:      public.NewHandler(publicLink),
-		ContactView: public.NewContactViewHandler(contactThroughLink, &integrationTokenVerifierStub{}, false),
+		ContactView: public.NewContactViewHandler(contactThroughLink, &integrationTokenVerifierStub{}),
 		Statistics:  statistics,
 		Lifecycle:   lifecycle,
 	})

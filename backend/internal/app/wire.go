@@ -135,7 +135,6 @@ func Initialize() (*Application, error) {
 		resumelinkrepository.NewResumeLinkRepository,
 		newAnalyticsTrafficClassifier,
 		newAnalyticsVisitorIdentifier,
-		newAnalyticsRespectDoNotTrack,
 		newOptionalAuthenticate,
 		wire.Bind(new(resumelinkports.ResumeLinkRepository), new(*resumelinkrepository.ResumeLinkRepository)),
 		wire.Bind(new(resumelinkports.ViewRepository), new(*resumelinkrepository.ResumeLinkRepository)),

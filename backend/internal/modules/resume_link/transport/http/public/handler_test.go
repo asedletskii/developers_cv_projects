@@ -96,7 +96,7 @@ func TestHandlerEmitsViewIDAndVisitorCookie(t *testing.T) {
 	require.Contains(t, w.Header().Get("Set-Cookie"), "cv_vid="+cookieID.String())
 }
 
-func TestHandlerDoesNotEmitAnalyticsHeadersWhenVisitIsDisabled(t *testing.T) {
+func TestHandlerDoesNotEmitAnalyticsHeadersWhenVisitIsUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	query := &queryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
 	engine := gin.New()

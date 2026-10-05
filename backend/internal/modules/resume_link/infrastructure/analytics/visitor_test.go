@@ -49,29 +49,13 @@ func TestVisitorIdentifierProductionCookieIsSecure(t *testing.T) {
 	require.Equal(t, http.SameSiteLaxMode, result.Cookie.SameSite)
 }
 
-func TestVisitorIdentifierDoesNotSetCookieForDNT(t *testing.T) {
+func TestVisitorIdentifierAlwaysSetsCookieRegardlessOfPrivacyHeaders(t *testing.T) {
 	identifier, err := NewVisitorIdentifier("abcdefghijklmnopqrstuvwxyz0123456789", false)
 	require.NoError(t, err)
-	result, err := identifier.Identify(time.Now().UTC(), ports.PublicVisitInput{IP: "127.0.0.1", DNT: true})
+	result, err := identifier.Identify(time.Now().UTC(), ports.PublicVisitInput{IP: "127.0.0.1", UserAgent: "Mozilla/5.0"})
 	require.NoError(t, err)
-	require.False(t, result.SetCookie)
-	require.NotEqual(t, uuid.Nil, result.VisitorID.UUID())
-}
-
-func TestVisitorIdentifierDNTFallbackIsStableWithinDay(t *testing.T) {
-	identifier, err := NewVisitorIdentifier("abcdefghijklmnopqrstuvwxyz0123456789", false)
-	require.NoError(t, err)
-	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
-	input := ports.PublicVisitInput{IP: "127.0.0.1", UserAgent: "Mozilla/5.0", DNT: true}
-	first, err := identifier.Identify(now, input)
-	require.NoError(t, err)
-	second, err := identifier.Identify(now.Add(5*time.Hour), input)
-	require.NoError(t, err)
-	require.Equal(t, first.VisitorID, second.VisitorID)
-
-	nextDay, err := identifier.Identify(now.Add(24*time.Hour), input)
-	require.NoError(t, err)
-	require.NotEqual(t, first.VisitorID, nextDay.VisitorID)
+	require.True(t, result.SetCookie)
+	require.NotNil(t, result.Cookie)
 }
 
 func TestVisitorIdentifierFallbackIsStableWithoutCookie(t *testing.T) {
