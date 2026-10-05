@@ -10,7 +10,9 @@ const runtimeConfigDev = (env: Record<string, string>): Plugin => ({
   name: 'runtime-config-dev',
   configureServer(server) {
     server.middlewares.use('/config.js', (_req, res) => {
-      const respectDoNotTrack = !FALSE_VALUES.has((env.RESPECT_DO_NOT_TRACK ?? 'true').toLowerCase())
+      const respectDoNotTrack = !FALSE_VALUES.has(
+        (env.RESPECT_DO_NOT_TRACK ?? 'true').toLowerCase(),
+      )
 
       res.setHeader('Content-Type', 'application/javascript')
       res.setHeader('Cache-Control', 'no-cache')
