@@ -1,3 +1,4 @@
+export * from './analytics'
 export * from './curriculumVitae'
 export * from './curriculumVitae.slice'
 export * from './enums'

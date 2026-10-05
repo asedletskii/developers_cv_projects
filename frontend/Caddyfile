@@ -10,6 +10,10 @@
 	encode zstd gzip
 
 	log
+
+	# Рантайм-конфиг пишется при старте контейнера — браузер не должен держать старый
+	@runtimeConfig path /config.js
+	header @runtimeConfig Cache-Control "no-cache"
 	
 	handle /api/* {
 		reverse_proxy backend:8080

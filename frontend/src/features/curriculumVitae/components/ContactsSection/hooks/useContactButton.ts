@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
+import { useAnalytics } from '@features/curriculumVitae/hooks/useAnalytics'
+import { AnalyticsEventType } from '@features/curriculumVitae/types'
 import { ContactLink } from '@features/curriculumVitae/utils'
 import { ToastType } from '@shared/types'
 import { showToast } from '@shared/utils'
@@ -9,6 +11,7 @@ export const useContactButton = (
   link: ContactLink,
   getToken: () => Promise<string | undefined>,
 ) => {
+  const { viewId, track } = useAnalytics()
   const [value, setValue] = useState(link.isHidden ? undefined : link.value)
   const [isRevealing, setIsRevealing] = useState(false)
 
@@ -23,7 +26,7 @@ export const useContactButton = (
     setIsRevealing(true)
     try {
       const token = await getToken()
-      setValue(await curriculumVitaeApi.revealContact(resumeId, link.key, token))
+      setValue(await curriculumVitaeApi.revealContact(resumeId, link.key, viewId, token))
     } catch {
       showToast({ messageKey: 'revealFailed', type: ToastType.Error })
     } finally {
@@ -36,11 +39,14 @@ export const useContactButton = (
 
     try {
       await navigator.clipboard.writeText(value)
+      track({ type: AnalyticsEventType.ContactCopy, contact: link.key })
       showToast({ messageKey: 'copied', type: ToastType.Success })
     } catch {
       showToast({ messageKey: 'copyFailed', type: ToastType.Error })
     }
   }
 
-  return { value, isRevealing, reveal, copy }
+  const trackOpen = () => track({ type: AnalyticsEventType.ContactClick, contact: link.key })
+
+  return { value, isRevealing, reveal, copy, trackOpen }
 }

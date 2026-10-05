@@ -1,5 +1,6 @@
 export * from './activityIcons'
 export * from './apiRoutes'
 export * from './emptyResume'
+export * from './privacy'
 export * from './technologies'
 export * from './turnstile'

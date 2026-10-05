@@ -143,6 +143,13 @@ export const curriculumVitaeDict = {
         open: 'Открыть',
       },
 
+      AnalyticsNotice: {
+        title: 'Анонимная статистика',
+        text: 'Автор резюме видит, сколько человек его открыло: время на странице, просмотренные разделы и клики. Имя и почта не собираются, IP-адрес в открытом виде не сохраняется, а повторные заходы различаются по обезличенному идентификатору в cookie.',
+        dnt: 'Если в браузере включено «Не отслеживать», подробная статистика не собирается.',
+        ok: 'Понятно',
+      },
+
       Contacts: {
         title: 'Давайте работать вместе',
         subtitle: 'Напишите мне — отвечу в ближайшее время',
@@ -306,6 +313,13 @@ export const curriculumVitaeDict = {
       Projects: {
         title: 'Projects',
         open: 'Open',
+      },
+
+      AnalyticsNotice: {
+        title: 'Anonymous statistics',
+        text: 'The résumé author sees how many people opened it: time on the page, sections viewed and clicks. Names and emails are not collected, IP addresses are not stored in plain form, and repeat visits are told apart by an anonymous cookie id.',
+        dnt: 'If “Do Not Track” is on in your browser, detailed statistics are not collected.',
+        ok: 'Got it',
       },
 
       Contacts: {

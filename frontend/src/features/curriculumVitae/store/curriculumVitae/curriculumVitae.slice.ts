@@ -26,7 +26,8 @@ export const curriculumVitaeSlice = createSlice<
       .addCase(getPublicResume.fulfilled, (state, { payload, meta }) => {
         if (meta.requestId !== state.currentRequestId) return
 
-        state.resume = payload
+        state.resume = payload.resume
+        state.viewId = payload.viewId
         state.isLoading = false
         state.error = null
       })

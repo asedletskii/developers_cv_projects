@@ -6,10 +6,12 @@ import {
   LoadPlaceholder,
 } from '@features/curriculumVitae/components'
 import { usePublicResume } from '@features/curriculumVitae/hooks'
-import { useParams } from 'react-router'
+import { useParams, useSearchParams } from 'react-router'
 
 const LkResumeScreen = () => {
   const { cvId } = useParams()
+  // `?embed` — предпросмотр внутри iframe на вкладке аналитики: без плашки «назад»
+  const isEmbedded = useSearchParams()[0].has('embed')
   const { userId, isLoading: isSessionLoading } = useSession()
   const { isLoading: isResumeLoading, error } = usePublicResume(cvId, userId ?? undefined)
 
@@ -18,7 +20,7 @@ const LkResumeScreen = () => {
 
   return (
     <>
-      <BackToResumes cvId={cvId} />
+      {!isEmbedded && <BackToResumes cvId={cvId} />}
 
       <CurriculumVitae />
     </>

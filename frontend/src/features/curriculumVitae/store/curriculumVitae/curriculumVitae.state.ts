@@ -18,6 +18,7 @@ export const getCurriculumVitaeInitialState = (): CurriculumVitaeSliceState => {
       activities: [],
       projects: [],
     },
+    viewId: null,
     isLoading: true,
     error: null,
     currentRequestId: null,

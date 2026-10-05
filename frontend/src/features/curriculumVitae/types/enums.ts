@@ -88,3 +88,27 @@ export enum SectionId {
   Activities = 'activities',
   Contacts = 'contacts',
 }
+
+export enum DeviceType {
+  Desktop = 'desktop',
+  Mobile = 'mobile',
+  Tablet = 'tablet',
+  Unknown = 'unknown',
+}
+
+export enum TrafficType {
+  Human = 'human',
+  Bot = 'bot',
+  Owner = 'owner',
+  Suspect = 'suspect',
+}
+
+export enum AnalyticsEventType {
+  SectionView = 'section_view',
+  Download = 'download',
+  TechFilter = 'tech_filter',
+  ExternalClick = 'external_click',
+  Print = 'print',
+  ContactCopy = 'contact_copy',
+  ContactClick = 'contact_click',
+}

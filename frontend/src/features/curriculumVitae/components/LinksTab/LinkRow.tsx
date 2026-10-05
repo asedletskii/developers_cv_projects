@@ -8,11 +8,12 @@ type Props = {
   url: string
   isActive: boolean
   isCopied: boolean
+  stats?: { views: number; reads: number }
   onCopy: () => void
   onOpenMenu: (e: MouseEvent<HTMLElement>) => void
 }
 
-export const LinkRow = ({ name, url, isActive, isCopied, onCopy, onOpenMenu }: Props) => {
+export const LinkRow = ({ name, url, isActive, isCopied, stats, onCopy, onOpenMenu }: Props) => {
   const translate = useTranslate('Lk.Links')
 
   return (
@@ -35,6 +36,12 @@ export const LinkRow = ({ name, url, isActive, isCopied, onCopy, onOpenMenu }: P
           <Typography variant="body2" noWrap sx={{ color: 'text.secondary' }}>
             {url}
           </Typography>
+
+          {stats && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {translate('stats', stats)}
+            </Typography>
+          )}
         </Stack>
 
         {!isActive && <Chip size="small" label={translate('inactive')} />}

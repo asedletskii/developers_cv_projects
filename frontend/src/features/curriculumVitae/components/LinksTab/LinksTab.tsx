@@ -2,6 +2,7 @@ import { CreateLinkPrompt } from '@features/curriculumVitae/components/CreateLin
 import { LinkNameDialog } from '@features/curriculumVitae/components/LinkNameDialog'
 import { useResumeLinks } from '@features/curriculumVitae/hooks'
 import { glassCard } from '@features/curriculumVitae/styles'
+import { ResumeStatistics } from '@features/curriculumVitae/types'
 import { AddRounded } from '@mui/icons-material'
 import { Button, LinearProgress, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
@@ -12,9 +13,10 @@ import { LinksLoadError } from './LinksLoadError'
 
 type Props = {
   linksState: ReturnType<typeof useResumeLinks>
+  statistics?: ResumeStatistics
 }
 
-export const LinksTab = ({ linksState }: Props) => {
+export const LinksTab = ({ linksState, statistics }: Props) => {
   const translate = useTranslate('Lk.Links')
   const tab = useLinksTab(linksState)
 
@@ -46,6 +48,7 @@ export const LinksTab = ({ linksState }: Props) => {
             url={tab.getLinkUrl(link)}
             isActive={link.status === 'active'}
             isCopied={tab.copiedKey === link.id}
+            stats={statistics?.links.find(({ id }) => id === link.id)}
             onCopy={() => tab.copy(link.id, tab.getLinkUrl(link))}
             onOpenMenu={tab.openMenu(link)}
           />
