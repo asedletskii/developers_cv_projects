@@ -91,7 +91,7 @@ func (h *Handler) List(c *gin.Context) {
 	if !ok {
 		return
 	}
-	resumeID, ok := common.ParseResumeID(c)
+	resumeID, ok := common.ParseResumeIDQuery(c)
 	if !ok {
 		return
 	}

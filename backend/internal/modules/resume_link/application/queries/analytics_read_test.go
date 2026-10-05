@@ -16,6 +16,14 @@ func TestNewAnalyticsPeriodUsesInclusiveCalendarDatesInTimezone(t *testing.T) {
 	require.Equal(t, []string{"2026-03-28", "2026-03-29"}, period.Days())
 }
 
+func TestNewAnalyticsPeriodAcceptsNovosibirskTimezone(t *testing.T) {
+	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	period, err := NewAnalyticsPeriod("2026-09-06", "2026-10-05", "Asia/Novosibirsk", now)
+	require.NoError(t, err)
+	require.Equal(t, "Asia/Novosibirsk", period.TZ)
+	require.Len(t, period.Days(), 30)
+}
+
 func TestNewAnalyticsPeriodRejectsInvalidTimezoneAndRange(t *testing.T) {
 	now := time.Now().UTC()
 	_, err := NewAnalyticsPeriod("2026-01-02", "2026-01-01", "UTC", now)

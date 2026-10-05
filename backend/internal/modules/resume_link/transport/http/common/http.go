@@ -21,6 +21,10 @@ var ErrRequestBodyTooLarge = jsonhttp.ErrRequestBodyTooLarge
 func BindJSON(c *gin.Context, target any) error { return jsonhttp.BindJSON(c, target) }
 
 func ParseResumeID(c *gin.Context) (sharedvalueobjects.ID, bool) {
+	return parseResumeID(c.Param("resumeId"), c)
+}
+
+func ParseResumeIDQuery(c *gin.Context) (sharedvalueobjects.ID, bool) {
 	return parseResumeID(c.Query("resumeId"), c)
 }
 
