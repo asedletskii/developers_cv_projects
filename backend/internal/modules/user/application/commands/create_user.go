@@ -32,8 +32,6 @@ func (h *CreateUserHandler) Handle(ctx context.Context) (sharedvalueobjects.ID, 
 	return user.ID(), nil
 }
 
-// CreateUser satisfies auth.application.ports.UserProvisioner without coupling
-// the user module to the auth module.
 func (h *CreateUserHandler) CreateUser(ctx context.Context) (sharedvalueobjects.ID, error) {
 	return h.Handle(ctx)
 }

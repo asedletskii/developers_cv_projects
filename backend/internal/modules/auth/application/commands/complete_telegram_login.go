@@ -150,11 +150,6 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 		}
 		finishIdentitySpan(nil)
 
-		// The login timestamp must be sampled after identity resolution. Under concurrent
-		// first-login attempts, the identity may have been created by the other
-		// transaction while this transaction was waiting on its locks. Sampling now
-		// before that wait can produce a timestamp earlier than identity.created_at,
-		// which is rejected by user_identities_timestamps_check.
 		loginAt := h.now().UTC()
 		var userID sharedvalueobjects.ID
 		if errors.Is(err, domain.ErrEntityNotFound) {

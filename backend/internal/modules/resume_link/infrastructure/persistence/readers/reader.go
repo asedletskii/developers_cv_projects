@@ -68,7 +68,6 @@ func (r *ResumeLinkReader) ListByResumeID(ctx context.Context, query queries.Lis
 	return result, nil
 }
 
-// GetStatistics implements the analytics read model using direct PostgreSQL aggregations.
 func (r *ResumeLinkReader) GetLinkStatistics(ctx context.Context, query queries.LinkAnalyticsQuery) (queries.LinkStatistics, error) {
 	if r == nil || r.db == nil {
 		return queries.LinkStatistics{}, fmt.Errorf("get analytics statistics: reader dependencies are nil")
@@ -321,7 +320,6 @@ func (r *ResumeLinkReader) GetResumeStatistics(ctx context.Context, query querie
 		return queries.ResumeStatistics{}, fmt.Errorf("get resume analytics first/last view: %w", err)
 	}
 	base.FirstViewAt, base.LastViewAt = firstLast.First, firstLast.Last
-	// Aggregate resume scope by using a temporary link scope in SQL rather than issuing one query per link.
 	var row struct {
 		Views, Reads, UniqueVisitors, ReturningVisitors, ContactViews, Downloads int64
 		Median                                                                   float64
