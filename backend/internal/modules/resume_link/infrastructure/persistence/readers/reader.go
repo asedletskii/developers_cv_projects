@@ -178,7 +178,7 @@ func (r *ResumeLinkReader) GetVisits(ctx context.Context, query queries.LinkVisi
 	if query.IncludeFiltered {
 		trafficFilter = "TRUE"
 	}
-	args := []any{query.LinkID.UUID()}
+	args := []any{query.LinkID.UUID(), query.LinkID.UUID()}
 	cursorSQL := ""
 	if !cursorTime.IsZero() {
 		cursorSQL = " AND (v.started_at < ? OR (v.started_at = ? AND v.id < ?))"

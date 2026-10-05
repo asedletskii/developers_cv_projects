@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -110,6 +111,83 @@ func TestResumeLinkAnalyticsBatchIsMonotonic(t *testing.T) {
 		view.ID().UUID(),
 	).Scan(&clickCount).Error)
 	require.Equal(t, 1, clickCount)
+}
+
+func TestResumeLinkAnalyticsResumeStatisticsAggregatesAllLinks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	ctx, dsn, gormDB, repo, reader := newDatabase(t)
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
+	insertUserAndResume(t, ctx, dsn, owner, resumeID)
+	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+
+	uow := database.NewUnitOfWork(gormDB)
+	links := make([]*domain.ResumeLink, 0, 2)
+	for _, name := range []string{"HH", "Telegram"} {
+		link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: name})
+		require.NoError(t, err)
+		require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
+		links = append(links, link)
+	}
+
+	first := newAnalyticsView(t, links[0].ID())
+	second := newAnalyticsView(t, links[1].ID())
+	require.NoError(t, repo.CreateView(ctx, first))
+	require.NoError(t, repo.CreateView(ctx, second))
+	startedAt := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
+	require.NoError(t, gormDB.Exec(`UPDATE resume_link_views SET started_at = ? WHERE id = ?`, startedAt, first.ID().UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume_link_views SET started_at = ? WHERE id = ?`, startedAt.Add(5*time.Minute), second.ID().UUID()).Error)
+
+	period, err := queries.NewAnalyticsPeriod("2026-10-01", "2026-10-05", "UTC", startedAt)
+	require.NoError(t, err)
+	result, err := reader.GetResumeStatistics(ctx, queries.ResumeAnalyticsQuery{ResumeID: resumeID, Period: period})
+	require.NoError(t, err)
+	require.Len(t, result.Links, 2)
+	require.Equal(t, links[0].ID().String(), result.Links[0].ID)
+	require.Equal(t, links[1].ID().String(), result.Links[1].ID)
+	require.Equal(t, int64(1), result.Links[0].Views)
+	require.Equal(t, int64(1), result.Links[1].Views)
+	require.Equal(t, int64(2), result.Views)
+}
+
+func TestResumeLinkAnalyticsVisitsPaginationUsesBothLinkIDBindings(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	ctx, dsn, gormDB, repo, reader := newDatabase(t)
+	owner := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
+	insertUserAndResume(t, ctx, dsn, owner, resumeID)
+	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "Visits"})
+	require.NoError(t, err)
+	uow := database.NewUnitOfWork(gormDB)
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
+
+	first := newAnalyticsView(t, link.ID())
+	second := newAnalyticsView(t, link.ID())
+	require.NoError(t, repo.CreateView(ctx, first))
+	require.NoError(t, repo.CreateView(ctx, second))
+
+	firstStartedAt := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
+	secondStartedAt := firstStartedAt.Add(5 * time.Minute)
+	require.NoError(t, gormDB.Exec(`UPDATE resume_link_views SET started_at = ? WHERE id = ?`, firstStartedAt, first.ID().UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume_link_views SET started_at = ? WHERE id = ?`, secondStartedAt, second.ID().UUID()).Error)
+
+	page, err := reader.GetVisits(ctx, queries.LinkVisitsQuery{LinkID: link.ID(), Limit: 1})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.Equal(t, second.ID().String(), page.Items[0].ID)
+	require.NotNil(t, page.NextCursor)
+
+	nextPage, err := reader.GetVisits(ctx, queries.LinkVisitsQuery{LinkID: link.ID(), Limit: 1, Cursor: *page.NextCursor})
+	require.NoError(t, err)
+	require.Len(t, nextPage.Items, 1)
+	require.Equal(t, first.ID().String(), nextPage.Items[0].ID)
+	require.Nil(t, nextPage.NextCursor)
 }
 
 func TestResumeLinkAnalyticsBatchRejectsChangedPublicLifecycle(t *testing.T) {
