@@ -55,6 +55,108 @@ func TestLoadParsesConfiguration(t *testing.T) {
 	require.Equal(t, "console", cfg.Log.Format)
 }
 
+func TestLoadParsesTurnstileConfiguration(t *testing.T) {
+	setValidConfigEnvironment(t)
+	t.Setenv("TURNSTILE_ENABLED", "true")
+	t.Setenv("TURNSTILE_SITE_KEY", "site-key")
+	t.Setenv("TURNSTILE_SECRET_KEY", "secret-key")
+	t.Setenv("TURNSTILE_EXPECTED_HOSTNAME", "cv.example.com")
+	t.Setenv("TURNSTILE_EXPECTED_ACTION", "contact_view")
+	t.Setenv("TURNSTILE_TIMEOUT", "7s")
+
+	cfg, err := parse()
+
+	require.NoError(t, err)
+	require.True(t, cfg.Turnstile.Enabled)
+	require.Equal(t, "site-key", cfg.Turnstile.SiteKey)
+	require.Equal(t, "secret-key", cfg.Turnstile.SecretKey)
+	require.Equal(t, "cv.example.com", cfg.Turnstile.ExpectedHost)
+	require.Equal(t, "contact_view", cfg.Turnstile.ExpectedAction)
+	require.Equal(t, 7*time.Second, cfg.Turnstile.Timeout)
+}
+
+func TestValidateRejectsEnabledTurnstileWithoutSiteKey(t *testing.T) {
+	setValidConfigEnvironment(t)
+	t.Setenv("TURNSTILE_ENABLED", "true")
+	t.Setenv("TURNSTILE_SITE_KEY", "")
+
+	_, err := parse()
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "TURNSTILE_SITE_KEY")
+}
+
+func TestLoadParsesContactViewRateLimit(t *testing.T) {
+	setValidConfigEnvironment(t)
+	t.Setenv("CONTACT_VIEW_RATE_LIMIT_ENABLED", "true")
+	t.Setenv("CONTACT_VIEW_RATE_LIMIT_PER_MINUTE", "7")
+	t.Setenv("CONTACT_VIEW_RATE_LIMIT_BURST", "4")
+
+	cfg, err := parse()
+
+	require.NoError(t, err)
+	require.True(t, cfg.HTTP.ContactViewRateLimit.Enabled)
+	require.Equal(t, 7.0, cfg.HTTP.ContactViewRateLimit.Rate)
+	require.Equal(t, 4, cfg.HTTP.ContactViewRateLimit.Burst)
+}
+
+func TestValidateRejectsInvalidContactViewRateLimit(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.HTTP.ContactViewRateLimit.Burst = 0
+
+	err := validate(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CONTACT_VIEW_RATE_LIMIT")
+}
+
+func TestValidateProductionRequiresContactViewRateLimit(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.HTTP.ContactViewRateLimit.Enabled = false
+
+	err := validateProductionSecurity(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CONTACT_VIEW_RATE_LIMIT_ENABLED")
+}
+
+func TestValidateProductionRequiresTurnstile(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+	cfg.Turnstile.Enabled = false
+
+	err := validateProductionSecurity(cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "TURNSTILE_ENABLED")
+}
+
+func TestValidateProductionRequiresTurnstileCredentialsAndBindings(t *testing.T) {
+	cfg := productionSecurityTestConfig()
+
+	cfg.Turnstile.SecretKey = ""
+	err := validateProductionSecurity(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "TURNSTILE_SECRET_KEY")
+
+	cfg = productionSecurityTestConfig()
+	cfg.Turnstile.SiteKey = ""
+	err = validateProductionSecurity(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "TURNSTILE_SITE_KEY")
+
+	cfg = productionSecurityTestConfig()
+	cfg.Turnstile.ExpectedHost = ""
+	err = validateProductionSecurity(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "TURNSTILE_EXPECTED_HOSTNAME")
+
+	cfg = productionSecurityTestConfig()
+	cfg.Turnstile.ExpectedAction = ""
+	err = validateProductionSecurity(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "TURNSTILE_EXPECTED_ACTION")
+}
+
 func TestLoadDotEnvDoesNotOverrideEnvironment(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".env")
@@ -250,10 +352,12 @@ func productionSecurityTestConfig() Config {
 		},
 		HTTP: HTTPConfig{
 			Port: 8080, ReadTimeout: time.Second, ReadHeaderTimeout: time.Second, WriteTimeout: time.Second, IdleTimeout: time.Second, ShutdownTimeout: time.Second, MaxBodyBytes: 1024,
-			TLS:       TLSConfig{Enabled: true, CertFile: "/run/secrets/tls.crt", KeyFile: "/run/secrets/tls.key"},
-			RateLimit: RateLimitConfig{Enabled: true, Rate: 10, Burst: 20},
+			TLS:                  TLSConfig{Enabled: true, CertFile: "/run/secrets/tls.crt", KeyFile: "/run/secrets/tls.key"},
+			RateLimit:            RateLimitConfig{Enabled: true, Rate: 10, Burst: 20},
+			ContactViewRateLimit: RateLimitConfig{Enabled: true, Rate: 3, Burst: 2},
 		},
 		CORS:       CORSConfig{AllowedOrigins: []string{"https://example.com"}, AllowCredentials: true},
+		Turnstile:  TurnstileConfig{Enabled: true, SiteKey: "site-key", SecretKey: "secret-key", ExpectedHost: "example.com", ExpectedAction: "contact_view", Timeout: 5 * time.Second},
 		Log:        LogConfig{Format: "json"},
 		Telemetry:  TelemetryConfig{ServiceName: "developers-cv-api", ServiceVersion: "test", Environment: "production"},
 		Prometheus: PrometheusConfig{Enabled: true},

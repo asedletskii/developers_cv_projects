@@ -102,11 +102,13 @@ class CurriculumVitaeApi {
   async revealContact(
     resumeId: string,
     contact: ContactKey,
+
     viewId?: string | null,
+    turnstileToken?: string,
   ): Promise<string> {
     const response = await api.post<{ contact: ContactKey; value: string }>(
       generatePath(API_ROUTES.contactViews, { resumeId }),
-      { contact, viewId: viewId ?? undefined },
+      { contact, viewId: viewId ?? undefined, turnstileToken },
     )
     return response.data.value
   }

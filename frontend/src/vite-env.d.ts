@@ -9,6 +9,9 @@ interface ImportMetaEnv {
 
   /** `true` — в dev подменяет ручки аналитики моками (бэкенд их ещё не реализовал). */
   readonly VITE_MOCK_ANALYTICS?: string
+
+  /** Публичный site key Cloudflare Turnstile для раскрытия контактов. Без него защита выключена. */
+  readonly VITE_TURNSTILE_SITE_KEY?: string
 }
 
 interface ImportMeta {

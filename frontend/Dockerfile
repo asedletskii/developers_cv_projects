@@ -6,6 +6,8 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 COPY . .
+
+ARG VITE_TURNSTILE_SITE_KEY
 RUN yarn build
 
 FROM caddy:2-alpine

@@ -6,8 +6,12 @@ import { ContactLink } from '@features/curriculumVitae/utils'
 import { ToastType } from '@shared/types'
 import { showToast } from '@shared/utils'
 
-export const useContactButton = (resumeId: string, link: ContactLink) => {
-  const { viewId, track } = useAnalytics()
+export const useContactButton = (
+  resumeId: string,
+  link: ContactLink,
+  getToken: () => Promise<string | undefined>,
+) => {
+    const { viewId, track } = useAnalytics()
   const [value, setValue] = useState(link.isHidden ? undefined : link.value)
   const [isRevealing, setIsRevealing] = useState(false)
 
@@ -21,7 +25,8 @@ export const useContactButton = (resumeId: string, link: ContactLink) => {
 
     setIsRevealing(true)
     try {
-      setValue(await curriculumVitaeApi.revealContact(resumeId, link.key, viewId))
+      const token = await getToken()
+      setValue(await curriculumVitaeApi.revealContact(resumeId, link.key, viewId, token))
     } catch {
       showToast({ messageKey: 'revealFailed', type: ToastType.Error })
     } finally {

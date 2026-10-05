@@ -158,6 +158,10 @@ export const curriculumVitaeDict = {
         phone: 'Позвонить',
         copy: 'Скопировать',
 
+        Challenge: {
+          title: 'Подтвердите, что вы не робот',
+        },
+
         Reveal: {
           telegram: 'Показать Telegram',
           email: 'Показать почту',
@@ -325,6 +329,10 @@ export const curriculumVitaeDict = {
         email: 'Email',
         phone: 'Call',
         copy: 'Copy',
+
+        Challenge: {
+          title: 'Confirm you are not a robot',
+        },
 
         Reveal: {
           telegram: 'Show Telegram',

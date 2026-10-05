@@ -30,6 +30,7 @@ import (
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
+	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
@@ -38,6 +39,14 @@ import (
 	"developers-cv/backend/internal/platform/database"
 	"developers-cv/backend/internal/platform/http/middleware"
 )
+
+type integrationTokenVerifierStub struct {
+	err error
+}
+
+func (s *integrationTokenVerifierStub) Verify(context.Context, string, string) error {
+	return s.err
+}
 
 func applyAllMigrations(t *testing.T, ctx context.Context, dsn string) {
 	t.Helper()
@@ -100,7 +109,7 @@ func TestCreateResumeLinkIntegration(t *testing.T) {
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1/lk"))
+	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+resumeID.String()+`","name":"HH"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -158,7 +167,7 @@ func TestPublicResumeThroughLinkIntegration(t *testing.T) {
 
 	engine := gin.New()
 	api := engine.Group("/api/v1")
-	RegisterRoutes(NewHandler(HandlerDependencies{Public: handler}), api, api.Group("/lk"))
+	RegisterRoutes(NewHandler(HandlerDependencies{Public: handler}), api, api.Group("/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+activeLinkID.String(), nil)
 	w := httptest.NewRecorder()
@@ -244,11 +253,12 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
 	eventRecorder := analytics.NewRecorder(repository.NewResumeLinkRepository(gormDB), zaptest.NewLogger(t))
 	contactThroughLink := queries.NewContactViewThroughLinkQueryHandler(linkReader, contactView, eventRecorder)
-	contactHandler := public.NewContactViewHandler(contactThroughLink)
+	verifier := &integrationTokenVerifierStub{}
+	contactHandler := public.NewContactViewHandler(contactThroughLink, verifier)
 
 	engine := gin.New()
 	api := engine.Group("/api/v1")
-	RegisterRoutes(NewHandler(HandlerDependencies{ContactView: contactHandler}), api, api.Group("/lk"))
+	RegisterRoutes(NewHandler(HandlerDependencies{ContactView: contactHandler}), api, api.Group("/lk"), nil)
 
 	postContact := func(linkID uuid.UUID, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", bytes.NewBufferString(body))
@@ -258,30 +268,41 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 		return w
 	}
 
-	response := postContact(activeLinkID, `{"contact":"email"}`)
-	require.Equal(t, http.StatusOK, response.Code)
-	require.Contains(t, response.Body.String(), `"value":"private@example.com"`)
+	verifier.err = ports.ErrTokenVerificationFailed
+	response := postContact(activeLinkID, `{"contact":"email","turnstileToken":"rejected-token"}`)
+	require.Equal(t, http.StatusForbidden, response.Code)
+	require.NotContains(t, response.Body.String(), "private@example.com")
+	require.NotContains(t, response.Body.String(), "rejected-token")
 
 	var contactEvents int
 	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1 AND event_type = 'contact_view'`, activeLinkID).Scan(&contactEvents))
+	require.Zero(t, contactEvents)
+
+	verifier.err = nil
+	response = postContact(activeLinkID, `{"contact":"email","turnstileToken":"test-token"}`)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), `"value":"private@example.com"`)
+	require.NotContains(t, response.Body.String(), "test-token")
+
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1 AND event_type = 'contact_view'`, activeLinkID).Scan(&contactEvents))
 	require.Equal(t, 1, contactEvents)
 
-	response = postContact(activeLinkID, `{"contact":"phone"}`)
+	response = postContact(activeLinkID, `{"contact":"phone","turnstileToken":"test-token"}`)
 	require.Equal(t, http.StatusConflict, response.Code)
 
-	response = postContact(inactiveLinkID, `{"contact":"email"}`)
+	response = postContact(inactiveLinkID, `{"contact":"email","turnstileToken":"test-token"}`)
 	require.Equal(t, http.StatusGone, response.Code)
 
-	response = postContact(draftLinkID, `{"contact":"email"}`)
+	response = postContact(draftLinkID, `{"contact":"email","turnstileToken":"test-token"}`)
 	require.Equal(t, http.StatusNotFound, response.Code)
 
-	response = postContact(closedLinkID, `{"contact":"email"}`)
+	response = postContact(closedLinkID, `{"contact":"email","turnstileToken":"test-token"}`)
 	require.Equal(t, http.StatusNotFound, response.Code)
 
-	response = postContact(uuid.New(), `{"contact":"email"}`)
+	response = postContact(uuid.New(), `{"contact":"email","turnstileToken":"test-token"}`)
 	require.Equal(t, http.StatusNotFound, response.Code)
 
-	response = postContact(resumeID, `{"contact":"email"}`)
+	response = postContact(resumeID, `{"contact":"email","turnstileToken":"test-token"}`)
 	require.Equal(t, http.StatusNotFound, response.Code)
 
 	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, activeLinkID).Scan(&contactEvents))
@@ -338,7 +359,8 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 	statistics := queries.NewGetResumeLinkStatisticsQueryHandler(linkReader, resumeReader, linkReader)
 
 	publicHandler := public.NewHandler(publicLink)
-	contactHandler := public.NewContactViewHandler(contactThroughLink)
+	verifier := &integrationTokenVerifierStub{}
+	contactHandler := public.NewContactViewHandler(contactThroughLink, verifier)
 	linkHandler := NewHandler(HandlerDependencies{
 		Public:      publicHandler,
 		ContactView: contactHandler,
@@ -351,7 +373,7 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 	lk.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(linkHandler, api, lk)
+	RegisterRoutes(linkHandler, api, lk, nil)
 
 	getPublic := func() *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -360,7 +382,7 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 		return w
 	}
 	postContact := func() *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", bytes.NewBufferString(`{"contact":"email"}`))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", bytes.NewBufferString(`{"contact":"email","turnstileToken":"test-token"}`))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		engine.ServeHTTP(w, req)
@@ -430,7 +452,7 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	lk.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(linkHandler, api, lk)
+	RegisterRoutes(linkHandler, api, lk, nil)
 
 	getPublic := func() *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -534,7 +556,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 		List:        listLinks,
 		Delete:      deleteLink,
 		Public:      public.NewHandler(publicLink),
-		ContactView: public.NewContactViewHandler(contactThroughLink),
+		ContactView: public.NewContactViewHandler(contactThroughLink, &integrationTokenVerifierStub{}),
 		Statistics:  statistics,
 		Lifecycle:   lifecycle,
 	})
@@ -551,7 +573,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 		return currentUser, nil
 	}))
 	resumehttp.RegisterRoutes(resumeHandler, lk)
-	RegisterRoutes(linkHandler, api, lk)
+	RegisterRoutes(linkHandler, api, lk, nil)
 
 	do := func(method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -577,7 +599,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 		return do(http.MethodGet, "/api/v1/cv/"+linkID.String(), "")
 	}
 	postContact := func(linkID uuid.UUID) *httptest.ResponseRecorder {
-		return do(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", `{"contact":"email"}`)
+		return do(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", `{"contact":"email","turnstileToken":"test-token"}`)
 	}
 	getStatistics := func(linkID uuid.UUID) *httptest.ResponseRecorder {
 		return do(http.MethodGet, "/api/v1/lk/link/"+linkID.String()+"/statistics", "")

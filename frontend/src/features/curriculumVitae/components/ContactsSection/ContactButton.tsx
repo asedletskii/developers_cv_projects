@@ -5,7 +5,7 @@ import {
   getContactHref,
 } from '@features/curriculumVitae/utils'
 import { ContentCopyRounded } from '@mui/icons-material'
-import { Button, IconButton, Stack } from '@mui/material'
+import { Button, CircularProgress, IconButton, Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { CONTACT_BUTTON_SX } from './constants'
 import { useContactButton } from './hooks'
@@ -13,12 +13,13 @@ import { useContactButton } from './hooks'
 type Props = {
   resumeId: string
   link: ContactLink
+  getToken: () => Promise<string | undefined>
 }
 
-export const ContactButton = ({ resumeId, link }: Props) => {
+export const ContactButton = ({ resumeId, link, getToken }: Props) => {
   const translate = useTranslate('CurriculumVitae.Contacts')
   const { key, icon, isHidden } = link
-  const { value, isRevealing, reveal, copy, trackOpen } = useContactButton(resumeId, link)
+  const { value, isRevealing, reveal, copy, trackOpen } = useContactButton(resumeId, link, getToken)
 
   if (!value) {
     return (
@@ -26,7 +27,7 @@ export const ContactButton = ({ resumeId, link }: Props) => {
         onClick={reveal}
         data-analytics-id={`contact-${key}`}
         disabled={isRevealing}
-        startIcon={icon}
+        startIcon={isRevealing ? <CircularProgress size={18} color="inherit" /> : icon}
         size="large"
         sx={CONTACT_BUTTON_SX}
       >
