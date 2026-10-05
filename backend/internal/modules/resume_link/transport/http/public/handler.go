@@ -56,17 +56,22 @@ func (h *Handler) Handle(c *gin.Context) {
 			input.Visitor.OwnerID = ownerID
 		}
 	}
-	cookieName := "cv_vid"
-	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
-		cookieName = "__Secure-cv_vid"
-	}
-	if cookie, err := c.Request.Cookie(cookieName); err == nil {
-		if id, err := uuid.Parse(cookie.Value); err == nil && id != uuid.Nil {
-			if visitorID, err := sharedvalueobjects.IDFromUUID(id); err == nil {
-				input.Visitor.VisitorID = visitorID
-			}
-			input.Visitor.HasCookie = true
+	for _, cookieName := range []string{ports.ProductionVisitorCookieName, ports.LocalVisitorCookieName} {
+		cookie, err := c.Request.Cookie(cookieName)
+		if err != nil {
+			continue
 		}
+		id, err := uuid.Parse(cookie.Value)
+		if err != nil || id == uuid.Nil {
+			continue
+		}
+		visitorID, err := sharedvalueobjects.IDFromUUID(id)
+		if err != nil {
+			continue
+		}
+		input.Visitor.VisitorID = visitorID
+		input.Visitor.HasCookie = true
+		break
 	}
 	view, identity, err := h.query.HandleWithVisit(c.Request.Context(), queries.PublicResumeLinkQuery{LinkID: linkID, Visit: input})
 	if err != nil {

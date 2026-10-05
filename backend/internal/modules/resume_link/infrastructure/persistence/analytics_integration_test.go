@@ -70,7 +70,7 @@ func TestResumeLinkAnalyticsBatchIsMonotonic(t *testing.T) {
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
 		return repo.ApplyBatch(txCtx, view.ID(), link.ID(), domain.ViewStateUpdate{
 			Seq: 2, ActiveMS: 7000, MaxSection: resumedomain.SectionExperience,
-			ExitSection: resumedomain.SectionExperience, SeenAt: time.Now().UTC(), Final: true,
+			ExitSection: resumedomain.SectionExperience, SeenAt: time.Now().UTC(), Final: false,
 		}, []*domain.AnalyticsEvent{event}, []*domain.AnalyticsClick{click})
 	}))
 
@@ -86,7 +86,7 @@ func TestResumeLinkAnalyticsBatchIsMonotonic(t *testing.T) {
 	require.Equal(t, int64(7000), loaded.State().ActiveMS())
 	require.Equal(t, int64(2), loaded.State().LastSeq())
 	require.Equal(t, resumedomain.SectionExperience, loaded.State().MaxSection())
-	require.False(t, loaded.State().EndedAt().IsZero())
+	require.True(t, loaded.State().EndedAt().IsZero())
 
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
 		return repo.ApplyBatch(txCtx, view.ID(), link.ID(), domain.ViewStateUpdate{
@@ -94,11 +94,21 @@ func TestResumeLinkAnalyticsBatchIsMonotonic(t *testing.T) {
 		}, nil, []*domain.AnalyticsClick{click})
 	}))
 
+	loaded, err = repo.GetView(ctx, view.ID())
+	require.NoError(t, err)
+	require.False(t, loaded.State().EndedAt().IsZero())
+
 	var count int
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM resume_link_events WHERE view_id = ? AND client_event_id = ?", view.ID().UUID(), clientEventID.UUID()).Scan(&count).Error)
+	require.NoError(t, gormDB.Raw(
+		"SELECT count(*) FROM resume_link_events WHERE view_id = ? AND client_event_id = ?",
+		view.ID().UUID(), clientEventID.UUID(),
+	).Scan(&count).Error)
 	require.Equal(t, 1, count)
 	var clickCount int
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM resume_link_clicks WHERE view_id = ?", view.ID().UUID()).Scan(&clickCount).Error)
+	require.NoError(t, gormDB.Raw(
+		"SELECT count(*) FROM resume_link_clicks WHERE view_id = ?",
+		view.ID().UUID(),
+	).Scan(&clickCount).Error)
 	require.Equal(t, 1, clickCount)
 }
 

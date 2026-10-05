@@ -190,7 +190,7 @@ func (s *ViewState) Apply(update ViewStateUpdate, layout LayoutSnapshot) error {
 	if update.ActiveMS < 0 {
 		return fmt.Errorf("%w: active_ms is negative", ErrInvalidViewState)
 	}
-	if update.Seq <= s.lastSeq {
+	if update.Seq < s.lastSeq {
 		return nil
 	}
 	if update.SeenAt.IsZero() {
@@ -201,6 +201,12 @@ func (s *ViewState) Apply(update ViewStateUpdate, layout LayoutSnapshot) error {
 	}
 	if update.ExitSection != "" && layout.IndexOf(update.ExitSection) < 0 {
 		return fmt.Errorf("%w: exit_section is not in layout", ErrInvalidViewState)
+	}
+	if update.Seq == s.lastSeq {
+		if update.Final {
+			s.endedAt = update.SeenAt.UTC()
+		}
+		return nil
 	}
 
 	s.lastSeq = update.Seq

@@ -144,13 +144,15 @@ func (r *ResumeLinkRepository) ApplyBatch(ctx context.Context, viewID, linkID sh
 	if view.Traffic() == domain.TrafficBot {
 		return nil
 	}
-	if update.Seq <= view.State().LastSeq() {
+	lastSeq := view.State().LastSeq()
+	if update.Seq < lastSeq || (update.Seq == lastSeq && !update.Final) {
 		return nil
 	}
+	sameSeq := update.Seq == lastSeq
 	if err := view.ApplyState(update); err != nil {
 		return fmt.Errorf("apply analytics batch: apply state: %w", err)
 	}
-	if len(events) > 0 {
+	if !sameSeq && len(events) > 0 {
 		var stored int64
 		if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkAnalyticsEvent{}).
 			Where("view_id = ? AND client_event_id IS NOT NULL", viewID.UUID()).Count(&stored).Error; err != nil {
@@ -193,7 +195,7 @@ func (r *ResumeLinkRepository) ApplyBatch(ctx context.Context, viewID, linkID sh
 		}
 	}
 
-	if len(clicks) > 0 {
+	if !sameSeq && len(clicks) > 0 {
 		if err := r.RecordClicks(ctx, clicks); err != nil {
 			return fmt.Errorf("apply analytics batch: record clicks: %w", err)
 		}

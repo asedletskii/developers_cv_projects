@@ -10,6 +10,11 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
+const (
+	ProductionVisitorCookieName = "__Secure-cv_vid"
+	LocalVisitorCookieName      = "cv_vid"
+)
+
 type PublicVisitInput struct {
 	IP        string
 	UserAgent string

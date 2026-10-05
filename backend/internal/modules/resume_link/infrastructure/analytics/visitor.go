@@ -16,10 +16,8 @@ import (
 )
 
 const (
-	ProductionCookieName = "__Secure-cv_vid"
-	LocalCookieName      = "cv_vid"
-	CookiePath           = "/api/v1/cv"
-	CookieMaxAge         = 365 * 24 * 60 * 60
+	CookiePath   = "/api/v1/cv"
+	CookieMaxAge = 365 * 24 * 60 * 60
 )
 
 type VisitorIdentifier struct {
@@ -40,19 +38,11 @@ func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput
 		return ports.VisitorIdentityResult{}, errors.New("visitor identifier is not configured")
 	}
 	ipHash := i.dailyHMAC(now, "ip", input.IP)
-	var secure bool
-	if i.production {
-		secure = true
-	} else {
-		secure = false
-	}
+	secure := i.production
 	if input.HasCookie && input.VisitorID != (sharedvalueobjects.ID{}) {
 		return ports.VisitorIdentityResult{VisitorID: input.VisitorID, IPHash: ipHash}, nil
 	}
-	uaHash := i.dailyHMAC(now, "ua", input.UserAgent)
-	name := append(append([]byte{}, ipHash...), uaHash...)
-	name = append(name, []byte(now.UTC().Format("2006-01-02"))...)
-	visitorUUID := uuid.NewSHA1(uuid.NameSpaceOID, name)
+	visitorUUID := uuid.New()
 	visitorID, err := sharedvalueobjects.IDFromUUID(visitorUUID)
 	if err != nil {
 		return ports.VisitorIdentityResult{}, fmt.Errorf("create fallback visitor id: %w", err)
@@ -62,7 +52,7 @@ func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput
 	result.SetCookie = true
 	if secure {
 		result.Cookie = &http.Cookie{
-			Name:     ProductionCookieName,
+			Name:     ports.ProductionVisitorCookieName,
 			Value:    visitorUUID.String(),
 			Path:     CookiePath,
 			MaxAge:   CookieMaxAge,
@@ -72,7 +62,7 @@ func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput
 		}
 	} else {
 		result.Cookie = &http.Cookie{ // #nosec G124
-			Name:     LocalCookieName,
+			Name:     ports.LocalVisitorCookieName,
 			Value:    visitorUUID.String(),
 			Path:     CookiePath,
 			MaxAge:   CookieMaxAge,

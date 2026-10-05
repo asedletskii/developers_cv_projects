@@ -20,9 +20,9 @@ func TestVisitorIdentifierUsesCookieAndSetsNewCookie(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, uuid.Nil, first.VisitorID.UUID())
 	require.True(t, first.SetCookie)
-	require.Equal(t, LocalCookieName, first.Cookie.Name)
+	require.Equal(t, ports.LocalVisitorCookieName, first.Cookie.Name)
 	cookieUUID := uuid.MustParse(first.Cookie.Value)
-	require.Equal(t, byte(5), byte(cookieUUID.Version()))
+	require.Equal(t, byte(4), byte(cookieUUID.Version()))
 	cookieID, err := sharedvalueobjects.IDFromUUID(cookieUUID)
 	require.NoError(t, err)
 	require.Equal(t, cookieID, first.VisitorID)
@@ -43,7 +43,7 @@ func TestVisitorIdentifierProductionCookieIsSecure(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, result.SetCookie)
 	require.NotNil(t, result.Cookie)
-	require.Equal(t, ProductionCookieName, result.Cookie.Name)
+	require.Equal(t, ports.ProductionVisitorCookieName, result.Cookie.Name)
 	require.True(t, result.Cookie.Secure)
 	require.True(t, result.Cookie.HttpOnly)
 	require.Equal(t, http.SameSiteLaxMode, result.Cookie.SameSite)
@@ -58,7 +58,7 @@ func TestVisitorIdentifierAlwaysSetsCookieRegardlessOfPrivacyHeaders(t *testing.
 	require.NotNil(t, result.Cookie)
 }
 
-func TestVisitorIdentifierFallbackIsStableWithoutCookie(t *testing.T) {
+func TestVisitorIdentifierFallbackIsRandomWithoutCookie(t *testing.T) {
 	identifier, err := NewVisitorIdentifier("abcdefghijklmnopqrstuvwxyz0123456789", false)
 	require.NoError(t, err)
 	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
@@ -67,10 +67,11 @@ func TestVisitorIdentifierFallbackIsStableWithoutCookie(t *testing.T) {
 	require.NoError(t, err)
 	second, err := identifier.Identify(now.Add(5*time.Hour), input)
 	require.NoError(t, err)
-	require.Equal(t, first.VisitorID, second.VisitorID)
+	require.NotEqual(t, first.VisitorID, second.VisitorID)
 	require.NotEqual(t, uuid.Nil, first.VisitorID.UUID())
 	require.NotEqual(t, uuid.Nil, second.VisitorID.UUID())
-	nextDay, err := identifier.Identify(now.Add(24*time.Hour), input)
+
+	otherVisitor, err := identifier.Identify(now, ports.PublicVisitInput{IP: "127.0.0.1", UserAgent: "Mozilla/5.0"})
 	require.NoError(t, err)
-	require.NotEqual(t, first.VisitorID, nextDay.VisitorID)
+	require.NotEqual(t, first.VisitorID, otherVisitor.VisitorID)
 }
