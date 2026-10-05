@@ -13,6 +13,7 @@ services:
     image: ${FRONTEND_IMAGE:-ghcr.io/asedletskii/developers_cv_projects/frontend}:${IMAGE_TAG:-latest}
     environment:
       FRONTEND_ADDRESS: ${FRONTEND_ADDRESS:-:80}
+      RESPECT_DO_NOT_TRACK: ${RESPECT_DO_NOT_TRACK:-true}
     ports:
       - '80:80'
       - '443:443'

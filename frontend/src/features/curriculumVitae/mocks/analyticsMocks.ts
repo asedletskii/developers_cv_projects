@@ -23,7 +23,8 @@ import axios, {
 /** Моки ручек аналитики из docs/analytics/backend.md — пока бэкенд их не реализовал.
  *  Включаются только в dev через `VITE_MOCK_ANALYTICS=true`; все остальные запросы идут как обычно. */
 
-const VISITS_TOTAL = 45
+// Всего визитов вместе с ботами и владельцем; людей среди них меньше
+const VISITS_TOTAL = 56
 const PAGE_SIZE = 20
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -49,7 +50,9 @@ const eachDay = (from: string, to: string) => {
 
 export const buildDaily = (from: string, to: string): DailyPoint[] =>
   eachDay(from, to).map((date, index) => {
-    const views = Math.floor(rand(index + 1) * rand(index + 7) * 8)
+    // Сид — номер дня, а не позиция в периоде: у предыдущего периода получаются свои числа
+    const dayNumber = Math.floor(new Date(`${date}T12:00:00`).getTime() / DAY)
+    const views = Math.floor(rand(dayNumber + 1) * rand(dayNumber + 7) * 8)
     const reads = Math.floor(views * 0.6)
 
     return { date, views, reads, uniqueVisitors: Math.min(views, 1 + (index % 3)) }
@@ -87,6 +90,12 @@ export const buildStatistics = (from: string, to: string): LinkStatistics => {
 
 const SECTIONS = [SectionId.About, SectionId.Experience, SectionId.Projects, SectionId.Contacts]
 
+const after = (start: Date, seconds: number) =>
+  new Date(start.getTime() + seconds * 1000).toISOString()
+
+const getTraffic = (index: number) =>
+  index % 7 === 3 ? TrafficType.Bot : index % 11 === 5 ? TrafficType.Owner : TrafficType.Human
+
 const buildVisit = (index: number): LinkVisit => {
   const isRead = rand(index + 3) > 0.35
   const device = pick([DeviceType.Desktop, DeviceType.Mobile, DeviceType.Mobile], index + 5)
@@ -108,21 +117,34 @@ const buildVisit = (index: number): LinkVisit => {
     events:
       isRead && index % 3 === 0
         ? [
-            { type: 'contact_view', at: startedAt.toISOString(), contact: 'telegram' },
-            { type: 'tech_filter', at: startedAt.toISOString(), technology: 'Go' },
+            { type: 'contact_view', at: after(startedAt, 41), contact: 'telegram' },
+            { type: 'contact_copy', at: after(startedAt, 44), contact: 'telegram' },
+            { type: 'contact_click', at: after(startedAt, 52), contact: 'telegram' },
+            { type: 'tech_filter', at: after(startedAt, 78), technology: 'Go' },
+            {
+              type: 'external_click',
+              at: after(startedAt, 95),
+              kind: 'project',
+              target: 'github.com',
+            },
           ]
-        : [],
-    traffic: TrafficType.Human,
+        : isRead && index % 5 === 0
+          ? [{ type: 'print', at: after(startedAt, 63) }]
+          : [],
+    traffic: getTraffic(index),
   }
 }
 
-export const buildVisitsPage = (cursor?: string): LinkVisitsPage => {
+export const buildVisitsPage = (cursor?: string, includeFiltered = false): LinkVisitsPage => {
   const offset = Number(cursor) || 0
-  const end = Math.min(offset + PAGE_SIZE, VISITS_TOTAL)
+  const all = Array.from({ length: VISITS_TOTAL }, (_, index) => buildVisit(index))
+  // Боты и владелец по умолчанию в ленту не попадают — как у настоящего бэкенда
+  const visits = includeFiltered ? all : all.filter(({ traffic }) => traffic === TrafficType.Human)
+  const items = visits.slice(offset, offset + PAGE_SIZE)
 
   return {
-    items: Array.from({ length: end - offset }, (_, i) => buildVisit(offset + i)),
-    nextCursor: end < VISITS_TOTAL ? String(end) : null,
+    items,
+    nextCursor: offset + PAGE_SIZE < visits.length ? String(offset + PAGE_SIZE) : null,
   }
 }
 
@@ -205,10 +227,13 @@ const ROUTES: [RegExp, Handler][] = [
   [
     /^\/lk\/link\/[^/]+\/clicks$/,
     (_, { section, breakpoint, includeStale }) =>
-      buildClicks(section, breakpoint as ClickBreakpoint, includeStale === 'true'),
+      buildClicks(section, breakpoint as ClickBreakpoint, String(includeStale) === 'true'),
   ],
   [/^\/lk\/link\/[^/]+\/statistics$/, (_, { from, to }) => buildStatistics(from, to)],
-  [/^\/lk\/link\/[^/]+\/views$/, (_, { cursor }) => buildVisitsPage(cursor)],
+  [
+    /^\/lk\/link\/[^/]+\/views$/,
+    (_, { cursor, includeFiltered }) => buildVisitsPage(cursor, String(includeFiltered) === 'true'),
+  ],
 ]
 
 export const installAnalyticsMocks = (api: AxiosInstance) => {
@@ -229,14 +254,14 @@ export const installAnalyticsMocks = (api: AxiosInstance) => {
     // Разбивка по ссылкам строится из настоящих ссылок резюме, чтобы клик по строке вёл в рабочий отчёт
     const resumeMatch = path.match(/^\/lk\/resume\/([^/]+)\/statistics$/)
     if (config.method === 'get' && resumeMatch) {
-      const linksResponse = await realAdapter({
+      // Без бэкенда (он не запущен) берём одну выдуманную ссылку, чтобы мок работал автономно
+      const links = await realAdapter({
         ...config,
         url: '/lk/links',
         params: { resumeId: resumeMatch[1] },
       })
-      // Адаптер отдаёт тело до разбора JSON — разбираем сами
-      const raw = linksResponse.data
-      const links = (typeof raw === 'string' ? JSON.parse(raw) : raw) as ResumeLink[]
+        .then(({ data: raw }) => (typeof raw === 'string' ? JSON.parse(raw) : raw) as ResumeLink[])
+        .catch(() => [{ id: 'mock-link', name: 'Яндекс, рекрутер Анна' } as ResumeLink])
       const statistics: ResumeStatistics = {
         ...buildStatistics(params.from, params.to),
         links: links.map((link, index) => ({
@@ -250,8 +275,26 @@ export const installAnalyticsMocks = (api: AxiosInstance) => {
       return respond(config, statistics)
     }
 
+    // Приём батча событий: бэкенд ничего не отдаёт, только 204
+    if (config.method === 'post' && /^\/cv\/[^/]+\/events$/.test(path)) {
+      return { ...respond(config, undefined), status: 204, statusText: 'No Content' }
+    }
+
     const route = config.method === 'get' && ROUTES.find(([pattern]) => pattern.test(path))
     if (route) return respond(config, await route[1](config, params))
+
+    // Бэкенд пока не выдаёт `X-View-Id` — подставляем свой, чтобы трекер на публичной странице работал
+    if (config.method === 'get' && /^\/cv\/[^/]+$/.test(path)) {
+      const response = await realAdapter(config)
+      response.headers = { ...response.headers, 'x-view-id': crypto.randomUUID() }
+      return response
+    }
+
+    // Действующий бэкенд читает тело строго (неизвестное поле — 400), а про `viewId` он ещё не знает
+    if (config.method === 'post' && /^\/cv\/[^/]+\/contact-views$/.test(path)) {
+      const { viewId, ...body } = JSON.parse(String(config.data ?? '{}'))
+      return realAdapter({ ...config, data: JSON.stringify(body) })
+    }
 
     return realAdapter(config)
   }

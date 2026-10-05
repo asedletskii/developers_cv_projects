@@ -7,14 +7,17 @@ type GetPublicResumeArg = {
   cvId: string
   userId?: string
 }
+type GetPublicResumeResult = { resume: Resume; viewId: string | null }
+
 export const getPublicResume = createAsyncThunk<
-  Resume,
+  GetPublicResumeResult,
   GetPublicResumeArg,
   { rejectValue: CurriculumVitaeError }
 >('getPublicResume', async ({ cvId, userId }, { rejectWithValue, signal }) => {
   try {
+    // Предпросмотр владельца визитом не считается: viewId нет, значит, трекер выключен
     return userId
-      ? await curriculumVitaeApi.getResume(userId, cvId, signal)
+      ? { resume: await curriculumVitaeApi.getResume(userId, cvId, signal), viewId: null }
       : await curriculumVitaeApi.getPublicResume(cvId, signal)
   } catch (e) {
     return rejectWithValue(parseApiError(e))

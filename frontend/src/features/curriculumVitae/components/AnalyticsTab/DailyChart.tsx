@@ -1,5 +1,6 @@
 import { glassCard } from '@features/curriculumVitae/styles'
 import { DailyPoint } from '@features/curriculumVitae/types'
+import { getPeakDay } from '@features/curriculumVitae/utils'
 import { alpha, Box, Stack, Typography } from '@mui/material'
 import { useLanguage, useTranslate } from '@shared/hooks'
 
@@ -19,7 +20,6 @@ export const DailyChart = ({ days }: Props) => {
   const formatDay = (date: string) =>
     new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' }).format(new Date(date))
 
-  // Пустая сетка из нулей ничего не говорит — показываем график, только когда есть что показать
   if (total < MIN_VIEWS_FOR_CHART) {
     return (
       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -28,6 +28,7 @@ export const DailyChart = ({ days }: Props) => {
     )
   }
 
+  const peak = getPeakDay(days)
   const max = Math.max(...days.map((day) => day.views), 1)
   const slot = WIDTH / days.length
   const barWidth = Math.max(slot * 0.7, 1)
@@ -36,7 +37,14 @@ export const DailyChart = ({ days }: Props) => {
   return (
     <Stack spacing={1} sx={{ p: { xs: 2, sm: 3 }, ...glassCard }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">{translate('title')}</Typography>
+        <Stack>
+          <Typography variant="h6">{translate('title')}</Typography>
+          {peak && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {translate('peak', { date: formatDay(peak.date), count: peak.views })}
+            </Typography>
+          )}
+        </Stack>
 
         <Stack direction="row" spacing={2}>
           {(['views', 'reads'] as const).map((key) => (

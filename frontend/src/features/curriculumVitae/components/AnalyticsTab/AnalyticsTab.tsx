@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CreateLinkPrompt } from '@features/curriculumVitae/components/CreateLinkPrompt'
 import { LinksLoadError } from '@features/curriculumVitae/components/LinksTab/LinksLoadError'
-import { useResumeLinks } from '@features/curriculumVitae/hooks'
+import { useRefreshOnFocus, useResumeLinks } from '@features/curriculumVitae/hooks'
 import { AnalyticsPeriod, Resume } from '@features/curriculumVitae/types'
 import { LinearProgress, Stack } from '@mui/material'
 import { AllLinksReport } from './AllLinksReport'
@@ -19,8 +19,10 @@ const ALL_LINKS = 'all'
 export const AnalyticsTab = ({ resume, resumeId, linksState }: Props) => {
   const [scope, setScope] = useState(ALL_LINKS)
   const [period, setPeriod] = useState<AnalyticsPeriod>(30)
-  // Смена ключа перемонтирует отчёт — это и есть «Обновить»
   const [refreshKey, setRefreshKey] = useState(0)
+  const refresh = () => setRefreshKey((key) => key + 1)
+
+  useRefreshOnFocus(refresh)
 
   if (linksState.isLoading) return <LinearProgress />
 
@@ -39,7 +41,7 @@ export const AnalyticsTab = ({ resume, resumeId, linksState }: Props) => {
         period={period}
         onScopeChange={setScope}
         onPeriodChange={setPeriod}
-        onRefresh={() => setRefreshKey((key) => key + 1)}
+        onRefresh={refresh}
       />
 
       {scope === ALL_LINKS ? (

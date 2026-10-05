@@ -16,6 +16,14 @@ export const lkDict = {
       },
 
       Main: {
+        Stats: {
+          title: 'Просмотры за 30 дней',
+          more: 'Подробнее',
+          empty: 'Пока никто не открывал резюме',
+          summary: '{{views}} открытий · {{reads}} прочтений · {{contacts}} раскрытий контактов',
+          last: 'Последний просмотр: {{time}}',
+        },
+
         completeness: 'Резюме заполнено на {{percent}}%',
         updated: 'Обновлено {{time}}',
         fill: 'Заполнить',
@@ -24,6 +32,7 @@ export const lkDict = {
       Links: {
         title: 'Ссылки на резюме',
         hint: 'Создайте отдельную ссылку для каждого адресата: у неё свой адрес, который нельзя подменить, и по нему можно будет считать просмотры.',
+        stats: '{{views}} откр. · {{reads}} прочт. за 30 дней',
         loadErrorTitle: 'Не удалось загрузить ссылки',
         loadError: 'Возможно, дело в сети или сбое на сервере — попробуйте ещё раз.',
         retry: 'Повторить',
@@ -70,6 +79,17 @@ export const lkDict = {
           firstLast: 'Первый просмотр {{first}} · последний {{last}}',
           filtered: 'Отфильтровано: ботов {{bot}}, ваших просмотров {{owner}}',
           readsHint: 'Открытия, где резюме действительно смотрели не меньше 5 секунд',
+          readRate: 'Доля прочтений',
+          readRateHint: 'Какая часть открытий дошла до прочтения',
+          medianTime: 'Медианное время',
+          medianTimeHint: 'Сколько времени на странице проводит типичный читатель',
+          returning: 'Вернулись',
+          returningValue: '{{count}} из {{total}}',
+          returningHint: 'Посетители, которые заходили в разные дни',
+          contactRate: 'Раскрыли контакт',
+          contactRateValue: '{{percent}}% прочитавших',
+          contactRateHint: 'Какая часть читателей раскрыла контакт',
+          vsPrevious: 'Предыдущие {{days}} дн.: {{before}}',
         },
 
         Links: {
@@ -81,6 +101,7 @@ export const lkDict = {
 
         Chart: {
           title: 'Просмотры по дням',
+          peak: 'Пик: {{date}} — {{count}} откр.',
           views: 'Открытия',
           reads: 'Прочтения',
           tooShort: 'Данных пока мало — график появится, когда будет хотя бы три открытия.',
@@ -88,6 +109,19 @@ export const lkDict = {
 
         Feed: {
           title: 'Лента визитов',
+          showFiltered: 'Показать ботов и мои визиты',
+          noMatches: 'Под этот фильтр визитов пока нет — загрузите ещё',
+          Filters: {
+            all: 'Все',
+            reads: 'Прочитанные',
+            actions: 'С действиями',
+          },
+          Traffic: {
+            human: 'человек',
+            bot: 'бот',
+            owner: 'вы',
+            suspect: 'подозрительный',
+          },
           loadMore: 'Показать ещё',
           empty: 'Визитов за это время не было',
           visitor: 'Посетитель №{{n}}',
@@ -98,8 +132,29 @@ export const lkDict = {
           contact: 'раскрыл {{contact}}',
           techFilter: 'фильтр «{{technology}}»',
           download: 'скачал резюме',
+          print: 'распечатал резюме',
+          externalClick: 'открыл ссылку {{target}}',
+          contactCopy: 'скопировал {{contact}}',
+          contactClick: 'перешёл в {{contact}}',
           referrer: 'из {{host}}',
           direct: 'напрямую',
+
+          Details: {
+            startedAt: 'Начало визита',
+            device: 'Устройство',
+            browser: 'Браузер и система',
+            source: 'Откуда пришёл',
+            activeTime: 'Время на странице',
+            visitor: 'Посетитель',
+            reached: 'Дошёл до',
+            exit: 'Ушёл на',
+            actions: 'Что делал на странице',
+            noActions: 'Действий на странице не было',
+            actionsCount: 'Действий: {{count}}',
+            offset: 'через {{time}}',
+            visitorVisits: 'Визитов этого посетителя в ленте',
+            traffic: 'Тип трафика',
+          },
         },
 
         Device: {
@@ -120,6 +175,12 @@ export const lkDict = {
           direct: 'Напрямую',
         },
 
+        Weekday: {
+          title: 'По дням недели',
+          best: 'Чаще всего открывают в такой день: {{day}}',
+          reads: 'прочтений: {{count}}',
+        },
+
         Funnel: {
           title: 'До какой секции дочитывают',
           hint: 'Считается только по прочтениям: сколько дошло до секции и сколько закончило на ней просмотр.',
@@ -136,6 +197,8 @@ export const lkDict = {
         ClickMap: {
           title: 'Карта кликов',
           hint: 'Цвет клетки показывает, как часто в неё кликали. Раскладка — как у посетителей с экраном выбранной ширины.',
+          top: 'Больше всего кликов:',
+          topItem: '{{section}} — {{count}}',
           legendLow: 'реже',
           legendHigh: 'чаще',
           staleHidden:
@@ -381,6 +444,14 @@ export const lkDict = {
       },
 
       Main: {
+        Stats: {
+          title: 'Views in 30 days',
+          more: 'More',
+          empty: 'No one has opened the résumé yet',
+          summary: '{{views}} opens · {{reads}} reads · {{contacts}} contact reveals',
+          last: 'Last view: {{time}}',
+        },
+
         completeness: 'Résumé is {{percent}}% complete',
         updated: 'Updated {{time}}',
         fill: 'Fill in',
@@ -389,6 +460,7 @@ export const lkDict = {
       Links: {
         title: 'Résumé links',
         hint: 'Create a separate link for each recipient: it has its own address that cannot be tampered with, so views can be counted per link.',
+        stats: '{{views}} opens · {{reads}} reads in 30 days',
         loadErrorTitle: "Couldn't load the links",
         loadError: 'It might be the network or a server hiccup — try again.',
         retry: 'Retry',
@@ -435,6 +507,17 @@ export const lkDict = {
           firstLast: 'First view {{first}} · last {{last}}',
           filtered: 'Filtered out: bots {{bot}}, your own views {{owner}}',
           readsHint: 'Opens where the résumé was actually looked at for at least 5 seconds',
+          readRate: 'Read rate',
+          readRateHint: 'Share of opens that turned into a read',
+          medianTime: 'Median time',
+          medianTimeHint: 'How long a typical reader stays on the page',
+          returning: 'Came back',
+          returningValue: '{{count}} of {{total}}',
+          returningHint: 'Visitors who came on different days',
+          contactRate: 'Revealed a contact',
+          contactRateValue: '{{percent}}% of readers',
+          contactRateHint: 'Share of readers who revealed a contact',
+          vsPrevious: 'Previous {{days}} d: {{before}}',
         },
 
         Links: {
@@ -446,6 +529,7 @@ export const lkDict = {
 
         Chart: {
           title: 'Views by day',
+          peak: 'Peak: {{date}} — {{count}} opens',
           views: 'Opens',
           reads: 'Reads',
           tooShort: 'Not enough data yet — the chart appears after at least three opens.',
@@ -453,6 +537,19 @@ export const lkDict = {
 
         Feed: {
           title: 'Visit feed',
+          showFiltered: 'Show bots and my visits',
+          noMatches: 'No visits match this filter yet — load more',
+          Filters: {
+            all: 'All',
+            reads: 'Read',
+            actions: 'With actions',
+          },
+          Traffic: {
+            human: 'human',
+            bot: 'bot',
+            owner: 'you',
+            suspect: 'suspicious',
+          },
           loadMore: 'Show more',
           empty: 'No visits in this period',
           visitor: 'Visitor #{{n}}',
@@ -463,8 +560,29 @@ export const lkDict = {
           contact: 'revealed {{contact}}',
           techFilter: 'filter “{{technology}}”',
           download: 'downloaded the résumé',
+          print: 'printed the résumé',
+          externalClick: 'opened a link to {{target}}',
+          contactCopy: 'copied {{contact}}',
+          contactClick: 'opened {{contact}}',
           referrer: 'from {{host}}',
           direct: 'direct',
+
+          Details: {
+            startedAt: 'Visit started',
+            device: 'Device',
+            browser: 'Browser and system',
+            source: 'Came from',
+            activeTime: 'Time on the page',
+            visitor: 'Visitor',
+            reached: 'Reached',
+            exit: 'Left on',
+            actions: 'What they did on the page',
+            noActions: 'No actions on the page',
+            actionsCount: 'Actions: {{count}}',
+            offset: 'after {{time}}',
+            visitorVisits: 'Visits by this visitor in the feed',
+            traffic: 'Traffic type',
+          },
         },
 
         Device: {
@@ -485,6 +603,12 @@ export const lkDict = {
           direct: 'Direct',
         },
 
+        Weekday: {
+          title: 'By day of the week',
+          best: 'Most opens happen on: {{day}}',
+          reads: 'reads: {{count}}',
+        },
+
         Funnel: {
           title: 'How far people read',
           hint: 'Counted over reads only: how many reached a section and how many ended their visit on it.',
@@ -501,6 +625,8 @@ export const lkDict = {
         ClickMap: {
           title: 'Click map',
           hint: 'The cell colour shows how often it was clicked. The layout matches visitors with a screen of the chosen width.',
+          top: 'Most clicks:',
+          topItem: '{{section}} — {{count}}',
           legendLow: 'fewer',
           legendHigh: 'more',
           staleHidden:

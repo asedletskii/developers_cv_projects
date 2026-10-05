@@ -3,7 +3,7 @@ import { useAnalyticsRequest } from '@features/curriculumVitae/hooks'
 import { getVisibleSections } from '@features/curriculumVitae/sections'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { AnalyticsPeriod, Resume, SectionId } from '@features/curriculumVitae/types'
-import { getAnalyticsRange, orderSectionStats } from '@features/curriculumVitae/utils'
+import { getAnalyticsRange, orderSectionStats, toPercent } from '@features/curriculumVitae/utils'
 import { Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { BarList } from './BarList'
@@ -22,7 +22,6 @@ export const SectionFunnel = ({ resume, linkId, period }: Props) => {
     [linkId, period],
   )
 
-  // Блок необязательный: пока ручка не отвечает или прочтений нет, просто не показываем его
   if (!data || data.reads === 0) return null
 
   return (
@@ -43,7 +42,7 @@ export const SectionFunnel = ({ resume, linkId, period }: Props) => {
           key: section,
           label: translateSection(section as SectionId),
           value: reached,
-          caption: translate('exits', { count: exits }),
+          caption: `${toPercent(reached, data.reads) ?? 0}% · ${translate('exits', { count: exits })}`,
         }))}
       />
     </Stack>

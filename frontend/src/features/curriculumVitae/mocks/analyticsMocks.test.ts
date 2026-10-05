@@ -24,8 +24,24 @@ describe('analyticsMocks', () => {
     const second = buildVisitsPage(first.nextCursor!)
     const third = buildVisitsPage(second.nextCursor!)
 
-    expect([first.items.length, second.items.length, third.items.length]).toEqual([20, 20, 5])
+    expect(first.items).toHaveLength(20)
+    expect(second.items).toHaveLength(20)
+    expect(third.items.length).toBeGreaterThan(0)
     expect(third.nextCursor).toBeNull()
+  })
+
+  it('боты и владелец попадают в ленту только по запросу', () => {
+    const humans = buildVisitsPage()
+    const everyone = buildVisitsPage(undefined, true)
+
+    expect(humans.items.every(({ traffic }) => traffic === 'human')).toBe(true)
+    expect(everyone.items.some(({ traffic }) => traffic !== 'human')).toBe(true)
+  })
+
+  it('у предыдущего периода свои числа — сравнение не нулевое', () => {
+    expect(buildStatistics('2026-09-01', '2026-09-30').views).not.toBe(
+      buildStatistics('2026-08-02', '2026-08-31').views,
+    )
   })
 
   it('клики по прежним версиям секции не входят в сетку, пока их не попросили', () => {

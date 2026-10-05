@@ -1,6 +1,4 @@
-import { DeviceType, TrafficType } from './enums'
-
-/** Типы повторяют JSON из docs/analytics/backend.md (раздел «Кабинет») один в один. */
+import { AnalyticsEventType, DeviceType, TrafficType } from './enums'
 
 export type LinkStatistics = {
   views: number
@@ -17,7 +15,6 @@ export type LinkStatistics = {
   filtered: { bot: number; owner: number; suspect: number }
 }
 
-/** Статистика по всему резюме: то же + разбивка по ссылкам */
 export type ResumeStatistics = LinkStatistics & {
   links: {
     id: string
@@ -40,6 +37,8 @@ export type VisitEvent = {
   at: string
   contact?: string
   technology?: string
+  kind?: string
+  target?: string
 }
 
 export type LinkVisit = {
@@ -76,10 +75,38 @@ export type ClickBreakpoint = 'xs' | 'md' | 'lg'
 
 export type ClickGrid = {
   section: string
-  /** Сетка `grid × grid`, клетка — доля секции по ширине и высоте */
   grid: number
   cells: { x: number; y: number; count: number }[]
   total: number
-  /** Клики по прежним версиям секции — в сетку не вошли (см. `includeStale`) */
   staleTotal: number
+}
+
+export type AnalyticsEvent =
+  | { type: AnalyticsEventType.SectionView; section: string }
+  | { type: AnalyticsEventType.Download }
+  | { type: AnalyticsEventType.TechFilter; technology: string; action: 'select' | 'clear' }
+  | { type: AnalyticsEventType.ExternalClick; kind: string; target: string }
+  | { type: AnalyticsEventType.Print }
+  | { type: AnalyticsEventType.ContactCopy; contact: string }
+  | { type: AnalyticsEventType.ContactClick; contact: string }
+
+export type AnalyticsClick = {
+  section: string
+  x: number
+  y: number
+  vw: number
+  target?: string
+}
+
+export type AnalyticsBatch = {
+  viewId: string
+  seq: number
+  final: boolean
+  state: {
+    activeMs: number
+    maxSection?: string
+    exitSection?: string
+  }
+  events: (AnalyticsEvent & { id: string; at: number })[]
+  clicks: (AnalyticsClick & { at: number })[]
 }

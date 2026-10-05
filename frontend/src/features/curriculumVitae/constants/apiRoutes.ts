@@ -7,6 +7,7 @@ export const API_ROUTES = {
   lkResumeStatus: '/lk/resume/:resumeId/status',
   lkSection: '/lk/resume/:resumeId/:section',
   contactViews: '/cv/:resumeId/contact-views',
+  cvEvents: '/cv/:linkId/events',
   lkLinksList: '/lk/links',
   lkLinks: '/lk/link',
   lkLink: '/lk/link/:linkId',

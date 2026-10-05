@@ -42,7 +42,11 @@ export const Project = ({ project }: Props) => {
 
         <TechnologyList technologies={project.stack} />
 
-        {project.link && <ExternalLink href={project.link}>{translate('open')}</ExternalLink>}
+        {project.link && (
+          <ExternalLink href={project.link} kind="project">
+            {translate('open')}
+          </ExternalLink>
+        )}
       </TiltCard>
     </Box>
   )

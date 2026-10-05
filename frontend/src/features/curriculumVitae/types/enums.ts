@@ -102,3 +102,13 @@ export enum TrafficType {
   Owner = 'owner',
   Suspect = 'suspect',
 }
+
+export enum AnalyticsEventType {
+  SectionView = 'section_view',
+  Download = 'download',
+  TechFilter = 'tech_filter',
+  ExternalClick = 'external_click',
+  Print = 'print',
+  ContactCopy = 'contact_copy',
+  ContactClick = 'contact_click',
+}

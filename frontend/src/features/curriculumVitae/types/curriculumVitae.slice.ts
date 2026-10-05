@@ -11,6 +11,7 @@ export type CurriculumVitaeError = {
 
 export type CurriculumVitaeSliceState = {
   resume: Resume
+  viewId: string | null
   isLoading: boolean
   error: CurriculumVitaeError | null
   currentRequestId: string | null

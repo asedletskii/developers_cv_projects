@@ -1,7 +1,7 @@
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
 import { useAnalyticsRequest } from '@features/curriculumVitae/hooks'
 import { AnalyticsPeriod } from '@features/curriculumVitae/types'
-import { getAnalyticsRange } from '@features/curriculumVitae/utils'
+import { getAnalyticsRange, getPreviousRange } from '@features/curriculumVitae/utils'
 import { LinearProgress, Stack } from '@mui/material'
 import { LinksBreakdown } from './LinksBreakdown'
 import { ReportError } from './ReportError'
@@ -15,7 +15,15 @@ type Props = {
 
 export const AllLinksReport = ({ resumeId, period, onOpenLink }: Props) => {
   const { data, isLoading, hasError, reload } = useAnalyticsRequest(
-    (signal) => curriculumVitaeApi.getResumeStatistics(resumeId, getAnalyticsRange(period), signal),
+    async (signal) => {
+      const [statistics, previous] = await Promise.all([
+        curriculumVitaeApi.getResumeStatistics(resumeId, getAnalyticsRange(period), signal),
+        curriculumVitaeApi
+          .getResumeStatistics(resumeId, getPreviousRange(period), signal)
+          .catch(() => undefined),
+      ])
+      return { statistics, previous }
+    },
     [resumeId, period],
   )
 
@@ -25,8 +33,8 @@ export const AllLinksReport = ({ resumeId, period, onOpenLink }: Props) => {
 
   return (
     <Stack spacing={2.5}>
-      <Summary statistics={data} />
-      <LinksBreakdown links={data.links} onOpenLink={onOpenLink} />
+      <Summary statistics={data.statistics} previous={data.previous} period={period} />
+      <LinksBreakdown links={data.statistics.links} onOpenLink={onOpenLink} />
     </Stack>
   )
 }

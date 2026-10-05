@@ -19,6 +19,7 @@
 | [projects.md](projects.md) | Проекты | `/projects` |
 | [activities.md](activities.md) | Дополнительная активность | `/activities` |
 | [public.md](public.md) | Публичная проекция резюме без авторизации | `GET /cv/:resumeId` |
+| [analytics.md](analytics.md) | Аналитика ссылок: визиты, события посетителя, отчёты в кабинете. **Контракт под фронтенд, бэкенд ещё не написан** | `/cv/:linkId/events`, `/lk/link/:linkId/statistics…`, `/views`, `/clicks`, `/lk/resume/:resumeId/statistics` |
 | [unification-plan.md](unification-plan.md) | План: привести публичный и кабинетный ответы к одному виду | — |
 
 ## Как читать таблицы полей

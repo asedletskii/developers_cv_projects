@@ -18,12 +18,13 @@ type Props = {
 export const ContactButton = ({ resumeId, link }: Props) => {
   const translate = useTranslate('CurriculumVitae.Contacts')
   const { key, icon, isHidden } = link
-  const { value, isRevealing, reveal, copy } = useContactButton(resumeId, link)
+  const { value, isRevealing, reveal, copy, trackOpen } = useContactButton(resumeId, link)
 
   if (!value) {
     return (
       <Button
         onClick={reveal}
+        data-analytics-id={`contact-${key}`}
         disabled={isRevealing}
         startIcon={icon}
         size="large"
@@ -44,6 +45,8 @@ export const ContactButton = ({ resumeId, link }: Props) => {
       <Button
         component="a"
         href={getContactHref(key, value)}
+        data-analytics-id={`contact-${key}`}
+        onClick={trackOpen}
         target={key === ContactKey.Telegram ? '_blank' : undefined}
         rel="noopener noreferrer"
         startIcon={icon}

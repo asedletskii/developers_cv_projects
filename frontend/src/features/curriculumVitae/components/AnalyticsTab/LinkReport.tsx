@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
 import { useAnalyticsRequest } from '@features/curriculumVitae/hooks'
 import { AnalyticsPeriod, Resume } from '@features/curriculumVitae/types'
-import { getAnalyticsRange } from '@features/curriculumVitae/utils'
+import { getAnalyticsRange, getPreviousRange } from '@features/curriculumVitae/utils'
 import { LinearProgress, Stack, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { Breakdown } from './Breakdown'
@@ -14,6 +14,7 @@ import { SectionFunnel } from './SectionFunnel'
 import { Summary } from './Summary'
 import { TechnologyInterest } from './TechnologyInterest'
 import { VisitFeed } from './VisitFeed'
+import { WeekdayChart } from './WeekdayChart'
 
 type Props = {
   resume: Resume
@@ -30,11 +31,14 @@ export const LinkReport = ({ resume, resumeId, linkId, period }: Props) => {
   const { data, isLoading, hasError, reload } = useAnalyticsRequest(
     async (signal) => {
       const range = getAnalyticsRange(period)
-      const [statistics, daily] = await Promise.all([
+      const [statistics, daily, previous] = await Promise.all([
         curriculumVitaeApi.getLinkStatistics(linkId, range, signal),
         curriculumVitaeApi.getLinkDaily(linkId, range, signal),
+        curriculumVitaeApi
+          .getLinkStatistics(linkId, getPreviousRange(period), signal)
+          .catch(() => undefined),
       ])
-      return { statistics, daily }
+      return { statistics, daily, previous }
     },
     [linkId, period],
   )
@@ -47,7 +51,7 @@ export const LinkReport = ({ resume, resumeId, linkId, period }: Props) => {
 
   return (
     <Stack spacing={2.5}>
-      <Summary statistics={data.statistics} />
+      <Summary statistics={data.statistics} previous={data.previous} period={period} />
 
       {isEmpty ? (
         <EmptyReport />
@@ -70,6 +74,7 @@ export const LinkReport = ({ resume, resumeId, linkId, period }: Props) => {
           {view === 'overview' ? (
             <>
               <DailyChart days={data.daily} />
+              <WeekdayChart days={data.daily} />
               <Breakdown statistics={data.statistics} />
               <SectionFunnel resume={resume} linkId={linkId} period={period} />
               <TechnologyInterest linkId={linkId} period={period} />

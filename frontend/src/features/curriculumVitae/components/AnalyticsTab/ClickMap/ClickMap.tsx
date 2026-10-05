@@ -3,7 +3,15 @@ import { curriculumVitaeApi } from '@features/curriculumVitae/api'
 import { useAnalyticsRequest } from '@features/curriculumVitae/hooks'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { ClickBreakpoint, SectionId } from '@features/curriculumVitae/types'
-import { Box, Button, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import {
+  Box,
+  Button,
+  Chip,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material'
 import { ROUTES } from '@shared/constants'
 import { useElementWidth, useTranslate } from '@shared/hooks'
 import { createPortal } from 'react-dom'
@@ -46,6 +54,11 @@ export const ClickMap = ({ linkId, resumeId }: Props) => {
   const max = Math.max(1, ...(grids ?? []).flatMap(({ cells }) => cells.map(({ count }) => count)))
   const staleTotal = (grids ?? []).reduce((sum, { staleTotal: stale }) => sum + stale, 0)
   const hasClicks = (grids ?? []).some(({ total }) => total > 0)
+  // Где кликали больше всего — из тех же сеток, отдельная ручка не нужна
+  const topSections = [...(grids ?? [])]
+    .filter(({ total }) => total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3)
 
   return (
     <Stack spacing={2} sx={{ p: { xs: 2, sm: 3 }, ...glassCard }}>
@@ -69,6 +82,25 @@ export const ClickMap = ({ linkId, resumeId }: Props) => {
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
         {translate('hint')}
       </Typography>
+
+      {topSections.length > 0 && (
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {translate('top')}
+          </Typography>
+
+          {topSections.map(({ section, total }) => (
+            <Chip
+              key={section}
+              size="small"
+              label={translate('topItem', {
+                section: translateSection(section as SectionId),
+                count: total,
+              })}
+            />
+          ))}
+        </Stack>
+      )}
 
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="caption">{translate('legendLow')}</Typography>

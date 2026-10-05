@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { curriculumVitaeApi } from '@features/curriculumVitae/api'
 import { LinkVisit } from '@features/curriculumVitae/types'
 
-/** Лента визитов с накопительной пагинацией по `nextCursor` */
-export const useLinkVisits = (linkId: string) => {
+export const useLinkVisits = (linkId: string, includeFiltered = false) => {
   const [visits, setVisits] = useState<LinkVisit[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -16,7 +15,7 @@ export const useLinkVisits = (linkId: string) => {
       setHasError(false)
 
       try {
-        const page = await curriculumVitaeApi.getLinkVisits(linkId, from, signal)
+        const page = await curriculumVitaeApi.getLinkVisits(linkId, from, includeFiltered, signal)
         setVisits((current) => (from ? [...current, ...page.items] : page.items))
         setCursor(page.nextCursor)
       } catch {
@@ -25,7 +24,7 @@ export const useLinkVisits = (linkId: string) => {
         if (!signal?.aborted) setIsLoading(false)
       }
     },
-    [linkId],
+    [linkId, includeFiltered],
   )
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { API_ROUTES } from '@features/curriculumVitae/constants'
 import {
+  AnalyticsBatch,
   ClickBreakpoint,
   ClickGrid,
   ContactKey,
@@ -26,11 +27,16 @@ import { generatePath } from 'react-router'
 type AnalyticsParams = { from: string; to: string; tz: string }
 
 class CurriculumVitaeApi {
-  async getPublicResume(resumeId: string, signal?: AbortSignal): Promise<Resume> {
+  /** `viewId` — идентификатор визита из заголовка `X-View-Id`; без него (ошибка записи на бэке)
+   *  трекер выключен */
+  async getPublicResume(
+    resumeId: string,
+    signal?: AbortSignal,
+  ): Promise<{ resume: Resume; viewId: string | null }> {
     const response = await api.get<Resume>(generatePath(API_ROUTES.publicResume, { resumeId }), {
       signal,
     })
-    return response.data
+    return { resume: response.data, viewId: response.headers['x-view-id'] ?? null }
   }
 
   async getProfile(userId: string, signal?: AbortSignal): Promise<LkProfile> {
@@ -93,10 +99,14 @@ class CurriculumVitaeApi {
     await api.put(generatePath(API_ROUTES.lkSection, { resumeId, section }), body)
   }
 
-  async revealContact(resumeId: string, contact: ContactKey): Promise<string> {
+  async revealContact(
+    resumeId: string,
+    contact: ContactKey,
+    viewId?: string | null,
+  ): Promise<string> {
     const response = await api.post<{ contact: ContactKey; value: string }>(
       generatePath(API_ROUTES.contactViews, { resumeId }),
-      { contact },
+      { contact, viewId: viewId ?? undefined },
     )
     return response.data.value
   }
@@ -135,6 +145,10 @@ class CurriculumVitaeApi {
     await api.put(generatePath(API_ROUTES.lkLinkStatus, { linkId }), { version, status })
   }
 
+  async sendAnalyticsBatch(linkId: string, batch: AnalyticsBatch): Promise<void> {
+    await api.post(generatePath(API_ROUTES.cvEvents, { linkId }), batch)
+  }
+
   async getLinkStatistics(
     linkId: string,
     params: AnalyticsParams,
@@ -161,12 +175,20 @@ class CurriculumVitaeApi {
 
   async getLinkVisits(
     linkId: string,
-    cursor?: string | null,
+    cursor: string | null | undefined,
+    includeFiltered: boolean,
     signal?: AbortSignal,
   ): Promise<LinkVisitsPage> {
     const response = await api.get<LinkVisitsPage>(
       generatePath(API_ROUTES.lkLinkVisits, { linkId }),
-      { params: { cursor: cursor ?? undefined, limit: 20 }, signal },
+      {
+        params: {
+          cursor: cursor ?? undefined,
+          limit: 20,
+          includeFiltered: includeFiltered || undefined,
+        },
+        signal,
+      },
     )
     return response.data
   }
