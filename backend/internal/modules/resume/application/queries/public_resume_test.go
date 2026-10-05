@@ -112,7 +112,6 @@ func TestToPublicRedactsEverySupportedHiddenContact(t *testing.T) {
 	require.Nil(t, result.Contacts.Email)
 	require.Equal(t, []string{"phone", "telegram", "email"}, result.Contacts.HiddenContacts)
 
-	// Redaction must not mutate the source view.
 	require.Equal(t, &phone, view.Contacts.Phone)
 	require.Equal(t, &telegram, view.Contacts.Telegram)
 	require.Equal(t, &email, view.Contacts.Email)

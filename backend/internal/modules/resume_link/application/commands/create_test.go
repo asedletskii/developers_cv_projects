@@ -54,8 +54,7 @@ func (r *fakeRepository) ReplaceStatus(context.Context, sharedvalueobjects.ID, b
 	return r.err
 }
 
-func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error        { return r.err }
-func (r *fakeRepository) RecordEvent(context.Context, *domain.ResumeLinkEvent) error { return r.err }
+func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error { return r.err }
 
 func validCreateCommand() CreateResumeLinkCommand {
 	return CreateResumeLinkCommand{UserID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "  HH  "}

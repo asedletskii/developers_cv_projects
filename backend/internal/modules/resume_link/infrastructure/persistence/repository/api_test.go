@@ -7,7 +7,7 @@ import (
 
 func TestResumeLinkRepositoryWriteSideAPI(t *testing.T) {
 	typ := reflect.TypeOf(&ResumeLinkRepository{})
-	for _, method := range []string{"Create", "GetByID", "Delete", "ReplaceStatus", "RecordEvent"} {
+	for _, method := range []string{"Create", "GetByID", "Delete", "ReplaceStatus", "CreateView", "GetView", "UpdateViewState", "RecordEvents", "ApplyBatch"} {
 		if _, ok := typ.MethodByName(method); !ok {
 			t.Fatalf("repository must expose %s", method)
 		}

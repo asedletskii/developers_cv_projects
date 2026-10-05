@@ -22,6 +22,7 @@ func setValidConfigEnvironment(t *testing.T) {
 	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
 	t.Setenv("POSTGRES_PASSWORD", "test-password")
 	t.Setenv("POSTGRES_SSLMODE", "disable")
+	t.Setenv("ANALYTICS_VISITOR_SECRET", "test-analytics-visitor-secret-32-bytes-minimum")
 }
 
 func TestLoadRequiresOriginsWhenCredentialsEnabled(t *testing.T) {
@@ -341,7 +342,8 @@ func TestValidateRejectsInvalidTrustedProxy(t *testing.T) {
 
 func productionSecurityTestConfig() Config {
 	return Config{
-		App: AppConfig{Env: "production"},
+		App:       AppConfig{Env: "production"},
+		Analytics: AnalyticsConfig{VisitorSecret: "production-test-analytics-secret-32-bytes-minimum", SuspectBurst: 5, SuspectWindow: time.Minute},
 		Auth: AuthConfig{
 			Mode:        "telegram",
 			Telegram:    TelegramAuthConfig{ClientID: "client-id", ClientSecret: "client-secret", RedirectURL: "https://example.com/api/v1/auth/telegram/callback", IssuerURL: "https://oauth.telegram.org"},
@@ -352,9 +354,10 @@ func productionSecurityTestConfig() Config {
 		},
 		HTTP: HTTPConfig{
 			Port: 8080, ReadTimeout: time.Second, ReadHeaderTimeout: time.Second, WriteTimeout: time.Second, IdleTimeout: time.Second, ShutdownTimeout: time.Second, MaxBodyBytes: 1024,
-			TLS:                  TLSConfig{Enabled: true, CertFile: "/run/secrets/tls.crt", KeyFile: "/run/secrets/tls.key"},
-			RateLimit:            RateLimitConfig{Enabled: true, Rate: 10, Burst: 20},
-			ContactViewRateLimit: RateLimitConfig{Enabled: true, Rate: 3, Burst: 2},
+			TLS:                      TLSConfig{Enabled: true, CertFile: "/run/secrets/tls.crt", KeyFile: "/run/secrets/tls.key"},
+			RateLimit:                RateLimitConfig{Enabled: true, Rate: 10, Burst: 20},
+			ContactViewRateLimit:     RateLimitConfig{Enabled: true, Rate: 3, Burst: 2},
+			AnalyticsEventsRateLimit: RateLimitConfig{Enabled: true, Rate: 30, Burst: 10},
 		},
 		CORS:       CORSConfig{AllowedOrigins: []string{"https://example.com"}, AllowCredentials: true},
 		Turnstile:  TurnstileConfig{Enabled: true, SiteKey: "site-key", SecretKey: "secret-key", ExpectedHost: "example.com", ExpectedAction: "contact_view", Timeout: 5 * time.Second},

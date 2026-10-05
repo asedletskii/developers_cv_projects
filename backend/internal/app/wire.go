@@ -22,6 +22,7 @@ import (
 	resumelinkports "developers-cv/backend/internal/modules/resume_link/application/ports"
 	resumelinkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
 	resumelinkanalytics "developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
+	resumelinkcleanup "developers-cv/backend/internal/modules/resume_link/infrastructure/cleanup"
 	resumelinkreaders "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
 	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
@@ -67,21 +68,22 @@ var resumeCommandSet = wire.NewSet(
 
 var resumeLinkReadSet = wire.NewSet(
 	resumelinkreaders.NewResumeLinkReader,
-	resumelinkqueries.NewPublicResumeLinkQueryHandler,
+	resumelinkqueries.NewPublicResumeLinkQueryHandlerWithVisit,
 	resumelinkqueries.NewGetResumeLinkStatisticsQueryHandler,
 	wire.Bind(new(resumelinkqueries.ResumeLinkReader), new(*resumelinkreaders.ResumeLinkReader)),
 	wire.Bind(new(resumelinkqueries.ResumeLinkPublicReader), new(*resumelinkreaders.ResumeLinkReader)),
-	wire.Bind(new(resumelinkqueries.ResumeLinkStatisticsReader), new(*resumelinkreaders.ResumeLinkReader)),
-	wire.Bind(new(resumelinkqueries.ResumeOwnershipReader), new(*resumereaders.ResumeReader)),
+	wire.Bind(new(resumelinkqueries.AnalyticsReadReader), new(*resumelinkreaders.ResumeLinkReader)),
 	wire.Bind(new(resumelinkqueries.ResumePublicQuery), new(*resumequeries.PublicResumeQueryHandler)),
 )
 
-var resumeLinkAnalyticsSet = wire.NewSet(
-	resumelinkanalytics.NewRecorder,
-	wire.Bind(new(resumelinkports.LinkEventRecorder), new(*resumelinkanalytics.Recorder)),
-)
-
 var resumeLinkCommandSet = wire.NewSet(
+	resumelinkcommands.NewCreatePublicVisitHandler,
+	resumelinkcommands.NewIngestAnalyticsBatchHandler,
+	resumelinkcommands.NewCleanupAnalyticsHandler,
+	resumelinkcleanup.NewWorker,
+	resumelinkqueries.NewAnalyticsClickQueryHandler,
+	resumelinkhttp.NewAnalyticsEventsHandler,
+	resumelinkanalytics.NewLayoutSnapshotBuilder,
 	resumelinkcommands.NewCreateResumeLinkHandler,
 	resumelinkcommands.NewDeleteResumeLinkHandler,
 	resumelinkcommands.NewReplaceStatusResumeLinkHandler,
@@ -131,10 +133,16 @@ func Initialize() (*Application, error) {
 		resumerepository.NewResumeRepository,
 		wire.Bind(new(resumeports.ResumeRepository), new(*resumerepository.ResumeRepository)),
 		resumelinkrepository.NewResumeLinkRepository,
+		newAnalyticsTrafficClassifier,
+		newAnalyticsVisitorIdentifier,
+		newOptionalAuthenticate,
 		wire.Bind(new(resumelinkports.ResumeLinkRepository), new(*resumelinkrepository.ResumeLinkRepository)),
-		wire.Bind(new(resumelinkports.ResumeLinkEventRepository), new(*resumelinkrepository.ResumeLinkRepository)),
+		wire.Bind(new(resumelinkports.ViewRepository), new(*resumelinkrepository.ResumeLinkRepository)),
+		wire.Bind(new(resumelinkports.AnalyticsEventRepository), new(*resumelinkrepository.ResumeLinkRepository)),
+		wire.Bind(new(resumelinkports.AnalyticsBatchRepository), new(*resumelinkrepository.ResumeLinkRepository)),
+		wire.Bind(new(resumelinkports.AnalyticsRetentionRepository), new(*resumelinkrepository.ResumeLinkRepository)),
 		wire.Bind(new(resumelinkports.ResumeOwnershipReader), new(*resumereaders.ResumeReader)),
-		resumeReadSet, resumeCommandSet, resumeLinkReadSet, resumeLinkCommandSet, resumeLinkAnalyticsSet,
+		resumeReadSet, resumeCommandSet, resumeLinkReadSet, resumeLinkCommandSet,
 		resumeHTTPSet, resumeLinkHTTPSet,
 		resumequeries.NewPublicResumeQueryHandler, resumequeries.NewListResumesQueryHandler,
 		resumequeries.NewGetResumeQueryHandler, resumequeries.NewContactViewQueryHandler,
@@ -152,6 +160,6 @@ func Initialize() (*Application, error) {
 		newRuntimeAuthenticator,
 		newAuthenticate,
 		cookieConfigFromRuntime,
-		httpserver.NewRouter, httpserver.NewServer, cleanup.NewWorker, NewApplication,
+		httpserver.NewRouter, httpserver.NewServer, cleanup.NewWorker, newBackgroundWorkers, NewApplication,
 	))
 }

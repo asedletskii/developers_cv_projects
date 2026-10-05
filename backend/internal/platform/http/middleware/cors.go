@@ -13,7 +13,7 @@ func CORS(cfg config.CORSConfig) gin.HandlerFunc {
 		AllowOrigins:     cfg.AllowedOrigins,
 		AllowMethods:     []string{"GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Mock-User-ID", requestid.Header},
-		ExposeHeaders:    []string{requestid.Header},
+		ExposeHeaders:    []string{requestid.Header, "X-View-Id"},
 		AllowCredentials: cfg.AllowCredentials,
 		MaxAge:           12 * 60 * 60,
 	})
