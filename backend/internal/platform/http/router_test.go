@@ -50,6 +50,7 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -85,6 +86,7 @@ func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -119,6 +121,7 @@ func TestRouterAppliesDedicatedContactViewRateLimitOnlyToContactViewRoute(t *tes
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -174,6 +177,7 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -220,6 +224,7 @@ func TestRouterRegistersProfileRoute(t *testing.T) {
 		func(context.Context, *http.Request) (uuid.UUID, error) {
 			return userID, nil
 		},
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -252,34 +257,40 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
 	expected := map[string]struct{}{
-		"GET /api/v1/lk/resumes":                       {},
-		"POST /api/v1/lk/resume":                       {},
-		"GET /api/v1/lk/resume/:resumeId":              {},
-		"PUT /api/v1/lk/resume/:resumeId":              {},
-		"PUT /api/v1/lk/resume/:resumeId/status":       {},
-		"PUT /api/v1/lk/resume/:resumeId/overview":     {},
-		"DELETE /api/v1/lk/resume/:resumeId":           {},
-		"PUT /api/v1/lk/resume/:resumeId/profile":      {},
-		"PUT /api/v1/lk/resume/:resumeId/contacts":     {},
-		"PUT /api/v1/lk/resume/:resumeId/skills":       {},
-		"PUT /api/v1/lk/resume/:resumeId/languages":    {},
-		"PUT /api/v1/lk/resume/:resumeId/technologies": {},
-		"PUT /api/v1/lk/resume/:resumeId/experiences":  {},
-		"PUT /api/v1/lk/resume/:resumeId/educations":   {},
-		"PUT /api/v1/lk/resume/:resumeId/courses":      {},
-		"PUT /api/v1/lk/resume/:resumeId/activities":   {},
-		"PUT /api/v1/lk/resume/:resumeId/projects":     {},
-		"GET /api/v1/cv/:linkId":                       {},
-		"POST /api/v1/cv/:linkId/contact-views":        {},
-		"GET /api/v1/lk/links":                         {},
-		"POST /api/v1/lk/link":                         {},
-		"DELETE /api/v1/lk/link/:linkId":               {},
-		"PUT /api/v1/lk/link/:linkId/status":           {},
-		"GET /api/v1/lk/link/:linkId/statistics":       {},
+		"GET /api/v1/lk/resumes":                              {},
+		"POST /api/v1/lk/resume":                              {},
+		"GET /api/v1/lk/resume/:resumeId":                     {},
+		"PUT /api/v1/lk/resume/:resumeId":                     {},
+		"PUT /api/v1/lk/resume/:resumeId/status":              {},
+		"PUT /api/v1/lk/resume/:resumeId/overview":            {},
+		"DELETE /api/v1/lk/resume/:resumeId":                  {},
+		"PUT /api/v1/lk/resume/:resumeId/profile":             {},
+		"PUT /api/v1/lk/resume/:resumeId/contacts":            {},
+		"PUT /api/v1/lk/resume/:resumeId/skills":              {},
+		"PUT /api/v1/lk/resume/:resumeId/languages":           {},
+		"PUT /api/v1/lk/resume/:resumeId/technologies":        {},
+		"PUT /api/v1/lk/resume/:resumeId/experiences":         {},
+		"PUT /api/v1/lk/resume/:resumeId/educations":          {},
+		"PUT /api/v1/lk/resume/:resumeId/courses":             {},
+		"PUT /api/v1/lk/resume/:resumeId/activities":          {},
+		"PUT /api/v1/lk/resume/:resumeId/projects":            {},
+		"GET /api/v1/cv/:linkId":                              {},
+		"POST /api/v1/cv/:linkId/contact-views":               {},
+		"GET /api/v1/lk/links":                                {},
+		"POST /api/v1/lk/link":                                {},
+		"DELETE /api/v1/lk/link/:linkId":                      {},
+		"PUT /api/v1/lk/link/:linkId/status":                  {},
+		"GET /api/v1/lk/link/:linkId/statistics":              {},
+		"GET /api/v1/lk/link/:linkId/statistics/daily":        {},
+		"GET /api/v1/lk/link/:linkId/views":                   {},
+		"GET /api/v1/lk/link/:linkId/statistics/sections":     {},
+		"GET /api/v1/lk/link/:linkId/statistics/technologies": {},
+		"GET /api/v1/lk/resume/:resumeId/statistics":          {},
 	}
 
 	actual := make(map[string]struct{})
@@ -314,6 +325,7 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -379,6 +391,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 				func(context.Context, *http.Request) (uuid.UUID, error) {
 					return uuid.Nil, middleware.ErrUnauthenticated
 				},
+				nil,
 			)
 			require.NoError(t, err)
 
@@ -426,6 +439,7 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 				testResumeLinkHandler(),
 				nil,
 				fakeAuthenticate,
+				nil,
 			)
 			require.NoError(t, err)
 
@@ -468,6 +482,7 @@ func TestRouterReadinessReturnsUnavailableWhenDependencyFails(t *testing.T) {
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -497,6 +512,7 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -528,6 +544,7 @@ func TestRouterRateLimitCoversPublicResumeLinkRoutes(t *testing.T) {
 		testResumeLinkHandler(),
 		nil,
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -557,6 +574,7 @@ func TestRouterRegistersAuthPublicAndProtectedRoutes(t *testing.T) {
 		userhttp.NewHandler(userhttp.HandlerDependencies{}), testResumeLinkHandler(), authHandler, func(context.Context, *http.Request) (uuid.UUID, error) {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		},
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -598,6 +616,7 @@ func TestRouterAppliesDedicatedAuthRateLimitToTelegramStart(t *testing.T) {
 		testResumeLinkHandler(),
 		authhttp.NewHandler(authhttp.HandlerDependencies{}),
 		unauthenticatedAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -641,6 +660,7 @@ func TestRouterAppliesDedicatedAuthRateLimitToTelegramCallback(t *testing.T) {
 		testResumeLinkHandler(),
 		authhttp.NewHandler(authhttp.HandlerDependencies{}),
 		fakeAuthenticate,
+		nil,
 	)
 	require.NoError(t, err)
 

@@ -25,7 +25,6 @@ func Logger(log *zap.Logger) gin.HandlerFunc {
 			zap.String("route", route),
 			zap.Int("status", c.Writer.Status()),
 			zap.Duration("duration", time.Since(start)),
-			zap.String("client_ip", c.ClientIP()),
 		}
 		spanContext := trace.SpanContextFromContext(c.Request.Context())
 		if spanContext.IsValid() {

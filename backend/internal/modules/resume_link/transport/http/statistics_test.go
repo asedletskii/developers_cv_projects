@@ -44,14 +44,30 @@ type statisticsHTTPReader struct {
 	err    error
 }
 
-func (s statisticsHTTPReader) GetStatistics(context.Context, queries.GetResumeLinkStatisticsQuery) (queries.ResumeLinkStatistics, error) {
+func (s statisticsHTTPReader) GetLinkStatistics(context.Context, queries.LinkAnalyticsQuery) (queries.ResumeLinkStatistics, error) {
 	return s.result, s.err
+}
+
+func (s statisticsHTTPReader) GetDaily(context.Context, queries.LinkAnalyticsQuery) (queries.LinkDaily, error) {
+	return queries.LinkDaily{}, s.err
+}
+func (s statisticsHTTPReader) GetVisits(context.Context, queries.LinkVisitsQuery) (queries.LinkVisitsPage, error) {
+	return queries.LinkVisitsPage{}, s.err
+}
+func (s statisticsHTTPReader) GetSections(context.Context, queries.LinkSectionsQuery) (queries.SectionsStatistics, error) {
+	return queries.SectionsStatistics{}, s.err
+}
+func (s statisticsHTTPReader) GetTechnologies(context.Context, queries.LinkAnalyticsQuery) (queries.TechnologiesStatistics, error) {
+	return queries.TechnologiesStatistics{}, s.err
+}
+func (s statisticsHTTPReader) GetResumeStatistics(context.Context, queries.ResumeAnalyticsQuery) (queries.ResumeStatistics, error) {
+	return queries.ResumeStatistics{}, s.err
 }
 
 func newStatisticsHTTPHandler(
 	linkReader queries.ResumeLinkPublicReader,
 	ownership ports.ResumeOwnershipReader,
-	reader queries.ResumeLinkStatisticsReader,
+	reader queries.AnalyticsReadReader,
 ) *Handler {
 	statistics := queries.NewGetResumeLinkStatisticsQueryHandler(linkReader, ownership, reader)
 	return NewHandler(HandlerDependencies{Statistics: statistics})
@@ -63,7 +79,7 @@ func newStatisticsHTTPServer(handler *Handler, userID uuid.UUID) *gin.Engine {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
+	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
 	return engine
 }
 
@@ -82,7 +98,7 @@ func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.JSONEq(t, `{"views":125,"contactViews":17}`, w.Body.String())
+	require.JSONEq(t, `{"views":125,"reads":0,"uniqueVisitors":0,"returningVisitors":0,"contactViews":17,"downloads":0,"firstViewAt":null,"lastViewAt":null,"medianActiveSeconds":0,"devices":{"desktop":0,"mobile":0,"tablet":0,"unknown":0},"referrers":[],"filtered":{"bot":0,"owner":0,"suspect":0}}`, w.Body.String())
 }
 
 func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
@@ -97,7 +113,7 @@ func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.JSONEq(t, `{"views":0,"contactViews":0}`, w.Body.String())
+	require.JSONEq(t, `{"views":0,"reads":0,"uniqueVisitors":0,"returningVisitors":0,"contactViews":0,"downloads":0,"firstViewAt":null,"lastViewAt":null,"medianActiveSeconds":0,"devices":{"desktop":0,"mobile":0,"tablet":0,"unknown":0},"referrers":[],"filtered":{"bot":0,"owner":0,"suspect":0}}`, w.Body.String())
 }
 
 func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
@@ -154,4 +170,32 @@ func TestStatisticsHandlerReturnsInternalErrorForReaderFailure(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAnalyticsReadRejectsInvalidPeriod(t *testing.T) {
+	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
+		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		statisticsHTTPOwnershipReader{},
+		statisticsHTTPReader{},
+	), uuid.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/statistics/daily?from=2026-02-02&to=2026-02-01&tz=UTC", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAnalyticsReadDailyRouteReturnsZeroDays(t *testing.T) {
+	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
+		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		statisticsHTTPOwnershipReader{},
+		statisticsHTTPReader{},
+	), uuid.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/statistics/daily?from=2026-01-01&to=2026-01-02&tz=UTC", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
 }

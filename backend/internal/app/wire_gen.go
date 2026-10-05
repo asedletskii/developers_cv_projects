@@ -13,6 +13,7 @@ import (
 	authrepository "developers-cv/backend/internal/modules/auth/infrastructure/persistence/repository"
 	authtoken "developers-cv/backend/internal/modules/auth/infrastructure/token"
 	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
+	resumelinkcleanup "developers-cv/backend/internal/modules/resume_link/infrastructure/cleanup"
 	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
@@ -78,7 +79,6 @@ func Initialize() (*Application, error) {
 	resumeReaderValue := resumereaders.NewResumeReader(gormDBValue)
 	resumeRepositoryValue := resumerepository.NewResumeRepository(gormDBValue)
 	resumeLinkRepositoryValue := resumelinkrepository.NewResumeLinkRepository(gormDBValue)
-	resumeLinkEventRecorderValue := resumelinkanalytics.NewRecorder(resumeLinkRepositoryValue, loggerValue)
 	resumeLinkReaderValue := resumelinkreaders.NewResumeLinkReader(gormDBValue)
 	userReaderValue := userreaders.NewUserReader(gormDBValue)
 	getProfileReaderValue := newGetProfileReader(gormDBValue)
@@ -120,6 +120,20 @@ func Initialize() (*Application, error) {
 		return nil, err
 	}
 	authenticateValue := newAuthenticate(runtimeAuthenticatorValue)
+	optionalAuthenticateValue := newOptionalAuthenticate(configValue.Auth, runtimeAuthenticatorValue)
+	analyticsVisitorIdentifierValue, err := newAnalyticsVisitorIdentifier(configValue)
+	analyticsRespectDoNotTrackValue := newAnalyticsRespectDoNotTrack(configValue)
+	if err != nil {
+		return nil, err
+	}
+	analyticsTrafficClassifierValue := newAnalyticsTrafficClassifier(configValue)
+	layoutSnapshotBuilderValue := resumelinkanalytics.NewLayoutSnapshotBuilder()
+	createPublicVisitHandlerValue := resumelinkcommands.NewCreatePublicVisitHandler(resumeLinkRepositoryValue, analyticsVisitorIdentifierValue, analyticsTrafficClassifierValue, layoutSnapshotBuilderValue, analyticsRespectDoNotTrackValue)
+	analyticsBatchHandlerValue := resumelinkcommands.NewIngestAnalyticsBatchHandler(resumeLinkRepositoryValue, resumeLinkRepositoryValue, unitOfWorkValue)
+	cleanupAnalyticsHandlerValue := resumelinkcommands.NewCleanupAnalyticsHandler(resumeLinkRepositoryValue, unitOfWorkValue)
+	analyticsRetentionWorkerValue := resumelinkcleanup.NewWorker(cleanupAnalyticsHandlerValue, loggerValue)
+	backgroundWorkersValue := newBackgroundWorkers(cleanupWorkerValue, analyticsRetentionWorkerValue)
+	analyticsEventsHandlerValue := resumelinkhttp.NewAnalyticsEventsHandler(analyticsBatchHandlerValue)
 	createResumeHandlerValue := resumecommands.NewCreateResumeHandler(resumeRepositoryValue, unitOfWorkValue)
 	createResumeLinkHandlerValue := resumelinkcommands.NewCreateResumeLinkHandler(resumeLinkRepositoryValue, resumeReaderValue, unitOfWorkValue)
 	listResumeLinksHandlerValue := resumelinkqueries.NewListResumeLinksQueryHandler(resumeLinkReaderValue, resumeReaderValue)
@@ -141,11 +155,12 @@ func Initialize() (*Application, error) {
 	replaceActivitiesHandlerValue := resumecommands.NewReplaceActivitiesHandler(resumeRepositoryValue, unitOfWorkValue)
 	replaceProjectsHandlerValue := resumecommands.NewReplaceProjectsHandler(resumeRepositoryValue, unitOfWorkValue)
 	publicResumeQueryHandlerValue := queries.NewPublicResumeQueryHandler(resumeReaderValue)
-	publicResumeLinkQueryHandlerValue := resumelinkqueries.NewPublicResumeLinkQueryHandler(resumeLinkReaderValue, publicResumeQueryHandlerValue, resumeLinkEventRecorderValue)
+	publicResumeLinkQueryHandlerValue := resumelinkqueries.NewPublicResumeLinkQueryHandlerWithVisit(resumeLinkReaderValue, publicResumeQueryHandlerValue, resumeReaderValue, createPublicVisitHandlerValue, loggerValue)
 	resumeLinkStatisticsQueryHandlerValue := resumelinkqueries.NewGetResumeLinkStatisticsQueryHandler(resumeLinkReaderValue, resumeReaderValue, resumeLinkReaderValue)
+	resumeLinkClicksQueryHandlerValue := resumelinkqueries.NewAnalyticsClickQueryHandler(resumeLinkReaderValue, resumeReaderValue, publicResumeQueryHandlerValue, layoutSnapshotBuilderValue, resumeLinkReaderValue)
 	contactViewQueryHandlerValue := queries.NewContactViewQueryHandler(resumeReaderValue)
-	contactViewThroughLinkQueryHandlerValue := resumelinkqueries.NewContactViewThroughLinkQueryHandler(resumeLinkReaderValue, contactViewQueryHandlerValue, resumeLinkEventRecorderValue)
-	contactViewHandlerValue := resumelinkpublichandler.NewContactViewHandler(contactViewThroughLinkQueryHandlerValue, turnstileVerifierValue)
+	contactViewThroughLinkQueryHandlerValue := resumelinkqueries.NewContactViewThroughLinkQueryHandlerWithAnalytics(resumeLinkReaderValue, contactViewQueryHandlerValue, resumeLinkRepositoryValue, resumeLinkRepositoryValue)
+	contactViewHandlerValue := resumelinkpublichandler.NewContactViewHandler(contactViewThroughLinkQueryHandlerValue, turnstileVerifierValue, analyticsRespectDoNotTrackValue)
 	listResumesHandlerValue := queries.NewListResumesQueryHandler(listResumesReaderValue)
 	getProfileHandlerValue := userqueries.NewGetProfileHandler(getProfileReaderValue)
 	replaceUserProfileHandlerValue := usercommands.NewReplaceProfileHandler(profileRepositoryValue, unitOfWorkValue)
@@ -171,13 +186,15 @@ func Initialize() (*Application, error) {
 	}
 	resumeHandlerValue := http.NewHandler(resumeHandlerDependencies)
 	resumeLinkHandlerValue := resumelinkhttp.NewHandler(resumelinkhttp.HandlerDependencies{
-		Create:      createResumeLinkHandlerValue,
-		List:        listResumeLinksHandlerValue,
-		Delete:      deleteResumeLinkHandlerValue,
-		Public:      resumelinkpublichandler.NewHandler(publicResumeLinkQueryHandlerValue),
-		ContactView: contactViewHandlerValue,
-		Statistics:  resumeLinkStatisticsQueryHandlerValue,
-		Lifecycle:   replaceStatusResumeLinkHandlerValue,
+		Create:          createResumeLinkHandlerValue,
+		List:            listResumeLinksHandlerValue,
+		Delete:          deleteResumeLinkHandlerValue,
+		Public:          resumelinkpublichandler.NewHandler(publicResumeLinkQueryHandlerValue),
+		ContactView:     contactViewHandlerValue,
+		AnalyticsEvents: analyticsEventsHandlerValue,
+		Statistics:      resumeLinkStatisticsQueryHandlerValue,
+		Clicks:          resumeLinkClicksQueryHandlerValue,
+		Lifecycle:       replaceStatusResumeLinkHandlerValue,
 	})
 
 	routerValue, err := httpserver.NewRouter(
@@ -190,6 +207,7 @@ func Initialize() (*Application, error) {
 		resumeLinkHandlerValue,
 		authHandlerValue,
 		authenticateValue,
+		optionalAuthenticateValue,
 	)
 	if err != nil {
 		if gormDBValue != nil {
@@ -211,7 +229,7 @@ func Initialize() (*Application, error) {
 		loggerValue,
 		gormDBValue,
 		configValue.HTTP.ShutdownTimeout,
-		cleanupWorkerValue,
+		backgroundWorkersValue,
 	)
 
 	return applicationValue, nil

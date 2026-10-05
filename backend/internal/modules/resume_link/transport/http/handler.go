@@ -12,32 +12,37 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/transport/http/common"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/public"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
+	"developers-cv/backend/internal/platform/http/middleware"
 )
 
 type Handler struct {
-	create      *commands.CreateResumeLinkHandler
-	list        *queries.ListResumeLinksQueryHandler
-	delete      *commands.DeleteResumeLinkHandler
-	public      *public.Handler
-	contactView *public.ContactViewHandler
-	statistics  *queries.GetResumeLinkStatisticsQueryHandler
-	lifecycle   *commands.ReplaceStatusResumeLinkHandler
+	create          *commands.CreateResumeLinkHandler
+	list            *queries.ListResumeLinksQueryHandler
+	delete          *commands.DeleteResumeLinkHandler
+	public          *public.Handler
+	contactView     *public.ContactViewHandler
+	analyticsEvents *AnalyticsEventsHandler
+	analyticsRead   *queries.AnalyticsReadHandler
+	analyticsClicks *queries.AnalyticsClickQueryHandler
+	lifecycle       *commands.ReplaceStatusResumeLinkHandler
 }
 
 type HandlerDependencies struct {
-	Create      *commands.CreateResumeLinkHandler
-	List        *queries.ListResumeLinksQueryHandler
-	Delete      *commands.DeleteResumeLinkHandler
-	Public      *public.Handler
-	ContactView *public.ContactViewHandler
-	Statistics  *queries.GetResumeLinkStatisticsQueryHandler
-	Lifecycle   *commands.ReplaceStatusResumeLinkHandler
+	Create          *commands.CreateResumeLinkHandler
+	List            *queries.ListResumeLinksQueryHandler
+	Delete          *commands.DeleteResumeLinkHandler
+	Public          *public.Handler
+	ContactView     *public.ContactViewHandler
+	AnalyticsEvents *AnalyticsEventsHandler
+	Statistics      *queries.AnalyticsReadHandler
+	Clicks          *queries.AnalyticsClickQueryHandler
+	Lifecycle       *commands.ReplaceStatusResumeLinkHandler
 }
 
 func NewHandler(deps HandlerDependencies) *Handler {
 	return &Handler{
 		create: deps.Create, list: deps.List, delete: deps.Delete, public: deps.Public,
-		contactView: deps.ContactView, statistics: deps.Statistics, lifecycle: deps.Lifecycle,
+		contactView: deps.ContactView, analyticsEvents: deps.AnalyticsEvents, analyticsRead: deps.Statistics, analyticsClicks: deps.Clicks, lifecycle: deps.Lifecycle,
 	}
 }
 
@@ -96,27 +101,6 @@ func (h *Handler) List(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, items)
-}
-
-func (h *Handler) Statistics(c *gin.Context) {
-	if h == nil || h.statistics == nil {
-		apperrors.WriteError(c, apperrors.Internal(errors.New("resume link statistics handler is not configured")))
-		return
-	}
-	userID, ok := common.RequireUserID(c)
-	if !ok {
-		return
-	}
-	linkID, ok := common.ParseLinkID(c)
-	if !ok {
-		return
-	}
-	statistics, err := h.statistics.Handle(c.Request.Context(), queries.GetResumeLinkStatisticsQuery{UserID: userID, LinkID: linkID})
-	if err != nil {
-		common.WriteStatisticsError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, statistics)
 }
 
 func (h *Handler) ReplaceStatus(c *gin.Context) {
@@ -180,16 +164,33 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func RegisterRoutes(handler *Handler, api *gin.RouterGroup, lk *gin.RouterGroup, contactViewRateLimiter gin.HandlerFunc) {
-	api.GET("/cv/:linkId", handler.public.Handle)
-	if contactViewRateLimiter != nil {
-		api.POST("/cv/:linkId/contact-views", contactViewRateLimiter, handler.ViewContact)
-	} else {
-		api.POST("/cv/:linkId/contact-views", handler.ViewContact)
+func RegisterRoutes(handler *Handler, public *gin.RouterGroup, anonymous *gin.RouterGroup, lk *gin.RouterGroup, contactViewRateLimiter, analyticsEventsRateLimiter gin.HandlerFunc) {
+	public.GET("/cv/:linkId", handler.public.Handle)
+	if handler.analyticsEvents != nil {
+		analyticsHandlers := []gin.HandlerFunc{middleware.BodyLimit(analyticsBatchMaxBodyBytes)}
+		if analyticsEventsRateLimiter != nil {
+			analyticsHandlers = append(analyticsHandlers, analyticsEventsRateLimiter)
+		}
+		analyticsHandlers = append(analyticsHandlers, handler.analyticsEvents.Handle)
+		anonymous.POST("/cv/:linkId/events", analyticsHandlers...)
 	}
+	contactHandlers := make([]gin.HandlerFunc, 0, 2)
+	if contactViewRateLimiter != nil {
+		contactHandlers = append(contactHandlers, contactViewRateLimiter)
+	}
+	contactHandlers = append(contactHandlers, handler.ViewContact)
+	anonymous.POST("/cv/:linkId/contact-views", contactHandlers...)
 	lk.GET("/links", handler.List)
 	lk.POST("/link", handler.Create)
 	lk.DELETE("/link/:linkId", handler.Delete)
 	lk.GET("/link/:linkId/statistics", handler.Statistics)
+	lk.GET("/link/:linkId/statistics/daily", handler.DailyStatistics)
+	lk.GET("/link/:linkId/views", handler.Visits)
+	lk.GET("/link/:linkId/statistics/sections", handler.SectionStatistics)
+	lk.GET("/link/:linkId/statistics/technologies", handler.TechnologyStatistics)
+	if handler.analyticsClicks != nil {
+		lk.GET("/link/:linkId/clicks", handler.Clicks)
+	}
+	lk.GET("/resume/:resumeId/statistics", handler.ResumeStatistics)
 	lk.PUT("/link/:linkId/status", handler.ReplaceStatus)
 }

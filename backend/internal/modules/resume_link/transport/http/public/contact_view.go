@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
@@ -14,6 +15,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/common"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewQuery interface {
@@ -21,17 +23,19 @@ type contactViewQuery interface {
 }
 
 type ContactViewHandler struct {
-	query    contactViewQuery
-	verifier ports.TokenVerifier
+	query          contactViewQuery
+	verifier       ports.TokenVerifier
+	respectPrivacy bool
 }
 
-func NewContactViewHandler(query contactViewQuery, verifier ports.TokenVerifier) *ContactViewHandler {
-	return &ContactViewHandler{query: query, verifier: verifier}
+func NewContactViewHandler(query contactViewQuery, verifier ports.TokenVerifier, respectPrivacy bool) *ContactViewHandler {
+	return &ContactViewHandler{query: query, verifier: verifier, respectPrivacy: respectPrivacy}
 }
 
 type contactViewRequest struct {
 	Contact        string `json:"contact"`
 	TurnstileToken string `json:"turnstileToken"`
+	ViewID         string `json:"viewId,omitempty"`
 }
 
 func (h *ContactViewHandler) Handle(c *gin.Context) {
@@ -63,7 +67,19 @@ func (h *ContactViewHandler) Handle(c *gin.Context) {
 			return
 		}
 	}
-	view, err := h.query.Handle(c.Request.Context(), queries.ContactViewThroughLinkQuery{LinkID: linkID, Contact: contact})
+	var viewID sharedvalueobjects.ID
+	if h.respectPrivacy && (c.GetHeader("DNT") == "1" || c.GetHeader("Sec-GPC") == "1") {
+		body.ViewID = ""
+	}
+	if strings.TrimSpace(body.ViewID) != "" {
+		if parsed, err := uuid.Parse(strings.TrimSpace(body.ViewID)); err == nil && parsed != uuid.Nil {
+			parsedID, idErr := sharedvalueobjects.IDFromUUID(parsed)
+			if idErr == nil {
+				viewID = parsedID
+			}
+		}
+	}
+	view, err := h.query.Handle(c.Request.Context(), queries.ContactViewThroughLinkQuery{LinkID: linkID, Contact: contact, ViewID: viewID})
 	if err != nil {
 		if errors.Is(err, resumequeries.ErrContactNotFound) {
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Contact not found"))

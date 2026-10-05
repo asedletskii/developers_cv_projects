@@ -20,6 +20,7 @@ type Config struct {
 	Log        LogConfig
 	CORS       CORSConfig
 	Telemetry  TelemetryConfig
+	Analytics  AnalyticsConfig
 	Prometheus PrometheusConfig
 	Postgres   PostgresConfig
 }
@@ -73,18 +74,19 @@ type AppConfig struct {
 }
 
 type HTTPConfig struct {
-	Host                 string
-	Port                 int
-	ReadTimeout          time.Duration
-	ReadHeaderTimeout    time.Duration
-	WriteTimeout         time.Duration
-	IdleTimeout          time.Duration
-	ShutdownTimeout      time.Duration
-	MaxBodyBytes         int64
-	TLS                  TLSConfig
-	TrustedProxies       []string
-	RateLimit            RateLimitConfig
-	ContactViewRateLimit RateLimitConfig
+	Host                     string
+	Port                     int
+	ReadTimeout              time.Duration
+	ReadHeaderTimeout        time.Duration
+	WriteTimeout             time.Duration
+	IdleTimeout              time.Duration
+	ShutdownTimeout          time.Duration
+	MaxBodyBytes             int64
+	TLS                      TLSConfig
+	TrustedProxies           []string
+	RateLimit                RateLimitConfig
+	ContactViewRateLimit     RateLimitConfig
+	AnalyticsEventsRateLimit RateLimitConfig
 }
 
 type TLSConfig struct {
@@ -125,6 +127,13 @@ type TelemetryConfig struct {
 	Environment    string
 	OTLPEndpoint   string
 	Insecure       bool
+}
+
+type AnalyticsConfig struct {
+	VisitorSecret     string
+	SuspectBurst      int
+	SuspectWindow     time.Duration
+	RespectDoNotTrack bool
 }
 
 type PrometheusConfig struct {
@@ -315,6 +324,18 @@ func parse() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	analyticsEventsRateLimitEnabled, err := envBool("ANALYTICS_EVENTS_RATE_LIMIT_ENABLED", true)
+	if err != nil {
+		return Config{}, err
+	}
+	analyticsEventsRateLimitPerMinute, err := envFloat("ANALYTICS_EVENTS_RATE_LIMIT_PER_MINUTE", 30)
+	if err != nil {
+		return Config{}, err
+	}
+	analyticsEventsRateLimitBurst, err := envInt("ANALYTICS_EVENTS_RATE_LIMIT_BURST", 10)
+	if err != nil {
+		return Config{}, err
+	}
 
 	turnstileEnabled, err := envBool("TURNSTILE_ENABLED", false)
 	if err != nil {
@@ -369,6 +390,23 @@ func parse() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	analyticsVisitorSecret, err := envString("ANALYTICS_VISITOR_SECRET", "development-only-analytics-secret-change-me-32")
+	if err != nil {
+		return Config{}, err
+	}
+	analyticsSuspectBurst, err := envInt("ANALYTICS_SUSPECT_BURST", 20)
+	if err != nil {
+		return Config{}, err
+	}
+	analyticsSuspectWindow, err := envDuration("ANALYTICS_SUSPECT_WINDOW", time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	analyticsRespectDoNotTrack, err := envBool("RESPECT_DO_NOT_TRACK", true)
+	if err != nil {
+		return Config{}, err
+	}
+
 	prometheusEnabled, err := envBool("PROMETHEUS_ENABLED", true)
 	if err != nil {
 		return Config{}, err
@@ -454,6 +492,11 @@ func parse() (Config, error) {
 				Rate:    contactViewRateLimitPerMinute,
 				Burst:   contactViewRateLimitBurst,
 			},
+			AnalyticsEventsRateLimit: RateLimitConfig{
+				Enabled: analyticsEventsRateLimitEnabled,
+				Rate:    analyticsEventsRateLimitPerMinute,
+				Burst:   analyticsEventsRateLimitBurst,
+			},
 		},
 		Turnstile: TurnstileConfig{
 			Enabled:        turnstileEnabled,
@@ -482,6 +525,7 @@ func parse() (Config, error) {
 		Prometheus: PrometheusConfig{
 			Enabled: prometheusEnabled,
 		},
+		Analytics: AnalyticsConfig{VisitorSecret: analyticsVisitorSecret, SuspectBurst: analyticsSuspectBurst, SuspectWindow: analyticsSuspectWindow, RespectDoNotTrack: analyticsRespectDoNotTrack},
 		Postgres: PostgresConfig{
 			Host:            postgresHost,
 			Port:            postgresPort,
@@ -525,6 +569,12 @@ func isValidPostgresSSLMode(value string) bool {
 }
 
 func validate(cfg Config) error {
+	if len([]byte(strings.TrimSpace(cfg.Analytics.VisitorSecret))) < 32 {
+		return errors.New("ANALYTICS_VISITOR_SECRET must be at least 32 bytes")
+	}
+	if cfg.Analytics.SuspectBurst <= 0 || cfg.Analytics.SuspectWindow <= 0 {
+		return errors.New("analytics suspect limits must be positive")
+	}
 	if cfg.Auth.Mode != "mock" && cfg.Auth.Mode != "telegram" {
 		return fmt.Errorf("invalid AUTH_MODE: %q", cfg.Auth.Mode)
 	}
@@ -597,6 +647,16 @@ func validate(cfg Config) error {
 	if cfg.HTTP.ContactViewRateLimit.Enabled &&
 		(cfg.HTTP.ContactViewRateLimit.Rate <= 0 || cfg.HTTP.ContactViewRateLimit.Burst <= 0) {
 		return errors.New("CONTACT_VIEW_RATE_LIMIT_PER_MINUTE and CONTACT_VIEW_RATE_LIMIT_BURST must be positive")
+	}
+	if cfg.HTTP.AnalyticsEventsRateLimit.Enabled &&
+		(cfg.HTTP.AnalyticsEventsRateLimit.Rate <= 0 || cfg.HTTP.AnalyticsEventsRateLimit.Burst <= 0) {
+		return errors.New("ANALYTICS_EVENTS_RATE_LIMIT_PER_MINUTE and ANALYTICS_EVENTS_RATE_LIMIT_BURST must be positive")
+	}
+	if cfg.Analytics.SuspectBurst <= 0 {
+		return errors.New("ANALYTICS_SUSPECT_BURST must be positive")
+	}
+	if cfg.Analytics.SuspectWindow <= 0 {
+		return errors.New("ANALYTICS_SUSPECT_WINDOW must be positive")
 	}
 	if cfg.HTTP.MaxBodyBytes <= 0 {
 		return fmt.Errorf("HTTP_MAX_BODY_BYTES must be positive: %d", cfg.HTTP.MaxBodyBytes)
@@ -676,11 +736,17 @@ func validateProductionSecurity(cfg Config) error {
 	if !cfg.HTTP.ContactViewRateLimit.Enabled {
 		return errors.New("CONTACT_VIEW_RATE_LIMIT_ENABLED must be true in production")
 	}
+	if !cfg.HTTP.AnalyticsEventsRateLimit.Enabled {
+		return errors.New("ANALYTICS_EVENTS_RATE_LIMIT_ENABLED must be true in production")
+	}
 	if !cfg.Auth.RateLimit.Enabled {
 		return errors.New("AUTH_RATE_LIMIT_ENABLED must be true in production")
 	}
 	if !cfg.Prometheus.Enabled {
 		return errors.New("PROMETHEUS_ENABLED must be true in production")
+	}
+	if strings.HasPrefix(cfg.Analytics.VisitorSecret, "development-only-") {
+		return errors.New("ANALYTICS_VISITOR_SECRET must be changed in production")
 	}
 	if !cfg.Turnstile.Enabled {
 		return errors.New("TURNSTILE_ENABLED must be true in production")

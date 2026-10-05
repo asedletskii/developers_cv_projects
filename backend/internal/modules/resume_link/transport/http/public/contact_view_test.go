@@ -51,7 +51,7 @@ func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 	query := &contactViewQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 	verifier := &tokenVerifierStub{}
 	engine := gin.New()
-	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier, false).Handle)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -71,7 +71,7 @@ func TestContactViewHandlerRejectsInvalidLinkID(t *testing.T) {
 	query := &contactViewQueryStub{}
 	verifier := &tokenVerifierStub{}
 	engine := gin.New()
-	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier, false).Handle)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/not-a-uuid/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -98,7 +98,7 @@ func TestContactViewHandlerMapsMissingOrInactiveLink(t *testing.T) {
 			query := &contactViewQueryStub{err: tt.err}
 			verifier := &tokenVerifierStub{}
 			engine := gin.New()
-			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
+			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier, false).Handle)
 
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 			req.Header.Set("Content-Type", "application/json")
@@ -125,7 +125,7 @@ func TestContactViewHandlerMapsResumeContactErrors(t *testing.T) {
 			query := &contactViewQueryStub{err: tt.err}
 			verifier := &tokenVerifierStub{}
 			engine := gin.New()
-			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
+			engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier, false).Handle)
 
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 			req.Header.Set("Content-Type", "application/json")
@@ -142,7 +142,7 @@ func TestContactViewHandlerRejectsInvalidTokenBeforeVerifier(t *testing.T) {
 	query := &contactViewQueryStub{}
 	verifier := &tokenVerifierStub{}
 	engine := gin.New()
-	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier, false).Handle)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":""}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -159,7 +159,7 @@ func TestContactViewHandlerMapsTokenVerificationFailureToForbidden(t *testing.T)
 	query := &contactViewQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 	verifier := &tokenVerifierStub{err: resumelinkports.ErrTokenVerificationFailed}
 	engine := gin.New()
-	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier).Handle)
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, verifier, false).Handle)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+sharedvalueobjects.NewID().String()+"/contact-views", strings.NewReader(`{"contact":"email","turnstileToken":"test-token"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -171,4 +171,21 @@ func TestContactViewHandlerMapsTokenVerificationFailureToForbidden(t *testing.T)
 	require.NotContains(t, w.Body.String(), "test-token")
 	require.NotContains(t, w.Body.String(), "invalid-input-secret")
 	require.True(t, query.query.LinkID.IsZero())
+}
+
+func TestContactViewHandlerIgnoresViewIDWhenPrivacySignalIsEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	linkID := sharedvalueobjects.NewID()
+	viewID := sharedvalueobjects.NewID()
+	query := &contactViewQueryStub{view: resumequeries.ContactView{}}
+	engine := gin.New()
+	engine.POST("/api/v1/cv/:linkId/contact-views", NewContactViewHandler(query, nil, true).Handle)
+	body := `{"contact":"telegram","viewId":"` + viewID.String() + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("DNT", "1")
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.True(t, query.query.ViewID.IsZero())
 }

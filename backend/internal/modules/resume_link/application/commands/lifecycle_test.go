@@ -37,9 +37,6 @@ func (s *lifecycleCommandRepositoryStub) ReplaceStatus(_ context.Context, _ shar
 	s.replaced, s.active, s.version = true, active, version
 	return s.replaceErr
 }
-func (s *lifecycleCommandRepositoryStub) RecordEvent(context.Context, *domain.ResumeLinkEvent) error {
-	return nil
-}
 
 var _ ports.ResumeLinkRepository = (*lifecycleCommandRepositoryStub)(nil)
 

@@ -134,83 +134,31 @@ func TestResumeLinkPersistence(t *testing.T) {
 	require.Equal(t, link.ID().String(), linkView.ID)
 	require.Equal(t, resumeID.String(), linkView.ResumeID)
 
-	viewEvent, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: sharedvalueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
-	require.NoError(t, err)
-	contact, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: sharedvalueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeContactView, OccurredAt: time.Now().UTC()})
-	require.NoError(t, err)
-	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		if err := repo.RecordEvent(tx, viewEvent); err != nil {
-			return err
-		}
-		return repo.RecordEvent(tx, contact)
-	}))
-
-	standalone, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: sharedvalueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
-	require.NoError(t, err)
-	require.NoError(t, repo.RecordEvent(ctx, standalone))
-
-	var eventCount int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, link.ID().UUID()).Scan(&eventCount))
-	require.Equal(t, 3, eventCount)
-
-	_, err = conn.Exec(ctx, `INSERT INTO resume_link_events (id, link_id, event_type, occurred_at) VALUES ($1, $2, $3, now())`, sharedvalueobjects.NewID().UUID(), link.ID().UUID(), "unknown")
-	require.Error(t, err, "database must reject unknown event type")
-	_, err = conn.Exec(ctx, `INSERT INTO resume_link_events (id, link_id, event_type, occurred_at) VALUES ($1, $2, $3, now())`, sharedvalueobjects.NewID().UUID(), sharedvalueobjects.NewID().UUID(), "view")
-	require.Error(t, err, "database must reject an event for a missing link")
-
-	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Delete(tx, link.ID()) }))
-	_, err = repo.GetByID(ctx, link.ID())
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
-	_, err = reader.GetByID(ctx, queries.PublicResumeLinkQuery{LinkID: link.ID()})
-	require.ErrorIs(t, err, domain.ErrEntityNotFound)
-	var orphanEvents int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, link.ID().UUID()).Scan(&orphanEvents))
-	require.Zero(t, orphanEvents)
-}
-
-func TestResumeLinkReaderListsLinksForResumeOnly(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration test")
-	}
-
-	ctx, dsn, gormDB, repo, reader := newDatabase(t)
-	owner := sharedvalueobjects.NewID()
-	foreignOwner := sharedvalueobjects.NewID()
-	resumeID := sharedvalueobjects.NewID()
-	foreignResumeID := sharedvalueobjects.NewID()
-	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	insertUserAndResume(t, ctx, dsn, foreignOwner, foreignResumeID)
-
-	first, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH",
-	})
-	require.NoError(t, err)
 	second, err := domain.NewResumeLink(domain.ResumeLinkParams{
 		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "GitHub",
 	})
 	require.NoError(t, err)
+	foreignResumeID := sharedvalueobjects.NewID()
+	foreignOwnerID := sharedvalueobjects.NewID()
+	insertUserAndResume(t, ctx, dsn, foreignOwnerID, foreignResumeID)
 	foreign, err := domain.NewResumeLink(domain.ResumeLinkParams{
 		ID: sharedvalueobjects.NewID(), ResumeID: foreignResumeID, Name: "Telegram",
 	})
 	require.NoError(t, err)
 
-	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		if err := repo.Create(tx, first); err != nil {
-			return err
-		}
 		if err := repo.Create(tx, second); err != nil {
 			return err
 		}
 		return repo.Create(tx, foreign)
 	}))
 
-	links, err := reader.ListByResumeID(ctx, queries.ListResumeLinksQuery{UserID: owner, ResumeID: resumeID})
+	links, err = reader.ListByResumeID(ctx, queries.ListResumeLinksQuery{UserID: owner, ResumeID: resumeID})
 	require.NoError(t, err)
 	require.Len(t, links, 2)
 	require.Equal(t, "HH", links[0].Name)
 	require.Equal(t, "GitHub", links[1].Name)
-	require.Equal(t, first.ID().String(), links[0].ID)
+	require.Equal(t, link.ID().String(), links[0].ID)
 	require.Equal(t, second.ID().String(), links[1].ID)
 
 	empty, err := reader.ListByResumeID(ctx, queries.ListResumeLinksQuery{UserID: owner, ResumeID: sharedvalueobjects.NewID()})
@@ -230,102 +178,15 @@ func TestResumeLinkMigrationCascade(t *testing.T) {
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) }))
-	event, err := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{ID: sharedvalueobjects.NewID(), LinkID: link.ID(), Type: domain.EventTypeView, OccurredAt: time.Now().UTC()})
-	require.NoError(t, err)
-	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.RecordEvent(tx, event) }))
 
 	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 	_, err = conn.Exec(ctx, `DELETE FROM resumes WHERE id = $1`, resumeID.UUID())
 	require.NoError(t, err)
-	var links, events int
+	var links int
 	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_links WHERE id = $1`, link.ID().UUID()).Scan(&links))
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE id = $1`, event.ID().UUID()).Scan(&events))
 	require.Zero(t, links)
-	require.Zero(t, events)
-}
-
-func TestResumeLinkReaderAggregatesStatistics(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration test")
-	}
-
-	ctx, dsn, gormDB, repo, reader := newDatabase(t)
-	owner := sharedvalueobjects.NewID()
-	resumeID := sharedvalueobjects.NewID()
-	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-
-	viewsOnly, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "Views",
-	})
-	require.NoError(t, err)
-	contactOnly, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "Contacts",
-	})
-	require.NoError(t, err)
-	mixed, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "Mixed",
-	})
-	require.NoError(t, err)
-
-	uow := database.NewUnitOfWork(gormDB)
-	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
-		for _, link := range []*domain.ResumeLink{viewsOnly, contactOnly, mixed} {
-			if err := repo.Create(tx, link); err != nil {
-				return err
-			}
-		}
-		return nil
-	}))
-
-	record := func(linkID sharedvalueobjects.ID, eventType domain.EventType) {
-		event, eventErr := domain.NewResumeLinkEvent(domain.ResumeLinkEventParams{
-			ID: sharedvalueobjects.NewID(), LinkID: linkID, Type: eventType, OccurredAt: time.Now().UTC(),
-		})
-		require.NoError(t, eventErr)
-		require.NoError(t, repo.RecordEvent(ctx, event))
-	}
-
-	record(viewsOnly.ID(), domain.EventTypeView)
-	record(viewsOnly.ID(), domain.EventTypeView)
-	record(contactOnly.ID(), domain.EventTypeContactView)
-	record(contactOnly.ID(), domain.EventTypeContactView)
-	record(mixed.ID(), domain.EventTypeView)
-	record(mixed.ID(), domain.EventTypeView)
-	record(mixed.ID(), domain.EventTypeContactView)
-
-	zero, err := reader.GetStatistics(ctx, queries.GetResumeLinkStatisticsQuery{
-		UserID: owner,
-		LinkID: sharedvalueobjects.NewID(),
-	})
-	require.NoError(t, err)
-	require.Zero(t, zero.Views)
-	require.Zero(t, zero.ContactViews)
-
-	statistics, err := reader.GetStatistics(ctx, queries.GetResumeLinkStatisticsQuery{
-		UserID: owner,
-		LinkID: viewsOnly.ID(),
-	})
-	require.NoError(t, err)
-	require.Equal(t, int64(2), statistics.Views)
-	require.Zero(t, statistics.ContactViews)
-
-	statistics, err = reader.GetStatistics(ctx, queries.GetResumeLinkStatisticsQuery{
-		UserID: owner,
-		LinkID: contactOnly.ID(),
-	})
-	require.NoError(t, err)
-	require.Zero(t, statistics.Views)
-	require.Equal(t, int64(2), statistics.ContactViews)
-
-	statistics, err = reader.GetStatistics(ctx, queries.GetResumeLinkStatisticsQuery{
-		UserID: owner,
-		LinkID: mixed.ID(),
-	})
-	require.NoError(t, err)
-	require.Equal(t, int64(2), statistics.Views)
-	require.Equal(t, int64(1), statistics.ContactViews)
 }
 
 func TestReplaceStatusResumeLinkIntegration(t *testing.T) {
@@ -358,11 +219,8 @@ func TestReplaceStatusResumeLinkIntegration(t *testing.T) {
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_link_events (id, link_id, event_type, occurred_at) VALUES ($1, $2, 'view', now()), ($3, $2, 'contact_view', now())`, uuid.New(), linkID, uuid.New())
-	require.NoError(t, err)
 
 	repo := repository.NewResumeLinkRepository(gormDB)
-	reader := readers.NewResumeLinkReader(gormDB)
 	resumeReader := resumereaders.NewResumeReader(gormDB)
 	uow := database.NewUnitOfWork(gormDB)
 	handler := commands.NewReplaceStatusResumeLinkHandler(repo, resumeReader, uow)
@@ -379,24 +237,12 @@ func TestReplaceStatusResumeLinkIntegration(t *testing.T) {
 	require.Equal(t, "inactive", status)
 	require.Equal(t, int64(2), version)
 
-	var eventCount int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, linkID).Scan(&eventCount))
-	require.Equal(t, 2, eventCount)
-
-	stats, err := reader.GetStatistics(ctx, queries.GetResumeLinkStatisticsQuery{UserID: userValue, LinkID: linkValue})
-	require.NoError(t, err)
-	require.Equal(t, int64(1), stats.Views)
-	require.Equal(t, int64(1), stats.ContactViews)
-
 	require.ErrorIs(t, handler.Handle(ctx, commands.ReplaceStatusResumeLinkCommand{UserID: userValue, LinkID: linkValue, Active: true, Version: 1}), domain.ErrConcurrencyConflict)
 	require.NoError(t, handler.Handle(ctx, commands.ReplaceStatusResumeLinkCommand{UserID: userValue, LinkID: linkValue, Active: true, Version: 2}))
 	require.NoError(t, conn.QueryRow(ctx, `SELECT status, version FROM resume_links WHERE id = $1`, linkID).Scan(&status, &version))
 	require.Equal(t, "active", status)
 	require.Equal(t, int64(3), version)
 
-	var eventCountAfter int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, linkID).Scan(&eventCountAfter))
-	require.Equal(t, eventCount, eventCountAfter)
 }
 
 func TestResumeLinkPersistenceEnforcesDatabaseNameLength(t *testing.T) {

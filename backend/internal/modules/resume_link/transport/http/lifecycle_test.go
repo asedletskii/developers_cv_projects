@@ -70,13 +70,10 @@ func (s *lifecycleRepositoryStub) Delete(context.Context, sharedvalueobjects.ID)
 	s.deleted = true
 	return s.delErr
 }
-func (s *lifecycleRepositoryStub) RecordEvent(context.Context, *domain.ResumeLinkEvent) error {
-	return nil
-}
 
 var _ ports.ResumeLinkRepository = (*lifecycleRepositoryStub)(nil)
 
-func newLifecycleHandler(reader queries.ResumeLinkReader, ownership queries.ResumeOwnershipReader, repo ports.ResumeLinkRepository) *Handler {
+func newLifecycleHandler(reader queries.ResumeLinkReader, ownership ports.ResumeOwnershipReader, repo ports.ResumeLinkRepository) *Handler {
 	list := queries.NewListResumeLinksQueryHandler(reader, ownership)
 	deleteHandler := commands.NewDeleteResumeLinkHandler(repo, ownership, lifecycleUnitOfWork{})
 	return NewHandler(HandlerDependencies{List: list, Delete: deleteHandler})
@@ -192,7 +189,7 @@ func newAuthenticatedEngine(handler *Handler, userID uuid.UUID) *gin.Engine {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
+	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
 	return engine
 }
 

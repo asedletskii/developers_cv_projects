@@ -37,9 +37,33 @@ type statisticsReaderStub struct {
 	query  GetResumeLinkStatisticsQuery
 }
 
-func (s *statisticsReaderStub) GetStatistics(_ context.Context, query GetResumeLinkStatisticsQuery) (ResumeLinkStatistics, error) {
+func (s *statisticsReaderStub) GetLinkStatistics(_ context.Context, query LinkAnalyticsQuery) (ResumeLinkStatistics, error) {
 	s.query = query
 	return s.result, s.err
+}
+
+func (s *statisticsReaderStub) GetDaily(context.Context, LinkAnalyticsQuery) (LinkDaily, error) {
+	return LinkDaily{}, s.err
+}
+func (s *statisticsReaderStub) GetVisits(context.Context, LinkVisitsQuery) (LinkVisitsPage, error) {
+	return LinkVisitsPage{}, s.err
+}
+func (s *statisticsReaderStub) GetSections(context.Context, LinkSectionsQuery) (SectionsStatistics, error) {
+	return SectionsStatistics{}, s.err
+}
+func (s *statisticsReaderStub) GetTechnologies(context.Context, LinkAnalyticsQuery) (TechnologiesStatistics, error) {
+	return TechnologiesStatistics{}, s.err
+}
+func (s *statisticsReaderStub) GetResumeStatistics(context.Context, ResumeAnalyticsQuery) (ResumeStatistics, error) {
+	return ResumeStatistics{}, s.err
+}
+
+func TestLinkStatisticsNormalizeResponse(t *testing.T) {
+	var result LinkStatistics
+	result.NormalizeResponse()
+	require.Equal(t, map[string]int64{"desktop": 0, "mobile": 0, "tablet": 0, "unknown": 0}, result.Devices)
+	require.NotNil(t, result.Referrers)
+	require.Empty(t, result.Referrers)
 }
 
 func TestGetResumeLinkStatisticsChecksOwnershipBeforeAggregation(t *testing.T) {
