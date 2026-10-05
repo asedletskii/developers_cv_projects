@@ -47,7 +47,7 @@ func (publicVisitLayoutStub) Build(resumequeries.PublicResumeView) (domain.Layou
 
 func TestCreatePublicVisitPersistsCompleteView(t *testing.T) {
 	views := &publicVisitViewsStub{}
-	handler := NewCreatePublicVisitHandler(views, publicVisitIdentityStub{}, publicVisitClassifierStub{}, publicVisitLayoutStub{}, false)
+	handler := NewCreatePublicVisitHandler(views, publicVisitIdentityStub{}, publicVisitClassifierStub{}, publicVisitLayoutStub{})
 	linkID := sharedvalueobjects.NewID()
 	view, identity, err := handler.Handle(context.Background(), CreatePublicVisitInput{LinkID: linkID})
 	require.NoError(t, err)
@@ -62,13 +62,15 @@ func TestCreatePublicVisitPersistsCompleteView(t *testing.T) {
 
 func TestCreatePublicVisitRespectsDoNotTrack(t *testing.T) {
 	views := &publicVisitViewsStub{}
-	handler := NewCreatePublicVisitHandler(views, publicVisitIdentityStub{}, publicVisitClassifierStub{}, publicVisitLayoutStub{}, true)
+	handler := NewCreatePublicVisitHandler(views, publicVisitIdentityStub{}, publicVisitClassifierStub{}, publicVisitLayoutStub{})
 	view, identity, err := handler.Handle(context.Background(), CreatePublicVisitInput{
 		LinkID:  sharedvalueobjects.NewID(),
 		Visitor: ports.PublicVisitInput{DNT: true},
 	})
 	require.NoError(t, err)
-	require.Nil(t, view)
-	require.True(t, identity.ViewID.IsZero())
-	require.Nil(t, views.created)
+	require.NotNil(t, view)
+	require.Same(t, view, views.created)
+	require.Equal(t, view.ID(), identity.ViewID)
+	require.False(t, identity.SetCookie)
+	require.Nil(t, identity.Cookie)
 }

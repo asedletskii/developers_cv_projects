@@ -34,8 +34,8 @@ func NewAnalyticsPeriod(from, to, tz string, now time.Time) (AnalyticsPeriod, er
 	if err != nil {
 		return AnalyticsPeriod{}, fmt.Errorf("%w: unknown timezone", ErrInvalidAnalyticsPeriod)
 	}
-	today := now.In(loc).Truncate(24 * time.Hour)
-	today = time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc)
+	localNow := now.In(loc)
+	today := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, loc)
 	if to == "" {
 		to = today.Format("2006-01-02")
 	}
@@ -56,7 +56,7 @@ func NewAnalyticsPeriod(from, to, tz string, now time.Time) (AnalyticsPeriod, er
 	dayCount := 0
 	for d := fromDate; d.Before(toDate); d = d.AddDate(0, 0, 1) {
 		dayCount++
-		if dayCount >= 366 {
+		if dayCount > 366 {
 			return AnalyticsPeriod{}, fmt.Errorf("%w: period exceeds 366 calendar days", ErrInvalidAnalyticsPeriod)
 		}
 	}
@@ -70,11 +70,19 @@ func (p AnalyticsPeriod) Days() []string {
 	}
 	start := p.From.In(loc)
 	end := p.To.In(loc)
-	result := make([]string, 0, int(end.Sub(start)/(24*time.Hour)))
+	result := make([]string, 0, calendarDayCount(start, end))
 	for d := start; d.Before(end); d = d.AddDate(0, 0, 1) {
 		result = append(result, d.Format("2006-01-02"))
 	}
 	return result
+}
+
+func calendarDayCount(start, end time.Time) int {
+	count := 0
+	for d := start; d.Before(end); d = d.AddDate(0, 0, 1) {
+		count++
+	}
+	return count
 }
 
 type LinkAnalyticsQuery struct {

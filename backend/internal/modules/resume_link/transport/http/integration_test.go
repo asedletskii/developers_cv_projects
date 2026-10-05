@@ -84,7 +84,6 @@ func newAnalyticsPublicLinkQuery(t *testing.T, linkReader *readers.ResumeLinkRea
 		visitorIdentifier,
 		analytics.NewTrafficClassifier(5, time.Minute),
 		analytics.NewLayoutSnapshotBuilder(),
-		false,
 	)
 	return queries.NewPublicResumeLinkQueryHandlerWithVisit(linkReader, resumequeries.NewPublicResumeQueryHandler(resumeReader), resumeReader, visit, nil)
 }

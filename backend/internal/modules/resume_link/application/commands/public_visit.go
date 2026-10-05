@@ -19,12 +19,11 @@ type CreatePublicVisitInput struct {
 }
 
 type CreatePublicVisitHandler struct {
-	views          ports.ViewRepository
-	identity       ports.VisitorIdentity
-	classifier     ports.TrafficClassifier
-	layout         ports.LayoutSnapshotBuilder
-	clock          func() time.Time
-	respectPrivacy bool
+	views      ports.ViewRepository
+	identity   ports.VisitorIdentity
+	classifier ports.TrafficClassifier
+	layout     ports.LayoutSnapshotBuilder
+	clock      func() time.Time
 }
 
 func NewCreatePublicVisitHandler(
@@ -32,9 +31,8 @@ func NewCreatePublicVisitHandler(
 	identity ports.VisitorIdentity,
 	classifier ports.TrafficClassifier,
 	layout ports.LayoutSnapshotBuilder,
-	respectPrivacy bool,
 ) *CreatePublicVisitHandler {
-	return &CreatePublicVisitHandler{views: views, identity: identity, classifier: classifier, layout: layout, respectPrivacy: respectPrivacy, clock: func() time.Time { return time.Now().UTC() }}
+	return &CreatePublicVisitHandler{views: views, identity: identity, classifier: classifier, layout: layout, clock: func() time.Time { return time.Now().UTC() }}
 }
 
 func (h *CreatePublicVisitHandler) Handle(ctx context.Context, input CreatePublicVisitInput) (*domain.View, ports.VisitorIdentityResult, error) {
@@ -45,9 +43,6 @@ func (h *CreatePublicVisitHandler) Handle(ctx context.Context, input CreatePubli
 		return nil, ports.VisitorIdentityResult{}, fmt.Errorf("create public visit: invalid input")
 	}
 	now := h.clock().UTC()
-	if h.respectPrivacy && (input.Visitor.DNT || input.Visitor.GPC) {
-		return nil, ports.VisitorIdentityResult{}, nil
-	}
 	identity, err := h.identity.Identify(now, input.Visitor)
 	if err != nil {
 		return nil, ports.VisitorIdentityResult{}, fmt.Errorf("create public visit: identify visitor: %w", err)

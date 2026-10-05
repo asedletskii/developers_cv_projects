@@ -128,7 +128,7 @@ func Initialize() (*Application, error) {
 	}
 	analyticsTrafficClassifierValue := newAnalyticsTrafficClassifier(configValue)
 	layoutSnapshotBuilderValue := resumelinkanalytics.NewLayoutSnapshotBuilder()
-	createPublicVisitHandlerValue := resumelinkcommands.NewCreatePublicVisitHandler(resumeLinkRepositoryValue, analyticsVisitorIdentifierValue, analyticsTrafficClassifierValue, layoutSnapshotBuilderValue, analyticsRespectDoNotTrackValue)
+	createPublicVisitHandlerValue := resumelinkcommands.NewCreatePublicVisitHandler(resumeLinkRepositoryValue, analyticsVisitorIdentifierValue, analyticsTrafficClassifierValue, layoutSnapshotBuilderValue)
 	analyticsBatchHandlerValue := resumelinkcommands.NewIngestAnalyticsBatchHandler(resumeLinkRepositoryValue, resumeLinkRepositoryValue, unitOfWorkValue)
 	cleanupAnalyticsHandlerValue := resumelinkcommands.NewCleanupAnalyticsHandler(resumeLinkRepositoryValue, unitOfWorkValue)
 	analyticsRetentionWorkerValue := resumelinkcleanup.NewWorker(cleanupAnalyticsHandlerValue, loggerValue)
