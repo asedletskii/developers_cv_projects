@@ -62,7 +62,7 @@ jobs:
         working-directory: .
         run: cp .env.example .env && docker compose -f docker-compose.prod.yml config -q
 
-  docker:
+  backend-docker:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: backend
     runs-on: ubuntu-latest
@@ -164,7 +164,7 @@ jobs:
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [docker, frontend-docker]
+    needs: [backend-docker, frontend-docker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
