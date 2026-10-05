@@ -11,7 +11,7 @@ export const useContactButton = (
   link: ContactLink,
   getToken: () => Promise<string | undefined>,
 ) => {
-    const { viewId, track } = useAnalytics()
+  const { viewId, track } = useAnalytics()
   const [value, setValue] = useState(link.isHidden ? undefined : link.value)
   const [isRevealing, setIsRevealing] = useState(false)
 
