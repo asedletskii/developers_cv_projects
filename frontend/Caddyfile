@@ -5,7 +5,7 @@
   }
 }
 
-{$FRONTEND_ADDRESS:80} {
+:80 {
 	root * /srv
 	encode zstd gzip
 
