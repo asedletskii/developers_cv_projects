@@ -12,14 +12,12 @@ services:
   frontend:
     image: ${FRONTEND_IMAGE:-ghcr.io/asedletskii/developers_cv_projects/frontend}:${IMAGE_TAG:-latest}
     environment:
-      FRONTEND_ADDRESS: ${FRONTEND_ADDRESS:-:80}
       RESPECT_DO_NOT_TRACK: ${RESPECT_DO_NOT_TRACK:-true}
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
+    networks:
+      default:
+      edge:
+        aliases:
+          - cv-prod
     depends_on:
       - backend
     restart: unless-stopped
@@ -80,5 +78,7 @@ services:
 
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:
+
+networks:
+  edge:
+    external: true
