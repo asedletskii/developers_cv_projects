@@ -1,5 +1,5 @@
-import { useGreetingAnimation } from '@features/curriculumVitae/components/HeroSection/hooks/useGreetingAnimation'
-import { SparkleField } from '@features/curriculumVitae/components/SparkleField'
+import { useGreetingAnimation } from '@features/curriculumVitae/components/cv/HeroSection/hooks/useGreetingAnimation'
+import { SparkleField } from '@features/curriculumVitae/components/cv/SparkleField'
 import { ArrowForwardRounded } from '@mui/icons-material'
 import { Box, Button, Chip, Container, Stack, Typography } from '@mui/material'
 import { splitText } from '@shared/animations'

@@ -21,7 +21,6 @@ export type ResumeOverview = {
   theme?: ThemeSettings
   greeting: Greeting
   availability?: Availability
-  resumeLink?: string
   sections: SectionSettings[]
 }
 
@@ -65,3 +64,6 @@ export type Resume = Omit<LkResumeSummary, 'version' | 'status'> & {
   activities: Item<Activity>[]
   projects: Item<Project>[]
 }
+
+/** Значение скрытого контакта, которое вернул бэкенд */
+export type RevealedContact = { contact: ContactKey; value: string }

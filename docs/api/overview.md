@@ -19,7 +19,6 @@
     "theme": { "primary": "#E8785A", "secondary": "#428BF9" },
     "greeting": { "first": "Привет!", "second": "Меня зовут", "secondHighlight": "Антон", "third": "Frontend-разработчик" },
     "availability": { "status": "open", "from": "2026-10-01", "note": "Ищу роль Senior" },
-    "resumeLink": "https://example.com/cv.pdf",
     "sections": [ { "id": "about", "enabled": true, "collapsed": false } ]
   }
 }
@@ -39,7 +38,6 @@
 | `availability.status` | string | да | `open` \| `considering` \| `busy` | — |
 | `availability.from` | string | нет | `YYYY-MM-DD` | отсутствует |
 | `availability.note` | string | нет | свободный текст | отсутствует |
-| `presentation.resumeLink` | string | нет | `http`/`https`-ссылка на файл резюме | отсутствует |
 | `presentation.sections` | array | нет | id уникальны и из справочника; порядок массива = порядок на странице; допустим любой поднабор | `[]` |
 | `sections[].id` | string | да | `about techStack experience skills education courses projects activities contacts` | — |
 | `sections[].enabled` | boolean | да | показывать ли секцию | — |
@@ -48,6 +46,7 @@
 **Поведение фронтенда поверх контракта** (бэкенд этого не проверяет):
 - пустые `sections` → на странице показываются все секции в порядке по умолчанию, а редактор предлагает этот набор;
 - секция `about` всегда первая и всегда включена: редактор так и сохраняет, публичная страница исправляет, даже если пришло иначе;
-- пустые `theme`, `availability`, `resumeLink` не отправляются (поле опускается).
+- пустые `theme`, `availability` не отправляются (поле опускается);
+- **`resumeLink` (ссылка на файл резюме) убрано:** фронтенд его больше не редактирует и не отправляет, кнопка «Скачать» собирает HTML на странице. Поле можно удалить на бэкенде (запрос, ответы, колонка `resume_overviews.resume_link`); пока оно есть, `PUT` без него очищает прежнее значение.
 
 **Ошибки:** `400` — неверный цвет, `status`, дата, ссылка, повтор или неизвестный id секции.

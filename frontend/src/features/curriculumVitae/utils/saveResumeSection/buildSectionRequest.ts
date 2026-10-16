@@ -50,7 +50,6 @@ export const buildSectionRequest = (
                 note: toOptionalString(overview.availability.note),
               }
             : undefined,
-          resumeLink: toOptionalString(overview.resumeLink),
           sections: withPinnedAbout(overview.sections).map(({ id, enabled, collapsed }) => ({
             id,
             enabled,

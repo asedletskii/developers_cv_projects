@@ -7,11 +7,10 @@ export { buildSectionRequest } from './buildSectionRequest'
 
 /** Отправляет на бэк ровно одну секцию из значений формы — тело собирает `buildSectionRequest`. */
 export const saveResumeSection = (
-  userId: string,
   view: Resume,
   section: ResumeEditorTab,
   values: Resume,
 ): Promise<void> => {
   const { section: apiSection, body } = buildSectionRequest(view, section, values)
-  return curriculumVitaeApi.replaceSection(userId, view.id, apiSection, body)
+  return curriculumVitaeApi.replaceSection(view.id, apiSection, body)
 }

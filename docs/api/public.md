@@ -14,7 +14,7 @@
 | `name`, `surname`, `patronymic`, `position`, `photoPath`, `dateOfBirth`, `location`, `relocation`, `workFormat` | | [профиль](personal.md) |
 | `contacts` (`phone`, `telegram`, `email`), `hiddenContacts`, `contactsText` | | [контакты](personal.md) |
 | `hardSkills`, `softSkills` | string[] | [навыки](personal.md) |
-| `theme`, `greeting`, `availability`, `resumeLink`, `sections` | | [обзор](overview.md) (без обёртки `presentation`) |
+| `theme`, `greeting`, `availability`, `sections` | | [обзор](overview.md) (без обёртки `presentation`); `resumeLink` убрано — фронтенд его не использует |
 | `languages` | `{ language, grade? }[]` | [языки](languages-technologies.md), по порядку |
 | `technologies` | `{ name }[]` | [стэк](languages-technologies.md), по порядку |
 | `experience` | | [опыт](experience.md); у записи `stack` (`{name}[]`) вместо `technologies` |

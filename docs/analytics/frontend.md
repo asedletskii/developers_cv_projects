@@ -60,7 +60,7 @@ export enum TrafficType {
 | **Печать** | `window` | `beforeprint` → `track({ type: Print })`, на `afterprint` сразу `flush()` (после диалога вкладку часто закрывают). Повтор в пределах 2 с трекер отбрасывает сам. Захватывает и Ctrl+P, и «сохранить как PDF» из меню браузера. |
 | **Копирование контакта** | `useContactButton` | После успешной записи в буфер → `track({ type: ContactCopy, contact })`. |
 | **Переход по контакту** | `ContactButton` | `onClick` по раскрытой (или открытой) ссылке Telegram, почты, телефона → `track({ type: ContactClick, contact })`. Ссылка не перехватывается. |
-| **Скачивание** | `ResumeButton` | `onClick` → `track({ type: Download })`. Ссылка остаётся `<a download>`, клик не перехватываем. |
+| **Скачивание** | `ResumeButton`, `Cta` | Резюме собирается в HTML на странице (`useDownloadResume`): скрытые контакты запрашиваются одним запросом с Turnstile (`initiator: download`), после сохранения файла → `track({ type: Download })`. Файла автора (`resumeLink`) больше нет. |
 | **Фильтр технологий** | `TechnologyFilterProvider` / `useTechnologyFilter` | При выборе и сбросе → `track({ type: TechFilter, technology, action })`. Дебаунс не нужен — это дискретные клики. |
 | **Внешние ссылки** | `ExternalLink`, ссылки проектов и git | `track({ type: ExternalClick, kind, target: hostname })`. Полный URL не шлём. |
 | **Раскрытие контакта** | `ContactsSection` → `viewContact` | Шлётся не трекером, а существующей ручкой `contact-views`: добавить в тело `viewId`. |

@@ -1,0 +1,61 @@
+import { glassCard } from '@features/curriculumVitae/styles'
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material'
+import { useTranslate } from '@shared/hooks'
+import { useEditResumeTitle } from './hooks'
+
+type Props = {
+  resume: { id: string; title: string; version?: number }
+  onClose: () => void
+}
+
+export const EditResumeTitleDialog = ({ resume, onClose }: Props) => {
+  const translate = useTranslate('Lk.Resumes')
+  const { title, setTitle, isSaving, hasError, canSave, save } = useEditResumeTitle({
+    resume,
+    onClose,
+  })
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      fullWidth
+      maxWidth="xs"
+      slotProps={{ paper: { sx: { ...glassCard, backgroundImage: 'none' } } }}
+    >
+      <DialogTitle>{translate('editTitle')}</DialogTitle>
+
+      <DialogContent>
+        <TextField
+          autoFocus
+          fullWidth
+          margin="dense"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          error={hasError}
+          helperText={hasError ? translate('editTitleError') : undefined}
+          disabled={isSaving}
+        />
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button
+          onClick={onClose}
+          disabled={isSaving}
+          sx={{ borderRadius: 999, px: 3, textTransform: 'none' }}
+        >
+          {translate('cancel')}
+        </Button>
+
+        <Button
+          onClick={save}
+          disabled={!canSave}
+          variant="contained"
+          sx={{ borderRadius: 999, px: 3, textTransform: 'none' }}
+        >
+          {translate('save')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}

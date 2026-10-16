@@ -1,9 +1,9 @@
 import { LoadFailure } from '@features/curriculumVitae/components'
-import { AnalyticsTab } from '@features/curriculumVitae/components/AnalyticsTab'
-import { LinksTab } from '@features/curriculumVitae/components/LinksTab'
-import { MainTab } from '@features/curriculumVitae/components/MainTab'
-import { ResumeEditor } from '@features/curriculumVitae/components/ResumeEditor'
-import { ResumeHeader } from '@features/curriculumVitae/components/ResumeHeader'
+import { AnalyticsTab } from '@features/curriculumVitae/components/analytics/AnalyticsTab'
+import { ResumeEditor } from '@features/curriculumVitae/components/editor/ResumeEditor'
+import { LinksTab } from '@features/curriculumVitae/components/lk/LinksTab'
+import { MainTab } from '@features/curriculumVitae/components/lk/MainTab'
+import { ResumeHeader } from '@features/curriculumVitae/components/lk/ResumeHeader'
 import {
   useLkOutletContext,
   useOwnerResume,
@@ -37,7 +37,7 @@ const LkResumeEditScreen = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={language}>
       <Stack spacing={3} sx={{ width: '100%', minWidth: 0 }}>
-        <ResumeHeader userId={userId} view={view} onReload={reload} onError={setError} />
+        <ResumeHeader view={view} onReload={reload} onError={setError} />
 
         <Tabs
           value={section}
@@ -61,7 +61,7 @@ const LkResumeEditScreen = () => {
         )}
 
         {section === 'edit' && (
-          <ResumeEditor userId={userId} view={view} onSaved={reload} isDirtyRef={isDirtyRef} />
+          <ResumeEditor view={view} onSaved={reload} isDirtyRef={isDirtyRef} />
         )}
 
         {section === 'links' && <LinksTab linksState={linksState} statistics={statistics} />}

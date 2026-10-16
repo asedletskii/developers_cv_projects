@@ -1,4 +1,4 @@
-import { SparkleField } from '@features/curriculumVitae/components/SparkleField'
+import { SparkleField } from '@features/curriculumVitae/components/cv/SparkleField'
 import { ArrowForwardRounded } from '@mui/icons-material'
 import { Button, Container, Stack, Typography } from '@mui/material'
 import { ROUTES } from '@shared/constants'

@@ -91,18 +91,23 @@ export function formatAge(dateOfBirth: string) { … }
 5. **Хук общего назначения выше по дереву.** Как только хук нужен второму компоненту, он поднимается на уровень выше (компонент → фича → `shared`).
 6. **Экран тонкий.** В файле экрана только вызов хуков и композиция компонентов; разметки и логики в нём нет.
 
-### Дерево редактора резюме (пример)
+### Дерево компонентов (пример)
 
 ```
-components/
-  ResumeEditor/            вкладки секций: конфиг в constants.ts, hooks/useResumeEditor
-    editors/<Имя>/         редактор одной секции (+ hooks/ с вариантами и логикой)
-  SectionForm/             форма вкладки: hooks/useSectionForm, SectionFormActions
-  SectionPreview/          предпросмотр секции: hooks/useSectionPreview
-  HeroPreview/, ThemePreviewDialog/
-  MainTab/, LinksTab/, AnalyticsTab/   разделы страницы резюме в кабинете
-  ResumeHeader/            шапка: hooks/useResumeHeader
-  form/                    поля форм: SelectField, DateField, ColorField, TechnologyListField, …
+components/                компоненты сгруппированы по функциональности, группа = папка
+  cv/                      публичное резюме: HeroSection, *Section, SectionNav, FilterBar, ContactsSection, …
+  editor/                  редактор в кабинете
+    ResumeEditor/          вкладки секций: конфиг в constants.ts, hooks/useResumeEditor
+      editors/<Имя>/       редактор одной секции (+ hooks/ с вариантами и логикой)
+    SectionForm/           форма вкладки: hooks/useSectionForm, SectionFormActions
+    SectionPreview/        предпросмотр секции: hooks/useSectionPreview
+    HeroPreview/, ThemePreviewDialog/
+    form/                  поля форм: SelectField, DateField, ColorField, TechnologyListField, …
+  lk/                      кабинет: список резюме, шапка, профиль, диалоги
+    ResumeHeader/          шапка: hooks/useResumeHeader
+    MainTab/, LinksTab/    разделы страницы резюме
+  analytics/               AnalyticsTab, AnalyticsProvider (трекер), AnalyticsNotice
+  common/                  общее для групп: LoadFailure, LoadPlaceholder
 hooks/                     useOwnerResume, useLkProfile, useLkResumes, usePublicResume, useFormList, …
 utils/                     getResumeFormValues, saveResumeSection, getResumeChecklist, blankItems, …
 screens/LkResumeEditScreen/  только экран + hooks/useResumeSections + constants.ts
@@ -111,7 +116,7 @@ screens/LkResumeEditScreen/  только экран + hooks/useResumeSections +
 ## 4. Импорты
 
 - Только абсолютные: `@features/curriculumVitae/...`, `@shared/...`, `@app/...` (алиасы в `tsconfig.paths.json` и `jest.config.cjs`).
-- Импортируем через `index.ts` папки: `@features/curriculumVitae/components/LinksTab`, а не `…/LinksTab/LinksTab`.
+- Импортируем через `index.ts` папки: `@features/curriculumVitae/components/lk/LinksTab`, а не `…/LinksTab/LinksTab`.
 - Глубокий путь допустим внутри одной папки компонента и там, где импорт через барель дал бы циклическую зависимость (например, `@features/curriculumVitae/hooks/useSectionCollapse` из провайдера).
 - Относительные импорты — только между соседними файлами одной папки (`./hooks`, `./constants`).
 

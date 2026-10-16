@@ -11,7 +11,7 @@ const LkResumesScreen = () => {
   if (error) return <Alert severity="error">{translate('failedTitle')}</Alert>
   if (!resumes || !userId) return <LinearProgress />
 
-  return <ResumeList userId={userId} resumes={resumes} />
+  return <ResumeList resumes={resumes} />
 }
 
 export default LkResumesScreen

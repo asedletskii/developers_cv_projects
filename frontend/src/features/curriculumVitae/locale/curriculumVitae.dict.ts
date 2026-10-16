@@ -31,6 +31,17 @@ export const curriculumVitaeDict = {
         download: 'Скачать резюме',
       },
 
+      // Подписи в файле, который собирается по кнопке «Скачать» (язык файла — язык резюме)
+      HtmlExport: {
+        technologies: 'Стек технологий',
+        languages: 'Языки',
+        hoursSuffix: 'ч',
+        fileSuffix: 'резюме',
+        contactsHidden: 'Контакты скрыты автором — их можно получить на странице резюме.',
+        generated: 'Сформировано {{date}}',
+        actualVersion: 'Актуальная версия',
+      },
+
       Nav: {
         about: 'Обо мне',
         experience: 'Опыт',
@@ -146,7 +157,7 @@ export const curriculumVitaeDict = {
       AnalyticsNotice: {
         title: 'Анонимная статистика',
         text: 'Автор резюме видит, сколько человек его открыло: время на странице, просмотренные разделы и клики. Имя и почта не собираются, IP-адрес в открытом виде не сохраняется, а повторные заходы различаются по обезличенному идентификатору в cookie.',
-        dnt: 'Если в браузере включено «Не отслеживать», подробная статистика не собирается.',
+        dnt: 'Если в браузере включено «Не отслеживать», статистика не собирается.',
         ok: 'Понятно',
       },
 
@@ -201,6 +212,17 @@ export const curriculumVitaeDict = {
 
       Controls: {
         download: 'Download résumé',
+      },
+
+      HtmlExport: {
+        technologies: 'Tech stack',
+        languages: 'Languages',
+        hoursSuffix: 'h',
+        fileSuffix: 'résumé',
+        contactsHidden:
+          'The author keeps the contacts hidden — you can get them on the résumé page.',
+        generated: 'Generated on {{date}}',
+        actualVersion: 'Latest version',
       },
 
       Nav: {

@@ -12,7 +12,7 @@ export const useOwnerResume = (userId?: string, resumeId?: string) => {
       if (!userId || !resumeId) return
 
       try {
-        const view = await curriculumVitaeApi.getResume(userId, resumeId, signal)
+        const view = await curriculumVitaeApi.getResume(resumeId, signal)
         setLoaded({ resumeId, view })
         setError(null)
       } catch (e) {

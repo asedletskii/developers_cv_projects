@@ -2,7 +2,6 @@ import { gsap } from '@shared/animations'
 
 const hasTarget = (selector: string) => !!document.querySelector(selector)
 
-/** Анимирует только те строки приветствия, которые реально есть на странице. */
 export const greetingAnimation = () => {
   const tl = gsap.timeline()
 
