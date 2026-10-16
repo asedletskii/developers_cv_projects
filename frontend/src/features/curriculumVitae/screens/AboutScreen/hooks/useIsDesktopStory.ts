@@ -3,8 +3,6 @@ import { useEffect, useState } from 'react'
 const DESKTOP_QUERY = '(min-width: 900px)'
 const REDUCE_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
-/** Большая анимированная «дорога» — только на широком экране и без prefers-reduced-motion;
- *  иначе показываем лёгкую листалку-карусель вместо тяжёлого scroll-driven SVG. */
 export const useIsDesktopStory = () => {
   const [isDesktopStory, setIsDesktopStory] = useState(
     () =>

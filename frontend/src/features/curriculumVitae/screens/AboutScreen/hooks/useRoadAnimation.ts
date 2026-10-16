@@ -1,11 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import { gsap } from '@shared/animations'
 
-/**
- * Дорога рисуется по мере скролла (stroke-dashoffset), узлы на ней загораются один за другим,
- * а рядом большим текстом кроссфейдится описание текущего шага. Секция не пинится через GSAP —
- * контент внутри держится на месте через `position: sticky`, скролл только двигает прогресс.
- */
 export const useRoadAnimation = (stepsCount: number) => {
   const stageRef = useRef<HTMLDivElement | null>(null)
 

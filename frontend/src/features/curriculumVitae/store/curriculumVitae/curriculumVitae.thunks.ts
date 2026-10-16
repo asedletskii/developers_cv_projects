@@ -17,7 +17,7 @@ export const getPublicResume = createAsyncThunk<
   try {
     // Предпросмотр владельца визитом не считается: viewId нет, значит, трекер выключен
     return userId
-      ? { resume: await curriculumVitaeApi.getResume(userId, cvId, signal), viewId: null }
+      ? { resume: await curriculumVitaeApi.getResume(cvId, signal), viewId: null }
       : await curriculumVitaeApi.getPublicResume(cvId, signal)
   } catch (e) {
     return rejectWithValue(parseApiError(e))

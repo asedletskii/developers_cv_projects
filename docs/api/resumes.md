@@ -33,7 +33,7 @@
 | Часть | Состояние сразу после создания |
 |---|---|
 | `createdAt`, `updatedAt` | текущее время |
-| Обзор (`overview`) | создаётся: `greeting` — четыре пустые строки, `sections` — `[]`; `theme`, `availability`, `resumeLink` отсутствуют |
+| Обзор (`overview`) | создаётся: `greeting` — четыре пустые строки, `sections` — `[]`; `theme`, `availability` отсутствуют |
 | Профиль, контакты, навыки | **не создаются**: в `GET /lk/resume/:id` полей `profile`, `contacts`, `skills` нет, пока их не создадут через `POST` |
 | Языки, технологии, опыт, образование, курсы, активности, проекты | пустые массивы `[]` |
 
@@ -47,7 +47,7 @@
 |---|---|---|
 | `id`, `title`, `language` | | как в списке |
 | `createdAt`, `updatedAt` | datetime | RFC 3339, UTC |
-| `overview` | object | оформление, всегда есть → [overview.md](overview.md) (поля `theme`, `greeting`, `availability`, `resumeLink`, `sections` лежат прямо в нём, без вложенного `presentation`) |
+| `overview` | object | оформление, всегда есть → [overview.md](overview.md) (поля `theme`, `greeting`, `availability`, `sections` лежат прямо в нём, без вложенного `presentation`; `resumeLink` убран) |
 | `profile` | object | есть только после создания → [personal.md](personal.md) |
 | `contacts` | object | есть только после создания → [personal.md](personal.md) |
 | `skills` | object | есть только после создания → [personal.md](personal.md) |

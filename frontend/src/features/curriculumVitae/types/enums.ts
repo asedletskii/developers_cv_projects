@@ -112,3 +112,10 @@ export enum AnalyticsEventType {
   ContactCopy = 'contact_copy',
   ContactClick = 'contact_click',
 }
+
+/** Зачем запрашивают контакты. От этого зависит, как их учтёт аналитика: раскрытие на странице
+ *  (`contact`) или скачивание файла (`download`) — это разные действия посетителя. */
+export enum ContactInitiator {
+  Contact = 'contact',
+  Download = 'download',
+}

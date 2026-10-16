@@ -1,7 +1,7 @@
 import { LoginPrompt } from '@features/auth/components/LoginPrompt'
 import { useSession } from '@features/auth/hooks'
 import { LoadFailure, ProfileCard, ProfilePlaceholder } from '@features/curriculumVitae/components'
-import { EditProfileDialog } from '@features/curriculumVitae/components/EditProfileDialog'
+import { EditProfileDialog } from '@features/curriculumVitae/components/lk/EditProfileDialog'
 import { useLkProfile } from '@features/curriculumVitae/hooks'
 import { Container, Stack } from '@mui/material'
 import { ROUTES } from '@shared/constants'

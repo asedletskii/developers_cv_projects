@@ -42,11 +42,6 @@ const loadTurnstile = () => {
 
 type Pending = { resolve: (token: string) => void; reject: (error: Error) => void }
 
-/** Cloudflare Turnstile в режиме «по требованию»: виджет молчит, пока не позвали `getToken`, и показывает
- *  задачу, только если Cloudflare сам решил, что она нужна (`interaction-only`) — тогда `isChallengeVisible`
- *  становится `true`, и вызывающий показывает контейнер (`setContainer`), например в модалке. Токен
- *  одноразовый — на каждое действие запрашиваем новый. Без `VITE_TURNSTILE_SITE_KEY` защита выключена
- *  и `getToken` возвращает `undefined` (локальная разработка). */
 export const useTurnstile = () => {
   // Контейнер лежит в состоянии, а не в ref: он может смонтироваться позже хука (например, внутри Dialog)
   const [container, setContainer] = useState<HTMLElement | null>(null)
@@ -121,7 +116,6 @@ export const useTurnstile = () => {
     })
   }, [])
 
-  /** Человек закрыл задачу, не решив её: отменяем ожидание токена */
   const cancel = useCallback(() => {
     setIsChallengeVisible(false)
     pendingRef.current?.reject(new Error('Turnstile cancelled'))

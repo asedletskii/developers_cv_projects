@@ -1,4 +1,4 @@
-import { CursorGlow } from '@features/curriculumVitae/components/CursorGlow'
+import { CursorGlow } from '@features/curriculumVitae/components/cv/CursorGlow'
 import { Box } from '@mui/material'
 import { useDocumentTitle, useScrollReveal, useTranslate } from '@shared/hooks'
 import { Cta } from './Cta'

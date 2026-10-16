@@ -331,7 +331,6 @@ export const lkDict = {
           availabilityStatus: 'Доступность',
           availabilityFrom: 'Доступен с',
           availabilityNote: 'Комментарий',
-          resumeLink: 'Ссылка на файл резюме',
         },
 
         About: {
@@ -760,7 +759,6 @@ export const lkDict = {
           availabilityStatus: 'Availability',
           availabilityFrom: 'Available from',
           availabilityNote: 'Note',
-          resumeLink: 'Résumé file link',
         },
 
         About: {

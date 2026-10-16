@@ -1,6 +1,7 @@
 export * from './afterExpanded'
 export * from './analyticsInsights'
 export * from './blankItems'
+export * from './buildResumeHtml'
 export * from './createAccentTheme'
 export * from './createAnalyticsTracker'
 export * from './formatDuration'

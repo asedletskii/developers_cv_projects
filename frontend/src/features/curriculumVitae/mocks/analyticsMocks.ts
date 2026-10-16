@@ -290,9 +290,22 @@ export const installAnalyticsMocks = (api: AxiosInstance) => {
       return response
     }
 
-    // Действующий бэкенд читает тело строго (неизвестное поле — 400), а про `viewId` он ещё не знает
+    // Действующий бэкенд читает тело строго (неизвестное поле — 400), а про `viewId` и `initiator` он
+    // ещё не знает. Пока так, вырезаем их, а скачивание (`initiator: download`) подменяем выдуманными
+    // контактами: настоящей ручки для пачки ещё нет.
     if (config.method === 'post' && /^\/cv\/[^/]+\/contact-views$/.test(path)) {
-      const { viewId, ...body } = JSON.parse(String(config.data ?? '{}'))
+      const { viewId, initiator, ...body } = JSON.parse(String(config.data ?? '{}'))
+
+      if (initiator === 'download') {
+        return respond(config, {
+          contacts: [
+            { contact: 'telegram', value: 'mock_telegram' },
+            { contact: 'email', value: 'mock@example.com' },
+            { contact: 'phone', value: '+70000000000' },
+          ],
+        })
+      }
+
       return realAdapter({ ...config, data: JSON.stringify(body) })
     }
 

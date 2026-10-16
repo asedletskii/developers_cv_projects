@@ -16,7 +16,7 @@ export const getLkProfile = createAsyncThunk<LkProfile, string, ThunkConfig>(
   'getLkProfile',
   async (userId, { rejectWithValue, signal }) => {
     try {
-      return await curriculumVitaeApi.getProfile(userId, signal)
+      return await curriculumVitaeApi.getProfile(signal)
     } catch (e) {
       return rejectWithValue(parseApiError(e))
     }
@@ -27,7 +27,7 @@ export const getLkResumes = createAsyncThunk<LkResumeSummary[], string, ThunkCon
   'getLkResumes',
   async (userId, { rejectWithValue, signal }) => {
     try {
-      return await curriculumVitaeApi.getResumes(userId, signal)
+      return await curriculumVitaeApi.getResumes(signal)
     } catch (e) {
       return rejectWithValue(parseApiError(e))
     }
@@ -45,7 +45,7 @@ export const updateLkProfile = createAsyncThunk<LkProfile, UpdateLkProfileArg, T
   'updateLkProfile',
   async ({ userId, ru, en, photoPath }, { rejectWithValue }) => {
     try {
-      await curriculumVitaeApi.updateProfile(userId, { ru, en, photoPath })
+      await curriculumVitaeApi.updateProfile({ ru, en, photoPath })
       return { userId, ru, en, photoPath }
     } catch (e) {
       return rejectWithValue(parseApiError(e))
@@ -54,7 +54,6 @@ export const updateLkProfile = createAsyncThunk<LkProfile, UpdateLkProfileArg, T
 )
 
 type UpdateLkResumeTitleArg = {
-  userId: string
   resumeId: string
   version: number
   title: string
@@ -64,9 +63,9 @@ export const updateLkResumeTitle = createAsyncThunk<
   Pick<LkResumeSummary, 'id' | 'title' | 'version'>,
   UpdateLkResumeTitleArg,
   ThunkConfig
->('updateLkResumeTitle', async ({ userId, resumeId, version, title }, { rejectWithValue }) => {
+>('updateLkResumeTitle', async ({ resumeId, version, title }, { rejectWithValue }) => {
   try {
-    await curriculumVitaeApi.updateTitle(userId, resumeId, version, title)
+    await curriculumVitaeApi.updateTitle(resumeId, version, title)
     return { id: resumeId, title, version: version + 1 }
   } catch (e) {
     return rejectWithValue(parseApiError(e))
@@ -74,7 +73,6 @@ export const updateLkResumeTitle = createAsyncThunk<
 })
 
 type ChangeLkResumeStatusArg = {
-  userId: string
   resumeId: string
   version: number
   status: ResumeStatus
@@ -84,9 +82,9 @@ export const changeLkResumeStatus = createAsyncThunk<
   Pick<LkResumeSummary, 'id' | 'status' | 'version'>,
   ChangeLkResumeStatusArg,
   ThunkConfig
->('changeLkResumeStatus', async ({ userId, resumeId, version, status }, { rejectWithValue }) => {
+>('changeLkResumeStatus', async ({ resumeId, version, status }, { rejectWithValue }) => {
   try {
-    await curriculumVitaeApi.changeStatus(userId, resumeId, version, status)
+    await curriculumVitaeApi.changeStatus(resumeId, version, status)
     return { id: resumeId, status, version: version + 1 }
   } catch (e) {
     return rejectWithValue(parseApiError(e))
@@ -94,16 +92,15 @@ export const changeLkResumeStatus = createAsyncThunk<
 })
 
 type CreateLkResumeArg = {
-  userId: string
   title: string
   language: ResumeLanguage
 }
 
 export const createLkResume = createAsyncThunk<string, CreateLkResumeArg, ThunkConfig>(
   'createLkResume',
-  async ({ userId, title, language }, { rejectWithValue }) => {
+  async ({ title, language }, { rejectWithValue }) => {
     try {
-      return await curriculumVitaeApi.createResume(userId, title, language)
+      return await curriculumVitaeApi.createResume(title, language)
     } catch (e) {
       return rejectWithValue(parseApiError(e))
     }
@@ -111,15 +108,14 @@ export const createLkResume = createAsyncThunk<string, CreateLkResumeArg, ThunkC
 )
 
 type DeleteLkResumeArg = {
-  userId: string
   resumeId: string
 }
 
 export const deleteLkResume = createAsyncThunk<string, DeleteLkResumeArg, ThunkConfig>(
   'deleteLkResume',
-  async ({ userId, resumeId }, { rejectWithValue }) => {
+  async ({ resumeId }, { rejectWithValue }) => {
     try {
-      await curriculumVitaeApi.deleteResume(userId, resumeId)
+      await curriculumVitaeApi.deleteResume(resumeId)
       return resumeId
     } catch (e) {
       return rejectWithValue(parseApiError(e))

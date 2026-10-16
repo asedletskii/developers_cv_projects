@@ -17,6 +17,7 @@ export const LoginPrompt = () => {
     >
       <Stack spacing={2} alignItems="center" sx={{ p: 4, maxWidth: 420, ...glassCard }}>
         <Typography variant="h5">{translate('loginTitle')}</Typography>
+
         <Typography sx={{ color: 'text.secondary' }}>{translate('loginText')}</Typography>
 
         <Button

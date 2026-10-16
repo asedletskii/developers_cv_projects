@@ -12,7 +12,7 @@ export const useResumeLinks = (userId?: string, resumeId?: string) => {
   const fetchLinks = useCallback(
     (signal?: AbortSignal) => {
       if (!userId || !resumeId) return Promise.resolve(undefined)
-      return curriculumVitaeApi.getResumeLinks(userId, resumeId, signal)
+      return curriculumVitaeApi.getResumeLinks(resumeId, signal)
     },
     [userId, resumeId],
   )
@@ -50,7 +50,7 @@ export const useResumeLinks = (userId?: string, resumeId?: string) => {
     if (!userId || !resumeId) return
 
     try {
-      await curriculumVitaeApi.createResumeLink(userId, resumeId, name)
+      await curriculumVitaeApi.createResumeLink(resumeId, name)
       await refresh()
     } catch {
       showToast({ messageKey: 'linkActionFailed', type: ToastType.Error })
@@ -61,7 +61,7 @@ export const useResumeLinks = (userId?: string, resumeId?: string) => {
     if (!userId) return
 
     try {
-      await curriculumVitaeApi.renameResumeLink(userId, id, name)
+      await curriculumVitaeApi.renameResumeLink(id, name)
       await refresh()
     } catch {
       showToast({ messageKey: 'linkActionFailed', type: ToastType.Error })
@@ -72,7 +72,7 @@ export const useResumeLinks = (userId?: string, resumeId?: string) => {
     if (!userId) return
 
     try {
-      await curriculumVitaeApi.deleteResumeLink(userId, id)
+      await curriculumVitaeApi.deleteResumeLink(id)
       setLinks((current) => current.filter((link) => link.id !== id))
     } catch {
       showToast({ messageKey: 'linkActionFailed', type: ToastType.Error })
@@ -83,7 +83,7 @@ export const useResumeLinks = (userId?: string, resumeId?: string) => {
     if (!userId) return
 
     try {
-      await curriculumVitaeApi.changeLinkStatus(userId, id, version, status)
+      await curriculumVitaeApi.changeLinkStatus(id, version, status)
       await refresh()
     } catch {
       showToast({ messageKey: 'linkActionFailed', type: ToastType.Error })

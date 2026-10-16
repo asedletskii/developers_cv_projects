@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import { gsap, prefersReducedMotion } from '@shared/animations'
 
-/** Иконка активного шага «впрыгивает» при каждой смене кадра — тот самый 2D-персонаж истории. */
 export const useStepIconPop = (index: number) => {
   const iconRef = useRef<HTMLDivElement | null>(null)
 
