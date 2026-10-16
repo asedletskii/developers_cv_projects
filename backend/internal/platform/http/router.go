@@ -34,6 +34,7 @@ func NewRouter(
 	resumeLinkHandler *resumelinkhttp.Handler,
 	authHandler *authhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
+	optionalAuthenticate middleware.AuthenticateFunc,
 ) (*Router, error) {
 	if cfg.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -61,11 +62,17 @@ func NewRouter(
 	}
 
 	var authStartRateLimiter, authCallbackRateLimiter gin.HandlerFunc
-	var contactViewRateLimiter gin.HandlerFunc
+	var contactViewRateLimiter, analyticsEventsRateLimiter gin.HandlerFunc
 	if cfg.HTTP.ContactViewRateLimit.Enabled {
 		contactViewRateLimiter = middleware.NewRateLimiter(
 			cfg.HTTP.ContactViewRateLimit.Rate/60,
 			cfg.HTTP.ContactViewRateLimit.Burst,
+		).Middleware()
+	}
+	if cfg.HTTP.AnalyticsEventsRateLimit.Enabled {
+		analyticsEventsRateLimiter = middleware.NewRateLimiter(
+			cfg.HTTP.AnalyticsEventsRateLimit.Rate/60,
+			cfg.HTTP.AnalyticsEventsRateLimit.Burst,
 		).Middleware()
 	}
 
@@ -90,6 +97,8 @@ func NewRouter(
 		authStartRateLimiter,
 		authCallbackRateLimiter,
 		contactViewRateLimiter,
+		analyticsEventsRateLimiter,
+		optionalAuthenticate,
 	)
 	return router, nil
 }
@@ -107,6 +116,8 @@ func (r *Router) registerRoutes(
 	authStartRateLimiter gin.HandlerFunc,
 	authCallbackRateLimiter gin.HandlerFunc,
 	contactViewRateLimiter gin.HandlerFunc,
+	analyticsEventsRateLimiter gin.HandlerFunc,
+	optionalAuthenticate middleware.AuthenticateFunc,
 ) {
 	engine := r.engine
 	engine.GET("/health", r.healthHandler)
@@ -127,7 +138,10 @@ func (r *Router) registerRoutes(
 	lk.Use(middleware.Authentication(authenticate))
 	userhttp.RegisterRoutes(userHandler, lk)
 	resumehttp.RegisterRoutes(resumeHandler, lk)
-	resumelinkhttp.RegisterRoutes(resumeLinkHandler, api, lk, contactViewRateLimiter)
+	public := api.Group("")
+	public.Use(middleware.OptionalAuthentication(optionalAuthenticate))
+	anonymous := api.Group("")
+	resumelinkhttp.RegisterRoutes(resumeLinkHandler, public, anonymous, lk, contactViewRateLimiter, analyticsEventsRateLimiter)
 	engine.NoRoute(func(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})

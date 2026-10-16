@@ -34,9 +34,6 @@ func (s *deleteRepositoryStub) Delete(_ context.Context, id sharedvalueobjects.I
 	s.deleted = id
 	return s.delErr
 }
-func (s *deleteRepositoryStub) RecordEvent(context.Context, *domain.ResumeLinkEvent) error {
-	return nil
-}
 
 var _ ports.ResumeLinkRepository = (*deleteRepositoryStub)(nil)
 

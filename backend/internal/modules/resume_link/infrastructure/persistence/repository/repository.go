@@ -142,21 +142,3 @@ func (r *ResumeLinkRepository) Delete(ctx context.Context, id sharedvalueobjects
 	}
 	return nil
 }
-
-func (r *ResumeLinkRepository) RecordEvent(ctx context.Context, event *domain.ResumeLinkEvent) error {
-	if r == nil || r.db == nil {
-		return fmt.Errorf("record resume link event: repository dependencies are nil")
-	}
-	if event == nil || event.ID().IsZero() || event.LinkID().IsZero() || !event.Type().IsValid() || event.OccurredAt().IsZero() {
-		return fmt.Errorf("record resume link event: invalid event")
-	}
-	db := database.DBFromContext(ctx, r.db)
-	model, err := mappers.ResumeLinkEventToDB(event)
-	if err != nil {
-		return fmt.Errorf("record resume link event: %w", err)
-	}
-	if err := db.WithContext(ctx).Create(&model).Error; err != nil {
-		return fmt.Errorf("record resume link event: %w", mapDBError(err))
-	}
-	return nil
-}

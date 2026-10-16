@@ -55,3 +55,21 @@ func GetUserID(c *gin.Context) (uuid.UUID, bool) {
 	}
 	return userID, true
 }
+
+func OptionalAuthentication(authenticate AuthenticateFunc) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if authenticate == nil {
+			c.Next()
+			return
+		}
+		userID, err := authenticate(c.Request.Context(), c.Request)
+		if err != nil {
+			c.Next()
+			return
+		}
+		if userID != uuid.Nil {
+			c.Set(userIDKey, userID)
+		}
+		c.Next()
+	}
+}

@@ -36,6 +36,33 @@ func TestBindJSONRejectsMultipleValues(t *testing.T) {
 	require.Error(t, BindJSON(ctx, &body))
 }
 
+func TestParseResumeIDReadsPathParameter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/lk/resume/90e9ee51-7a2d-4dcb-b0ab-086347d5e5c3/statistics", nil)
+	c.Params = gin.Params{{Key: "resumeId", Value: "90e9ee51-7a2d-4dcb-b0ab-086347d5e5c3"}}
+
+	id, ok := ParseResumeID(c)
+
+	require.True(t, ok)
+	require.Equal(t, "90e9ee51-7a2d-4dcb-b0ab-086347d5e5c3", id.String())
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestParseResumeIDReadsQueryParameter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/lk/links?resumeId=90e9ee51-7a2d-4dcb-b0ab-086347d5e5c3", nil)
+
+	id, ok := ParseResumeIDQuery(c)
+
+	require.True(t, ok)
+	require.Equal(t, "90e9ee51-7a2d-4dcb-b0ab-086347d5e5c3", id.String())
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestRequirePositiveVersionRejectsNonPositive(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

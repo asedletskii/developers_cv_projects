@@ -1,15 +1,13 @@
 {
-  log {
-    output stdout
-    format json
+  auto_https off
+  servers {
+    trusted_proxies static private_ranges
   }
 }
 
-{$FRONTEND_ADDRESS:80} {
+:80 {
 	root * /srv
 	encode zstd gzip
-
-	log
 
 	# Рантайм-конфиг пишется при старте контейнера — браузер не должен держать старый
 	@runtimeConfig path /config.js

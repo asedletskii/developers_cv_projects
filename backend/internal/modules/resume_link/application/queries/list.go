@@ -6,6 +6,7 @@ import (
 	"time"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -27,16 +28,12 @@ type ResumeLinkReader interface {
 	ListByResumeID(context.Context, ListResumeLinksQuery) ([]ResumeLinkListItem, error)
 }
 
-type ResumeOwnershipReader interface {
-	GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error)
-}
-
 type ListResumeLinksQueryHandler struct {
 	reader  ResumeLinkReader
-	resumes ResumeOwnershipReader
+	resumes ports.ResumeOwnershipReader
 }
 
-func NewListResumeLinksQueryHandler(reader ResumeLinkReader, resumes ResumeOwnershipReader) *ListResumeLinksQueryHandler {
+func NewListResumeLinksQueryHandler(reader ResumeLinkReader, resumes ports.ResumeOwnershipReader) *ListResumeLinksQueryHandler {
 	return &ListResumeLinksQueryHandler{reader: reader, resumes: resumes}
 }
 

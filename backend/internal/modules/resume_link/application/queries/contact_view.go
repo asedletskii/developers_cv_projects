@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -17,6 +18,7 @@ import (
 type ContactViewThroughLinkQuery struct {
 	LinkID  sharedvalueobjects.ID
 	Contact resumedomain.ContactKey
+	ViewID  sharedvalueobjects.ID
 }
 
 type ResumeContactViewQuery interface {
@@ -26,15 +28,20 @@ type ResumeContactViewQuery interface {
 type ContactViewThroughLinkQueryHandler struct {
 	links  ResumeLinkPublicReader
 	resume ResumeContactViewQuery
-	events ports.LinkEventRecorder
+	events ports.AnalyticsEventRepository
+	views  ports.ViewRepository
 }
 
-func NewContactViewThroughLinkQueryHandler(links ResumeLinkPublicReader, resume ResumeContactViewQuery, events ports.LinkEventRecorder) *ContactViewThroughLinkQueryHandler {
-	return &ContactViewThroughLinkQueryHandler{links: links, resume: resume, events: events}
+func NewContactViewThroughLinkQueryHandler(links ResumeLinkPublicReader, resume ResumeContactViewQuery) *ContactViewThroughLinkQueryHandler {
+	return &ContactViewThroughLinkQueryHandler{links: links, resume: resume}
+}
+
+func NewContactViewThroughLinkQueryHandlerWithAnalytics(links ResumeLinkPublicReader, resume ResumeContactViewQuery, events ports.AnalyticsEventRepository, views ports.ViewRepository) *ContactViewThroughLinkQueryHandler {
+	return &ContactViewThroughLinkQueryHandler{links: links, resume: resume, events: events, views: views}
 }
 
 func (h *ContactViewThroughLinkQueryHandler) Handle(ctx context.Context, query ContactViewThroughLinkQuery) (resumequeries.ContactView, error) {
-	if h == nil || h.links == nil || h.resume == nil || h.events == nil {
+	if h == nil || h.links == nil || h.resume == nil {
 		return resumequeries.ContactView{}, fmt.Errorf("contact view through link query handler dependencies are nil")
 	}
 	if query.LinkID.IsZero() || !query.Contact.IsValid() {
@@ -68,6 +75,35 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(ctx context.Context, query C
 	if err != nil {
 		return resumequeries.ContactView{}, err
 	}
-	recordLinkEvent(ctx, h.events, query.LinkID, domain.EventTypeContactView)
+	if !query.ViewID.IsZero() && h.events != nil && h.views != nil {
+		analyticsView, viewErr := h.views.GetView(ctx, query.ViewID)
+
+		if viewErr == nil && analyticsView.LinkID() == query.LinkID {
+			h.recordContactViewEvent(ctx, query.ViewID, query.LinkID, query.Contact)
+		}
+	}
 	return view, nil
+}
+
+func (h *ContactViewThroughLinkQueryHandler) recordContactViewEvent(
+	ctx context.Context,
+	viewID sharedvalueobjects.ID,
+	linkID sharedvalueobjects.ID,
+	contact resumedomain.ContactKey,
+) {
+	event, err := domain.NewAnalyticsEvent(domain.AnalyticsEventParams{
+		ID:         sharedvalueobjects.NewID(),
+		ViewID:     viewID,
+		LinkID:     linkID,
+		Type:       domain.EventTypeContactView,
+		Payload:    map[string]string{"contact": string(contact)},
+		OccurredAt: time.Now().UTC(),
+	})
+	if err != nil {
+		return
+	}
+
+	if err := h.events.RecordEvents(ctx, []*domain.AnalyticsEvent{event}); err != nil {
+		return
+	}
 }
