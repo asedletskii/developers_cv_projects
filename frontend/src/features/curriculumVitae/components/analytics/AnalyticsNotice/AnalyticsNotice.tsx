@@ -4,8 +4,6 @@ import { InsightsRounded } from '@mui/icons-material'
 import { Button, Slide, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
-/** Плашка справа снизу: страницу смотрят со статистикой. Оформлена как диалог приложения, но без
- *  затемнения и без закрытия по клику вне — пропадает только по кнопке, дальше не показывается. */
 export const AnalyticsNotice = () => {
   const translate = useTranslate('CurriculumVitae.AnalyticsNotice')
   const { viewId } = useAnalytics()

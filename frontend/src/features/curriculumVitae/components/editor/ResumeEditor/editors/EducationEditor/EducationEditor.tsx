@@ -8,7 +8,6 @@ import { Button, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useEducationOptions } from './hooks'
 
-/** Секция «Образование»: список учебных заведений. */
 export const EducationEditor = () => {
   const translate = useTranslate('Lk.Edit.Education')
   const { levelOptions } = useEducationOptions()

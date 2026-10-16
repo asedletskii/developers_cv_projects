@@ -18,11 +18,6 @@ import { useParams } from 'react-router'
 import { useAnalytics } from './useAnalytics'
 import { useTurnstileToken } from './useTurnstileToken'
 
-/** Собирает резюме в один HTML-файл прямо в браузере и скачивает его.
- *
- *  Скрытые автором контакты в публичных данных не приходят, поэтому перед сборкой они запрашиваются
- *  одним запросом с проверкой Cloudflare (`initiator: download`). Если запрос не удался, файл всё равно
- *  собирается — без контактов и с пояснением, где их взять. */
 export const useDownloadResume = () => {
   const translate = useTranslate('CurriculumVitae')
   const resume = useAppSelector(selectResume)

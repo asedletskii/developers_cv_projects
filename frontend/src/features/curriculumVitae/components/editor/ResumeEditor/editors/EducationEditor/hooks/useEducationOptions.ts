@@ -1,7 +1,6 @@
 import { useTranslate } from '@shared/hooks'
 import { EDUCATION_LEVELS } from '../constants'
 
-/** Уровни образования с подписями на текущем языке. */
 export const useEducationOptions = () => {
   const translate = useTranslate('CurriculumVitae.Education')
 

@@ -8,7 +8,6 @@ import { Button, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useActivityOptions } from './hooks'
 
-/** Секция «Дополнительная активность»: open source, выступления, волонтёрство и т.д. */
 export const ActivitiesEditor = () => {
   const translate = useTranslate('Lk.Edit.Activities')
   const { typeOptions } = useActivityOptions()

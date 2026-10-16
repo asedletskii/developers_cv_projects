@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { prefersReducedMotion } from '@shared/animations'
 import { STEP_DURATION_MS } from '../constants'
 
-/** Листалка шагов в духе историй: сама переключается по таймеру, пауза при наведении, можно
- *  листать руками (стрелки, точки, тап по левой/правой половине кадра). */
 export const useStepCarousel = (count: number) => {
   const [index, setIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)

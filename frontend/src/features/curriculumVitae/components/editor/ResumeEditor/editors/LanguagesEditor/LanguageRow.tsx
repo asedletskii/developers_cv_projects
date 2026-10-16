@@ -18,7 +18,6 @@ type Props = {
   onRemove: () => void
 }
 
-/** Одна строка вкладки «Языки»: язык, уровень и кнопки перестановки и удаления. */
 export const LanguageRow = ({
   index,
   languageOptions,

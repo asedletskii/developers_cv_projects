@@ -6,11 +6,6 @@ import { useAppSelector } from '@shared/store'
 import { Languages } from '@shared/types'
 import { useFormContext } from 'react-hook-form'
 
-/**
- * Кнопка «Как в профиле»: подставляет в форму профиля резюме имя/фамилию/отчество/должность/
- * город и фото из личного кабинета на выбранном языке — экран уже загрузил его выше по дереву
- * (`LkProfileScreen`), здесь просто читаем из стора.
- */
 export const useFillFromProfile = () => {
   const profile = useAppSelector(selectLkProfile)
   const { setValue } = useFormContext<Resume>()

@@ -4,7 +4,6 @@ import { useTranslate } from '@shared/hooks'
 import { useLanguagesEditor } from './hooks'
 import { LanguageRow } from './LanguageRow'
 
-/** Вкладка «Языки»: какими языками владеет человек и на каком уровне. */
 export const LanguagesEditor = () => {
   const translate = useTranslate('Lk.Edit.About')
   const editor = useLanguagesEditor()

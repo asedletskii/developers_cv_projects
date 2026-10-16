@@ -14,7 +14,6 @@ type Props = {
   max?: number
 }
 
-/** Горизонтальные полосы с подписями — общий вид воронки, стека, устройств и источников */
 export const BarList = ({ rows, max = Math.max(...rows.map((row) => row.value), 1) }: Props) => (
   <Stack spacing={1.25}>
     {rows.map(({ key, label, value, caption }) => (

@@ -4,8 +4,6 @@ import { Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useSectionsEditor } from './hooks'
 
-/** Настройки секций резюме: порядок, видимость и «свёрнута при открытии». Содержимое секций
- *  редактируется на своих вкладках. */
 export const SectionsEditor = () => {
   const translate = useTranslate('Lk.Edit.Sections')
   const editor = useSectionsEditor()

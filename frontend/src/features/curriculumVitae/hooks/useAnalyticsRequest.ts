@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-/** Загрузка данных вкладки аналитики с отменой при смене параметров и ручным `reload` */
 export const useAnalyticsRequest = <T>(
   fetcher: (signal: AbortSignal) => Promise<T>,
   deps: unknown[],

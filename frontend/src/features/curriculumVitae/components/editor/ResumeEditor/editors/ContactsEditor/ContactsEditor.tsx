@@ -5,7 +5,6 @@ import { useTranslate } from '@shared/hooks'
 import { useFormContext } from 'react-hook-form'
 import { useContactOptions } from './hooks'
 
-/** Секция «Контакты»: сами контакты, какие скрыты по умолчанию, тексты блока. */
 export const ContactsEditor = () => {
   const translate = useTranslate('Lk.Edit.Contacts')
   const { hiddenContactOptions } = useContactOptions()

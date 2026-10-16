@@ -3,7 +3,6 @@ import { FieldPath, useController, useFormContext } from 'react-hook-form'
 
 type Option = { value: string; label: string }
 
-/** Поле-список навыков: выбранные значения формы ↔ варианты справочника. */
 export const useSkillsField = (
   name: Extract<FieldPath<Resume>, 'skills.hardSkills' | 'skills.softSkills'>,
   options: Option[],

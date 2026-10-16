@@ -1,7 +1,6 @@
 import { HardSkill, SoftSkill } from '@features/curriculumVitae/types'
 import { useTranslate } from '@shared/hooks'
 
-/** Справочники навыков с подписями на текущем языке: профессиональные и личные. */
 export const useSkillOptions = () => {
   const translate = useTranslate('CurriculumVitae.Skills')
 

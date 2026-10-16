@@ -1,7 +1,6 @@
 import { WorkFormat } from '@features/curriculumVitae/types'
 import { useTranslate } from '@shared/hooks'
 
-/** Варианты формата работы с подписями на текущем языке. */
 export const useProfileOptions = () => {
   const translate = useTranslate('CurriculumVitae.About')
 

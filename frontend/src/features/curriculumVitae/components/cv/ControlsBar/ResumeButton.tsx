@@ -3,7 +3,6 @@ import { DownloadOutlined } from '@mui/icons-material'
 import { CircularProgress, IconButton } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
-/** Резюме собирается в HTML на странице и скачивается — см. `useDownloadResume` */
 export const ResumeButton = () => {
   const translate = useTranslate('CurriculumVitae.Controls')
   const { download, isDownloading } = useDownloadResume()

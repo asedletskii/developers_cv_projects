@@ -6,7 +6,6 @@ import { AddRounded } from '@mui/icons-material'
 import { Button, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
-/** Секция «Курсы»: список курсов и сертификатов. */
 export const CoursesEditor = () => {
   const translate = useTranslate('Lk.Edit.Courses')
   const { register, fields, addItem, itemProps } = useFormList('courses', blankCourse)

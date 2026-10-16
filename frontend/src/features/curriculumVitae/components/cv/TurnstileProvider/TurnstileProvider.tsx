@@ -12,9 +12,6 @@ type TurnstileValue = {
 /** Без провайдера проверки нет: `getToken` отдаёт `undefined`, как при выключенном Turnstile */
 export const TurnstileContext = createContext<TurnstileValue>({ getToken: async () => undefined })
 
-/** Один виджет Turnstile и одна модалка на всю страницу резюме. Токен нужен нескольким действиям
- *  (раскрытие контакта, скачивание файла), и отдельный виджет у каждого — это лишние запросы и
- *  несколько диалогов. */
 export const TurnstileProvider = ({ children }: PropsWithChildren) => {
   const translate = useTranslate('CurriculumVitae.Contacts')
   const { setContainer, getToken, isChallengeVisible, cancel } = useTurnstile()

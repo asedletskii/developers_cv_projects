@@ -6,7 +6,6 @@ import { AddRounded } from '@mui/icons-material'
 import { Button, Stack, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
-/** Секция «Проекты». */
 export const ProjectsEditor = () => {
   const translate = useTranslate('Lk.Edit.Projects')
   const { register, fields, addItem, itemProps } = useFormList('projects', blankProject)

@@ -8,7 +8,6 @@ import { AddRounded } from '@mui/icons-material'
 import { Button, Stack, TextField, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
-/** Секция «Опыт работы»: список мест работы, каждое — со своим стэком технологий. */
 export const ExperienceEditor = () => {
   const translate = useTranslate('Lk.Edit.Experience')
   const { register, fields, addItem, itemProps } = useFormList('experiences', blankExperience)
