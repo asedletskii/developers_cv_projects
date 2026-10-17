@@ -6,19 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/user/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
-
-type createUserRepositoryStub struct {
-	user *domain.User
-	err  error
-}
-
-func (s *createUserRepositoryStub) Create(_ context.Context, user *domain.User) error {
-	s.user = user
-	return s.err
-}
 
 func TestCreateUserHandlerCreatesUser(t *testing.T) {
 	repo := &createUserRepositoryStub{}

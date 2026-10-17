@@ -9,26 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testViewStateLayout(t *testing.T) LayoutSnapshot {
-	t.Helper()
-	layout, err := NewLayoutSnapshot(
-		[]resumedomain.SectionID{
-			resumedomain.SectionAbout,
-			resumedomain.SectionExperience,
-			resumedomain.SectionProjects,
-		},
-		map[resumedomain.SectionID]string{
-			resumedomain.SectionAbout:      "0123456789abcdef",
-			resumedomain.SectionExperience: "fedcba9876543210",
-			resumedomain.SectionProjects:   "0011223344556677",
-		},
-	)
-	require.NoError(t, err)
-	return layout
-}
-
 func TestViewStateApplyIsMonotonic(t *testing.T) {
-	layout := testViewStateLayout(t)
+	layout := testViewLayout(t)
 	var state ViewState
 
 	first := time.Date(2026, 10, 5, 10, 0, 5, 0, time.UTC)

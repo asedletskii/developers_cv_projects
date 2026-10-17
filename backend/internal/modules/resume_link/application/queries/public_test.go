@@ -14,32 +14,10 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type publicLinkReaderStub struct {
-	view  ResumeLinkPublicView
-	err   error
-	query PublicResumeLinkQuery
-}
-
-func (s *publicLinkReaderStub) GetByID(_ context.Context, query PublicResumeLinkQuery) (ResumeLinkPublicView, error) {
-	s.query = query
-	return s.view, s.err
-}
-
-type publicResumeQueryStub struct {
-	view  resumequeries.PublicResumeView
-	err   error
-	query resumequeries.PublicResumeQuery
-}
-
-func (s *publicResumeQueryStub) Handle(_ context.Context, query resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error) {
-	s.query = query
-	return s.view, s.err
-}
-
 func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive)}}
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive)}}
 	resume := &publicResumeQueryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
 
 	view, err := NewPublicResumeLinkQueryHandler(links, resume).Handle(context.Background(), PublicResumeLinkQuery{LinkID: linkID})
@@ -52,7 +30,7 @@ func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 
 func TestPublicResumeLinkQueryRejectsInactiveLink(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusInactive),
 	}}
 	resume := &publicResumeQueryStub{}
@@ -64,7 +42,7 @@ func TestPublicResumeLinkQueryRejectsInactiveLink(t *testing.T) {
 }
 
 func TestPublicResumeLinkQueryDoesNotRecordFailedLookup(t *testing.T) {
-	links := &publicLinkReaderStub{err: ErrResumeLinkNotFound}
+	links := &resumeLinkReaderStub{err: ErrResumeLinkNotFound}
 	resume := &publicResumeQueryStub{}
 
 	_, err := NewPublicResumeLinkQueryHandler(links, resume).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
@@ -74,7 +52,7 @@ func TestPublicResumeLinkQueryDoesNotRecordFailedLookup(t *testing.T) {
 }
 
 func TestPublicResumeLinkQueryRejectsInvalidResolvedResumeID(t *testing.T) {
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ResumeID: "not-a-uuid",
 		Status:   string(domain.ResumeLinkStatusActive),
 	}}
@@ -90,45 +68,10 @@ func TestPublicResumeLinkQueryRejectsInvalidResolvedResumeID(t *testing.T) {
 }
 
 func TestPublicResumeLinkQueryTranslatesDomainNotFound(t *testing.T) {
-	links := &publicLinkReaderStub{err: domain.ErrEntityNotFound}
+	links := &resumeLinkReaderStub{err: domain.ErrEntityNotFound}
 	handler := NewPublicResumeLinkQueryHandler(links, &publicResumeQueryStub{})
 	_, err := handler.Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 	require.ErrorIs(t, err, ErrResumeLinkNotFound)
-}
-
-type publicVisitCreatorStub struct {
-	identity ports.VisitorIdentityResult
-	err      error
-	input    ports.CreatePublicVisitInput
-	calls    int
-}
-
-func (s *publicVisitCreatorStub) Handle(_ context.Context, input ports.CreatePublicVisitInput) (*domain.View, ports.VisitorIdentityResult, error) {
-	s.calls++
-	s.input = input
-	return nil, s.identity, s.err
-}
-
-func newPublicAnalyticsTestHandler(
-	owner ports.ResumeOwnershipReader,
-	visit ports.PublicVisitCreator,
-	reporter PublicAnalyticsErrorReporter,
-) (*PublicResumeLinkQueryHandler, PublicResumeLinkQuery, *publicResumeQueryStub) {
-	linkID := sharedvalueobjects.NewID()
-	resumeID := sharedvalueobjects.NewID()
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{
-		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
-	}}
-	resume := &publicResumeQueryStub{view: resumequeries.PublicResumeView{Title: "Public CV"}}
-	handler := NewPublicResumeLinkQueryHandlerWithVisit(links, resume, owner, visit, reporter)
-	query := PublicResumeLinkQuery{
-		LinkID: linkID,
-		Visit: &ports.CreatePublicVisitInput{
-			LinkID:  linkID,
-			Visitor: ports.PublicVisitInput{OwnerID: sharedvalueobjects.NewID()},
-		},
-	}
-	return handler, query, resume
 }
 
 func TestPublicResumeLinkClearsUnverifiedOwnerWhenOwnershipReaderIsAbsent(t *testing.T) {
@@ -147,7 +90,7 @@ func TestPublicResumeLinkClearsUnverifiedOwnerWhenOwnershipReaderIsAbsent(t *tes
 func TestPublicResumeLinkWithoutAnalyticsStillServesPublicResume(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	links := &publicLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &publicResumeQueryStub{view: resumequeries.PublicResumeView{Title: "Public CV"}}
@@ -172,7 +115,7 @@ func TestPublicResumeLinkRejectsMissingRequiredDependenciesWithoutPanic(t *testi
 	}{
 		{name: "nil handler", handler: nil},
 		{name: "nil link reader", handler: NewPublicResumeLinkQueryHandler(nil, &publicResumeQueryStub{})},
-		{name: "nil resume query", handler: NewPublicResumeLinkQueryHandler(&publicLinkReaderStub{}, nil)},
+		{name: "nil resume query", handler: NewPublicResumeLinkQueryHandler(&resumeLinkReaderStub{}, nil)},
 	}
 
 	for _, tt := range tests {

@@ -49,19 +49,6 @@ func TestNormalizeVisitLimit(t *testing.T) {
 	require.Error(t, err)
 }
 
-func mustLimit(t *testing.T, value int) int {
-	t.Helper()
-	result, err := NormalizeVisitLimit(value)
-	require.NoError(t, err)
-	return result
-}
-func mustLocation(t *testing.T, name string) *time.Location {
-	t.Helper()
-	loc, err := time.LoadLocation(name)
-	require.NoError(t, err)
-	return loc
-}
-
 func TestNewAnalyticsPeriodAllowsAtMost366CalendarDays(t *testing.T) {
 	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
 	period, err := NewAnalyticsPeriod("2024-01-01", "2024-12-31", "UTC", now)

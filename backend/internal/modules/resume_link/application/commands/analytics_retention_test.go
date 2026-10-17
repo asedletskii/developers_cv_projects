@@ -9,41 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type analyticsRetentionRepositoryStub struct {
-	clicks   int
-	views    int
-	clickErr error
-	viewErr  error
-	cutoffs  []time.Time
-}
-
-func (r *analyticsRetentionRepositoryStub) DeleteExpiredClicks(_ context.Context, cutoff time.Time, _ int) (int, error) {
-	r.cutoffs = append(r.cutoffs, cutoff)
-	return r.clicks, r.clickErr
-}
-
-func (r *analyticsRetentionRepositoryStub) DeleteExpiredViews(_ context.Context, cutoff time.Time, _ int) (int, error) {
-	r.cutoffs = append(r.cutoffs, cutoff)
-	return r.views, r.viewErr
-}
-
-type analyticsRetentionUOWStub struct {
-	calls int
-	err   error
-}
-
-func (u *analyticsRetentionUOWStub) Do(ctx context.Context, fn func(context.Context) error) error {
-	u.calls++
-	if u.err != nil {
-		return u.err
-	}
-	return fn(ctx)
-}
-
 func TestCleanupAnalyticsHandlerUsesConfiguredRetentionWindows(t *testing.T) {
 	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
 	repo := &analyticsRetentionRepositoryStub{clicks: 3, views: 7}
-	uow := &analyticsRetentionUOWStub{}
+	uow := &unitOfWorkStub{}
 	h := NewCleanupAnalyticsHandler(repo, uow, AnalyticsRetentionPolicy{ClickRetentionDays: 90, ViewRetentionDays: 365})
 
 	result, err := h.Handle(context.Background(), now, 500)
@@ -57,7 +26,7 @@ func TestCleanupAnalyticsHandlerUsesConfiguredRetentionWindows(t *testing.T) {
 
 func TestCleanupAnalyticsHandlerPropagatesClickFailure(t *testing.T) {
 	expected := errors.New("db unavailable")
-	h := NewCleanupAnalyticsHandler(&analyticsRetentionRepositoryStub{clickErr: expected}, &analyticsRetentionUOWStub{}, AnalyticsRetentionPolicy{ClickRetentionDays: 90, ViewRetentionDays: 365})
+	h := NewCleanupAnalyticsHandler(&analyticsRetentionRepositoryStub{clickErr: expected}, &unitOfWorkStub{}, AnalyticsRetentionPolicy{ClickRetentionDays: 90, ViewRetentionDays: 365})
 
 	_, err := h.Handle(context.Background(), time.Now().UTC(), 500)
 
@@ -65,7 +34,7 @@ func TestCleanupAnalyticsHandlerPropagatesClickFailure(t *testing.T) {
 }
 
 func TestCleanupAnalyticsHandlerRejectsInvalidInput(t *testing.T) {
-	h := NewCleanupAnalyticsHandler(&analyticsRetentionRepositoryStub{}, &analyticsRetentionUOWStub{}, AnalyticsRetentionPolicy{ClickRetentionDays: 90, ViewRetentionDays: 365})
+	h := NewCleanupAnalyticsHandler(&analyticsRetentionRepositoryStub{}, &unitOfWorkStub{}, AnalyticsRetentionPolicy{ClickRetentionDays: 90, ViewRetentionDays: 365})
 
 	_, err := h.Handle(context.Background(), time.Time{}, 500)
 	require.Error(t, err)
@@ -76,7 +45,7 @@ func TestCleanupAnalyticsHandlerRejectsInvalidInput(t *testing.T) {
 func TestCleanupAnalyticsHandlerRejectsInvalidRetentionPolicy(t *testing.T) {
 	h := NewCleanupAnalyticsHandler(
 		&analyticsRetentionRepositoryStub{},
-		&analyticsRetentionUOWStub{},
+		&unitOfWorkStub{},
 		AnalyticsRetentionPolicy{ClickRetentionDays: 0, ViewRetentionDays: 365},
 	)
 

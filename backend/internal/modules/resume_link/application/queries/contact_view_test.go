@@ -13,46 +13,10 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type contactViewLinkReaderStub struct {
-	view  ResumeLinkPublicView
-	err   error
-	query PublicResumeLinkQuery
-}
-
-func (s *contactViewLinkReaderStub) GetByID(_ context.Context, query PublicResumeLinkQuery) (ResumeLinkPublicView, error) {
-	s.query = query
-	return s.view, s.err
-}
-
-type contactViewResumeQueryStub struct {
-	view  resumequeries.ContactView
-	err   error
-	query resumequeries.ContactViewQuery
-}
-
-func (s *contactViewResumeQueryStub) Handle(_ context.Context, query resumequeries.ContactViewQuery) (resumequeries.ContactView, error) {
-	s.query = query
-	return s.view, s.err
-}
-
-type contactViewResumeDownloadQueryStub struct {
-	view  resumequeries.DownloadContactsView
-	err   error
-	query resumequeries.DownloadContactsQuery
-}
-
-func (s *contactViewResumeDownloadQueryStub) Handle(
-	_ context.Context,
-	query resumequeries.DownloadContactsQuery,
-) (resumequeries.DownloadContactsView, error) {
-	s.query = query
-	return s.view, s.err
-}
-
 func TestContactViewThroughLinkResolvesActiveLink(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
@@ -74,7 +38,7 @@ func TestContactViewThroughLinkReturnsAllContactsForDownload(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	viewID := sharedvalueobjects.NewID()
-	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	phone, email := "+33123456789", "person@example.com"
@@ -106,41 +70,10 @@ func TestContactViewThroughLinkReturnsAllContactsForDownload(t *testing.T) {
 	require.Empty(t, analytics.calls)
 }
 
-type contactViewAnalyticsRecorderStub struct {
-	err       error
-	calls     int
-	initiator string
-	viewID    sharedvalueobjects.ID
-	linkID    sharedvalueobjects.ID
-}
-
-func (s *contactViewAnalyticsRecorderStub) RecordContactView(
-	_ context.Context,
-	viewID, linkID sharedvalueobjects.ID,
-	_ string,
-) error {
-	s.calls++
-	s.initiator = "contact"
-	s.viewID = viewID
-	s.linkID = linkID
-	return s.err
-}
-
-func (s *contactViewAnalyticsRecorderStub) RecordDownload(
-	_ context.Context,
-	viewID, linkID sharedvalueobjects.ID,
-) error {
-	s.calls++
-	s.initiator = "download"
-	s.viewID = viewID
-	s.linkID = linkID
-	return s.err
-}
-
 func TestContactViewThroughLinkWithoutAnalyticsReturnsContact(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{
@@ -165,7 +98,7 @@ func TestContactViewThroughLinkRejectsMissingRequiredDependenciesWithoutPanic(t 
 	}{
 		{name: "nil handler", handler: nil},
 		{name: "nil link reader", handler: NewContactViewThroughLinkQueryHandler(nil, &contactViewResumeQueryStub{})},
-		{name: "nil resume query", handler: NewContactViewThroughLinkQueryHandler(&contactViewLinkReaderStub{}, nil)},
+		{name: "nil resume query", handler: NewContactViewThroughLinkQueryHandler(&resumeLinkReaderStub{}, nil)},
 	}
 
 	for _, tt := range tests {
@@ -184,7 +117,7 @@ func TestContactViewThroughLinkReportsAnalyticsFailureWithoutFailingContactView(
 	resumeID := sharedvalueobjects.NewID()
 	viewID := sharedvalueobjects.NewID()
 	analyticsErr := errors.New("analytics storage unavailable")
-	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
@@ -210,7 +143,7 @@ func TestContactViewThroughLinkReportsAnalyticsFailureWithoutFailingContactView(
 
 func TestContactViewThroughLinkRejectsInactiveLink(t *testing.T) {
 	resume := &contactViewResumeQueryStub{}
-	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusInactive),
 	}}
 
@@ -224,7 +157,7 @@ func TestContactViewThroughLinkRejectsInactiveLink(t *testing.T) {
 
 func TestContactViewThroughLinkPropagatesMissingLink(t *testing.T) {
 	resume := &contactViewResumeQueryStub{}
-	links := &contactViewLinkReaderStub{err: ErrResumeLinkNotFound}
+	links := &resumeLinkReaderStub{err: ErrResumeLinkNotFound}
 
 	_, err := NewContactViewThroughLinkQueryHandler(links, resume).Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID: sharedvalueobjects.NewID(), Contact: resumedomain.ContactKeyEmail,
@@ -236,7 +169,7 @@ func TestContactViewThroughLinkPropagatesMissingLink(t *testing.T) {
 
 func TestContactViewThroughLinkDoesNotRecordFailedContact(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
-	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &contactViewResumeQueryStub{err: resumequeries.ErrContactNotHidden}
@@ -251,7 +184,7 @@ func TestContactViewThroughLinkDoesNotRecordFailedContact(t *testing.T) {
 func TestContactViewThroughLinkPropagatesResumeContactRules(t *testing.T) {
 	want := resumequeries.ErrContactNotHidden
 	resume := &contactViewResumeQueryStub{err: want}
-	links := &contactViewLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 
@@ -263,7 +196,7 @@ func TestContactViewThroughLinkPropagatesResumeContactRules(t *testing.T) {
 }
 
 func TestContactViewThroughLinkTranslatesDomainNotFound(t *testing.T) {
-	links := &contactViewLinkReaderStub{err: domain.ErrEntityNotFound}
+	links := &resumeLinkReaderStub{err: domain.ErrEntityNotFound}
 	handler := NewContactViewThroughLinkQueryHandler(links, &contactViewResumeQueryStub{})
 	_, err := handler.Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID:  sharedvalueobjects.NewID(),

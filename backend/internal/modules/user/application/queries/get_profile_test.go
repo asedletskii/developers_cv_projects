@@ -10,20 +10,9 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type fakeGetProfileReader struct {
-	profile ProfileView
-	err     error
-	query   GetProfileQuery
-}
-
-func (f *fakeGetProfileReader) GetProfile(_ context.Context, query GetProfileQuery) (ProfileView, error) {
-	f.query = query
-	return f.profile, f.err
-}
-
 func TestGetProfileHandlerReturnsProfile(t *testing.T) {
 	userID := sharedvalueobjects.NewID()
-	reader := &fakeGetProfileReader{profile: ProfileView{
+	reader := &profileReaderStub{profile: ProfileView{
 		ID: userID.String(), RU: LocalizedProfileView{Name: stringPtr("Антон"), Surname: stringPtr("Седлецкий"), Position: stringPtr("Frontend")},
 	}}
 	handler := NewGetProfileHandler(reader)
@@ -36,7 +25,7 @@ func TestGetProfileHandlerReturnsProfile(t *testing.T) {
 }
 
 func TestGetProfileHandlerPropagatesNotFound(t *testing.T) {
-	reader := &fakeGetProfileReader{err: ErrProfileNotFound}
+	reader := &profileReaderStub{err: ErrProfileNotFound}
 	handler := NewGetProfileHandler(reader)
 
 	_, err := handler.Handle(context.Background(), GetProfileQuery{UserID: sharedvalueobjects.NewID()})
@@ -45,12 +34,10 @@ func TestGetProfileHandlerPropagatesNotFound(t *testing.T) {
 }
 
 func TestGetProfileHandlerRejectsEmptyUserID(t *testing.T) {
-	handler := NewGetProfileHandler(&fakeGetProfileReader{})
+	handler := NewGetProfileHandler(&profileReaderStub{})
 
 	_, err := handler.Handle(context.Background(), GetProfileQuery{})
 
 	require.Error(t, err)
 	require.False(t, errors.Is(err, ErrProfileNotFound))
 }
-
-func stringPtr(value string) *string { return &value }

@@ -12,18 +12,6 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type publicResumeReaderStub struct {
-	view ResumeView
-	err  error
-}
-
-func (s publicResumeReaderStub) GetPublic(context.Context, PublicResumeQuery) (PublicResumeView, error) {
-	if s.err != nil {
-		return PublicResumeView{}, s.err
-	}
-	return ToPublicResumeView(s.view), nil
-}
-
 func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 	view := ResumeView{
 		ID:       "resume-1",

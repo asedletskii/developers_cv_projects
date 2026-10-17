@@ -11,64 +11,6 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type statisticsLinkReaderStub struct {
-	view ResumeLinkPublicView
-	err  error
-}
-
-func (s statisticsLinkReaderStub) GetByID(context.Context, PublicResumeLinkQuery) (ResumeLinkPublicView, error) {
-	return s.view, s.err
-}
-
-type statisticsOwnershipStub struct {
-	err error
-}
-
-func (s statisticsOwnershipStub) GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	if s.err != nil {
-		return resumequeries.ResumeView{}, s.err
-	}
-	return resumequeries.ResumeView{ID: "resume"}, nil
-}
-
-func (s statisticsOwnershipStub) GetOwnedOverview(_ context.Context, _ resumequeries.GetResumeQuery) (resumequeries.ResumeOverviewView, error) {
-	if s.err != nil {
-		return resumequeries.ResumeOverviewView{}, s.err
-	}
-	return resumequeries.ResumeOverviewView{}, nil
-}
-
-func (s statisticsOwnershipStub) OwnsResume(context.Context, resumequeries.GetResumeQuery) (bool, error) {
-	return s.err == nil, s.err
-}
-
-type statisticsReaderStub struct {
-	result LinkStatistics
-	err    error
-	query  LinkAnalyticsQuery
-}
-
-func (s *statisticsReaderStub) GetLinkStatistics(_ context.Context, query LinkAnalyticsQuery) (LinkStatistics, error) {
-	s.query = query
-	return s.result, s.err
-}
-
-func (s *statisticsReaderStub) GetDaily(context.Context, LinkAnalyticsQuery) (LinkDaily, error) {
-	return LinkDaily{}, s.err
-}
-func (s *statisticsReaderStub) GetVisits(context.Context, VisitsReadQuery) (LinkVisitsPage, error) {
-	return LinkVisitsPage{}, s.err
-}
-func (s *statisticsReaderStub) GetSections(context.Context, LinkSectionsQuery) (SectionsStatistics, error) {
-	return SectionsStatistics{}, s.err
-}
-func (s *statisticsReaderStub) GetTechnologies(context.Context, LinkAnalyticsQuery) (TechnologiesStatistics, error) {
-	return TechnologiesStatistics{}, s.err
-}
-func (s *statisticsReaderStub) GetResumeStatistics(context.Context, ResumeAnalyticsQuery) (ResumeStatistics, error) {
-	return ResumeStatistics{}, s.err
-}
-
 func TestLinkStatisticsNormalizeResponse(t *testing.T) {
 	var result LinkStatistics
 	result.NormalizeResponse()
@@ -84,10 +26,10 @@ func TestGetLinkStatisticsChecksOwnershipBeforeAggregation(t *testing.T) {
 	reader := &statisticsReaderStub{result: LinkStatistics{Views: 2, ContactViews: 1}}
 
 	handler := NewLinkStatisticsHandler(
-		statisticsLinkReaderStub{view: ResumeLinkPublicView{
+		&resumeLinkReaderStub{view: ResumeLinkPublicView{
 			ID: linkID.String(), ResumeID: resumeID.String(), Status: "inactive",
 		}},
-		statisticsOwnershipStub{},
+		&ownershipReaderStub{},
 		reader,
 	)
 
@@ -106,10 +48,10 @@ func TestGetLinkStatisticsChecksOwnershipBeforeAggregation(t *testing.T) {
 func TestGetLinkStatisticsRejectsForeignResume(t *testing.T) {
 	reader := &statisticsReaderStub{}
 	handler := NewLinkStatisticsHandler(
-		statisticsLinkReaderStub{view: ResumeLinkPublicView{
+		&resumeLinkReaderStub{view: ResumeLinkPublicView{
 			ID: sharedvalueobjects.NewID().String(), ResumeID: sharedvalueobjects.NewID().String(), Status: "active",
 		}},
-		statisticsOwnershipStub{err: resumequeries.ErrResumeNotFound},
+		&ownershipReaderStub{err: resumequeries.ErrResumeNotFound},
 		reader,
 	)
 
@@ -125,8 +67,8 @@ func TestGetLinkStatisticsRejectsForeignResume(t *testing.T) {
 func TestGetLinkStatisticsPropagatesMissingLink(t *testing.T) {
 	reader := &statisticsReaderStub{}
 	handler := NewLinkStatisticsHandler(
-		statisticsLinkReaderStub{err: errors.New("missing")},
-		statisticsOwnershipStub{},
+		&resumeLinkReaderStub{err: errors.New("missing")},
+		&ownershipReaderStub{},
 		reader,
 	)
 

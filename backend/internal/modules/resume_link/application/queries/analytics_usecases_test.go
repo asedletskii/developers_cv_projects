@@ -3,7 +3,6 @@ package queries
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -11,58 +10,13 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type analyticsUseCaseReaderStub struct {
-	calls map[string]int
-}
-
-func newAnalyticsUseCaseReaderStub() *analyticsUseCaseReaderStub {
-	return &analyticsUseCaseReaderStub{calls: make(map[string]int)}
-}
-
-func (s *analyticsUseCaseReaderStub) GetLinkStatistics(context.Context, LinkAnalyticsQuery) (LinkStatistics, error) {
-	s.calls["statistics"]++
-	return LinkStatistics{Views: 7}, nil
-}
-
-func (s *analyticsUseCaseReaderStub) GetDaily(context.Context, LinkAnalyticsQuery) (LinkDaily, error) {
-	s.calls["daily"]++
-	return LinkDaily{Days: []DailyPoint{}}, nil
-}
-
-func (s *analyticsUseCaseReaderStub) GetVisits(context.Context, VisitsReadQuery) (LinkVisitsPage, error) {
-	s.calls["visits"]++
-	return LinkVisitsPage{Items: []LinkVisit{}}, nil
-}
-
-func (s *analyticsUseCaseReaderStub) GetSections(_ context.Context, query LinkSectionsQuery) (SectionsStatistics, error) {
-	s.calls["sections"]++
-	return SectionsStatistics{Sections: []SectionStatistics{{Section: query.SectionOrder[0]}}}, nil
-}
-
-func (s *analyticsUseCaseReaderStub) GetTechnologies(context.Context, LinkAnalyticsQuery) (TechnologiesStatistics, error) {
-	s.calls["technologies"]++
-	return TechnologiesStatistics{Technologies: []TechnologyInterest{}}, nil
-}
-
-func (s *analyticsUseCaseReaderStub) GetResumeStatistics(context.Context, ResumeAnalyticsQuery) (ResumeStatistics, error) {
-	s.calls["resume_statistics"]++
-	return ResumeStatistics{Links: []ResumeLinkStatistic{}}, nil
-}
-
-func validAnalyticsTestPeriod(t *testing.T) AnalyticsPeriod {
-	t.Helper()
-	period, err := NewAnalyticsPeriod("2026-10-01", "2026-10-01", "UTC", time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC))
-	require.NoError(t, err)
-	return period
-}
-
 func TestAnalyticsUseCaseHandlersDelegateToDedicatedReaders(t *testing.T) {
 	ctx := context.Background()
 	userID := sharedvalueobjects.NewID()
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	links := statisticsLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String()}}
-	ownership := statisticsOwnershipStub{}
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String()}}
+	ownership := &ownershipReaderStub{}
 	reader := newAnalyticsUseCaseReaderStub()
 	period := validAnalyticsTestPeriod(t)
 
@@ -91,8 +45,8 @@ func TestAnalyticsUseCaseHandlersAuthorizeBeforeReading(t *testing.T) {
 	userID := sharedvalueobjects.NewID()
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	links := statisticsLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String()}}
-	ownership := statisticsOwnershipStub{err: resumequeries.ErrResumeNotFound}
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String()}}
+	ownership := &ownershipReaderStub{err: resumequeries.ErrResumeNotFound}
 	reader := newAnalyticsUseCaseReaderStub()
 	period := validAnalyticsTestPeriod(t)
 
@@ -115,10 +69,10 @@ func TestAnalyticsUseCaseHandlersAuthorizeBeforeReading(t *testing.T) {
 func TestAnalyticsUseCaseHandlersRejectInvalidPeriodsBeforeReading(t *testing.T) {
 	reader := newAnalyticsUseCaseReaderStub()
 	linkID, userID, resumeID := sharedvalueobjects.NewID(), sharedvalueobjects.NewID(), sharedvalueobjects.NewID()
-	links := statisticsLinkReaderStub{view: ResumeLinkPublicView{
+	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(),
 	}}
-	ownership := statisticsOwnershipStub{}
+	ownership := &ownershipReaderStub{}
 
 	_, statsErr := NewLinkStatisticsHandler(links, ownership, reader).Handle(context.Background(), LinkAnalyticsQuery{UserID: userID, LinkID: linkID})
 	_, dailyErr := NewDailyStatisticsHandler(links, ownership, reader).Handle(context.Background(), LinkAnalyticsQuery{UserID: userID, LinkID: linkID})

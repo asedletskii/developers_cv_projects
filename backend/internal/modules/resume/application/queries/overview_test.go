@@ -36,7 +36,3 @@ func TestResumeOverviewViewEmptySectionsSerializeAsArray(t *testing.T) {
 	require.NoError(t, err)
 	require.JSONEq(t, `{"greeting":{"first":"","second":"","secondHighlight":"","third":""},"sections":[]}`, string(data))
 }
-
-func stringPtr(value string) *string {
-	return &value
-}

@@ -10,17 +10,6 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type listReaderStub struct {
-	items []ResumeLinkListItem
-	err   error
-	query ListResumeLinksQuery
-}
-
-func (s *listReaderStub) ListByResumeID(_ context.Context, query ListResumeLinksQuery) ([]ResumeLinkListItem, error) {
-	s.query = query
-	return s.items, s.err
-}
-
 func TestListResumeLinksQueryHandlerChecksOwnershipBeforeReading(t *testing.T) {
 	userID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()

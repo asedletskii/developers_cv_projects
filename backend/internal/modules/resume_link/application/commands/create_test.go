@@ -12,79 +12,10 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type fakeUnitOfWork struct{ called bool }
-
-func (u *fakeUnitOfWork) Do(ctx context.Context, fn func(context.Context) error) error {
-	u.called = true
-	return fn(ctx)
-}
-
-type fakeResumeReader struct {
-	view   resumequeries.ResumeView
-	err    error
-	called bool
-	query  resumequeries.GetResumeQuery
-}
-
-func (r *fakeResumeReader) GetOwned(_ context.Context, query resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	r.called = true
-	r.query = query
-	if r.err != nil {
-		return resumequeries.ResumeView{}, r.err
-	}
-	return r.view, nil
-}
-
-func (r *fakeResumeReader) OwnsResume(_ context.Context, query resumequeries.GetResumeQuery) (bool, error) {
-	r.called = true
-	r.query = query
-	if r.err != nil {
-		return false, r.err
-	}
-	return true, nil
-}
-
-type fakeRepository struct {
-	link        *domain.ResumeLink
-	err         error
-	count       int64
-	countErr    error
-	lockCalled  bool
-	countCalled bool
-	called      bool
-}
-
-func (r *fakeRepository) LockResumeForLinkCreation(context.Context, sharedvalueobjects.ID) error {
-	r.lockCalled = true
-	return nil
-}
-func (r *fakeRepository) CountByResumeID(context.Context, sharedvalueobjects.ID) (int64, error) {
-	r.countCalled = true
-	return r.count, r.countErr
-}
-func (r *fakeRepository) Create(_ context.Context, link *domain.ResumeLink) error {
-	r.called = true
-	r.link = link
-	return r.err
-}
-
-func (r *fakeRepository) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
-	return nil, r.err
-}
-func (r *fakeRepository) ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error {
-	return r.err
-}
-
-func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error { return r.err }
-
-func validCreateCommand() CreateResumeLinkCommand {
-	return CreateResumeLinkCommand{UserID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "  HH  "}
-}
-
 func TestCreateResumeLinkHandlerCreatesLinkAfterOwnershipValidation(t *testing.T) {
-	reader := &fakeResumeReader{}
-	repository := &fakeRepository{}
-	uow := &fakeUnitOfWork{}
+	reader := &resumeReaderStub{}
+	repository := &resumeLinkRepositoryStub{}
+	uow := &unitOfWorkStub{}
 	handler := NewCreateResumeLinkHandler(repository, reader, uow)
 	command := validCreateCommand()
 
@@ -106,8 +37,8 @@ func TestCreateResumeLinkHandlerCreatesLinkAfterOwnershipValidation(t *testing.T
 }
 
 func TestCreateResumeLinkHandlerRejectsAtCapacityBeforeCreate(t *testing.T) {
-	repository := &fakeRepository{count: domain.MaxResumeLinksPerResume}
-	handler := NewCreateResumeLinkHandler(repository, &fakeResumeReader{}, &fakeUnitOfWork{})
+	repository := &resumeLinkRepositoryStub{count: domain.MaxResumeLinksPerResume}
+	handler := NewCreateResumeLinkHandler(repository, &resumeReaderStub{}, &unitOfWorkStub{})
 
 	_, err := handler.Handle(context.Background(), validCreateCommand())
 
@@ -119,8 +50,8 @@ func TestCreateResumeLinkHandlerRejectsAtCapacityBeforeCreate(t *testing.T) {
 
 func TestCreateResumeLinkHandlerPropagatesCapacityReadFailure(t *testing.T) {
 	repositoryErr := errors.New("capacity query failure")
-	repository := &fakeRepository{countErr: repositoryErr}
-	handler := NewCreateResumeLinkHandler(repository, &fakeResumeReader{}, &fakeUnitOfWork{})
+	repository := &resumeLinkRepositoryStub{countErr: repositoryErr}
+	handler := NewCreateResumeLinkHandler(repository, &resumeReaderStub{}, &unitOfWorkStub{})
 
 	_, err := handler.Handle(context.Background(), validCreateCommand())
 
@@ -129,9 +60,9 @@ func TestCreateResumeLinkHandlerPropagatesCapacityReadFailure(t *testing.T) {
 }
 
 func TestCreateResumeLinkHandlerPropagatesResumeNotFound(t *testing.T) {
-	reader := &fakeResumeReader{err: resumequeries.ErrResumeNotFound}
-	repository := &fakeRepository{}
-	handler := NewCreateResumeLinkHandler(repository, reader, &fakeUnitOfWork{})
+	reader := &resumeReaderStub{err: resumequeries.ErrResumeNotFound}
+	repository := &resumeLinkRepositoryStub{}
+	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
 
 	_, err := handler.Handle(context.Background(), validCreateCommand())
 
@@ -140,9 +71,9 @@ func TestCreateResumeLinkHandlerPropagatesResumeNotFound(t *testing.T) {
 }
 
 func TestCreateResumeLinkHandlerRejectsInvalidName(t *testing.T) {
-	reader := &fakeResumeReader{}
-	repository := &fakeRepository{}
-	handler := NewCreateResumeLinkHandler(repository, reader, &fakeUnitOfWork{})
+	reader := &resumeReaderStub{}
+	repository := &resumeLinkRepositoryStub{}
+	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
 	command := validCreateCommand()
 	command.Name = "   "
 
@@ -155,8 +86,8 @@ func TestCreateResumeLinkHandlerRejectsInvalidName(t *testing.T) {
 
 func TestCreateResumeLinkHandlerPropagatesRepositoryFailure(t *testing.T) {
 	repositoryErr := errors.New("repository failure")
-	repository := &fakeRepository{err: repositoryErr}
-	handler := NewCreateResumeLinkHandler(repository, &fakeResumeReader{}, &fakeUnitOfWork{})
+	repository := &resumeLinkRepositoryStub{err: repositoryErr}
+	handler := NewCreateResumeLinkHandler(repository, &resumeReaderStub{}, &unitOfWorkStub{})
 
 	_, err := handler.Handle(context.Background(), validCreateCommand())
 
@@ -164,7 +95,7 @@ func TestCreateResumeLinkHandlerPropagatesRepositoryFailure(t *testing.T) {
 }
 
 func TestCreateResumeLinkHandlerRejectsInvalidIdentifiers(t *testing.T) {
-	handler := NewCreateResumeLinkHandler(&fakeRepository{}, &fakeResumeReader{}, &fakeUnitOfWork{})
+	handler := NewCreateResumeLinkHandler(&resumeLinkRepositoryStub{}, &resumeReaderStub{}, &unitOfWorkStub{})
 	command := validCreateCommand()
 	command.UserID = sharedvalueobjects.ID{}
 
