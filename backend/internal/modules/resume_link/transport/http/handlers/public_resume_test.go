@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"net/http"
@@ -108,4 +109,14 @@ func TestHandlerDoesNotEmitAnalyticsHeadersWhenVisitIsUnavailable(t *testing.T) 
 	require.Empty(t, w.Header().Get("X-View-Id"))
 	require.Empty(t, w.Header().Get("Set-Cookie"))
 	require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+}
+
+func TestParseReferrerHost(t *testing.T) {
+	require.Equal(t, "t.me", parseReferrerHost("t.me"))
+	require.Equal(t, "linkedin.com", parseReferrerHost("  LinkedIn.com "))
+	require.Empty(t, parseReferrerHost(""))
+	require.Empty(t, parseReferrerHost("https://t.me/path"))
+	require.Empty(t, parseReferrerHost("host:8080"))
+	require.Empty(t, parseReferrerHost("a b"))
+	require.Empty(t, parseReferrerHost(strings.Repeat("a", 254)))
 }

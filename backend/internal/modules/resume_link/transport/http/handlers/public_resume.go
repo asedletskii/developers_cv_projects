@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/url"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -25,6 +25,16 @@ type PublicResumeLinkQuery interface {
 	HandleWithVisit(context.Context, queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, ports.VisitorIdentityResult, error)
 }
 
+const referrerHostHeader = "X-Referrer-Host"
+
+func parseReferrerHost(raw string) string {
+	host := strings.ToLower(strings.TrimSpace(raw))
+	if host == "" || len(host) > 253 || strings.ContainsAny(host, "/ \t:?#@") {
+		return ""
+	}
+	return host
+}
+
 func NewPublicResumeLinkHandler(query PublicResumeLinkQuery) *PublicResumeLinkHandler {
 	return &PublicResumeLinkHandler{query: query}
 }
@@ -38,12 +48,7 @@ func (h *PublicResumeLinkHandler) Handle(c *gin.Context) {
 	if !ok {
 		return
 	}
-	referrerHost := ""
-	if raw := c.Request.Referer(); raw != "" {
-		if parsed, err := url.Parse(raw); err == nil {
-			referrerHost = parsed.Hostname()
-		}
-	}
+	referrerHost := parseReferrerHost(c.GetHeader(referrerHostHeader))
 	input := &commands.CreatePublicVisitInput{
 		LinkID: linkID,
 		Visitor: ports.PublicVisitInput{
