@@ -38,6 +38,22 @@ func (r *fakeResumeRepository) Save(_ context.Context, resume *domain.Resume) er
 	return r.err
 }
 
+func (r *fakeResumeRepository) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	if err := r.Save(ctx, resume); err != nil {
+		return err
+	}
+	restored := domain.RestoreResume(domain.ResumeSnapshot{
+		ID: resume.ID(), UserID: resume.UserID(), Title: resume.Title(),
+		Language: resume.Language(), Status: resume.Status(), Version: resume.Version() + 1,
+		Overview: resume.Overview(), Profile: resume.Profile(), Contacts: resume.Contacts(),
+		Skills: resume.Skills(), SpokenLanguages: resume.SpokenLanguages(), Technologies: resume.Technologies(),
+		Experiences: resume.Experiences(), Educations: resume.Educations(), Courses: resume.Courses(),
+		Activities: resume.Activities(), Projects: resume.Projects(),
+	})
+	r.resume = restored
+	return nil
+}
+
 func (r *fakeResumeRepository) Create(_ context.Context, resume *domain.Resume) error {
 	r.called = true
 	r.resume = resume
@@ -58,7 +74,6 @@ func TestDeleteResumeHandlerDeletesExpectedVersion(t *testing.T) {
 	err := handler.Handle(context.Background(), DeleteResumeCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 7,
 	})
-
 	require.NoError(t, err)
 	require.True(t, repository.called)
 	require.Equal(t, resume.ID(), repository.deleted.ResumeID)
@@ -113,14 +128,21 @@ func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
 func newTestResume(t *testing.T, title string, version int64) *domain.Resume {
 	t.Helper()
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: title,
-		Language: domain.ResumeLanguage("en"), Version: version,
+		UserID: sharedvalueobjects.NewID(), Title: title,
+		Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
-	return resume
+	if version == 1 {
+		return resume
+	}
+	restored := domain.RestoreResume(domain.ResumeSnapshot{
+		ID: resume.ID(), UserID: resume.UserID(), Title: resume.Title(),
+		Language: resume.Language(), Status: resume.Status(), Version: version,
+	})
+	return restored
 }
 
-func TestReplaceResumeTitleHandlerReplacesTitleThroughAggregate(t *testing.T) {
+func TestReplaceResumeTitleHandlerUpdatesOnlyResumeRoot(t *testing.T) {
 	resume := newTestResume(t, "Old title", 4)
 	repository := &fakeResumeRepository{resume: resume}
 	uow := &fakeCommandUnitOfWork{}
@@ -212,7 +234,7 @@ func TestChangeResumeStatusHandlerPublishesDraft(t *testing.T) {
 
 func TestChangeResumeStatusHandlerSupportsCloseAndReopen(t *testing.T) {
 	resume := newTestResume(t, "CV", 4)
-	require.NoError(t, resume.Publish())
+	require.NoError(t, resume.ReplaceStatus(domain.ResumeStatusOpened))
 	repository := &fakeResumeRepository{resume: resume}
 	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
 
@@ -222,16 +244,16 @@ func TestChangeResumeStatusHandlerSupportsCloseAndReopen(t *testing.T) {
 	require.Equal(t, domain.ResumeStatusClosed, resume.Status())
 
 	resume = newTestResume(t, "CV", 5)
-	require.NoError(t, resume.Publish())
+	require.NoError(t, resume.ReplaceStatus(domain.ResumeStatusOpened))
 	repository = &fakeResumeRepository{resume: resume}
 	handler = NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
 	require.NoError(t, handler.Handle(context.Background(), ChangeResumeStatusCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 5, Status: domain.ResumeStatusClosed,
 	}))
 	require.NoError(t, handler.Handle(context.Background(), ChangeResumeStatusCommand{
-		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 5, Status: domain.ResumeStatusOpened,
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 6, Status: domain.ResumeStatusOpened,
 	}))
-	require.Equal(t, domain.ResumeStatusOpened, resume.Status())
+	require.Equal(t, domain.ResumeStatusOpened, repository.resume.Status())
 }
 
 func TestChangeResumeStatusHandlerRejectsDraftTarget(t *testing.T) {

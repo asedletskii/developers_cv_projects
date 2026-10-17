@@ -15,7 +15,7 @@ import (
 func TestUserToDB(t *testing.T) {
 	id := sharedvalueobjects.NewID()
 	createdAt := time.Date(2026, 9, 23, 8, 0, 0, 0, time.UTC)
-	user, err := domain.NewUser(domain.UserParams{ID: id, CreatedAt: createdAt, UpdatedAt: createdAt})
+	user, err := domain.RestoreUser(domain.UserSnapshot{ID: id, CreatedAt: createdAt, UpdatedAt: createdAt})
 	require.NoError(t, err)
 
 	model, err := UserToDB(user)

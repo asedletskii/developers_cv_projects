@@ -69,15 +69,8 @@ func (h *AnalyticsClickQueryHandler) Handle(ctx context.Context, q LinkClicksQue
 		return ClickGrid{}, fmt.Errorf("%w: invalid breakpoint", domain.ErrInvalidAnalyticsClick)
 	}
 
-	link, err := h.links.GetByID(ctx, PublicResumeLinkQuery{LinkID: q.LinkID})
+	_, resumeID, err := authorizeAnalyticsLink(ctx, h.links, h.resumes, q.UserID, q.LinkID)
 	if err != nil {
-		return ClickGrid{}, err
-	}
-	resumeID, err := sharedvalueobjects.ParseID(link.ResumeID)
-	if err != nil {
-		return ClickGrid{}, fmt.Errorf("resolve analytics resume: %w", err)
-	}
-	if _, err := h.resumes.GetOwned(ctx, resumequeries.GetResumeQuery{ResumeID: resumeID, UserID: q.UserID}); err != nil {
 		return ClickGrid{}, err
 	}
 	publicResume, err := h.publicResume.Handle(ctx, resumequeries.PublicResumeQuery{ID: resumeID})

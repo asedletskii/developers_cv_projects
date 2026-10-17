@@ -64,12 +64,18 @@ func OptionalAuthentication(authenticate AuthenticateFunc) gin.HandlerFunc {
 		}
 		userID, err := authenticate(c.Request.Context(), c.Request)
 		if err != nil {
-			c.Next()
+			if errors.Is(err, ErrUnauthenticated) {
+				c.Next()
+				return
+			}
+			apperrors.WriteError(c, apperrors.Internal(err))
 			return
 		}
-		if userID != uuid.Nil {
-			c.Set(userIDKey, userID)
+		if userID == uuid.Nil {
+			apperrors.WriteError(c, apperrors.Internal(errors.New("optional authentication returned empty user id")))
+			return
 		}
+		c.Set(userIDKey, userID)
 		c.Next()
 	}
 }

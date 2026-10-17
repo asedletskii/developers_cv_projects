@@ -25,7 +25,7 @@ func TestProfileToDBModels(t *testing.T) {
 	model, rows, err := ProfileToDBModels(profile, now)
 	require.NoError(t, err)
 	require.Equal(t, userID.UUID(), model.UserID)
-	require.Equal(t, photoURL, *model.PhotoPath)
+	require.Equal(t, photoURL, *model.PhotoURL)
 	require.Equal(t, now, model.CreatedAt)
 	require.Equal(t, now, model.UpdatedAt)
 	require.Len(t, rows, 2)

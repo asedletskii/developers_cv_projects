@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/application/ownership"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -35,7 +35,6 @@ func (h *CreateResumeLinkHandler) Handle(ctx context.Context, c CreateResumeLink
 	}
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID:       sharedvalueobjects.NewID(),
 		ResumeID: c.ResumeID,
 		Name:     c.Name,
 	})
@@ -45,7 +44,17 @@ func (h *CreateResumeLinkHandler) Handle(ctx context.Context, c CreateResumeLink
 
 	linkID := link.ID()
 	err = h.uow.Do(ctx, func(tx context.Context) error {
-		if _, err := h.resumes.GetOwned(tx, resumequeries.GetResumeQuery{ResumeID: c.ResumeID, UserID: c.UserID}); err != nil {
+		if err := ownership.EnsureResumeOwned(tx, h.resumes, ports.ResumeOwnershipQuery{ResumeID: c.ResumeID, UserID: c.UserID}); err != nil {
+			return err
+		}
+		if err := h.repository.LockResumeForLinkCreation(tx, c.ResumeID); err != nil {
+			return err
+		}
+		count, err := h.repository.CountByResumeID(tx, c.ResumeID)
+		if err != nil {
+			return err
+		}
+		if err := domain.EnsureResumeLinkCapacity(count); err != nil {
 			return err
 		}
 		return h.repository.Create(tx, link)

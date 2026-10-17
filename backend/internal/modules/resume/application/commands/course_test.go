@@ -19,9 +19,14 @@ type courseRepoStub struct {
 func (s *courseRepoStub) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
 	return s.resume, nil
 }
+
 func (s *courseRepoStub) Save(context.Context, *domain.Resume) error {
 	s.saved = true
 	return nil
+}
+
+func (s *courseRepoStub) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return s.Save(ctx, resume)
 }
 func (s *courseRepoStub) Create(context.Context, *domain.Resume) error           { return nil }
 func (s *courseRepoStub) Delete(context.Context, ports.DeleteResumeParams) error { return nil }
@@ -31,7 +36,7 @@ type courseUOWStub struct{}
 func (courseUOWStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestReplaceCoursesHandlerUsesAggregateRepository(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &courseRepoStub{resume: resume}
 	end, err := domain.ParseYearMonth("2024-06")
@@ -42,7 +47,7 @@ func TestReplaceCoursesHandlerUsesAggregateRepository(t *testing.T) {
 	require.Len(t, resume.Courses(), 1)
 }
 func TestReplaceCoursesHandlerRejectsStaleVersion(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &courseRepoStub{resume: resume}
 	end, err := domain.ParseYearMonth("2024-06")

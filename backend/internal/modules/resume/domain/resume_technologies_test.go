@@ -9,7 +9,7 @@ import (
 )
 
 func TestResumeTechnologyEntryTrimsName(t *testing.T) {
-	entry, err := NewResumeTechnologyEntry(ResumeTechnologyEntryParams{
+	entry, err := newResumeTechnologyEntry(ResumeTechnologyEntryParams{
 		ID:       sharedvalueobjects.NewID(),
 		Name:     "  Go  ",
 		Position: 0,
@@ -20,9 +20,7 @@ func TestResumeTechnologyEntryTrimsName(t *testing.T) {
 
 func TestResumeTechnologiesRejectsDuplicateIDs(t *testing.T) {
 	id := sharedvalueobjects.NewID()
-	_, err := NewResumeTechnologies(ResumeTechnologiesParams{
-		ID:       sharedvalueobjects.NewID(),
-		ResumeID: sharedvalueobjects.NewID(),
+	_, err := newResumeTechnologies(ResumeTechnologiesParams{
 		Entries: []ResumeTechnologyEntryParams{
 			{ID: id, Name: "Go", Position: 0},
 			{ID: id, Name: "Rust", Position: 1},
@@ -32,9 +30,7 @@ func TestResumeTechnologiesRejectsDuplicateIDs(t *testing.T) {
 }
 
 func TestResumeTechnologiesRejectsDuplicatePositions(t *testing.T) {
-	_, err := NewResumeTechnologies(ResumeTechnologiesParams{
-		ID:       sharedvalueobjects.NewID(),
-		ResumeID: sharedvalueobjects.NewID(),
+	_, err := newResumeTechnologies(ResumeTechnologiesParams{
 		Entries: []ResumeTechnologyEntryParams{
 			{ID: sharedvalueobjects.NewID(), Name: "Go", Position: 0},
 			{ID: sharedvalueobjects.NewID(), Name: "Rust", Position: 0},
@@ -66,6 +62,16 @@ func TestResumeReplaceTechnologiesCreatesAndReplacesSnapshot(t *testing.T) {
 	require.Equal(t, "Golang", current[0].Name())
 }
 
+func TestResumeReplaceTechnologiesClearsCollectionWhenEmpty(t *testing.T) {
+	resume := newTestResume(t)
+	require.NoError(t, resume.ReplaceTechnologies(ResumeTechnologiesParams{Entries: []ResumeTechnologyEntryParams{
+		{Name: "Go", Position: 0},
+	}}))
+	require.NotNil(t, resume.Technologies())
+	require.NoError(t, resume.ReplaceTechnologies(ResumeTechnologiesParams{}))
+	require.Nil(t, resume.Technologies())
+}
+
 func TestResumeReplaceTechnologiesRejectsUnknownID(t *testing.T) {
 	resume := newTestResume(t)
 	require.NoError(t, resume.ReplaceTechnologies(ResumeTechnologiesParams{
@@ -88,23 +94,27 @@ func TestResumeReplaceTechnologiesRejectsNonContiguousPositions(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidEntity)
 }
 
-func TestResumeTechnologiesReplaceAndCloneEntries(t *testing.T) {
-	id, resumeID := sharedvalueobjects.NewID(), sharedvalueobjects.NewID()
-	entryID := sharedvalueobjects.NewID()
-	collection, err := NewResumeTechnologies(ResumeTechnologiesParams{ID: id, ResumeID: resumeID, Entries: []ResumeTechnologyEntryParams{{ID: entryID, Name: " Go ", Position: 0}}})
+func TestTechnologyCollectionAllowsEmptyValue(t *testing.T) {
+	_, err := newResumeTechnologies(ResumeTechnologiesParams{})
 	require.NoError(t, err)
-	require.Equal(t, "Go", collection.Entries()[0].Name())
-
-	entry := collection.Entries()[0]
-	err = entry.Replace(ResumeTechnologyEntryParams{Name: "Rust", Position: 1})
-	require.NoError(t, err)
-	require.Equal(t, entryID, entry.ID())
-	require.Equal(t, "Rust", entry.Name())
 }
 
-func TestResumeLanguagesAndTechnologiesRejectInvalidCollectionIdentity(t *testing.T) {
-	_, err := NewResumeLanguages(ResumeLanguagesParams{ResumeID: sharedvalueobjects.NewID()})
-	require.Error(t, err)
-	_, err = NewResumeTechnologies(ResumeTechnologiesParams{ID: sharedvalueobjects.NewID()})
-	require.Error(t, err)
+func TestResumeTechnologiesRejectsPositionsThatDisagreeWithSliceOrder(t *testing.T) {
+	_, err := newResumeTechnologies(ResumeTechnologiesParams{
+		Entries: []ResumeTechnologyEntryParams{
+			{ID: sharedvalueobjects.NewID(), Name: "Go", Position: 1},
+			{ID: sharedvalueobjects.NewID(), Name: "Rust", Position: 0},
+		},
+	})
+	require.ErrorIs(t, err, ErrInvalidEntity)
+}
+
+func TestResumeTechnologiesRejectsDuplicateNames(t *testing.T) {
+	_, err := newResumeTechnologies(ResumeTechnologiesParams{
+		Entries: []ResumeTechnologyEntryParams{
+			{ID: sharedvalueobjects.NewID(), Name: " Go ", Position: 0},
+			{ID: sharedvalueobjects.NewID(), Name: "Go", Position: 1},
+		},
+	})
+	require.ErrorIs(t, err, ErrDuplicateEntity)
 }

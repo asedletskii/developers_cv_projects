@@ -16,7 +16,10 @@ func (r *ResumeReader) loadOverview(ctx context.Context, db *gorm.DB, resumeID u
 	var model gormmodel.ResumeOverview
 	if err := db.WithContext(ctx).Where("resume_id = ?", resumeID).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return queries.ErrResumeNotFound
+			view.Overview = queries.ResumeOverviewView{
+				Sections: make([]queries.OverviewSectionSettings, 0),
+			}
+			return nil
 		}
 		return fmt.Errorf("get overview: %w", err)
 	}

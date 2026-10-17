@@ -8,7 +8,7 @@ type StateHash struct {
 
 func NewStateHash(value []byte) (StateHash, error) {
 	if len(value) != HashSize {
-		return StateHash{}, fmt.Errorf("state hash must be %d bytes", HashSize)
+		return StateHash{}, fmt.Errorf("%w: state hash must be %d bytes", ErrInvalidHash, HashSize)
 	}
 	var hash [HashSize]byte
 	copy(hash[:], value)

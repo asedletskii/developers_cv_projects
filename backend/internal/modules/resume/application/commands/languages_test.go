@@ -20,9 +20,14 @@ type fakeLanguagesAggregateRepository struct {
 func (r *fakeLanguagesAggregateRepository) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
 	return r.resume, nil
 }
+
 func (r *fakeLanguagesAggregateRepository) Save(_ context.Context, resume *domain.Resume) error {
 	r.resume, r.version, r.saved = resume, resume.Version(), true
 	return nil
+}
+
+func (r *fakeLanguagesAggregateRepository) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return r.Save(ctx, resume)
 }
 func (r *fakeLanguagesAggregateRepository) Create(context.Context, *domain.Resume) error { return nil }
 func (r *fakeLanguagesAggregateRepository) Delete(context.Context, ports.DeleteResumeParams) error {
@@ -40,7 +45,7 @@ func TestReplaceLanguagesHandlerUsesAggregateAndVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, repo.saved)
 	require.Equal(t, int64(1), repo.version)
-	require.Len(t, repo.resume.Languages().Entries(), 1)
+	require.Len(t, repo.resume.SpokenLanguages().Entries(), 1)
 }
 
 func TestReplaceLanguagesHandlerRejectsStaleVersion(t *testing.T) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -17,209 +16,136 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func (r *ResumeLinkRepository) CreateView(ctx context.Context, view *domain.View) error {
+func (r *ResumeLinkRepository) LoadAnalyticsBatchForUpdate(
+	ctx context.Context,
+	viewID, linkID sharedvalueobjects.ID,
+	includeEventCount, includeClickCount, includePrintHistory bool,
+) (domain.AnalyticsBatchSnapshot, error) {
 	if r == nil || r.db == nil {
-		return fmt.Errorf("create resume link view: repository dependencies are nil")
-	}
-	if view == nil || view.ID().IsZero() || view.LinkID().IsZero() || view.VisitorID().IsZero() {
-		return fmt.Errorf("create resume link view: invalid view")
-	}
-	tx := database.DBFromContext(ctx, r.db).WithContext(ctx)
-	model, err := mappers.ViewToDB(view)
-	if err != nil {
-		return fmt.Errorf("create resume link view: %w", err)
-	}
-	if err := tx.Create(&model).Error; err != nil {
-		return fmt.Errorf("create resume link view: %w", mapDBError(err))
-	}
-	return nil
-}
-
-func (r *ResumeLinkRepository) GetView(ctx context.Context, id sharedvalueobjects.ID) (*domain.View, error) {
-	if r == nil || r.db == nil {
-		return nil, fmt.Errorf("get resume link view: repository dependencies are nil")
-	}
-	if id.IsZero() {
-		return nil, fmt.Errorf("get resume link view: id is empty")
-	}
-	db := database.DBFromContext(ctx, r.db).WithContext(ctx)
-	var model gormmodel.ResumeLinkView
-	if err := db.Where("id = ?", id.UUID()).First(&model).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrEntityNotFound
-		}
-		return nil, fmt.Errorf("get resume link view: %w", err)
-	}
-	return mappers.ViewToDomain(model)
-}
-
-func (r *ResumeLinkRepository) UpdateViewState(ctx context.Context, id sharedvalueobjects.ID, update domain.ViewStateUpdate) error {
-	if r == nil || r.db == nil {
-		return fmt.Errorf("update resume link view state: repository dependencies are nil")
-	}
-	if id.IsZero() {
-		return fmt.Errorf("update resume link view state: id is empty")
-	}
-	tx := database.DBFromContext(ctx, r.db).WithContext(ctx)
-	var model gormmodel.ResumeLinkView
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id.UUID()).First(&model).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrEntityNotFound
-		}
-		return fmt.Errorf("update resume link view state: load view: %w", err)
-	}
-	view, err := mappers.ViewToDomain(model)
-	if err != nil {
-		return fmt.Errorf("update resume link view state: map view: %w", err)
-	}
-	if err := view.ApplyState(update); err != nil {
-		return fmt.Errorf("update resume link view state: %w", err)
-	}
-	state := view.State()
-	updates := map[string]any{
-		"confirmed_at": nullableTime(state.ConfirmedAt()), "last_seen_at": nullableTime(state.LastSeenAt()),
-		"active_ms": state.ActiveMS(), "max_section": string(state.MaxSection()), "exit_section": string(state.ExitSection()),
-		"ended_at": nullableTime(state.EndedAt()),
-	}
-	if err := tx.Model(&gormmodel.ResumeLinkView{}).Where("id = ?", id.UUID()).Updates(updates).Error; err != nil {
-		return fmt.Errorf("update resume link view state: persist state: %w", err)
-	}
-	return nil
-}
-
-func (r *ResumeLinkRepository) ApplyBatch(ctx context.Context, viewID, linkID sharedvalueobjects.ID, update domain.ViewStateUpdate, events []*domain.AnalyticsEvent, clicks []*domain.AnalyticsClick) error {
-	if r == nil || r.db == nil {
-		return fmt.Errorf("apply analytics batch: repository dependencies are nil")
-	}
-	if viewID.IsZero() || linkID.IsZero() {
-		return fmt.Errorf("apply analytics batch: invalid ids")
+		return domain.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: repository dependencies are nil")
 	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
-		return fmt.Errorf("apply analytics batch: %w", err)
+		return domain.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: %w", err)
 	}
 
 	var model gormmodel.ResumeLinkView
-	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", viewID.UUID()).First(&model).Error; err != nil {
+	if err := tx.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ? AND link_id = ?", viewID.UUID(), linkID.UUID()).
+		First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrEntityNotFound
+			return domain.AnalyticsBatchSnapshot{}, domain.ErrEntityNotFound
 		}
-		return fmt.Errorf("apply analytics batch: load view: %w", err)
-	}
-	if model.LinkID != linkID.UUID() {
-		return domain.ErrEntityNotFound
+		return domain.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: lock view: %w", mapDBError(err))
 	}
 
-	var link gormmodel.ResumeLink
-	if err := tx.WithContext(ctx).Where("id = ?", linkID.UUID()).First(&link).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrEntityNotFound
-		}
-		return fmt.Errorf("apply analytics batch: load link: %w", err)
-	}
-	if link.Status != string(domain.ResumeLinkStatusActive) {
-		return domain.ErrResumeLinkInactive
-	}
-
-	var resume struct {
-		ID     uuid.UUID `gorm:"column:id"`
-		Status string    `gorm:"column:status"`
-	}
-	if err := tx.WithContext(ctx).Table("resumes").Select("id, status").Where("id = ?", link.ResumeID).First(&resume).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrEntityNotFound
-		}
-		return fmt.Errorf("apply analytics batch: load resume: %w", err)
-	}
-	if resume.Status != "opened" {
-		return domain.ErrEntityNotFound
-	}
-	if model.StartedAt.Before(time.Now().UTC().Add(-12 * time.Hour)) {
-		return domain.ErrAnalyticsViewExpired
+	linkStatus, resumeStatus, err := loadAnalyticsLifecycle(ctx, tx, linkID.UUID())
+	if err != nil {
+		return domain.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: %w", err)
 	}
 	view, err := mappers.ViewToDomain(model)
 	if err != nil {
-		return fmt.Errorf("apply analytics batch: map view: %w", err)
-	}
-	if view.Traffic() == domain.TrafficBot {
-		return nil
-	}
-	lastSeq := view.State().LastSeq()
-	if update.Seq < lastSeq || (update.Seq == lastSeq && !update.Final) {
-		return nil
-	}
-	sameSeq := update.Seq == lastSeq
-	if err := view.ApplyState(update); err != nil {
-		return fmt.Errorf("apply analytics batch: apply state: %w", err)
-	}
-	if !sameSeq && len(events) > 0 {
-		var stored int64
-		if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkAnalyticsEvent{}).
-			Where("view_id = ? AND client_event_id IS NOT NULL", viewID.UUID()).Count(&stored).Error; err != nil {
-			return fmt.Errorf("apply analytics batch: count events: %w", err)
-		}
-		remaining := int64(commandsMaxAnalyticsEventsPerView) - stored
-		if remaining > 0 {
-			if int64(len(events)) > remaining {
-				events = events[:remaining]
-			}
-			models := make([]gormmodel.ResumeLinkAnalyticsEvent, 0, len(events))
-			printAccepted := false
-			for _, event := range events {
-				if event.Type() == domain.EventTypePrint {
-					if printAccepted {
-						continue
-					}
-					var recentPrint int64
-					if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkAnalyticsEvent{}).
-						Where("view_id = ? AND event_type = ? AND occurred_at >= ?", viewID.UUID(), string(domain.EventTypePrint), event.OccurredAt().Add(-2*time.Second)).
-						Count(&recentPrint).Error; err != nil {
-						return fmt.Errorf("apply analytics batch: check print deduplication: %w", err)
-					}
-					if recentPrint > 0 {
-						continue
-					}
-					printAccepted = true
-				}
-				dbModel, mapErr := mappers.AnalyticsEventToDB(event)
-				if mapErr != nil {
-					return fmt.Errorf("apply analytics batch: map event: %w", mapErr)
-				}
-				models = append(models, dbModel)
-			}
-			if len(models) > 0 {
-				if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&models).Error; err != nil {
-					return fmt.Errorf("apply analytics batch: insert events: %w", mapDBError(err))
-				}
-			}
-		}
+		return domain.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: map view: %w", err)
 	}
 
-	if !sameSeq && len(clicks) > 0 {
-		if err := r.RecordClicks(ctx, clicks); err != nil {
-			return fmt.Errorf("apply analytics batch: record clicks: %w", err)
+	snapshot := domain.AnalyticsBatchSnapshot{
+		View: view, LinkStatus: linkStatus, ResumeStatus: resumeStatus,
+	}
+	if includeEventCount {
+		if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkAnalyticsEvent{}).
+			Where("view_id = ? AND client_event_id IS NOT NULL", viewID.UUID()).
+			Count(&snapshot.StoredEventCount).Error; err != nil {
+			return domain.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: count events: %w", mapDBError(err))
+		}
+	}
+	if includeClickCount {
+		if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkClick{}).
+			Where("view_id = ?", viewID.UUID()).Count(&snapshot.StoredClickCount).Error; err != nil {
+			return domain.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: count clicks: %w", mapDBError(err))
+		}
+	}
+	if includePrintHistory && snapshot.StoredEventCount < domain.MaxAnalyticsEventsPerView {
+		if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkAnalyticsEvent{}).
+			Select("occurred_at").
+			Where("view_id = ? AND event_type = ?", viewID.UUID(), string(domain.EventTypePrint)).
+			Order("occurred_at ASC").Pluck("occurred_at", &snapshot.ExistingPrints).Error; err != nil {
+			return domain.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: load print history: %w", mapDBError(err))
+		}
+	}
+	return snapshot, nil
+}
+
+func (r *ResumeLinkRepository) SaveAnalyticsBatch(
+	ctx context.Context,
+	view *domain.View,
+	events []*domain.AnalyticsEvent,
+	clicks []*domain.AnalyticsClick,
+) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("save analytics batch: repository dependencies are nil")
+	}
+	if view == nil {
+		return fmt.Errorf("save analytics batch: view is nil")
+	}
+	for _, event := range events {
+		if event == nil || event.ViewID() != view.ID() || event.LinkID() != view.LinkID() {
+			return fmt.Errorf("%w: analytics event does not belong to batch view", domain.ErrInvalidAnalyticsEvent)
+		}
+	}
+	for _, click := range clicks {
+		if click == nil || click.ViewID() != view.ID() || click.LinkID() != view.LinkID() {
+			return fmt.Errorf("%w: analytics click does not belong to batch view", domain.ErrInvalidAnalyticsClick)
+		}
+	}
+	tx, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return fmt.Errorf("save analytics batch: %w", err)
+	}
+
+	if len(events) > 0 {
+		models := make([]gormmodel.ResumeLinkAnalyticsEvent, 0, len(events))
+		for _, event := range events {
+			model, mapErr := mappers.AnalyticsEventToDB(event)
+			if mapErr != nil {
+				return fmt.Errorf("save analytics batch: map event: %w", mapErr)
+			}
+			models = append(models, model)
+		}
+		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&models).Error; err != nil {
+			return fmt.Errorf("save analytics batch: insert events: %w", mapDBError(err))
+		}
+	}
+	if len(clicks) > 0 {
+		models := make([]gormmodel.ResumeLinkClick, 0, len(clicks))
+		for _, click := range clicks {
+			model, mapErr := mappers.AnalyticsClickToDB(click)
+			if mapErr != nil {
+				return fmt.Errorf("save analytics batch: map click: %w", mapErr)
+			}
+			models = append(models, model)
+		}
+		if err := tx.WithContext(ctx).Create(&models).Error; err != nil {
+			return fmt.Errorf("save analytics batch: insert clicks: %w", mapDBError(err))
 		}
 	}
 
 	state := view.State()
-	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkView{}).Where("id = ?", viewID.UUID()).Updates(map[string]any{
-		"confirmed_at":   nullableTime(state.ConfirmedAt()),
-		"last_seen_at":   nullableTime(state.LastSeenAt()),
-		"active_ms":      state.ActiveMS(),
-		"last_state_seq": state.LastSeq(),
-		"max_section":    string(state.MaxSection()),
-		"exit_section":   string(state.ExitSection()),
-		"ended_at":       nullableTime(state.EndedAt()),
-	}).Error; err != nil {
-		return fmt.Errorf("apply analytics batch: update state: %w", err)
+	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkView{}).
+		Where("id = ? AND link_id = ?", view.ID().UUID(), view.LinkID().UUID()).
+		Updates(map[string]any{
+			"confirmed_at":   nullableTime(state.ConfirmedAt()),
+			"last_seen_at":   nullableTime(state.LastSeenAt()),
+			"active_ms":      state.ActiveMS(),
+			"last_state_seq": state.LastSeq(),
+			"max_section":    string(state.MaxSection()),
+			"exit_section":   string(state.ExitSection()),
+			"ended_at":       nullableTime(state.EndedAt()),
+		}).Error; err != nil {
+		return fmt.Errorf("save analytics batch: update state: %w", mapDBError(err))
 	}
 	return nil
 }
-
-const (
-	commandsMaxAnalyticsEventsPerView = 1000
-	maxAnalyticsClicksPerView         = 1000
-)
 
 func (r *ResumeLinkRepository) RecordClicks(ctx context.Context, clicks []*domain.AnalyticsClick) error {
 	if r == nil || r.db == nil {
@@ -232,31 +158,41 @@ func (r *ResumeLinkRepository) RecordClicks(ctx context.Context, clicks []*domai
 	if err != nil {
 		return fmt.Errorf("record analytics clicks: %w", err)
 	}
-	if clicks[0] == nil {
-		return fmt.Errorf("record analytics clicks: nil click")
-	}
 	viewID := clicks[0].ViewID().UUID()
-	for _, click := range clicks[1:] {
-		if click == nil || click.ViewID().UUID() != viewID {
-			return fmt.Errorf("record analytics clicks: mixed view ids")
+	linkID := clicks[0].LinkID().UUID()
+	var matchingView gormmodel.ResumeLinkView
+	if err := tx.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Select("id").
+		Where("id = ? AND link_id = ?", viewID, linkID).
+		First(&matchingView).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrEntityNotFound
 		}
+		return fmt.Errorf("record analytics clicks: verify and lock view: %w", mapDBError(err))
 	}
+	return r.recordClicksForLockedView(ctx, tx, viewID, clicks)
+}
+
+func (r *ResumeLinkRepository) recordClicksForLockedView(
+	ctx context.Context,
+	tx *gorm.DB,
+	viewID uuid.UUID,
+	clicks []*domain.AnalyticsClick,
+) error {
 	var stored int64
 	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkClick{}).Where("view_id = ?", viewID).Count(&stored).Error; err != nil {
-		return fmt.Errorf("record analytics clicks: count: %w", err)
+		return fmt.Errorf("record analytics clicks: count: %w", mapDBError(err))
 	}
-	remaining := int64(maxAnalyticsClicksPerView) - stored
-	if remaining <= 0 {
+	clicks = domain.SelectAnalyticsClicksForStorage(clicks, stored)
+	if len(clicks) == 0 {
 		return nil
-	}
-	if int64(len(clicks)) > remaining {
-		clicks = clicks[:remaining]
 	}
 	models := make([]gormmodel.ResumeLinkClick, 0, len(clicks))
 	for _, click := range clicks {
 		dbModel, err := mappers.AnalyticsClickToDB(click)
 		if err != nil {
-			continue
+			return fmt.Errorf("record analytics clicks: map click: %w", err)
 		}
 		models = append(models, dbModel)
 	}
@@ -276,7 +212,14 @@ func (r *ResumeLinkRepository) RecordEvents(ctx context.Context, events []*domai
 	if len(events) == 0 {
 		return nil
 	}
-	db := database.DBFromContext(ctx, r.db).WithContext(ctx)
+	tx, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return fmt.Errorf("record analytics events: %w", err)
+	}
+	tx = tx.WithContext(ctx)
+	first := events[0]
+	viewID := first.ViewID().UUID()
+	linkID := first.LinkID().UUID()
 	models := make([]gormmodel.ResumeLinkAnalyticsEvent, 0, len(events))
 	for _, event := range events {
 		model, err := mappers.AnalyticsEventToDB(event)
@@ -285,62 +228,18 @@ func (r *ResumeLinkRepository) RecordEvents(ctx context.Context, events []*domai
 		}
 		models = append(models, model)
 	}
-	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&models).Error; err != nil {
+	var matchingView gormmodel.ResumeLinkView
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Select("id").
+		Where("id = ? AND link_id = ?", viewID, linkID).
+		First(&matchingView).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrEntityNotFound
+		}
+		return fmt.Errorf("record analytics events: verify and lock view: %w", mapDBError(err))
+	}
+	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&models).Error; err != nil {
 		return fmt.Errorf("record analytics events: %w", mapDBError(err))
 	}
 	return nil
-}
-
-func (r *ResumeLinkRepository) DeleteExpiredClicks(ctx context.Context, cutoff time.Time, limit int) (int, error) {
-	if r == nil || r.db == nil {
-		return 0, fmt.Errorf("delete expired analytics clicks: repository dependencies are nil")
-	}
-	if cutoff.IsZero() || limit <= 0 {
-		return 0, fmt.Errorf("delete expired analytics clicks: invalid cutoff or limit")
-	}
-	tx, err := database.DBFromTransactionContext(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("delete expired analytics clicks: %w", err)
-	}
-	var ids []int64
-	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkClick{}).
-		Where("occurred_at < ?", cutoff.UTC()).
-		Order("occurred_at, id").Limit(limit).Pluck("id", &ids).Error; err != nil {
-		return 0, fmt.Errorf("find expired analytics clicks: %w", mapDBError(err))
-	}
-	if len(ids) == 0 {
-		return 0, nil
-	}
-	result := tx.WithContext(ctx).Where("id IN ?", ids).Delete(&gormmodel.ResumeLinkClick{})
-	if result.Error != nil {
-		return 0, fmt.Errorf("delete expired analytics clicks: %w", mapDBError(result.Error))
-	}
-	return int(result.RowsAffected), nil
-}
-
-func (r *ResumeLinkRepository) DeleteExpiredViews(ctx context.Context, cutoff time.Time, limit int) (int, error) {
-	if r == nil || r.db == nil {
-		return 0, fmt.Errorf("delete expired analytics views: repository dependencies are nil")
-	}
-	if cutoff.IsZero() || limit <= 0 {
-		return 0, fmt.Errorf("delete expired analytics views: invalid cutoff or limit")
-	}
-	tx, err := database.DBFromTransactionContext(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("delete expired analytics views: %w", err)
-	}
-	var ids []uuid.UUID
-	if err := tx.WithContext(ctx).Model(&gormmodel.ResumeLinkView{}).
-		Where("started_at < ?", cutoff.UTC()).
-		Order("started_at, id").Limit(limit).Pluck("id", &ids).Error; err != nil {
-		return 0, fmt.Errorf("find expired analytics views: %w", mapDBError(err))
-	}
-	if len(ids) == 0 {
-		return 0, nil
-	}
-	result := tx.WithContext(ctx).Where("id IN ?", ids).Delete(&gormmodel.ResumeLinkView{})
-	if result.Error != nil {
-		return 0, fmt.Errorf("delete expired analytics views: %w", mapDBError(result.Error))
-	}
-	return int(result.RowsAffected), nil
 }

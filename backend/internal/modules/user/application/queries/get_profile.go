@@ -18,10 +18,10 @@ type LocalizedProfileView struct {
 }
 
 type ProfileView struct {
-	ID        string               `json:"userId"`
-	RU        LocalizedProfileView `json:"ru"`
-	EN        LocalizedProfileView `json:"en"`
-	PhotoPath *string              `json:"photoPath,omitempty"`
+	ID       string               `json:"userId"`
+	RU       LocalizedProfileView `json:"ru"`
+	EN       LocalizedProfileView `json:"en"`
+	PhotoURL *string              `json:"photoPath,omitempty"`
 }
 
 type GetProfileReader interface {

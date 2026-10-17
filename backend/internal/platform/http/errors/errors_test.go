@@ -42,6 +42,9 @@ func TestWriteErrorUsesRequestIDFromContextAndHeader(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 	require.Equal(t, "request-789", w.Header().Get(requestid.Header))
 	require.JSONEq(t, `{"error":{"code":"BAD_REQUEST","message":"Invalid request","requestId":"request-789"}}`, w.Body.String())
+	require.Len(t, c.Errors, 1)
+	require.EqualError(t, c.Errors[0].Err, "Invalid request")
+	require.Equal(t, gin.ErrorTypePrivate, c.Errors[0].Type)
 }
 
 func TestWriteErrorHandlesContextWithoutRequest(t *testing.T) {

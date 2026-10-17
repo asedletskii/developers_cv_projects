@@ -19,11 +19,24 @@ const (
 	EducationLevelDoctor       EducationLevel = 6
 )
 
-func (v EducationLevel) IsValid() bool {
+func (v EducationLevel) isValid() bool {
 	return v >= EducationLevelSecondary && v <= EducationLevelDoctor
 }
 
+// EducationParams describes requested state. A zero ID creates a new item; a non-zero ID selects an existing item owned by the aggregate.
 type EducationParams struct {
+	ID          sharedvalueobjects.ID
+	Location    string
+	University  string
+	Grade       EducationLevel
+	ProgramName string
+	ProfileName *string
+	Faculty     string
+	Course      *int
+	EndDate     *Year
+}
+
+type EducationSnapshot struct {
 	ID          sharedvalueobjects.ID
 	ResumeID    sharedvalueobjects.ID
 	Location    string
@@ -49,32 +62,45 @@ type Education struct {
 	endDate     *Year
 }
 
-func NewEducation(params EducationParams) (*Education, error) {
-	location := strings.TrimSpace(params.Location)
-	university := strings.TrimSpace(params.University)
-	programName := strings.TrimSpace(params.ProgramName)
-	faculty := strings.TrimSpace(params.Faculty)
-	if params.ID.IsZero() || params.ResumeID.IsZero() || location == "" || university == "" ||
-		programName == "" || faculty == "" || !params.Grade.IsValid() {
-		return nil, fmt.Errorf("%w: invalid education fields", ErrInvalidEntity)
+func newEducation(id, resumeID sharedvalueobjects.ID, params EducationParams) (*Education, error) {
+	education := &Education{
+		id: id, resumeID: resumeID, location: strings.TrimSpace(params.Location),
+		university: strings.TrimSpace(params.University), grade: params.Grade,
+		programName: strings.TrimSpace(params.ProgramName), profileName: normalizeOptionalString(params.ProfileName),
+		faculty: strings.TrimSpace(params.Faculty), course: cloneInt(params.Course), endDate: cloneYear(params.EndDate),
 	}
-	if params.Course != nil && *params.Course < 1 {
-		return nil, fmt.Errorf("%w: invalid education course", ErrInvalidEntity)
+	if err := education.validate(); err != nil {
+		return nil, err
 	}
-	return &Education{
-		id: params.ID, resumeID: params.ResumeID, location: location, university: university,
-		grade: params.Grade, programName: programName, profileName: cloneString(params.ProfileName),
-		faculty: faculty, course: cloneInt(params.Course), endDate: cloneYear(params.EndDate),
-	}, nil
+	return education, nil
 }
 
-func (e *Education) Replace(params EducationParams) error {
-	params.ID, params.ResumeID = e.id, e.resumeID
-	updated, err := NewEducation(params)
-	if err != nil {
-		return err
+func RestoreEducation(snapshot EducationSnapshot) *Education {
+	return &Education{
+		id: snapshot.ID, resumeID: snapshot.ResumeID, location: snapshot.Location, university: snapshot.University,
+		grade: snapshot.Grade, programName: snapshot.ProgramName, profileName: copyString(snapshot.ProfileName),
+		faculty: snapshot.Faculty, course: cloneInt(snapshot.Course), endDate: cloneYear(snapshot.EndDate),
 	}
-	*e = *updated
+}
+
+func (e *Education) validate() error {
+	if e == nil || e.id.IsZero() || e.resumeID.IsZero() || e.location == "" || e.university == "" ||
+		e.programName == "" || e.faculty == "" || !e.grade.isValid() {
+		return fmt.Errorf("%w: invalid education fields", ErrInvalidEntity)
+	}
+	if !textLengthWithin(e.location, MaxLocationLength) || !textLengthWithin(e.university, MaxShortTextLength) ||
+		!textLengthWithin(e.programName, MaxShortTextLength) || !textLengthWithin(e.faculty, MaxShortTextLength) ||
+		!optionalTextLengthWithin(e.profileName, MaxShortTextLength) {
+		return fmt.Errorf("%w: education text exceeds configured limits", ErrInvalidEntity)
+	}
+	if e.course != nil && *e.course < 1 {
+		return fmt.Errorf("%w: invalid education course", ErrInvalidEntity)
+	}
+	if e.endDate != nil {
+		if err := e.endDate.validate(); err != nil {
+			return fmt.Errorf("%w: invalid education end date", ErrInvalidEntity)
+		}
+	}
 	return nil
 }
 
@@ -84,7 +110,7 @@ func (e *Education) Location() string                { return e.location }
 func (e *Education) University() string              { return e.university }
 func (e *Education) Grade() EducationLevel           { return e.grade }
 func (e *Education) ProgramName() string             { return e.programName }
-func (e *Education) ProfileName() *string            { return cloneString(e.profileName) }
+func (e *Education) ProfileName() *string            { return copyString(e.profileName) }
 func (e *Education) Faculty() string                 { return e.faculty }
 func (e *Education) Course() *int                    { return cloneInt(e.course) }
 func (e *Education) EndDate() *Year                  { return cloneYear(e.endDate) }
@@ -93,27 +119,28 @@ func (r *Resume) ReplaceEducations(params []EducationParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
+	if len(params) > MaxEducationsPerResume {
+		return fmt.Errorf("%w: resume cannot contain more than %d educations", ErrInvalidEntity, MaxEducationsPerResume)
+	}
 	existing := make(map[sharedvalueobjects.ID]struct{}, len(r.educations))
-	for _, item := range r.educations {
-		if item == nil {
+	for _, current := range r.educations {
+		if current == nil {
 			return fmt.Errorf("%w: nil education", ErrResumeInvariant)
 		}
-		existing[item.ID()] = struct{}{}
+		existing[current.ID()] = struct{}{}
 	}
 	seen := make(map[sharedvalueobjects.ID]struct{}, len(params))
 	replaced := make([]*Education, 0, len(params))
 	for _, item := range params {
-		if item.ID.IsZero() {
-			item.ID = sharedvalueobjects.NewID()
-		} else if _, ok := existing[item.ID]; !ok {
-			return fmt.Errorf("%w: education does not belong to resume", ErrResumeInvariant)
+		resolvedID, err := resolveCollectionItemID(item.ID, existing, "education")
+		if err != nil {
+			return err
 		}
-		if _, ok := seen[item.ID]; ok {
+		if _, ok := seen[resolvedID]; ok {
 			return fmt.Errorf("%w: duplicate education id", ErrInvalidEntity)
 		}
-		seen[item.ID] = struct{}{}
-		item.ResumeID = r.id
-		education, err := NewEducation(item)
+		seen[resolvedID] = struct{}{}
+		education, err := newEducation(resolvedID, r.id, item)
 		if err != nil {
 			return err
 		}
@@ -127,5 +154,23 @@ func (r *Resume) Educations() []*Education {
 	if r == nil {
 		return nil
 	}
-	return append([]*Education(nil), r.educations...)
+	return cloneEducations(r.educations)
+}
+
+func cloneEducations(values []*Education) []*Education {
+	if values == nil {
+		return nil
+	}
+	result := make([]*Education, len(values))
+	for i, value := range values {
+		if value == nil {
+			continue
+		}
+		copy := *value
+		copy.profileName = copyString(value.profileName)
+		copy.course = cloneInt(value.course)
+		copy.endDate = cloneYear(value.endDate)
+		result[i] = &copy
+	}
+	return result
 }

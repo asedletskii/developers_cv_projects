@@ -15,9 +15,9 @@ type SkillsInput struct {
 	Soft []string
 }
 
-func (i SkillsInput) toDomain(resumeID sharedvalueobjects.ID) domain.SkillsParams {
+func (i SkillsInput) toDomain() domain.SkillsParams {
 	return domain.SkillsParams{
-		ID: i.ID, ResumeID: resumeID,
+		ID:   i.ID,
 		Hard: append([]string(nil), i.Hard...),
 		Soft: append([]string(nil), i.Soft...),
 	}
@@ -44,7 +44,8 @@ func (h *ReplaceSkillsHandler) Handle(ctx context.Context, c ReplaceSkillsComman
 		return fmt.Errorf("replace skills handler dependencies are nil")
 	}
 
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace skills", func(resume *domain.Resume) error {
-		return resume.ReplaceSkills(c.Input.toDomain(c.ResumeID))
+	skills := c.Input.toDomain()
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace skills", ports.ResumeMutationSkills, func(resume *domain.Resume) error {
+		return resume.ReplaceSkills(skills)
 	})
 }

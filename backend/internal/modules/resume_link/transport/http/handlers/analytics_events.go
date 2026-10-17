@@ -1,0 +1,166 @@
+package handlers
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
+	"developers-cv/backend/internal/modules/resume_link/application/commands"
+	"developers-cv/backend/internal/modules/resume_link/domain"
+	"developers-cv/backend/internal/modules/resume_link/transport/http/common"
+	"developers-cv/backend/internal/modules/resume_link/transport/http/requests"
+	apperrors "developers-cv/backend/internal/platform/http/errors"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+)
+
+const AnalyticsBatchMaxBodyBytes int64 = 32 * 1024
+
+type ResumeLinkAnalyticsEventsHandler struct {
+	ingest *commands.IngestAnalyticsBatchHandler
+}
+
+func NewResumeLinkAnalyticsEventsHandler(ingest *commands.IngestAnalyticsBatchHandler) *ResumeLinkAnalyticsEventsHandler {
+	return &ResumeLinkAnalyticsEventsHandler{ingest: ingest}
+}
+
+func (h *ResumeLinkAnalyticsEventsHandler) Handle(c *gin.Context) {
+	if h == nil || h.ingest == nil {
+		apperrors.WriteError(c, apperrors.Internal(errors.New("analytics events handler is not configured")))
+		return
+	}
+
+	linkID, ok := common.ParseLinkID(c)
+	if !ok {
+		return
+	}
+
+	var body requests.AnalyticsBatchRequest
+	if err := common.BindJSON(c, &body); err != nil {
+		h.ingest.RecordRejectedTransportBatch("invalid_batch")
+		common.WriteBindError(c, err)
+		return
+	}
+
+	viewUUID, err := uuid.Parse(strings.TrimSpace(body.ViewID))
+	if err != nil || viewUUID == uuid.Nil {
+		h.ingest.RecordRejectedTransportBatch("invalid_batch")
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid view id"))
+		return
+	}
+	viewID, err := sharedvalueobjects.IDFromUUID(viewUUID)
+	if err != nil {
+		h.ingest.RecordRejectedTransportBatch("invalid_batch")
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid view id"))
+		return
+	}
+	if body.Seq == nil || body.Final == nil || body.State == nil || body.Events == nil || body.Clicks == nil {
+		h.ingest.RecordRejectedTransportBatch("invalid_batch")
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid analytics batch"))
+		return
+	}
+	if len(*body.Events) > commands.MaxAnalyticsEventsPerBatch || len(*body.Clicks) > commands.MaxAnalyticsClicksPerBatch {
+		h.ingest.RecordRejectedTransportBatch("batch_limit")
+		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Analytics batch limits exceeded"))
+		return
+	}
+
+	events := make([]commands.AnalyticsEventInput, 0, len(*body.Events))
+	for _, raw := range *body.Events {
+		event, ok, reason := decodeAnalyticsEvent(raw)
+		if !ok {
+			h.ingest.RecordDroppedTransportInput("event", reason)
+			continue
+		}
+		events = append(events, event)
+	}
+	clicks := make([]commands.AnalyticsClickInput, 0, len(*body.Clicks))
+	for _, raw := range *body.Clicks {
+		click, ok, reason := decodeAnalyticsClick(raw)
+		if !ok {
+			h.ingest.RecordDroppedTransportInput("click", reason)
+			continue
+		}
+		clicks = append(clicks, click)
+	}
+
+	err = h.ingest.Handle(c.Request.Context(), commands.AnalyticsBatchInput{
+		ViewID: viewID, LinkID: linkID, Seq: *body.Seq,
+		ActiveMS: body.State.ActiveMS, MaxSection: body.State.MaxSection, ExitSection: body.State.ExitSection,
+		Final: *body.Final, Events: events, Clicks: clicks,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrResumeLinkInactive):
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeGone, http.StatusGone, "Resume link is no longer active"))
+		case errors.Is(err, domain.ErrEntityNotFound), errors.Is(err, domain.ErrAnalyticsViewExpired):
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Analytics view not found"))
+		case errors.Is(err, domain.ErrInvalidAnalyticsEvent), errors.Is(err, domain.ErrInvalidViewState):
+			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid analytics batch"))
+		default:
+			apperrors.WriteError(c, err)
+		}
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func decodeAnalyticsEvent(raw json.RawMessage) (commands.AnalyticsEventInput, bool, string) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil || fields == nil {
+		return commands.AnalyticsEventInput{}, false, "invalid_json_shape"
+	}
+
+	var idString, typeString string
+	var at int64
+	if json.Unmarshal(fields["id"], &idString) != nil || json.Unmarshal(fields["type"], &typeString) != nil || json.Unmarshal(fields["at"], &at) != nil {
+		return commands.AnalyticsEventInput{}, false, "invalid_fields"
+	}
+	if at < 0 {
+		return commands.AnalyticsEventInput{}, false, "negative_timestamp"
+	}
+	clientID, err := uuid.Parse(strings.TrimSpace(idString))
+	if err != nil || clientID == uuid.Nil {
+		return commands.AnalyticsEventInput{}, false, "invalid_client_id"
+	}
+
+	payload := make(map[string]string)
+	for _, key := range []string{"section", "technology", "action", "kind", "target", "contact"} {
+		if value, ok := fields[key]; ok {
+			var stringValue string
+			if json.Unmarshal(value, &stringValue) == nil {
+				payload[key] = stringValue
+			}
+		}
+	}
+	return commands.AnalyticsEventInput{
+		ClientEventID: clientID,
+		Type:          domain.AnalyticsEventType(typeString),
+		Payload:       payload,
+		At:            at,
+	}, true, ""
+}
+
+func decodeAnalyticsClick(raw json.RawMessage) (commands.AnalyticsClickInput, bool, string) {
+	var value struct {
+		Section string `json:"section"`
+		X       int    `json:"x"`
+		Y       int    `json:"y"`
+		VW      int    `json:"vw"`
+		Target  string `json:"target"`
+		At      int64  `json:"at"`
+	}
+	if json.Unmarshal(raw, &value) != nil {
+		return commands.AnalyticsClickInput{}, false, "invalid_fields"
+	}
+	if strings.TrimSpace(string(raw)) == "null" || strings.TrimSpace(string(raw)) == "" {
+		return commands.AnalyticsClickInput{}, false, "invalid_json_shape"
+	}
+	if value.At < 0 {
+		return commands.AnalyticsClickInput{}, false, "negative_timestamp"
+	}
+	return commands.AnalyticsClickInput{Section: value.Section, XPct: value.X, YPct: value.Y, VW: value.VW, Target: value.Target, At: value.At}, true, ""
+}

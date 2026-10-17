@@ -55,8 +55,20 @@ func NewCompleteTelegramLoginHandler(
 	}
 }
 
-func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, state string, browserBindingToken string) (AuthenticatedSession, error) {
-	if h == nil || h.transactions == nil || h.identities == nil || h.sessions == nil || h.oidc == nil || h.provisioner == nil || h.tokenGenerator == nil || h.uow == nil {
+func (h *CompleteTelegramLoginHandler) Handle(
+	ctx context.Context,
+	code string,
+	state string,
+	browserBindingToken string,
+) (AuthenticatedSession, error) {
+	if h == nil ||
+		h.transactions == nil ||
+		h.identities == nil ||
+		h.sessions == nil ||
+		h.oidc == nil ||
+		h.provisioner == nil ||
+		h.tokenGenerator == nil ||
+		h.uow == nil {
 		return AuthenticatedSession{}, fmt.Errorf("complete telegram login handler dependencies are nil")
 	}
 	if code == "" || state == "" || browserBindingToken == "" || h.sessionTTL <= 0 {
@@ -73,6 +85,9 @@ func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, 
 			return AuthenticatedSession{}, application.ErrStateInvalid
 		}
 		return AuthenticatedSession{}, err
+	}
+	if transaction == nil {
+		return AuthenticatedSession{}, fmt.Errorf("find auth transaction: repository returned nil transaction")
 	}
 	initialNow := h.now().UTC()
 	if transaction.IsConsumed() {
@@ -91,6 +106,9 @@ func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, 
 
 	identity, err := h.oidc.Exchange(ctx, code, transaction.RedirectURI(), transaction.CodeVerifier(), transaction.NonceHash())
 	if err != nil {
+		if errors.Is(err, ports.ErrProviderUnavailable) {
+			return AuthenticatedSession{}, fmt.Errorf("%w: %w", application.ErrProviderUnavailable, err)
+		}
 		return AuthenticatedSession{}, application.WrapIdentityVerificationError(err)
 	}
 	now := h.now().UTC()
@@ -116,6 +134,9 @@ func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, 
 		if err != nil {
 			return AuthenticatedSession{}, err
 		}
+		if transaction == nil {
+			return AuthenticatedSession{}, fmt.Errorf("find auth transaction for retry: repository returned nil transaction")
+		}
 		if transaction.IsConsumed() {
 			return AuthenticatedSession{}, domain.ErrAuthTransactionConsumed
 		}
@@ -129,12 +150,29 @@ func (h *CompleteTelegramLoginHandler) Handle(ctx context.Context, code string, 
 
 var errIdentityCreationConflict = errors.New("identity creation conflict")
 
-func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, transactionID sharedvalueobjects.ID, stateHash valueobjects.StateHash, verified ports.VerifiedIdentity) (AuthenticatedSession, error) {
+func (h *CompleteTelegramLoginHandler) completeAttempt(
+	ctx context.Context,
+	transactionID sharedvalueobjects.ID,
+	stateHash valueobjects.StateHash,
+	verified ports.VerifiedIdentity,
+) (AuthenticatedSession, error) {
+	rawToken, err := h.tokenGenerator.GenerateSessionToken()
+	if err != nil {
+		return AuthenticatedSession{}, fmt.Errorf("generate session token: %w", err)
+	}
+	tokenHash, err := valueobjects.NewSessionTokenHash(h.tokenGenerator.Hash(rawToken))
+	if err != nil {
+		return AuthenticatedSession{}, fmt.Errorf("create session token hash: %w", err)
+	}
+
 	var result AuthenticatedSession
-	err := h.uow.Do(ctx, func(tx context.Context) error {
+	err = h.uow.Do(ctx, func(tx context.Context) error {
 		transaction, err := h.transactions.FindByStateHashForUpdate(tx, stateHash)
 		if err != nil {
 			return err
+		}
+		if transaction == nil {
+			return fmt.Errorf("lock auth transaction: repository returned nil transaction")
 		}
 		if transaction.ID() != transactionID {
 			return domain.ErrAuthTransactionConsumed
@@ -148,6 +186,11 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 			finishIdentitySpan(err)
 			return err
 		}
+		if err == nil && authIdentity == nil {
+			err = fmt.Errorf("find auth identity: repository returned nil identity")
+			finishIdentitySpan(err)
+			return err
+		}
 		finishIdentitySpan(nil)
 
 		loginAt := h.now().UTC()
@@ -158,7 +201,7 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 				return err
 			}
 			authIdentity, err = domain.NewIdentity(domain.IdentityParams{
-				ID: sharedvalueobjects.NewID(), UserID: userID, Provider: verified.Provider,
+				UserID: userID, Provider: verified.Provider,
 				ProviderSubject: verified.ProviderSubject, CreatedAt: loginAt, UpdatedAt: loginAt, LastLoginAt: loginAt,
 			})
 			if err != nil {
@@ -187,17 +230,9 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(ctx context.Context, tran
 			sessionSpanErr = err
 			return err
 		}
-		rawToken, err := h.tokenGenerator.GenerateSessionToken()
-		if err != nil {
-			return failSession(fmt.Errorf("generate session token: %w", err))
-		}
-		tokenHash, err := valueobjects.NewSessionTokenHash(h.tokenGenerator.Hash(rawToken))
-		if err != nil {
-			return failSession(fmt.Errorf("create session token hash: %w", err))
-		}
 		expiresAt := loginAt.Add(h.sessionTTL)
 		session, err := domain.NewSession(domain.SessionParams{
-			ID: sharedvalueobjects.NewID(), UserID: userID, TokenHash: tokenHash,
+			UserID: userID, TokenHash: tokenHash,
 			CreatedAt: loginAt, LastSeenAt: loginAt, ExpiresAt: expiresAt,
 		})
 		if err != nil {

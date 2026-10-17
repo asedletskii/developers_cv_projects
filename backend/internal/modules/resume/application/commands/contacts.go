@@ -74,7 +74,7 @@ func (h *ReplaceContactsHandler) Handle(ctx context.Context, c ReplaceContactsCo
 	if err != nil {
 		return err
 	}
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace contacts", func(resume *domain.Resume) error {
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace contacts", ports.ResumeMutationContacts, func(resume *domain.Resume) error {
 		return resume.ReplaceContacts(input)
 	})
 }

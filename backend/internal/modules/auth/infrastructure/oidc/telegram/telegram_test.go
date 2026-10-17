@@ -12,35 +12,55 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/oauth2"
 
 	"developers-cv/backend/internal/modules/auth/application/ports"
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 )
 
+type countingRoundTripper struct {
+	base  http.RoundTripper
+	count *atomic.Int32
+}
+
+func (r countingRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	r.count.Add(1)
+	return r.base.RoundTrip(request)
+}
+
 func TestAuthorizationURLContainsRequiredOIDCAndPKCEParameters(t *testing.T) {
-	adapter := &TelegramOIDC{oauth2Config: oauth2ConfigForTest()}
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	server := newOIDCTestServer(t, privateKey, func(string) string { return "" })
+	defer server.Close()
+
+	adapter, err := New(Config{
+		ClientID: "client-id", ClientSecret: "client-secret",
+		RedirectURL: server.URL + "/callback", IssuerURL: server.URL,
+	}, http.DefaultClient, nil)
+	require.NoError(t, err)
 	challenge := "challenge-value"
 
-	rawURL := adapter.AuthorizationURL(ports.TelegramAuthorizationParams{
+	rawURL, err := adapter.AuthorizationURL(context.Background(), ports.TelegramAuthorizationParams{
 		State:         "state-value",
 		Nonce:         "nonce-value",
 		CodeChallenge: challenge,
-		RedirectURI:   "https://example.com/callback",
+		RedirectURI:   server.URL + "/callback",
 	})
+	require.NoError(t, err)
 
 	parsed, err := url.Parse(rawURL)
 	require.NoError(t, err)
 	query := parsed.Query()
-	require.Equal(t, "https://issuer.example/auth", rawURL[:strings.Index(rawURL, "?")])
+	require.Equal(t, server.URL+"/auth", rawURL[:strings.Index(rawURL, "?")])
 	require.Equal(t, "code", query.Get("response_type"))
 	require.Equal(t, "client-id", query.Get("client_id"))
-	require.Equal(t, "https://example.com/callback", query.Get("redirect_uri"))
+	require.Equal(t, server.URL+"/callback", query.Get("redirect_uri"))
 	require.Equal(t, "openid profile", query.Get("scope"))
 	require.Equal(t, "state-value", query.Get("state"))
 	require.Equal(t, "nonce-value", query.Get("nonce"))
@@ -49,8 +69,83 @@ func TestAuthorizationURLContainsRequiredOIDCAndPKCEParameters(t *testing.T) {
 }
 
 func TestNewRejectsInvalidConfig(t *testing.T) {
-	_, err := New(context.Background(), Config{}, NewHTTPClient(time.Second))
+	_, err := New(Config{}, &http.Client{Timeout: time.Second}, nil)
 	require.Error(t, err)
+}
+
+func TestAuthorizationURLRejectsRedirectURIOverride(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	server := newOIDCTestServer(t, privateKey, func(string) string { return "" })
+	defer server.Close()
+
+	adapter, err := New(Config{
+		ClientID: "client-id", ClientSecret: "client-secret",
+		RedirectURL: server.URL + "/callback", IssuerURL: server.URL,
+	}, http.DefaultClient, nil)
+	require.NoError(t, err)
+
+	_, err = adapter.AuthorizationURL(context.Background(), ports.TelegramAuthorizationParams{
+		State: "state", RedirectURI: server.URL + "/unexpected-callback",
+	})
+	require.ErrorContains(t, err, "redirect uri does not match")
+}
+
+func TestNewDoesNotPerformDiscoveryUntilFirstUse(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	server := newOIDCTestServer(t, privateKey, func(issuer string) string { return "" })
+	defer server.Close()
+
+	var discoveryRequests atomic.Int32
+	client := &http.Client{
+		Timeout:   time.Second,
+		Transport: countingRoundTripper{base: http.DefaultTransport, count: &discoveryRequests},
+	}
+	lazy, err := New(Config{
+		ClientID: "client-id", ClientSecret: "client-secret",
+		RedirectURL: server.URL + "/callback", IssuerURL: server.URL,
+	}, client, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, discoveryRequests.Load())
+
+	_, err = lazy.AuthorizationURL(context.Background(), ports.TelegramAuthorizationParams{
+		State: "state", RedirectURI: server.URL + "/callback",
+	})
+	require.NoError(t, err)
+	require.Greater(t, discoveryRequests.Load(), int32(0))
+	requestsAfterInitialization := discoveryRequests.Load()
+	_, err = lazy.AuthorizationURL(context.Background(), ports.TelegramAuthorizationParams{
+		State: "state-again", RedirectURI: server.URL + "/callback",
+	})
+	require.NoError(t, err)
+	require.Equal(t, requestsAfterInitialization, discoveryRequests.Load(), "successful discovery should be cached")
+}
+
+func TestLazyProviderDiscoveryFailureIsReportedAsUnavailableAndBackedOff(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	var discoveryRequests atomic.Int32
+	client := &http.Client{
+		Timeout:   time.Second,
+		Transport: countingRoundTripper{base: http.DefaultTransport, count: &discoveryRequests},
+	}
+	lazy, err := New(Config{
+		ClientID: "client-id", ClientSecret: "client-secret",
+		RedirectURL: server.URL + "/callback", IssuerURL: server.URL,
+	}, client, nil)
+	require.NoError(t, err)
+	params := ports.TelegramAuthorizationParams{State: "state", RedirectURI: server.URL + "/callback"}
+
+	_, err = lazy.AuthorizationURL(context.Background(), params)
+	require.ErrorIs(t, err, ports.ErrProviderUnavailable)
+	requestsAfterFirstFailure := discoveryRequests.Load()
+	require.Greater(t, requestsAfterFirstFailure, int32(0))
+	_, err = lazy.AuthorizationURL(context.Background(), params)
+	require.ErrorIs(t, err, ports.ErrProviderUnavailable)
+	require.Equal(t, requestsAfterFirstFailure, discoveryRequests.Load(), "backoff should prevent an immediate discovery retry")
 }
 
 func TestExchangeVerifiesIDTokenAndNonce(t *testing.T) {
@@ -210,18 +305,14 @@ func nonceHash(t *testing.T, value string) valueobjects.NonceHash {
 	return result
 }
 
-func oauth2ConfigForTest() oauth2.Config {
-	return oauth2.Config{ClientID: "client-id", Endpoint: oauth2.Endpoint{AuthURL: "https://issuer.example/auth"}, RedirectURL: "https://example.com/callback", Scopes: []string{"openid", "profile"}}
-}
-
-func newTestAdapter(t *testing.T, issuer string) *TelegramOIDC {
+func newTestAdapter(t *testing.T, issuer string) ports.TelegramOIDC {
 	t.Helper()
-	adapter, err := New(context.Background(), Config{
+	adapter, err := New(Config{
 		ClientID:     "client-id",
 		ClientSecret: "client-secret",
 		RedirectURL:  issuer + "/callback",
 		IssuerURL:    issuer,
-	}, http.DefaultClient)
+	}, http.DefaultClient, nil)
 	require.NoError(t, err)
 	return adapter
 }

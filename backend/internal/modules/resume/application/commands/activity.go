@@ -49,7 +49,8 @@ func (h *ReplaceActivitiesHandler) Handle(ctx context.Context, c ReplaceActiviti
 		return fmt.Errorf("replace activities handler dependencies are nil")
 	}
 
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace activities", func(resume *domain.Resume) error {
-		return resume.ReplaceActivities(c.Input.toDomain())
+	activities := c.Input.toDomain()
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace activities", ports.ResumeMutationActivities, func(resume *domain.Resume) error {
+		return resume.ReplaceActivities(activities)
 	})
 }

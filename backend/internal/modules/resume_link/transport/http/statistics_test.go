@@ -39,19 +39,30 @@ func (s statisticsHTTPOwnershipReader) GetOwned(context.Context, resumequeries.G
 	return resumequeries.ResumeView{ID: "resume"}, nil
 }
 
+func (s statisticsHTTPOwnershipReader) GetOwnedOverview(_ context.Context, _ resumequeries.GetResumeQuery) (resumequeries.ResumeOverviewView, error) {
+	if s.err != nil {
+		return resumequeries.ResumeOverviewView{}, s.err
+	}
+	return resumequeries.ResumeOverviewView{}, nil
+}
+
+func (s statisticsHTTPOwnershipReader) OwnsResume(context.Context, resumequeries.GetResumeQuery) (bool, error) {
+	return s.err == nil, s.err
+}
+
 type statisticsHTTPReader struct {
-	result queries.ResumeLinkStatistics
+	result queries.LinkStatistics
 	err    error
 }
 
-func (s statisticsHTTPReader) GetLinkStatistics(context.Context, queries.LinkAnalyticsQuery) (queries.ResumeLinkStatistics, error) {
+func (s statisticsHTTPReader) GetLinkStatistics(context.Context, queries.LinkAnalyticsQuery) (queries.LinkStatistics, error) {
 	return s.result, s.err
 }
 
 func (s statisticsHTTPReader) GetDaily(context.Context, queries.LinkAnalyticsQuery) (queries.LinkDaily, error) {
 	return queries.LinkDaily{}, s.err
 }
-func (s statisticsHTTPReader) GetVisits(context.Context, queries.LinkVisitsQuery) (queries.LinkVisitsPage, error) {
+func (s statisticsHTTPReader) GetVisits(context.Context, queries.VisitsReadQuery) (queries.LinkVisitsPage, error) {
 	return queries.LinkVisitsPage{}, s.err
 }
 func (s statisticsHTTPReader) GetSections(context.Context, queries.LinkSectionsQuery) (queries.SectionsStatistics, error) {
@@ -67,10 +78,17 @@ func (s statisticsHTTPReader) GetResumeStatistics(context.Context, queries.Resum
 func newStatisticsHTTPHandler(
 	linkReader queries.ResumeLinkPublicReader,
 	ownership ports.ResumeOwnershipReader,
-	reader queries.AnalyticsReadReader,
+	resumeOverview queries.ResumeOverviewReader,
+	reader statisticsHTTPReader,
 ) *Handler {
-	statistics := queries.NewGetResumeLinkStatisticsQueryHandler(linkReader, ownership, reader)
-	return NewHandler(HandlerDependencies{Statistics: statistics})
+	return NewHandler(HandlerDependencies{
+		AnalyticsStatistics:       queries.NewLinkStatisticsHandler(linkReader, ownership, reader),
+		AnalyticsDaily:            queries.NewDailyStatisticsHandler(linkReader, ownership, reader),
+		AnalyticsVisits:           queries.NewVisitsHandler(linkReader, ownership, reader),
+		AnalyticsSections:         queries.NewSectionsHandler(linkReader, resumeOverview, reader),
+		AnalyticsTechnologies:     queries.NewTechnologiesHandler(linkReader, ownership, reader),
+		AnalyticsResumeStatistics: queries.NewResumeStatisticsHandler(ownership, reader),
+	})
 }
 
 func newStatisticsHTTPServer(handler *Handler, userID uuid.UUID) *gin.Engine {
@@ -90,7 +108,8 @@ func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumeID.String()}},
 		statisticsHTTPOwnershipReader{},
-		statisticsHTTPReader{result: queries.ResumeLinkStatistics{Views: 125, ContactViews: 17}},
+		statisticsHTTPOwnershipReader{},
+		statisticsHTTPReader{result: queries.LinkStatistics{Views: 125, ContactViews: 17}},
 	), userID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+linkID.String()+"/statistics", nil)
@@ -105,7 +124,8 @@ func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{},
-		statisticsHTTPReader{result: queries.ResumeLinkStatistics{}},
+		statisticsHTTPOwnershipReader{},
+		statisticsHTTPReader{result: queries.LinkStatistics{}},
 	), uuid.New())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/statistics", nil)
@@ -119,6 +139,7 @@ func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		statisticsHTTPOwnershipReader{err: resumequeries.ErrResumeNotFound},
 		statisticsHTTPOwnershipReader{err: resumequeries.ErrResumeNotFound},
 		statisticsHTTPReader{},
 	), uuid.New())
@@ -134,6 +155,7 @@ func TestStatisticsHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{err: queries.ErrResumeLinkNotFound},
 		statisticsHTTPOwnershipReader{},
+		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{},
 	), uuid.New())
 
@@ -147,6 +169,7 @@ func TestStatisticsHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 func TestStatisticsHandlerReturnsBadRequestForInvalidUUID(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{},
+		statisticsHTTPOwnershipReader{},
 		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{},
 	), uuid.New())
@@ -162,6 +185,7 @@ func TestStatisticsHandlerReturnsInternalErrorForReaderFailure(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{},
+		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{err: errors.New("db down")},
 	), uuid.New())
 
@@ -176,6 +200,7 @@ func TestAnalyticsReadRejectsInvalidPeriod(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
 		statisticsHTTPOwnershipReader{},
+		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{},
 	), uuid.New())
 
@@ -189,6 +214,7 @@ func TestAnalyticsReadRejectsInvalidPeriod(t *testing.T) {
 func TestAnalyticsReadDailyRouteReturnsZeroDays(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		statisticsHTTPOwnershipReader{},
 		statisticsHTTPOwnershipReader{},
 		statisticsHTTPReader{},
 	), uuid.New())

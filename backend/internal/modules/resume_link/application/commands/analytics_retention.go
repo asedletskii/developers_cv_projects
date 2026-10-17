@@ -13,13 +13,23 @@ type AnalyticsRetentionResult struct {
 	Views  int
 }
 
+type AnalyticsRetentionPolicy struct {
+	ClickRetentionDays int
+	ViewRetentionDays  int
+}
+
 type CleanupAnalyticsHandler struct {
 	repository ports.AnalyticsRetentionRepository
 	uow        ports.UnitOfWork
+	retention  AnalyticsRetentionPolicy
 }
 
-func NewCleanupAnalyticsHandler(repository ports.AnalyticsRetentionRepository, uow ports.UnitOfWork) *CleanupAnalyticsHandler {
-	return &CleanupAnalyticsHandler{repository: repository, uow: uow}
+func NewCleanupAnalyticsHandler(
+	repository ports.AnalyticsRetentionRepository,
+	uow ports.UnitOfWork,
+	retention AnalyticsRetentionPolicy,
+) *CleanupAnalyticsHandler {
+	return &CleanupAnalyticsHandler{repository: repository, uow: uow, retention: retention}
 }
 
 func (h *CleanupAnalyticsHandler) Handle(ctx context.Context, now time.Time, batchSize int) (AnalyticsRetentionResult, error) {
@@ -38,7 +48,7 @@ func (h *CleanupAnalyticsHandler) CleanupClicks(ctx context.Context, now time.Ti
 	if err := h.validate(now, batchSize); err != nil {
 		return 0, err
 	}
-	cutoff := now.UTC().Add(-90 * 24 * time.Hour)
+	cutoff := now.UTC().AddDate(0, 0, -h.retention.ClickRetentionDays)
 	var deleted int
 	if err := h.uow.Do(ctx, func(tx context.Context) error {
 		count, err := h.repository.DeleteExpiredClicks(tx, cutoff, batchSize)
@@ -54,7 +64,7 @@ func (h *CleanupAnalyticsHandler) CleanupViews(ctx context.Context, now time.Tim
 	if err := h.validate(now, batchSize); err != nil {
 		return 0, err
 	}
-	cutoff := now.UTC().AddDate(-1, 0, 0)
+	cutoff := now.UTC().AddDate(0, 0, -h.retention.ViewRetentionDays)
 	var deleted int
 	if err := h.uow.Do(ctx, func(tx context.Context) error {
 		count, err := h.repository.DeleteExpiredViews(tx, cutoff, batchSize)
@@ -72,6 +82,10 @@ func (h *CleanupAnalyticsHandler) validate(now time.Time, batchSize int) error {
 	}
 	if now.IsZero() {
 		return fmt.Errorf("cleanup analytics: now must be set")
+	}
+	if h.retention.ClickRetentionDays <= 0 || h.retention.ClickRetentionDays > 3650 ||
+		h.retention.ViewRetentionDays <= 0 || h.retention.ViewRetentionDays > 3650 {
+		return fmt.Errorf("cleanup analytics: retention days must be between 1 and 3650")
 	}
 	if batchSize <= 0 {
 		return fmt.Errorf("cleanup analytics: batch size must be positive")

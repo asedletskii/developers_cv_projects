@@ -50,7 +50,8 @@ func (h *ReplaceTechnologiesHandler) Handle(ctx context.Context, c ReplaceTechno
 		return fmt.Errorf("replace technologies handler dependencies are nil")
 	}
 
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace technologies", func(resume *domain.Resume) error {
-		return resume.ReplaceTechnologies(c.Input.toDomain())
+	technologies := c.Input.toDomain()
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace technologies", ports.ResumeMutationTechnologies, func(resume *domain.Resume) error {
+		return resume.ReplaceTechnologies(technologies)
 	})
 }

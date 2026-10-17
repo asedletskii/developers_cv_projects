@@ -22,17 +22,37 @@ type ResumeOverview struct {
 	sections     []SectionSettings
 }
 
-func NewResumeOverview(params ResumeOverviewParams) (*ResumeOverview, error) {
-	if err := validateOverviewSections(params.Sections); err != nil {
+func newResumeOverview(params ResumeOverviewParams) (*ResumeOverview, error) {
+	overview := RestoreResumeOverview(params)
+	if err := overview.validate(); err != nil {
 		return nil, err
 	}
+	return overview, nil
+}
+
+func RestoreResumeOverview(params ResumeOverviewParams) *ResumeOverview {
 	return &ResumeOverview{
-		theme:        cloneThemeSettings(params.Theme),
-		greeting:     params.Greeting,
-		availability: cloneAvailability(params.Availability),
-		resumeLink:   cloneExternalURL(params.ResumeLink),
-		sections:     cloneSectionSettings(params.Sections),
-	}, nil
+		theme: cloneThemeSettings(params.Theme), greeting: params.Greeting,
+		availability: cloneAvailability(params.Availability), resumeLink: cloneExternalURL(params.ResumeLink),
+		sections: cloneSectionSettings(params.Sections),
+	}
+}
+
+func (o *ResumeOverview) validate() error {
+	if o == nil {
+		return fmt.Errorf("%w: overview is nil", ErrInvalidValue)
+	}
+	params := ResumeOverviewParams{
+		Theme: o.theme, Greeting: o.greeting, Availability: o.availability,
+		ResumeLink: o.resumeLink, Sections: o.sections,
+	}
+	if err := validateOverviewSections(params.Sections); err != nil {
+		return err
+	}
+	if err := validateOverviewValueObjects(params); err != nil {
+		return err
+	}
+	return params.Greeting.validate()
 }
 
 func (o *ResumeOverview) Theme() *ThemeSettings { return cloneThemeSettings(o.theme) }
@@ -47,23 +67,36 @@ func (o *ResumeOverview) Sections() []SectionSettings {
 	return cloneSectionSettings(o.sections)
 }
 
-func (o *ResumeOverview) Replace(params ResumeOverviewParams) error {
-	if err := validateOverviewSections(params.Sections); err != nil {
-		return err
+func validateOverviewValueObjects(params ResumeOverviewParams) error {
+	if params.Theme != nil {
+		if err := params.Theme.validate(); err != nil {
+			return err
+		}
 	}
-	o.theme = cloneThemeSettings(params.Theme)
-	o.greeting = params.Greeting
-	o.availability = cloneAvailability(params.Availability)
-	o.resumeLink = cloneExternalURL(params.ResumeLink)
-	o.sections = cloneSectionSettings(params.Sections)
+	if params.Availability != nil {
+		if err := params.Availability.validate(); err != nil {
+			return err
+		}
+		if from := params.Availability.From(); from != nil && from.IsZero() {
+			return fmt.Errorf("%w: invalid availability date", ErrInvalidValue)
+		}
+	}
+	if params.ResumeLink != nil {
+		if err := params.ResumeLink.validate(); err != nil {
+			return fmt.Errorf("%w: invalid resume link", ErrInvalidValue)
+		}
+	}
 	return nil
 }
 
 func validateOverviewSections(sections []SectionSettings) error {
+	if len(sections) > 9 {
+		return fmt.Errorf("%w: overview cannot contain more than 9 sections", ErrInvalidValue)
+	}
 	seen := make(map[string]struct{}, len(sections))
 	for _, section := range sections {
-		if !section.ID().IsValid() {
-			return fmt.Errorf("%w: invalid section id", ErrInvalidValue)
+		if err := section.validate(); err != nil {
+			return err
 		}
 		key := string(section.ID())
 		if _, ok := seen[key]; ok {
@@ -78,16 +111,7 @@ func cloneThemeSettings(value *ThemeSettings) *ThemeSettings {
 	if value == nil {
 		return nil
 	}
-	copy := *value
-	if value.Primary != nil {
-		primary := *value.Primary
-		copy.Primary = &primary
-	}
-	if value.Secondary != nil {
-		secondary := *value.Secondary
-		copy.Secondary = &secondary
-	}
-	return &copy
+	return &ThemeSettings{primary: cloneColor(value.primary), secondary: cloneColor(value.secondary)}
 }
 
 func cloneAvailability(value *Availability) *Availability {
@@ -95,6 +119,8 @@ func cloneAvailability(value *Availability) *Availability {
 		return nil
 	}
 	copy := *value
+	copy.note = copyString(value.note)
+	copy.from = cloneDate(value.from)
 	return &copy
 }
 
@@ -102,7 +128,7 @@ func (r *Resume) ReplaceOverview(params ResumeOverviewParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	o, err := NewResumeOverview(params)
+	o, err := newResumeOverview(params)
 	if err != nil {
 		return err
 	}
@@ -111,11 +137,10 @@ func (r *Resume) ReplaceOverview(params ResumeOverviewParams) error {
 }
 
 func (r *Resume) Overview() *ResumeOverview {
-	if r == nil || r.overview == nil {
+	if r == nil {
 		return nil
 	}
-	copy := *r.overview
-	return &copy
+	return cloneResumeOverview(r.overview)
 }
 
 var hexColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$`)
@@ -125,11 +150,20 @@ type Color struct {
 }
 
 func NewColor(value string) (Color, error) {
-	value = strings.TrimSpace(value)
-	if !hexColorPattern.MatchString(value) {
-		return Color{}, fmt.Errorf("%w: invalid color", ErrInvalidValue)
+	color := Color{value: strings.TrimSpace(value)}
+	if err := color.validate(); err != nil {
+		return Color{}, err
 	}
-	return Color{value: value}, nil
+	return color, nil
+}
+
+func RestoreColor(value string) Color { return Color{value: value} }
+
+func (c Color) validate() error {
+	if !hexColorPattern.MatchString(c.value) {
+		return fmt.Errorf("%w: invalid color", ErrInvalidValue)
+	}
+	return nil
 }
 
 func (c Color) String() string { return c.value }
@@ -140,19 +174,44 @@ type ThemeSettingsParams struct {
 }
 
 type ThemeSettings struct {
-	Primary   *Color
-	Secondary *Color
+	primary   *Color
+	secondary *Color
 }
 
 func NewThemeSettings(params ThemeSettingsParams) (ThemeSettings, error) {
-	if params.Primary == nil && params.Secondary == nil {
-		return ThemeSettings{}, fmt.Errorf("%w: theme is empty", ErrInvalidValue)
+	theme := RestoreThemeSettings(params)
+	if err := theme.validate(); err != nil {
+		return ThemeSettings{}, err
 	}
-	return ThemeSettings{
-		Primary:   cloneColor(params.Primary),
-		Secondary: cloneColor(params.Secondary),
-	}, nil
+	return theme, nil
 }
+
+func RestoreThemeSettings(params ThemeSettingsParams) ThemeSettings {
+	return ThemeSettings{primary: cloneColor(params.Primary), secondary: cloneColor(params.Secondary)}
+}
+
+func (t ThemeSettings) validate() error {
+	if t.isEmpty() {
+		return fmt.Errorf("%w: theme is empty", ErrInvalidValue)
+	}
+	if t.primary != nil {
+		if err := t.primary.validate(); err != nil {
+			return fmt.Errorf("primary theme color: %w", err)
+		}
+	}
+	if t.secondary != nil {
+		if err := t.secondary.validate(); err != nil {
+			return fmt.Errorf("secondary theme color: %w", err)
+		}
+	}
+	return nil
+}
+
+func (t ThemeSettings) Primary() *Color { return cloneColor(t.primary) }
+
+func (t ThemeSettings) Secondary() *Color { return cloneColor(t.secondary) }
+
+func (t ThemeSettings) isEmpty() bool { return t.primary == nil && t.secondary == nil }
 
 func cloneColor(value *Color) *Color {
 	if value == nil {
@@ -170,7 +229,7 @@ const (
 	AvailabilityStatusBusy        AvailabilityStatus = "busy"
 )
 
-func (v AvailabilityStatus) IsValid() bool {
+func (v AvailabilityStatus) isValid() bool {
 	switch v {
 	case AvailabilityStatusOpen, AvailabilityStatusConsidering, AvailabilityStatusBusy:
 		return true
@@ -192,15 +251,31 @@ type Availability struct {
 }
 
 func NewAvailability(params AvailabilityParams) (Availability, error) {
-	if !params.Status.IsValid() {
-		return Availability{}, fmt.Errorf("%w: invalid availability status", ErrInvalidValue)
+	availability := RestoreAvailability(params)
+	availability.note = normalizeOptionalString(params.Note)
+	if err := availability.validate(); err != nil {
+		return Availability{}, err
 	}
-	return Availability{status: params.Status, from: cloneDate(params.From), note: cloneString(params.Note)}, nil
+	return availability, nil
+}
+
+func RestoreAvailability(params AvailabilityParams) Availability {
+	return Availability{status: params.Status, from: cloneDate(params.From), note: copyString(params.Note)}
+}
+
+func (a Availability) validate() error {
+	if !a.status.isValid() {
+		return fmt.Errorf("%w: invalid availability status", ErrInvalidValue)
+	}
+	if !optionalTextLengthWithin(a.note, 500) {
+		return fmt.Errorf("%w: availability note exceeds 500 characters", ErrInvalidValue)
+	}
+	return nil
 }
 
 func (a Availability) Status() AvailabilityStatus { return a.status }
 func (a Availability) From() *Date                { return cloneDate(a.from) }
-func (a Availability) Note() *string              { return cloneString(a.note) }
+func (a Availability) Note() *string              { return copyString(a.note) }
 
 type GreetingParams struct {
 	First           string
@@ -216,13 +291,27 @@ type Greeting struct {
 	third           string
 }
 
-func NewGreeting(params GreetingParams) Greeting {
-	return Greeting{
-		first:           strings.TrimSpace(params.First),
-		second:          strings.TrimSpace(params.Second),
-		secondHighlight: strings.TrimSpace(params.SecondHighlight),
-		third:           strings.TrimSpace(params.Third),
+func NewGreeting(params GreetingParams) (Greeting, error) {
+	greeting := RestoreGreeting(GreetingParams{
+		First: strings.TrimSpace(params.First), Second: strings.TrimSpace(params.Second),
+		SecondHighlight: strings.TrimSpace(params.SecondHighlight), Third: strings.TrimSpace(params.Third),
+	})
+	if err := greeting.validate(); err != nil {
+		return Greeting{}, err
 	}
+	return greeting, nil
+}
+
+func (g Greeting) validate() error {
+	if !textLengthWithin(g.first, MaxShortTextLength) || !textLengthWithin(g.second, MaxShortTextLength) ||
+		!textLengthWithin(g.secondHighlight, 120) || !textLengthWithin(g.third, MaxShortTextLength) {
+		return fmt.Errorf("%w: overview greeting exceeds configured limits", ErrInvalidValue)
+	}
+	return nil
+}
+
+func RestoreGreeting(params GreetingParams) Greeting {
+	return Greeting{first: params.First, second: params.Second, secondHighlight: params.SecondHighlight, third: params.Third}
 }
 
 func (g Greeting) First() string           { return g.first }
@@ -243,10 +332,22 @@ type SectionSettings struct {
 }
 
 func NewSectionSettings(params SectionSettingsParams) (SectionSettings, error) {
-	if !params.ID.IsValid() {
-		return SectionSettings{}, fmt.Errorf("%w: invalid section id", ErrInvalidValue)
+	section := RestoreSectionSettings(params)
+	if err := section.validate(); err != nil {
+		return SectionSettings{}, err
 	}
-	return SectionSettings{id: params.ID, enabled: params.Enabled, collapsed: params.Collapsed}, nil
+	return section, nil
+}
+
+func RestoreSectionSettings(params SectionSettingsParams) SectionSettings {
+	return SectionSettings{id: params.ID, enabled: params.Enabled, collapsed: params.Collapsed}
+}
+
+func (s SectionSettings) validate() error {
+	if !s.id.isValid() {
+		return fmt.Errorf("%w: invalid section id", ErrInvalidValue)
+	}
+	return nil
 }
 
 func (s SectionSettings) ID() SectionID   { return s.id }
@@ -267,7 +368,7 @@ const (
 	SectionContacts   SectionID = "contacts"
 )
 
-func (v SectionID) IsValid() bool {
+func (v SectionID) isValid() bool {
 	switch v {
 	case SectionAbout, SectionTechStack, SectionExperience, SectionSkills, SectionEducation,
 		SectionCourses, SectionProjects, SectionActivities, SectionContacts:
@@ -275,4 +376,24 @@ func (v SectionID) IsValid() bool {
 	default:
 		return false
 	}
+}
+
+func ParseSectionID(value string) (SectionID, error) {
+	section := SectionID(value)
+	if !section.isValid() {
+		return "", fmt.Errorf("%w: invalid section id", ErrInvalidValue)
+	}
+	return section, nil
+}
+
+func cloneResumeOverview(value *ResumeOverview) *ResumeOverview {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	copy.theme = cloneThemeSettings(value.theme)
+	copy.availability = cloneAvailability(value.availability)
+	copy.resumeLink = cloneExternalURL(value.resumeLink)
+	copy.sections = cloneSectionSettings(value.sections)
+	return &copy
 }

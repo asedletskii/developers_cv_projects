@@ -18,65 +18,80 @@ type ResumeTechnologyEntryParams struct {
 	Position int
 }
 type ResumeTechnologiesParams struct {
-	ID, ResumeID sharedvalueobjects.ID
-	Entries      []ResumeTechnologyEntryParams
+	Entries []ResumeTechnologyEntryParams
 }
 type ResumeTechnologies struct {
-	id, resumeID sharedvalueobjects.ID
-	entries      []ResumeTechnologyEntry
+	entries []ResumeTechnologyEntry
 }
 
-func NewResumeTechnologyEntry(p ResumeTechnologyEntryParams) (ResumeTechnologyEntry, error) {
-	n := strings.TrimSpace(p.Name)
-	if p.ID.IsZero() || n == "" || p.Position < 0 {
-		return ResumeTechnologyEntry{}, fmt.Errorf("%w: invalid technology entry", ErrInvalidEntity)
+func newResumeTechnologyEntry(params ResumeTechnologyEntryParams) (ResumeTechnologyEntry, error) {
+	entry := ResumeTechnologyEntry{id: params.ID, name: strings.TrimSpace(params.Name), position: params.Position}
+	if err := entry.validate(); err != nil {
+		return ResumeTechnologyEntry{}, err
 	}
-	return ResumeTechnologyEntry{id: p.ID, name: n, position: p.Position}, nil
+	return entry, nil
 }
-func NewResumeTechnologies(p ResumeTechnologiesParams) (*ResumeTechnologies, error) {
-	if p.ID.IsZero() || p.ResumeID.IsZero() {
-		return nil, fmt.Errorf("%w: technology collection ids are required", ErrInvalidEntity)
+
+func (t ResumeTechnologyEntry) validate() error {
+	if t.id.IsZero() || t.name == "" || !textLengthWithin(t.name, MaxSkillLength) || t.position < 0 {
+		return fmt.Errorf("%w: invalid technology entry", ErrInvalidEntity)
 	}
-	out := make([]ResumeTechnologyEntry, 0, len(p.Entries))
-	seenIDs := make(map[sharedvalueobjects.ID]struct{}, len(p.Entries))
-	seenPositions := make(map[int]struct{}, len(p.Entries))
-	for _, x := range p.Entries {
-		e, err := NewResumeTechnologyEntry(x)
-		if err != nil {
-			return nil, err
-		}
-		if _, ok := seenIDs[e.id]; ok {
-			return nil, fmt.Errorf("%w: duplicate technology id", ErrInvalidEntity)
-		}
-		if _, ok := seenPositions[e.position]; ok {
-			return nil, fmt.Errorf("%w: duplicate technology position", ErrInvalidEntity)
-		}
-		seenIDs[e.id] = struct{}{}
-		seenPositions[e.position] = struct{}{}
-		out = append(out, e)
-	}
-	for position := range seenPositions {
-		if position < 0 || position >= len(out) {
-			return nil, fmt.Errorf("%w: technology positions must be contiguous", ErrInvalidEntity)
-		}
-	}
-	return &ResumeTechnologies{id: p.ID, resumeID: p.ResumeID, entries: out}, nil
-}
-func (t *ResumeTechnologyEntry) Replace(params ResumeTechnologyEntryParams) error {
-	params.ID = t.id
-	updated, err := NewResumeTechnologyEntry(params)
-	if err != nil {
-		return err
-	}
-	*t = updated
 	return nil
 }
 
-func (t ResumeTechnologyEntry) ID() sharedvalueobjects.ID     { return t.id }
-func (t ResumeTechnologyEntry) Name() string                  { return t.name }
-func (t ResumeTechnologyEntry) Position() int                 { return t.position }
-func (t *ResumeTechnologies) ID() sharedvalueobjects.ID       { return t.id }
-func (t *ResumeTechnologies) ResumeID() sharedvalueobjects.ID { return t.resumeID }
+func newResumeTechnologies(params ResumeTechnologiesParams) (*ResumeTechnologies, error) {
+	entries := make([]ResumeTechnologyEntry, 0, len(params.Entries))
+	for _, value := range params.Entries {
+		entries = append(entries, ResumeTechnologyEntry{
+			id: value.ID, name: strings.TrimSpace(value.Name), position: value.Position,
+		})
+	}
+	technologies := &ResumeTechnologies{entries: entries}
+	if err := technologies.validate(); err != nil {
+		return nil, err
+	}
+	return technologies, nil
+}
+
+func RestoreResumeTechnologies(params ResumeTechnologiesParams) *ResumeTechnologies {
+	entries := make([]ResumeTechnologyEntry, 0, len(params.Entries))
+	for _, value := range params.Entries {
+		entries = append(entries, ResumeTechnologyEntry{id: value.ID, name: value.Name, position: value.Position})
+	}
+	return &ResumeTechnologies{entries: entries}
+}
+
+func (t *ResumeTechnologies) validate() error {
+	if t == nil {
+		return fmt.Errorf("%w: technology collection is nil", ErrInvalidEntity)
+	}
+	if len(t.entries) > MaxTechnologiesPerResume {
+		return fmt.Errorf("%w: technologies exceed limit of %d", ErrInvalidEntity, MaxTechnologiesPerResume)
+	}
+	seenIDs := make(map[sharedvalueobjects.ID]struct{}, len(t.entries))
+	seenNames := make(map[string]struct{}, len(t.entries))
+	for index, entry := range t.entries {
+		if err := entry.validate(); err != nil {
+			return err
+		}
+		if _, exists := seenIDs[entry.id]; exists {
+			return fmt.Errorf("%w: duplicate technology id", ErrInvalidEntity)
+		}
+		if entry.position != index {
+			return fmt.Errorf("%w: technology positions must match collection order", ErrInvalidEntity)
+		}
+		if _, exists := seenNames[entry.name]; exists {
+			return fmt.Errorf("%w: duplicate technology name", ErrDuplicateEntity)
+		}
+		seenIDs[entry.id] = struct{}{}
+		seenNames[entry.name] = struct{}{}
+	}
+	return nil
+}
+
+func (t ResumeTechnologyEntry) ID() sharedvalueobjects.ID { return t.id }
+func (t ResumeTechnologyEntry) Name() string              { return t.name }
+func (t ResumeTechnologyEntry) Position() int             { return t.position }
 func (t *ResumeTechnologies) Entries() []ResumeTechnologyEntry {
 	return append([]ResumeTechnologyEntry(nil), t.entries...)
 }
@@ -85,16 +100,6 @@ func (r *Resume) ReplaceTechnologies(params ResumeTechnologiesParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	if params.ID.IsZero() {
-		if r.technologies != nil {
-			params.ID = r.technologies.ID()
-		} else {
-			params.ID = sharedvalueobjects.NewID()
-		}
-	} else if r.technologies == nil || params.ID != r.technologies.ID() {
-		return fmt.Errorf("%w: technologies do not belong to resume", ErrResumeInvariant)
-	}
-
 	existing := make(map[sharedvalueobjects.ID]struct{})
 	if r.technologies != nil {
 		for _, entry := range r.technologies.Entries() {
@@ -104,13 +109,11 @@ func (r *Resume) ReplaceTechnologies(params ResumeTechnologiesParams) error {
 	seen := make(map[sharedvalueobjects.ID]struct{}, len(params.Entries))
 	entries := make([]ResumeTechnologyEntryParams, 0, len(params.Entries))
 	for _, entry := range params.Entries {
-		if entry.ID.IsZero() {
-			entry.ID = sharedvalueobjects.NewID()
-		} else {
-			if _, ok := existing[entry.ID]; !ok {
-				return fmt.Errorf("%w: technology does not belong to resume", ErrResumeInvariant)
-			}
+		resolvedID, err := resolveCollectionItemID(entry.ID, existing, "technology")
+		if err != nil {
+			return err
 		}
+		entry.ID = resolvedID
 		if _, ok := seen[entry.ID]; ok {
 			return fmt.Errorf("%w: duplicate technology id", ErrInvalidEntity)
 		}
@@ -118,9 +121,12 @@ func (r *Resume) ReplaceTechnologies(params ResumeTechnologiesParams) error {
 		entries = append(entries, entry)
 	}
 
-	params.ResumeID = r.id
+	if len(entries) == 0 {
+		r.technologies = nil
+		return nil
+	}
 	params.Entries = entries
-	technologies, err := NewResumeTechnologies(params)
+	technologies, err := newResumeTechnologies(params)
 	if err != nil {
 		return err
 	}
@@ -129,12 +135,10 @@ func (r *Resume) ReplaceTechnologies(params ResumeTechnologiesParams) error {
 }
 
 func (r *Resume) Technologies() *ResumeTechnologies {
-	if r == nil || r.technologies == nil {
+	if r == nil {
 		return nil
 	}
-	copy := *r.technologies
-	copy.entries = append([]ResumeTechnologyEntry(nil), r.technologies.entries...)
-	return &copy
+	return cloneResumeTechnologies(r.technologies)
 }
 
 type TechnologyParams struct {
@@ -146,11 +150,31 @@ type Technology struct {
 }
 
 func NewTechnology(params TechnologyParams) (Technology, error) {
-	name := strings.TrimSpace(params.Name)
-	if name == "" {
-		return Technology{}, fmt.Errorf("%w: technology name is empty", ErrInvalidValue)
+	technology := Technology{name: strings.TrimSpace(params.Name)}
+	if err := technology.validate(); err != nil {
+		return Technology{}, err
 	}
-	return Technology{name: name}, nil
+	return technology, nil
+}
+
+func RestoreTechnology(params TechnologyParams) Technology {
+	return Technology{name: params.Name}
+}
+
+func (t Technology) validate() error {
+	if t.name == "" || !textLengthWithin(t.name, MaxSkillLength) {
+		return fmt.Errorf("%w: technology name is empty", ErrInvalidValue)
+	}
+	return nil
 }
 
 func (t Technology) Name() string { return t.name }
+
+func cloneResumeTechnologies(value *ResumeTechnologies) *ResumeTechnologies {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	copy.entries = append([]ResumeTechnologyEntry(nil), value.entries...)
+	return &copy
+}

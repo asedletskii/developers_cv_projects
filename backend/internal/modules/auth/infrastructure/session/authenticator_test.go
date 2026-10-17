@@ -71,7 +71,6 @@ func newAuthenticatorSession(t *testing.T, now time.Time, lastSeenOffset time.Du
 	hash, err := valueobjects.NewSessionTokenHash(hashBytes[:])
 	require.NoError(t, err)
 	session, err := domain.NewSession(domain.SessionParams{
-		ID:         sharedvalueobjects.NewID(),
 		UserID:     sharedvalueobjects.NewID(),
 		TokenHash:  hash,
 		CreatedAt:  now.Add(-3 * time.Hour),
@@ -168,7 +167,6 @@ func TestAuthenticatorRejectsAbsoluteExpiredSession(t *testing.T) {
 	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
 	require.NoError(t, err)
 	expired, err := domain.NewSession(domain.SessionParams{
-		ID:         sharedvalueobjects.NewID(),
 		UserID:     sharedvalueobjects.NewID(),
 		TokenHash:  hash,
 		CreatedAt:  now.Add(-3 * time.Hour),
@@ -205,6 +203,3 @@ func TestAuthenticatorDoesNotAcceptNilRequest(t *testing.T) {
 
 	require.Error(t, err)
 }
-
-var _ ports.SessionRepository = (*sessionRepositoryStub)(nil)
-var _ ports.UnitOfWork = (*sessionUOWStub)(nil)

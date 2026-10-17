@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"developers-cv/backend/internal/modules/user/domain"
 	"developers-cv/backend/internal/modules/user/infrastructure/persistence/gormmodel"
@@ -22,8 +23,8 @@ func (r *ProfileRepository) ReplaceProfile(ctx context.Context, profile *domain.
 	if r == nil || r.db == nil {
 		return fmt.Errorf("replace profile: repository dependencies are nil")
 	}
-	if profile == nil || profile.UserID().IsZero() {
-		return fmt.Errorf("replace profile: invalid profile")
+	if profile == nil {
+		return fmt.Errorf("replace profile: profile is nil")
 	}
 
 	db, err := database.DBFromTransactionContext(ctx)
@@ -36,27 +37,33 @@ func (r *ProfileRepository) ReplaceProfile(ctx context.Context, profile *domain.
 	if err != nil {
 		return fmt.Errorf("replace profile: %w", err)
 	}
-	if err := db.WithContext(ctx).Where("user_id = ?", profile.UserID().UUID()).First(&model).Error; err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("replace profile: load profile: %w", err)
-		}
-		if err := db.WithContext(ctx).Create(&model).Error; err != nil {
-			return fmt.Errorf("replace profile: create profile: %w", err)
-		}
-	} else {
-		if err := db.WithContext(ctx).Model(&gormmodel.UserProfile{}).Where("user_id = ?", profile.UserID().UUID()).Updates(map[string]any{"photo_path": profile.PhotoPath(), "updated_at": now}).Error; err != nil {
-			return fmt.Errorf("replace profile: update profile: %w", err)
-		}
+
+	if err := db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"photo_path": model.PhotoURL,
+			"updated_at": now,
+		}),
+	}).Create(&model).Error; err != nil {
+		return fmt.Errorf("replace profile: upsert profile: %w", mapProfileDBError(err))
 	}
 
 	if err := db.WithContext(ctx).Where("user_id = ?", profile.UserID().UUID()).Delete(&gormmodel.UserProfileLocalization{}).Error; err != nil {
-		return fmt.Errorf("replace profile: clear localizations: %w", err)
+		return fmt.Errorf("replace profile: clear localizations: %w", mapProfileDBError(err))
 	}
 	if len(rows) > 0 {
 		if err := db.WithContext(ctx).Create(&rows).Error; err != nil {
-			return fmt.Errorf("replace profile: create localizations: %w", err)
+			return fmt.Errorf("replace profile: create localizations: %w", mapProfileDBError(err))
 		}
 	}
 
 	return nil
+}
+
+func mapProfileDBError(err error) error {
+	mapped := database.MapPostgresError(err)
+	if errors.Is(mapped, database.ErrConstraintViolation) || errors.Is(mapped, database.ErrInvalidData) {
+		return domain.ErrInvalidProfile
+	}
+	return mapped
 }

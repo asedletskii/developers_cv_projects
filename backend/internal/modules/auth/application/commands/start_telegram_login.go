@@ -2,14 +2,15 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"developers-cv/backend/internal/modules/auth/application"
 	"developers-cv/backend/internal/modules/auth/application/ports"
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type TelegramLoginStart struct {
@@ -95,24 +96,33 @@ func (h *StartTelegramLoginHandler) Handle(ctx context.Context) (TelegramLoginSt
 		return TelegramLoginStart{}, fmt.Errorf("create browser binding hash: %w", err)
 	}
 	transaction, err := domain.NewAuthTransaction(domain.AuthTransactionParams{
-		ID: sharedvalueobjects.NewID(), Provider: provider, StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: browserBindingHash,
+		Provider: provider, StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: browserBindingHash,
 		CodeVerifier: verifierValue, RedirectURI: h.redirectURI, CreatedAt: createdAt, ExpiresAt: createdAt.Add(h.transactionTTL),
 	})
 	if err != nil {
 		return TelegramLoginStart{}, err
 	}
-	if err := h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.Create(tx, transaction)
-	}); err != nil {
-		return TelegramLoginStart{}, fmt.Errorf("create auth transaction: %w", err)
-	}
-
-	authorizationURL := h.oidc.AuthorizationURL(ports.TelegramAuthorizationParams{
+	authorizationURL, err := h.oidc.AuthorizationURL(ctx, ports.TelegramAuthorizationParams{
 		State:         stateValue,
 		Nonce:         nonceValue,
 		CodeChallenge: encodeOpaque(h.tokenGenerator.Hash([]byte(verifierValue))),
 		RedirectURI:   h.redirectURI,
 	})
+	if err != nil {
+		if errors.Is(err, ports.ErrProviderUnavailable) {
+			return TelegramLoginStart{}, fmt.Errorf("%w: %w", application.ErrProviderUnavailable, err)
+		}
+		return TelegramLoginStart{}, fmt.Errorf("create telegram authorization URL: %w", err)
+	}
+	if strings.TrimSpace(authorizationURL) == "" {
+		return TelegramLoginStart{}, application.ErrProviderUnavailable
+	}
+
+	if err := h.uow.Do(ctx, func(tx context.Context) error {
+		return h.repository.Create(tx, transaction)
+	}); err != nil {
+		return TelegramLoginStart{}, fmt.Errorf("create auth transaction: %w", err)
+	}
 	return TelegramLoginStart{
 		AuthorizationURL:     authorizationURL,
 		BrowserBindingToken:  browserBindingValue,

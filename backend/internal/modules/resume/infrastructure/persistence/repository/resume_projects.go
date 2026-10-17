@@ -13,33 +13,28 @@ import (
 )
 
 func persistProjects(tx *gorm.DB, resume *domain.Resume) error {
-	models := make([]gormmodel.ResumeProject, 0, len(resume.Projects()))
-	items := resume.Projects()
-	for position, project := range items {
-		if project == nil {
-			return fmt.Errorf("%w: nil project", domain.ErrResumeInvariant)
-		}
-		if project.ResumeID() != resume.ID() {
-			return fmt.Errorf("%w: project does not belong to resume", domain.ErrResumeInvariant)
-		}
-		model, err := mappers.ProjectToDB(project)
-		if err != nil {
-			return err
-		}
-		model.SortOrder = position
-		models = append(models, model)
-	}
-
+	models, screenshots, technologies, contributors := mappers.ProjectsToDBModels(resume.Projects())
 	if err := tx.Where("resume_id = ?", resume.ID().UUID()).Delete(&gormmodel.ResumeProject{}).Error; err != nil {
 		return fmt.Errorf("replace resume projects: %w", mapDBError(err))
 	}
-	for position, project := range items {
-		model := models[position]
-		if err := tx.Create(&model).Error; err != nil {
-			return fmt.Errorf("create resume project: %w", mapDBError(err))
+	if len(models) > 0 {
+		if err := tx.Create(&models).Error; err != nil {
+			return fmt.Errorf("create resume projects: %w", mapDBError(err))
 		}
-		if err := writeProjectChildrenFromDomain(tx, &model, project); err != nil {
-			return err
+	}
+	if len(screenshots) > 0 {
+		if err := tx.Create(&screenshots).Error; err != nil {
+			return fmt.Errorf("create resume project screenshots: %w", mapDBError(err))
+		}
+	}
+	if len(technologies) > 0 {
+		if err := tx.Create(&technologies).Error; err != nil {
+			return fmt.Errorf("create resume project technologies: %w", mapDBError(err))
+		}
+	}
+	if len(contributors) > 0 {
+		if err := tx.Create(&contributors).Error; err != nil {
+			return fmt.Errorf("create resume project contributors: %w", mapDBError(err))
 		}
 	}
 	return nil
@@ -51,7 +46,7 @@ func loadProjects(tx *gorm.DB, resumeID sharedvalueobjects.ID) ([]*domain.Projec
 		return nil, fmt.Errorf("get resume projects: %w", mapDBError(err))
 	}
 	if len(rows) == 0 {
-		return nil, nil
+		return make([]*domain.Project, 0), nil
 	}
 
 	ids := make([]uuid.UUID, 0, len(rows))
@@ -71,15 +66,7 @@ func loadProjects(tx *gorm.DB, resumeID sharedvalueobjects.ID) ([]*domain.Projec
 		return nil, err
 	}
 
-	out := make([]*domain.Project, 0, len(rows))
-	for _, row := range rows {
-		project, err := mappers.ProjectToDomain(row, screenshots[row.ID], technologies[row.ID], contributors[row.ID])
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, project)
-	}
-	return out, nil
+	return mappers.ProjectsToDomain(rows, screenshots, technologies, contributors)
 }
 
 func loadProjectScreenshots(tx *gorm.DB, projectIDs []uuid.UUID) (map[uuid.UUID][]gormmodel.ResumeProjectScreenshot, error) {
@@ -116,30 +103,4 @@ func loadProjectContributors(tx *gorm.DB, projectIDs []uuid.UUID) (map[uuid.UUID
 		grouped[row.ProjectID] = append(grouped[row.ProjectID], row)
 	}
 	return grouped, nil
-}
-
-func writeProjectChildrenFromDomain(tx *gorm.DB, model *gormmodel.ResumeProject, project *domain.Project) error {
-	projectID, err := sharedvalueobjects.IDFromUUID(model.ID)
-	if err != nil {
-		return fmt.Errorf("parse project id: %w", err)
-	}
-	screenshots := mappers.ProjectScreenshotsToDB(projectID, project.Screenshots())
-	if len(screenshots) > 0 {
-		if err := tx.Create(&screenshots).Error; err != nil {
-			return fmt.Errorf("create resume project screenshots: %w", mapDBError(err))
-		}
-	}
-	technologies := mappers.ProjectTechnologiesToDB(projectID, project.Stack())
-	if len(technologies) > 0 {
-		if err := tx.Create(&technologies).Error; err != nil {
-			return fmt.Errorf("create resume project technology: %w", mapDBError(err))
-		}
-	}
-	contributors := mappers.ProjectContributorsToDB(projectID, project.Contributors())
-	if len(contributors) > 0 {
-		if err := tx.Create(&contributors).Error; err != nil {
-			return fmt.Errorf("create resume project contributors: %w", mapDBError(err))
-		}
-	}
-	return nil
 }

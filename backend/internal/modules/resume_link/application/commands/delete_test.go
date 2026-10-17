@@ -7,22 +7,31 @@ import (
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type deleteRepositoryStub struct {
-	link    *domain.ResumeLink
-	deleted sharedvalueobjects.ID
-	getErr  error
-	delErr  error
+	link      *domain.ResumeLink
+	deleted   sharedvalueobjects.ID
+	getErr    error
+	returnNil bool
+	delErr    error
 }
 
 func (s *deleteRepositoryStub) Create(context.Context, *domain.ResumeLink) error { return nil }
+func (s *deleteRepositoryStub) LockResumeForLinkCreation(context.Context, sharedvalueobjects.ID) error {
+	return nil
+}
+func (s *deleteRepositoryStub) CountByResumeID(context.Context, sharedvalueobjects.ID) (int64, error) {
+	return 0, nil
+}
 func (s *deleteRepositoryStub) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
+	}
+	if s.returnNil {
+		return nil, nil
 	}
 	return s.link, nil
 }
@@ -34,8 +43,6 @@ func (s *deleteRepositoryStub) Delete(_ context.Context, id sharedvalueobjects.I
 	s.deleted = id
 	return s.delErr
 }
-
-var _ ports.ResumeLinkRepository = (*deleteRepositoryStub)(nil)
 
 type deleteOwnershipStub struct {
 	err error
@@ -50,11 +57,16 @@ func (s *deleteOwnershipStub) GetOwned(_ context.Context, q resumequeries.GetRes
 	return resumequeries.ResumeView{ID: q.ResumeID.String()}, nil
 }
 
+func (s *deleteOwnershipStub) OwnsResume(_ context.Context, query resumequeries.GetResumeQuery) (bool, error) {
+	s.q = query
+	return s.err == nil, s.err
+}
+
 func TestDeleteResumeLinkHandlerChecksOwnershipBeforeDelete(t *testing.T) {
 	userID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	linkID := sharedvalueobjects.NewID()
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: linkID, ResumeID: resumeID, Name: "HH"})
+	link, err := domain.RestoreResumeLink(domain.ResumeLinkSnapshot{ID: linkID, ResumeID: resumeID, Name: "HH", Status: domain.ResumeLinkStatusActive, Version: 1})
 	require.NoError(t, err)
 
 	repo := &deleteRepositoryStub{link: link}
@@ -67,7 +79,7 @@ func TestDeleteResumeLinkHandlerChecksOwnershipBeforeDelete(t *testing.T) {
 }
 
 func TestDeleteResumeLinkHandlerDoesNotDeleteForeignLink(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "HH"})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: sharedvalueobjects.NewID(), Name: "HH"})
 	require.NoError(t, err)
 	repo := &deleteRepositoryStub{link: link}
 	ownership := &deleteOwnershipStub{err: resumequeries.ErrResumeNotFound}
@@ -81,4 +93,14 @@ func TestDeleteResumeLinkHandlerPropagatesMissingLink(t *testing.T) {
 	repo := &deleteRepositoryStub{getErr: domain.ErrEntityNotFound}
 	err := NewDeleteResumeLinkHandler(repo, &deleteOwnershipStub{}, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{UserID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID()})
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+func TestDeleteResumeLinkHandlerRejectsNilLinkFromRepository(t *testing.T) {
+	repo := &deleteRepositoryStub{returnNil: true}
+	err := NewDeleteResumeLinkHandler(repo, &deleteOwnershipStub{}, &fakeUnitOfWork{}).Handle(context.Background(), DeleteResumeLinkCommand{
+		UserID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(),
+	})
+
+	require.EqualError(t, err, "delete resume link: repository returned nil link")
+	require.True(t, repo.deleted.IsZero())
 }

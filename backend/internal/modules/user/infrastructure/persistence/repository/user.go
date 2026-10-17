@@ -23,8 +23,8 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	if r == nil || r.db == nil {
 		return fmt.Errorf("create user: repository dependencies are nil")
 	}
-	if user == nil || user.ID().IsZero() {
-		return fmt.Errorf("create user: invalid user")
+	if user == nil {
+		return fmt.Errorf("create user: user is nil")
 	}
 
 	tx, err := database.DBFromTransactionContext(ctx)
@@ -37,7 +37,7 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 		return fmt.Errorf("create user: %w", err)
 	}
 	if err := tx.WithContext(ctx).Create(&model).Error; err != nil {
-		return fmt.Errorf("create user: %w", err)
+		return fmt.Errorf("create user: %w", database.MapPostgresError(err))
 	}
 	return nil
 }

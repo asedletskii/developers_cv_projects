@@ -14,34 +14,56 @@ type User struct {
 }
 
 type UserParams struct {
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type UserSnapshot struct {
 	ID        sharedvalueobjects.ID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 func NewUser(params UserParams) (*User, error) {
-	if params.ID.IsZero() {
-		return nil, fmt.Errorf("%w: id is empty", ErrInvalidUser)
-	}
+	id := sharedvalueobjects.NewID()
 
-	now := time.Now().UTC()
 	createdAt := params.CreatedAt.UTC()
 	if createdAt.IsZero() {
-		createdAt = now
+		createdAt = time.Now().UTC()
 	}
 	updatedAt := params.UpdatedAt.UTC()
 	if updatedAt.IsZero() {
 		updatedAt = createdAt
 	}
-	if updatedAt.Before(createdAt) {
-		return nil, fmt.Errorf("%w: updated_at is before created_at", ErrInvalidUser)
+	if err := validateUser(id, createdAt, updatedAt); err != nil {
+		return nil, err
 	}
 
 	return &User{
-		id:        params.ID,
+		id:        id,
 		createdAt: createdAt,
 		updatedAt: updatedAt,
 	}, nil
+}
+
+func RestoreUser(snapshot UserSnapshot) (*User, error) {
+	if err := validateUser(snapshot.ID, snapshot.CreatedAt, snapshot.UpdatedAt); err != nil {
+		return nil, err
+	}
+	return &User{id: snapshot.ID, createdAt: snapshot.CreatedAt, updatedAt: snapshot.UpdatedAt}, nil
+}
+
+func validateUser(id sharedvalueobjects.ID, createdAt, updatedAt time.Time) error {
+	if id.IsZero() {
+		return fmt.Errorf("%w: id is empty", ErrInvalidUser)
+	}
+	if createdAt.IsZero() || updatedAt.IsZero() {
+		return fmt.Errorf("%w: timestamps must be set", ErrInvalidUser)
+	}
+	if updatedAt.Before(createdAt) {
+		return fmt.Errorf("%w: updated_at is before created_at", ErrInvalidUser)
+	}
+	return nil
 }
 
 func (u *User) ID() sharedvalueobjects.ID {

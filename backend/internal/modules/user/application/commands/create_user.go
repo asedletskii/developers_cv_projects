@@ -22,7 +22,7 @@ func (h *CreateUserHandler) Handle(ctx context.Context) (sharedvalueobjects.ID, 
 		return sharedvalueobjects.ID{}, fmt.Errorf("create user handler dependencies are nil")
 	}
 
-	user, err := domain.NewUser(domain.UserParams{ID: sharedvalueobjects.NewID()})
+	user, err := domain.NewUser(domain.UserParams{})
 	if err != nil {
 		return sharedvalueobjects.ID{}, err
 	}

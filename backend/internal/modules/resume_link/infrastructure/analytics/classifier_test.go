@@ -56,3 +56,45 @@ func TestTrafficClassifierEmptyUserAgentIsBot(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, domain.TrafficBot, result.Traffic)
 }
+
+func TestTrafficClassifierDoesNotTreatBotSubstringAsCrawler(t *testing.T) {
+	ua := "Mozilla/5.0 (Linux; Android 12; Cubot X20 Pro) AppleWebKit/537.36 Chrome/100.0.0.0 Mobile Safari/537.36"
+
+	require.False(t, isBotUA(ua))
+
+	classifier := NewTrafficClassifier(5, time.Minute)
+	result, err := classifier.Classify(context.Background(), ports.TrafficClassificationInput{
+		UserAgent: ua,
+		IPHash:    make([]byte, 32),
+		LinkID:    sharedvalueobjects.NewID(),
+		Now:       time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC),
+	})
+	require.NoError(t, err)
+	require.Equal(t, domain.TrafficHuman, result.Traffic)
+}
+
+func TestTrafficClassifierRecognizesKnownCrawlerTokens(t *testing.T) {
+	for _, ua := range []string{
+		"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+		"Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+		"Example Bot/1.0",
+		"curl/8.0.0",
+	} {
+		t.Run(ua, func(t *testing.T) {
+			require.True(t, isBotUA(ua))
+		})
+	}
+}
+
+func TestClassifyDeviceTreatsAndroidWithoutMobileTokenAsTablet(t *testing.T) {
+	ua := "Mozilla/5.0 (Linux; Android 13; SM-X700) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+	require.Equal(t, domain.DeviceTablet, classifyDevice(ua))
+}
+
+func TestClassifyDeviceAndOSRecognizeDesktopClassIPadOSUserAgent(t *testing.T) {
+	ua := "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+
+	require.Equal(t, domain.DeviceTablet, classifyDevice(ua))
+	require.Equal(t, domain.OSIOS, classifyOS(ua))
+}

@@ -20,9 +20,14 @@ type fakeExperiencesAggregateRepository struct {
 func (r *fakeExperiencesAggregateRepository) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
 	return r.resume, nil
 }
+
 func (r *fakeExperiencesAggregateRepository) Save(_ context.Context, resume *domain.Resume) error {
 	r.resume, r.version, r.saved = resume, resume.Version(), true
 	return nil
+}
+
+func (r *fakeExperiencesAggregateRepository) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return r.Save(ctx, resume)
 }
 func (r *fakeExperiencesAggregateRepository) Create(context.Context, *domain.Resume) error {
 	return nil

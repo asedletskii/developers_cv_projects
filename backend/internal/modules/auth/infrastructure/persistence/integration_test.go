@@ -5,65 +5,30 @@ package persistence_test
 import (
 	"context"
 	"errors"
-	"os"
-	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"crypto/sha256"
-	"path/filepath"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
 	"developers-cv/backend/internal/modules/auth/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/testutil/pgtest"
 )
 
 func newAuthDatabase(t *testing.T) (context.Context, string, *database.UnitOfWork, *repository.IdentityRepository, *repository.SessionRepository, *repository.AuthTransactionRepository) {
 	t.Helper()
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, container.Terminate(ctx)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 	db, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(db)) })
 	return ctx, dsn, database.NewUnitOfWork(db), repository.NewIdentityRepository(db), repository.NewSessionRepository(db), repository.NewAuthTransactionRepository(db)
-}
-
-func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
-	t.Helper()
-	cfg, err := pgx.ParseConfig(dsn)
-	require.NoError(t, err)
-	conn, err := pgx.ConnectConfig(ctx, cfg)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	dir := filepath.Join("..", "..", "..", "..", "..", "db", "migrations")
-	entries, err := os.ReadDir(dir)
-	require.NoError(t, err)
-	var names []string
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".up.sql") {
-			continue
-		}
-		names = append(names, entry.Name())
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		sql, err := os.ReadFile(filepath.Join(dir, name))
-		require.NoError(t, err)
-		_, err = conn.Exec(ctx, string(sql))
-		require.NoErrorf(t, err, "failed to apply %s", name)
-	}
 }
 
 func insertUser(t *testing.T, ctx context.Context, dsn string, id sharedvalueobjects.ID) {
@@ -80,7 +45,7 @@ func testIdentity(t *testing.T, userID sharedvalueobjects.ID, subject string, at
 	t.Helper()
 	providerSubject, err := valueobjects.NewProviderSubject(subject)
 	require.NoError(t, err)
-	identity, err := domain.NewIdentity(domain.IdentityParams{ID: sharedvalueobjects.NewID(), UserID: userID, Provider: domain.ProviderTelegram, ProviderSubject: providerSubject, CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
+	identity, err := domain.NewIdentity(domain.IdentityParams{UserID: userID, Provider: domain.ProviderTelegram, ProviderSubject: providerSubject, CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
 	require.NoError(t, err)
 	return identity
 }
@@ -89,7 +54,7 @@ func testSession(t *testing.T, userID sharedvalueobjects.ID, at time.Time) *doma
 	t.Helper()
 	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
 	require.NoError(t, err)
-	session, err := domain.NewSession(domain.SessionParams{ID: sharedvalueobjects.NewID(), UserID: userID, TokenHash: hash, CreatedAt: at, LastSeenAt: at, ExpiresAt: at.Add(time.Hour)})
+	session, err := domain.NewSession(domain.SessionParams{UserID: userID, TokenHash: hash, CreatedAt: at, LastSeenAt: at, ExpiresAt: at.Add(time.Hour)})
 	require.NoError(t, err)
 	return session
 }
@@ -105,7 +70,7 @@ func testTransaction(t *testing.T, at time.Time) *domain.AuthTransaction {
 	bindingBytes := sha256.Sum256([]byte("browser-binding"))
 	binding, err := valueobjects.NewBrowserBindingHash(bindingBytes[:])
 	require.NoError(t, err)
-	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{ID: sharedvalueobjects.NewID(), Provider: domain.ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding, CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
+	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{Provider: domain.ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding, CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
 	require.NoError(t, err)
 	return tx
 }
@@ -135,7 +100,7 @@ func TestAuthRepositoriesPersistAndCascade(t *testing.T) {
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return identities.UpdateLastLogin(tx, identity.ID(), updatedAt) }))
 	loadedIdentity, err = identities.FindByProviderSubject(ctx, domain.ProviderTelegram, identity.ProviderSubject())
 	require.NoError(t, err)
-	require.Equal(t, updatedAt, loadedIdentity.LastLoginAt())
+	require.True(t, updatedAt.Equal(loadedIdentity.LastLoginAt()))
 
 	duplicate := testIdentity(t, userID, identity.ProviderSubject().String(), updatedAt)
 	err = uow.Do(ctx, func(tx context.Context) error { return identities.Create(tx, duplicate) })

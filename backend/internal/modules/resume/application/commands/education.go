@@ -23,7 +23,17 @@ type EducationsInput struct{ Items []EducationInput }
 func (i EducationsInput) toDomain() []domain.EducationParams {
 	out := make([]domain.EducationParams, 0, len(i.Items))
 	for _, x := range i.Items {
-		out = append(out, domain.EducationParams{ID: x.ID, Location: x.Location, University: x.University, Grade: x.Grade, ProgramName: x.ProgramName, ProfileName: x.ProfileName, Faculty: x.Faculty, Course: x.Course, EndDate: x.EndDate})
+		out = append(out, domain.EducationParams{
+			ID:          x.ID,
+			Location:    x.Location,
+			University:  x.University,
+			Grade:       x.Grade,
+			ProgramName: x.ProgramName,
+			ProfileName: x.ProfileName,
+			Faculty:     x.Faculty,
+			Course:      x.Course,
+			EndDate:     x.EndDate,
+		})
 	}
 	return out
 }
@@ -47,7 +57,8 @@ func (h *ReplaceEducationsHandler) Handle(ctx context.Context, c ReplaceEducatio
 		return fmt.Errorf("replace educations handler dependencies are nil")
 	}
 
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace educations", func(resume *domain.Resume) error {
-		return resume.ReplaceEducations(c.Input.toDomain())
+	educations := c.Input.toDomain()
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace educations", ports.ResumeMutationEducations, func(resume *domain.Resume) error {
+		return resume.ReplaceEducations(educations)
 	})
 }

@@ -13,9 +13,6 @@ func ResumeLinkToDB(link *domain.ResumeLink, createdAt, updatedAt time.Time) (go
 	if link == nil {
 		return gormmodel.ResumeLink{}, fmt.Errorf("resume link is nil")
 	}
-	if link.ID().IsZero() || link.ResumeID().IsZero() || link.Version() < 1 || !link.Status().IsValid() {
-		return gormmodel.ResumeLink{}, fmt.Errorf("invalid resume link")
-	}
 	return gormmodel.ResumeLink{
 		ID: link.ID().UUID(), ResumeID: link.ResumeID().UUID(), Name: link.Name(),
 		Status: string(link.Status()), Version: link.Version(), CreatedAt: createdAt, UpdatedAt: updatedAt,
@@ -31,8 +28,9 @@ func ResumeLinkToDomain(model gormmodel.ResumeLink) (*domain.ResumeLink, error) 
 	if err != nil {
 		return nil, fmt.Errorf("map resume link resume id: %w", err)
 	}
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: id, ResumeID: resumeID, Name: model.Name, Version: model.Version, Status: domain.ResumeLinkStatus(model.Status),
+	link, err := domain.RestoreResumeLink(domain.ResumeLinkSnapshot{
+		ID: id, ResumeID: resumeID, Name: model.Name,
+		Version: model.Version, Status: domain.ResumeLinkStatus(model.Status),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("map resume link: %w", err)

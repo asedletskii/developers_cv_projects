@@ -20,9 +20,14 @@ type fakeContactsAggregateRepository struct {
 func (r *fakeContactsAggregateRepository) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
 	return r.resume, nil
 }
+
 func (r *fakeContactsAggregateRepository) Save(_ context.Context, resume *domain.Resume) error {
 	r.resume, r.version, r.saved = resume, resume.Version(), true
 	return nil
+}
+
+func (r *fakeContactsAggregateRepository) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return r.Save(ctx, resume)
 }
 func (r *fakeContactsAggregateRepository) Create(context.Context, *domain.Resume) error { return nil }
 func (r *fakeContactsAggregateRepository) Delete(context.Context, ports.DeleteResumeParams) error {

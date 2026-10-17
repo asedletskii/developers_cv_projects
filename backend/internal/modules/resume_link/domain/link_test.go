@@ -10,7 +10,6 @@ import (
 
 func validResumeLinkParams() ResumeLinkParams {
 	return ResumeLinkParams{
-		ID:       sharedvalueobjects.NewID(),
 		ResumeID: sharedvalueobjects.NewID(),
 		Name:     "HH",
 	}
@@ -26,16 +25,25 @@ func TestNewResumeLink(t *testing.T) {
 	require.Equal(t, int64(1), link.Version())
 }
 
-func TestNewResumeLinkRejectsInvalidIdentity(t *testing.T) {
+func TestNewResumeLinkRejectsInvalidResumeID(t *testing.T) {
 	params := validResumeLinkParams()
-	params.ID = sharedvalueobjects.ID{}
+	params.ResumeID = sharedvalueobjects.ID{}
+
 	_, err := NewResumeLink(params)
 	require.ErrorIs(t, err, ErrInvalidResumeLink)
+}
 
-	params = validResumeLinkParams()
-	params.ResumeID = sharedvalueobjects.ID{}
-	_, err = NewResumeLink(params)
-	require.ErrorIs(t, err, ErrInvalidResumeLink)
+func TestNewResumeLinkGeneratesIDAndStartsAtVersionOne(t *testing.T) {
+	link, err := NewResumeLink(validResumeLinkParams())
+	require.NoError(t, err)
+	require.False(t, link.ID().IsZero())
+	require.Equal(t, int64(1), link.Version())
+}
+
+func TestEnsureResumeLinkCapacity(t *testing.T) {
+	require.NoError(t, EnsureResumeLinkCapacity(MaxResumeLinksPerResume-1))
+	require.ErrorIs(t, EnsureResumeLinkCapacity(MaxResumeLinksPerResume), ErrResumeLinkLimitExceeded)
+	require.ErrorIs(t, EnsureResumeLinkCapacity(MaxResumeLinksPerResume+1), ErrResumeLinkLimitExceeded)
 }
 
 func TestNewResumeLinkRejectsEmptyName(t *testing.T) {
@@ -59,27 +67,17 @@ func TestNewResumeLinkTrimsName(t *testing.T) {
 
 func TestNewResumeLinkRejectsNonPositiveVersion(t *testing.T) {
 	for _, version := range []int64{-1, -2} {
-		params := validResumeLinkParams()
-		params.Version = version
-		_, err := NewResumeLink(params)
+		_, err := RestoreResumeLink(ResumeLinkSnapshot{
+			ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(),
+			Name: "HH", Status: ResumeLinkStatusActive, Version: version,
+		})
 		require.ErrorIs(t, err, ErrInvalidResumeLink)
 	}
 }
 
-func TestResumeLinkStateTransitions(t *testing.T) {
-	link, err := NewResumeLink(validResumeLinkParams())
-	require.NoError(t, err)
-
-	require.NoError(t, link.Deactivate())
-	require.False(t, link.IsActive())
-	require.NoError(t, link.Activate())
-	require.True(t, link.IsActive())
-}
-
 func TestNewResumeLinkAcceptsMaximumNameLength(t *testing.T) {
 	params := validResumeLinkParams()
-	params.Name = string([]rune{'ж'})
-	params.Name += string(make([]rune, MaxResumeLinkNameLength-1))
+	params.Name = string(make([]rune, MaxResumeLinkNameLength))
 	runes := []rune(params.Name)
 	for i := range runes {
 		runes[i] = 'ж'
@@ -100,11 +98,10 @@ func TestNewResumeLinkRejectsNameLongerThanMaximum(t *testing.T) {
 }
 
 func TestNewResumeLinkRejectsInvalidStatus(t *testing.T) {
-	params := validResumeLinkParams()
-	params.Status = ResumeLinkStatus("broken")
-
-	_, err := NewResumeLink(params)
-
+	_, err := RestoreResumeLink(ResumeLinkSnapshot{
+		ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(),
+		Name: "HH", Status: ResumeLinkStatus("broken"), Version: 1,
+	})
 	require.ErrorIs(t, err, ErrInvalidResumeLink)
 }
 
@@ -113,5 +110,45 @@ func TestNewResumeLinkDefaultsStatusToActive(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, ResumeLinkStatusActive, link.Status())
+	require.True(t, link.IsActive())
+}
+
+func TestReconstructResumeLinkRestoresSnapshot(t *testing.T) {
+	snapshot := ResumeLinkSnapshot{
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
+		Name:     "  Telegram  ",
+		Status:   ResumeLinkStatusInactive,
+		Version:  7,
+	}
+
+	link, err := ReconstructResumeLink(snapshot)
+	require.NoError(t, err)
+	require.Equal(t, snapshot.ID, link.ID())
+	require.Equal(t, snapshot.ResumeID, link.ResumeID())
+	require.Equal(t, "  Telegram  ", link.Name())
+	require.Equal(t, snapshot.Status, link.Status())
+	require.Equal(t, snapshot.Version, link.Version())
+	require.False(t, link.IsActive())
+}
+
+func TestReconstructResumeLinkRejectsInvalidSnapshot(t *testing.T) {
+	_, err := ReconstructResumeLink(ResumeLinkSnapshot{
+		ID:       sharedvalueobjects.NewID(),
+		ResumeID: sharedvalueobjects.NewID(),
+		Name:     "HH",
+		Status:   ResumeLinkStatus("broken"),
+		Version:  1,
+	})
+	require.ErrorIs(t, err, ErrInvalidResumeLink)
+}
+
+func TestResumeLinkStateTransitions(t *testing.T) {
+	link, err := NewResumeLink(validResumeLinkParams())
+	require.NoError(t, err)
+
+	require.NoError(t, link.Deactivate())
+	require.False(t, link.IsActive())
+	require.NoError(t, link.Activate())
 	require.True(t, link.IsActive())
 }

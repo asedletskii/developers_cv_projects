@@ -1,11 +1,14 @@
 package valueobjects
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
 
 const MaxProviderSubjectLength = 255
+
+var ErrInvalidProviderSubject = errors.New("invalid provider subject")
 
 type ProviderSubject struct {
 	value string
@@ -13,10 +16,10 @@ type ProviderSubject struct {
 
 func NewProviderSubject(value string) (ProviderSubject, error) {
 	if strings.TrimSpace(value) == "" {
-		return ProviderSubject{}, fmt.Errorf("provider subject is empty")
+		return ProviderSubject{}, fmt.Errorf("%w: value is empty", ErrInvalidProviderSubject)
 	}
 	if len([]rune(value)) > MaxProviderSubjectLength {
-		return ProviderSubject{}, fmt.Errorf("provider subject exceeds %d characters", MaxProviderSubjectLength)
+		return ProviderSubject{}, fmt.Errorf("%w: value exceeds %d characters", ErrInvalidProviderSubject, MaxProviderSubjectLength)
 	}
 	return ProviderSubject{value: value}, nil
 }

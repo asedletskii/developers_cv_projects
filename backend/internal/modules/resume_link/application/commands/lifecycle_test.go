@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -24,6 +23,12 @@ type lifecycleCommandRepositoryStub struct {
 func (s *lifecycleCommandRepositoryStub) Create(context.Context, *domain.ResumeLink) error {
 	return nil
 }
+func (s *lifecycleCommandRepositoryStub) LockResumeForLinkCreation(context.Context, sharedvalueobjects.ID) error {
+	return nil
+}
+func (s *lifecycleCommandRepositoryStub) CountByResumeID(context.Context, sharedvalueobjects.ID) (int64, error) {
+	return 0, nil
+}
 func (s *lifecycleCommandRepositoryStub) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
@@ -38,8 +43,6 @@ func (s *lifecycleCommandRepositoryStub) ReplaceStatus(_ context.Context, _ shar
 	return s.replaceErr
 }
 
-var _ ports.ResumeLinkRepository = (*lifecycleCommandRepositoryStub)(nil)
-
 type lifecycleCommandOwnershipStub struct{ err error }
 
 func (s lifecycleCommandOwnershipStub) GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
@@ -49,17 +52,30 @@ func (s lifecycleCommandOwnershipStub) GetOwned(context.Context, resumequeries.G
 	return resumequeries.ResumeView{}, nil
 }
 
+func (s lifecycleCommandOwnershipStub) OwnsResume(context.Context, resumequeries.GetResumeQuery) (bool, error) {
+	return s.err == nil, s.err
+}
+
 type lifecycleCommandUOW struct{}
 
 func (lifecycleCommandUOW) Do(ctx context.Context, fn func(context.Context) error) error {
 	return fn(ctx)
 }
 
-func TestReplaceStatusResumeLinkDeactivatesOwnedLink(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "HH", Version: 2})
+func restoreLifecycleLink(t *testing.T, status domain.ResumeLinkStatus, version int64) *domain.ResumeLink {
+	t.Helper()
+	link, err := domain.RestoreResumeLink(domain.ResumeLinkSnapshot{
+		ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(),
+		Name: "HH", Status: status, Version: version,
+	})
 	require.NoError(t, err)
+	return link
+}
+
+func TestReplaceStatusResumeLinkDeactivatesOwnedLink(t *testing.T) {
+	link := restoreLifecycleLink(t, domain.ResumeLinkStatusActive, 2)
 	repo := &lifecycleCommandRepositoryStub{link: link}
-	err = NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+	err := NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
 		UserID: sharedvalueobjects.NewID(), LinkID: link.ID(), Active: false, Version: 2,
 	})
 	require.NoError(t, err)
@@ -70,11 +86,9 @@ func TestReplaceStatusResumeLinkDeactivatesOwnedLink(t *testing.T) {
 }
 
 func TestReplaceStatusResumeLinkReactivatesLink(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "HH", Version: 5})
-	require.NoError(t, err)
-	require.NoError(t, link.Deactivate())
+	link := restoreLifecycleLink(t, domain.ResumeLinkStatusInactive, 5)
 	repo := &lifecycleCommandRepositoryStub{link: link}
-	err = NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+	err := NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
 		UserID: sharedvalueobjects.NewID(), LinkID: link.ID(), Active: true, Version: 5,
 	})
 	require.NoError(t, err)
@@ -83,7 +97,7 @@ func TestReplaceStatusResumeLinkReactivatesLink(t *testing.T) {
 }
 
 func TestReplaceStatusResumeLinkChecksOwnership(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "HH"})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: sharedvalueobjects.NewID(), Name: "HH"})
 	require.NoError(t, err)
 	repo := &lifecycleCommandRepositoryStub{link: link}
 	err = NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{err: resumequeries.ErrResumeNotFound}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
@@ -94,10 +108,9 @@ func TestReplaceStatusResumeLinkChecksOwnership(t *testing.T) {
 }
 
 func TestReplaceStatusResumeLinkRejectsStaleVersion(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "HH", Version: 2})
-	require.NoError(t, err)
+	link := restoreLifecycleLink(t, domain.ResumeLinkStatusActive, 2)
 	repo := &lifecycleCommandRepositoryStub{link: link}
-	err = NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+	err := NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
 		UserID: sharedvalueobjects.NewID(), LinkID: link.ID(), Active: false, Version: 1,
 	})
 	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
@@ -112,12 +125,20 @@ func TestReplaceStatusResumeLinkRejectsMissingLink(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 }
 
+func TestReplaceStatusResumeLinkRejectsNilLinkFromRepository(t *testing.T) {
+	repo := &lifecycleCommandRepositoryStub{}
+	err := NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+		UserID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), Active: false, Version: 1,
+	})
+
+	require.EqualError(t, err, "replace resume link status: repository returned nil link")
+}
+
 func TestReplaceStatusResumeLinkNoOpKeepsVersionAndSkipsPersistence(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "HH", Version: 7})
-	require.NoError(t, err)
+	link := restoreLifecycleLink(t, domain.ResumeLinkStatusActive, 7)
 	repo := &lifecycleCommandRepositoryStub{link: link}
 
-	err = NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+	err := NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
 		UserID: sharedvalueobjects.NewID(), LinkID: link.ID(), Active: true, Version: 7,
 	})
 
@@ -128,11 +149,10 @@ func TestReplaceStatusResumeLinkNoOpKeepsVersionAndSkipsPersistence(t *testing.T
 }
 
 func TestReplaceStatusResumeLinkNoOpStillRejectsStaleVersion(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "HH", Version: 7})
-	require.NoError(t, err)
+	link := restoreLifecycleLink(t, domain.ResumeLinkStatusActive, 7)
 	repo := &lifecycleCommandRepositoryStub{link: link}
 
-	err = NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+	err := NewReplaceStatusResumeLinkHandler(repo, lifecycleCommandOwnershipStub{}, lifecycleCommandUOW{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
 		UserID: sharedvalueobjects.NewID(), LinkID: link.ID(), Active: true, Version: 6,
 	})
 

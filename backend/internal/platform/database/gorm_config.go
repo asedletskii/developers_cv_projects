@@ -4,13 +4,14 @@ import (
 	"errors"
 	"fmt"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/platform/config"
 )
 
-func NewGORMFromConfig(cfg config.Config) (*gorm.DB, error) {
-	db, err := NewGORM(cfg.Postgres.ConnectionString())
+func NewGORMFromConfig(cfg config.Config, log *zap.Logger) (*gorm.DB, error) {
+	db, err := NewGORMWithLogger(cfg.Postgres.ConnectionString(), log, cfg.Postgres.SlowQueryThreshold)
 	if err != nil {
 		return nil, err
 	}

@@ -12,7 +12,6 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
@@ -31,6 +30,10 @@ func (clickHTTPOwnershipStub) GetOwned(context.Context, resumequeries.GetResumeQ
 	return resumequeries.ResumeView{ID: "resume"}, nil
 }
 
+func (clickHTTPOwnershipStub) OwnsResume(context.Context, resumequeries.GetResumeQuery) (bool, error) {
+	return true, nil
+}
+
 type clickHTTPPublicStub struct{}
 
 func (clickHTTPPublicStub) Handle(context.Context, resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error) {
@@ -43,19 +46,27 @@ func (s clickHTTPLayoutStub) Build(resumequeries.PublicResumeView) (domain.Layou
 	return s.snapshot, nil
 }
 
-var _ ports.LayoutSnapshotBuilder = clickHTTPLayoutStub{}
-
 type clickHTTPReaderStub struct{}
 
 func (clickHTTPReaderStub) GetClicks(context.Context, queries.LinkClicksQuery) (queries.ClickGrid, error) {
 	return queries.ClickGrid{Section: "about", Grid: 20, Cells: []queries.ClickCell{{X: 0, Y: 1, Count: 2}}, Total: 2}, nil
 }
 
-func newClickHTTPHandler() *Handler {
-	layout, err := domain.NewLayoutSnapshot([]resumedomain.SectionID{resumedomain.SectionAbout}, map[resumedomain.SectionID]string{resumedomain.SectionAbout: "0123456789abcdef"})
-	require.NoError(nil, err)
-	clicks := queries.NewAnalyticsClickQueryHandler(clickHTTPLinkStub{resumeID: sharedvalueobjects.NewID().String()}, clickHTTPOwnershipStub{}, clickHTTPPublicStub{}, clickHTTPLayoutStub{snapshot: layout}, clickHTTPReaderStub{})
-	return NewHandler(HandlerDependencies{Clicks: clicks})
+func newClickHTTPHandler(t *testing.T) *Handler {
+	t.Helper()
+	layout, err := domain.NewLayoutSnapshot(
+		[]resumedomain.SectionID{resumedomain.SectionAbout},
+		map[resumedomain.SectionID]string{resumedomain.SectionAbout: "0123456789abcdef"},
+	)
+	require.NoError(t, err)
+	clicks := queries.NewAnalyticsClickQueryHandler(
+		clickHTTPLinkStub{resumeID: sharedvalueobjects.NewID().String()},
+		clickHTTPOwnershipStub{},
+		clickHTTPPublicStub{},
+		clickHTTPLayoutStub{snapshot: layout},
+		clickHTTPReaderStub{},
+	)
+	return NewHandler(HandlerDependencies{AnalyticsClicks: clicks})
 }
 
 func TestClicksHandlerReturnsClickGrid(t *testing.T) {
@@ -64,7 +75,7 @@ func TestClicksHandlerReturnsClickGrid(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	RegisterRoutes(newClickHTTPHandler(), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(newClickHTTPHandler(t), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+linkID.String()+"/clicks?section=about&breakpoint=md", nil)
 	w := httptest.NewRecorder()
@@ -77,9 +88,10 @@ func TestClicksHandlerRejectsInvalidIncludeStale(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return uuid.New(), nil }))
-	RegisterRoutes(newClickHTTPHandler(), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(newClickHTTPHandler(t), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/clicks?section=about&breakpoint=md&includeStale=nope", nil)
+	path := "/api/v1/lk/link/" + sharedvalueobjects.NewID().String() + "/clicks"
+	req := httptest.NewRequest(http.MethodGet, path+"?section=about&breakpoint=md&includeStale=nope", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)

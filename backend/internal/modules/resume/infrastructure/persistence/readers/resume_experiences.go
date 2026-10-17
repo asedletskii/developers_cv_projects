@@ -61,11 +61,8 @@ func (r *ResumeReader) loadExperiences(ctx context.Context, db *gorm.DB, resumeI
 	for _, item := range stackRows {
 		stacks[item.ExperienceID] = append(stacks[item.ExperienceID], queries.ExperienceStackItemView{Name: item.Name})
 	}
-	for _, row := range rows {
-		id, err := uuid.Parse(row.ID)
-		if err != nil {
-			return err
-		}
+	for i, row := range rows {
+		id := ids[i]
 		result = append(result, queries.ExperienceView{ID: row.ID, Company: row.Company, Position: row.Position, Location: row.Location, StartDate: row.StartDate, EndDate: row.EndDate, Description: row.Description, Achievements: cloneSlice(achievements[id]), Tasks: cloneSlice(tasks[id]), Stack: cloneSlice(stacks[id])})
 	}
 	view.Experiences = result

@@ -47,7 +47,7 @@
 
 | Поле | Тип | Обяз. | Ограничения | Дефолт при создании |
 |---|---|---|---|---|
-| `hardSkills` | string[] | нет | только значения справочника (`architecture testing cicd performance accessibility codeReview uiDesign api`), без повторов; порядок сохраняется | `[]` |
-| `softSkills` | string[] | нет | только `communication teamwork problemSolving timeManagement mentoring adaptability ownership`, без повторов | `[]` |
+| `hardSkills` | string[] | нет | свободные непустые строки без точных повторов; порядок сохраняется | `[]` |
+| `softSkills` | string[] | нет | свободные непустые строки без точных повторов | `[]` |
 
 Собственные значения бэкенд отклоняет (`400`): список закрытый. Оба массива могут быть пустыми.

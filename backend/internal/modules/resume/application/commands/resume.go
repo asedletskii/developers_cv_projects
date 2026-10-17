@@ -41,26 +41,23 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand)
 	if h == nil || h.repository == nil || h.uow == nil {
 		return sharedvalueobjects.ID{}, fmt.Errorf("create resume handler dependencies are nil")
 	}
-	var resumeID sharedvalueobjects.ID
-	err := h.uow.Do(ctx, func(tx context.Context) error {
-		r, e := domain.NewResume(domain.ResumeParams{UserID: c.UserID, Title: c.Title, Language: c.Language})
-		if e != nil {
-			return e
-		}
-		resumeID = r.ID()
-		overviewParams := domain.ResumeOverviewParams{
-			Greeting: domain.NewGreeting(domain.GreetingParams{}),
-			Sections: []domain.SectionSettings{},
-		}
-		if e := r.ReplaceOverview(overviewParams); e != nil {
-			return e
-		}
-		return h.repository.Create(tx, r)
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: c.UserID, Title: c.Title, Language: c.Language})
+	if err != nil {
+		return sharedvalueobjects.ID{}, err
+	}
+	if err := resume.ReplaceOverview(domain.ResumeOverviewParams{
+		Greeting: domain.Greeting{},
+		Sections: []domain.SectionSettings{},
+	}); err != nil {
+		return sharedvalueobjects.ID{}, err
+	}
+	err = h.uow.Do(ctx, func(tx context.Context) error {
+		return h.repository.Create(tx, resume)
 	})
 	if err != nil {
 		return sharedvalueobjects.ID{}, err
 	}
-	return resumeID, nil
+	return resume.ID(), nil
 }
 
 type ChangeResumeStatusCommand struct {
@@ -80,37 +77,16 @@ func NewChangeResumeStatusHandler(repository ports.ResumeRepository, uow ports.U
 }
 
 func (h *ChangeResumeStatusHandler) Handle(ctx context.Context, c ChangeResumeStatusCommand) error {
-	if h == nil || h.repository == nil || h.uow == nil {
+	if h == nil {
 		return fmt.Errorf("change resume status handler dependencies are nil")
 	}
-	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
-		return fmt.Errorf("invalid change resume status command")
-	}
-	if !c.Status.IsValid() {
-		return fmt.Errorf("%w: invalid target status %q", domain.ErrInvalidResume, c.Status)
-	}
-	if c.Status == domain.ResumeStatusDraft {
-		return fmt.Errorf("%w: target status %q is not allowed", domain.ErrInvalidResumeStatusTransition, c.Status)
-	}
-	return h.uow.Do(ctx, func(tx context.Context) error {
-		resume, err := h.repository.Get(tx, ports.GetResumeParams{ResumeID: c.ResumeID, UserID: c.UserID})
-		if err != nil {
-			return err
-		}
-		if resume.Version() != c.Version {
-			return domain.ErrConcurrencyConflict
-		}
-		switch c.Status {
-		case domain.ResumeStatusOpened:
-			err = resume.Publish()
-		case domain.ResumeStatusClosed:
-			err = resume.Close()
-		}
-		if err != nil {
-			return err
-		}
-		return h.repository.Save(tx, resume)
-	})
+	return executeResumeMutation(
+		ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version,
+		"change resume status", ports.ResumeMutationStatus,
+		func(resume *domain.Resume) error {
+			return resume.ReplaceStatus(c.Status)
+		},
+	)
 }
 
 type ReplaceResumeTitleHandler struct {
@@ -127,13 +103,8 @@ func (h *ReplaceResumeTitleHandler) Handle(ctx context.Context, c ReplaceResumeT
 		return fmt.Errorf("replace resume title handler dependencies are nil")
 	}
 	return executeResumeMutation(
-		ctx,
-		h.repository,
-		h.uow,
-		c.ResumeID,
-		c.UserID,
-		c.Version,
-		"replace resume title",
+		ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version,
+		"replace resume title", ports.ResumeMutationTitle,
 		func(resume *domain.Resume) error {
 			return resume.ReplaceTitle(c.Title)
 		},

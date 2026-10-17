@@ -20,10 +20,15 @@ type educationRepoStub struct {
 func (s *educationRepoStub) Get(_ context.Context, _ ports.GetResumeParams) (*domain.Resume, error) {
 	return s.resume, nil
 }
+
 func (s *educationRepoStub) Save(_ context.Context, r *domain.Resume) error {
 	s.saved = true
 	s.version = r.Version()
 	return nil
+}
+
+func (s *educationRepoStub) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return s.Save(ctx, resume)
 }
 func (s *educationRepoStub) Create(context.Context, *domain.Resume) error { return nil }
 func (s *educationRepoStub) Delete(context.Context, ports.DeleteResumeParams) error {
@@ -34,8 +39,9 @@ type educationUOW struct{}
 
 func (educationUOW) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 func TestReplaceEducationsHandlerRejectsStaleVersion(t *testing.T) {
-	r, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN, Version: 2})
+	created, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
+	r := domain.RestoreResume(domain.ResumeSnapshot{ID: created.ID(), UserID: created.UserID(), Title: created.Title(), Language: created.Language(), Status: created.Status(), Version: 2})
 	repo := &educationRepoStub{resume: r}
 	h := NewReplaceEducationsHandler(repo, educationUOW{})
 	err = h.Handle(context.Background(), ReplaceEducationsCommand{ResumeID: r.ID(), UserID: r.UserID(), Version: 1, Input: EducationsInput{}})
@@ -43,7 +49,7 @@ func TestReplaceEducationsHandlerRejectsStaleVersion(t *testing.T) {
 	require.False(t, repo.saved)
 }
 func TestReplaceEducationsHandlerUsesAggregateRepository(t *testing.T) {
-	r, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	r, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &educationRepoStub{resume: r}
 	h := NewReplaceEducationsHandler(repo, educationUOW{})

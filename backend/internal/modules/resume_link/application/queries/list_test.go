@@ -21,19 +21,6 @@ func (s *listReaderStub) ListByResumeID(_ context.Context, query ListResumeLinks
 	return s.items, s.err
 }
 
-type ownershipReaderStub struct {
-	err   error
-	query resumequeries.GetResumeQuery
-}
-
-func (s *ownershipReaderStub) GetOwned(_ context.Context, query resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	s.query = query
-	if s.err != nil {
-		return resumequeries.ResumeView{}, s.err
-	}
-	return resumequeries.ResumeView{ID: query.ResumeID.String()}, nil
-}
-
 func TestListResumeLinksQueryHandlerChecksOwnershipBeforeReading(t *testing.T) {
 	userID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()

@@ -17,12 +17,13 @@ import (
 
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
-	resumelinkpublichandler "developers-cv/backend/internal/modules/resume_link/transport/http/public"
+	resumelinkhandlers "developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
 	"developers-cv/backend/internal/platform/http/middleware"
+	"developers-cv/backend/internal/platform/telemetry"
 )
 
 func TestRouterHealthAndRequestID(t *testing.T) {
@@ -63,6 +64,91 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 	require.NotEmpty(t, w.Header().Get("X-Request-ID"))
 	require.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
 	require.Equal(t, "max-age=31536000; includeSubDomains", w.Header().Get("Strict-Transport-Security"))
+}
+
+func TestObservabilityRoutesAreInternalOnly(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App: config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+		HTTP: config.HTTPConfig{},
+	}
+	log := zaptest.NewLogger(t)
+	metrics, err := telemetry.NewMetrics(true)
+	require.NoError(t, err)
+
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		metrics,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		nil,
+		fakeAuthenticate,
+		nil,
+	)
+	require.NoError(t, err)
+
+	for _, path := range []string{"/metrics", "/ready"} {
+		t.Run("public "+path, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+			require.Equal(t, http.StatusNotFound, response.Code)
+		})
+	}
+
+	ready := httptest.NewRecorder()
+	router.InternalHandler().ServeHTTP(ready, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	require.Equal(t, http.StatusOK, ready.Code)
+	require.Contains(t, ready.Body.String(), `"status":"ready"`)
+
+	metricsResponse := httptest.NewRecorder()
+	router.InternalHandler().ServeHTTP(metricsResponse, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	require.Equal(t, http.StatusOK, metricsResponse.Code)
+	require.Contains(t, metricsResponse.Body.String(), "developers_cv_http_requests_total")
+}
+
+func TestMetricsRouteIsAbsentWhenPrometheusDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		HTTP: config.HTTPConfig{},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+	}
+	log := zaptest.NewLogger(t)
+	metrics, err := telemetry.NewMetrics(false)
+	require.NoError(t, err)
+	require.Nil(t, metrics)
+
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		metrics,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		nil,
+		fakeAuthenticate,
+		nil,
+	)
+	require.NoError(t, err)
+
+	ready := httptest.NewRecorder()
+	router.InternalHandler().ServeHTTP(ready, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	require.Equal(t, http.StatusOK, ready.Code)
+
+	metricsResponse := httptest.NewRecorder()
+	router.InternalHandler().ServeHTTP(metricsResponse, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	require.Equal(t, http.StatusNotFound, metricsResponse.Code)
 }
 
 func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
@@ -150,7 +236,7 @@ func unauthenticatedAuthenticate(context.Context, *http.Request) (uuid.UUID, err
 
 func testResumeLinkHandler() *resumelinkhttp.Handler {
 	return resumelinkhttp.NewHandler(resumelinkhttp.HandlerDependencies{
-		Public: resumelinkpublichandler.NewHandler(nil),
+		Public: resumelinkhandlers.NewPublicResumeLinkHandler(nil),
 	})
 }
 
@@ -487,7 +573,7 @@ func TestRouterReadinessReturnsUnavailableWhenDependencyFails(t *testing.T) {
 	require.NoError(t, err)
 
 	response := httptest.NewRecorder()
-	router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	router.InternalHandler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
 
 	require.Equal(t, http.StatusServiceUnavailable, response.Code)
 	require.Contains(t, response.Body.String(), `"status":"not_ready"`)
@@ -517,7 +603,7 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 	require.NoError(t, err)
 
 	response := httptest.NewRecorder()
-	router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	router.InternalHandler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
 
 	require.Equal(t, http.StatusOK, response.Code)
 	require.Contains(t, response.Body.String(), `"status":"ready"`)
@@ -587,6 +673,12 @@ func TestRouterRegistersAuthPublicAndProtectedRoutes(t *testing.T) {
 	protectedResponse := httptest.NewRecorder()
 	router.Handler().ServeHTTP(protectedResponse, protectedRequest)
 	require.Equal(t, http.StatusUnauthorized, protectedResponse.Code)
+
+	logoutRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	logoutResponse := httptest.NewRecorder()
+	router.Handler().ServeHTTP(logoutResponse, logoutRequest)
+	require.NotEqual(t, http.StatusUnauthorized, logoutResponse.Code)
+	require.NotEqual(t, http.StatusNotFound, logoutResponse.Code)
 }
 
 func TestRouterAppliesDedicatedAuthRateLimitToTelegramStart(t *testing.T) {

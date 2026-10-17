@@ -12,13 +12,20 @@ import (
 	"go.uber.org/zap"
 
 	"developers-cv/backend/internal/platform/database"
-	httpserver "developers-cv/backend/internal/platform/http"
-	"developers-cv/backend/internal/platform/telemetry"
 )
 
+type HTTPServerLifecycle interface {
+	Run() error
+	Shutdown(context.Context) error
+}
+
+type TelemetryLifecycle interface {
+	Shutdown(context.Context) error
+}
+
 type Application struct {
-	server          *httpserver.Server
-	telemetry       *telemetry.Service
+	server          HTTPServerLifecycle
+	telemetry       TelemetryLifecycle
 	logger          *zap.Logger
 	gormDB          *gorm.DB
 	shutdownTimeout time.Duration
@@ -30,8 +37,8 @@ type Application struct {
 }
 
 func NewApplication(
-	server *httpserver.Server,
-	telemetryService *telemetry.Service,
+	server HTTPServerLifecycle,
+	telemetryService TelemetryLifecycle,
 	logger *zap.Logger,
 	gormDB *gorm.DB,
 	shutdownTimeout time.Duration,
@@ -57,17 +64,26 @@ func (a *Application) Run(ctx context.Context) error {
 	}
 	workerCtx, workerCancel := context.WithCancel(ctx)
 	a.workerCancel = workerCancel
-	if len(a.workers) > 0 {
-		a.workerDone = make(chan struct{}, len(a.workers))
-		for _, worker := range a.workers {
-			if worker == nil {
-				continue
-			}
+	activeWorkers := make([]backgroundWorker, 0, len(a.workers))
+	for _, worker := range a.workers {
+		if worker != nil {
+			activeWorkers = append(activeWorkers, worker)
+		}
+	}
+	if len(activeWorkers) > 0 {
+		a.workerDone = make(chan struct{})
+		var workerGroup sync.WaitGroup
+		workerGroup.Add(len(activeWorkers))
+		for _, worker := range activeWorkers {
 			go func(w backgroundWorker) {
-				defer func() { a.workerDone <- struct{}{} }()
+				defer workerGroup.Done()
 				w.Run(workerCtx)
 			}(worker)
 		}
+		go func() {
+			workerGroup.Wait()
+			close(a.workerDone)
+		}()
 	}
 
 	serverErr := make(chan error, 1)
@@ -96,24 +112,38 @@ func (a *Application) Shutdown(ctx context.Context) error {
 
 	a.once.Do(func() {
 		serverErr := a.server.Shutdown(shutdownCtx)
+		var workerErr error
 		if a.workerCancel != nil {
 			a.workerCancel()
-			if a.workerDone != nil {
-				for range a.workers {
-					<-a.workerDone
-				}
+			if err := waitForWorkers(shutdownCtx, a.workerDone); err != nil {
+				workerErr = fmt.Errorf("wait for background workers: %w", err)
 			}
 		}
-		telemetryErr := a.telemetry.Shutdown(shutdownCtx)
+		var telemetryErr error
+		if a.telemetry != nil {
+			telemetryErr = a.telemetry.Shutdown(shutdownCtx)
+		}
 		var dbErr error
 		if a.gormDB != nil {
 			dbErr = database.Close(a.gormDB)
 		}
-		if serverErr != nil || telemetryErr != nil || dbErr != nil {
-			a.shutdownErr = fmt.Errorf("shutdown application: %w", errors.Join(serverErr, telemetryErr, dbErr))
+		if serverErr != nil || workerErr != nil || telemetryErr != nil || dbErr != nil {
+			a.shutdownErr = fmt.Errorf("shutdown application: %w", errors.Join(serverErr, workerErr, telemetryErr, dbErr))
 		}
 	})
 	return a.shutdownErr
 }
 
 func (a *Application) Logger() *zap.Logger { return a.logger }
+
+func waitForWorkers(ctx context.Context, done <-chan struct{}) error {
+	if done == nil {
+		return nil
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}

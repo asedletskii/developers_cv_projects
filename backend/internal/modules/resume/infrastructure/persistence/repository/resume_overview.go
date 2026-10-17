@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -13,16 +16,29 @@ import (
 func persistOverview(tx *gorm.DB, resume *domain.Resume) error {
 	o := resume.Overview()
 	if o == nil {
-		return fmt.Errorf("save resume overview: overview is required")
+		if err := tx.Where("resume_id = ?", resume.ID().UUID()).Delete(&gormmodel.ResumeOverviewSection{}).Error; err != nil {
+			return fmt.Errorf("delete resume overview sections: %w", mapDBError(err))
+		}
+		if err := tx.Where("resume_id = ?", resume.ID().UUID()).Delete(&gormmodel.ResumeOverview{}).Error; err != nil {
+			return fmt.Errorf("delete resume overview: %w", mapDBError(err))
+		}
+		return nil
 	}
-	p, sections, err := mappers.OverviewToDBModels(resume.ID(), o)
-	if err != nil {
-		return fmt.Errorf("save resume overview: %w", err)
-	}
-	result := tx.Model(&gormmodel.ResumeOverview{}).Where("resume_id = ?", resume.ID().UUID()).Updates(map[string]any{
-		"greeting_first": p.GreetingFirst, "greeting_second": p.GreetingSecond, "greeting_highlight": p.GreetingHighlight, "greeting_third": p.GreetingThird,
-		"availability_status": p.AvailabilityStatus, "availability_from": p.AvailabilityFrom, "availability_note": p.AvailabilityNote, "resume_link": p.ResumeLink, "theme_primary": p.ThemePrimary, "theme_secondary": p.ThemeSecondary,
-	})
+	p, sections := mappers.OverviewToDBModels(resume.ID(), o)
+	result := tx.Model(&gormmodel.ResumeOverview{}).
+		Where("resume_id = ?", resume.ID().UUID()).
+		Updates(map[string]any{
+			"greeting_first":      p.GreetingFirst,
+			"greeting_second":     p.GreetingSecond,
+			"greeting_highlight":  p.GreetingHighlight,
+			"greeting_third":      p.GreetingThird,
+			"availability_status": p.AvailabilityStatus,
+			"availability_from":   p.AvailabilityFrom,
+			"availability_note":   p.AvailabilityNote,
+			"resume_link":         p.ResumeLink,
+			"theme_primary":       p.ThemePrimary,
+			"theme_secondary":     p.ThemeSecondary,
+		})
 	if result.Error != nil {
 		return fmt.Errorf("update resume overview: %w", mapDBError(result.Error))
 	}
@@ -40,4 +56,21 @@ func persistOverview(tx *gorm.DB, resume *domain.Resume) error {
 		}
 	}
 	return nil
+}
+
+func loadResumeOverview(ctx context.Context, tx *gorm.DB, resumeID uuid.UUID) (*domain.ResumeOverview, error) {
+	var overviewModel gormmodel.ResumeOverview
+	err := tx.WithContext(ctx).Where("resume_id = ?", resumeID).First(&overviewModel).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get resume overview: %w", mapDBError(err))
+	}
+
+	var sections []gormmodel.ResumeOverviewSection
+	if err := tx.WithContext(ctx).Where("resume_id = ?", resumeID).Order("position").Find(&sections).Error; err != nil {
+		return nil, fmt.Errorf("get resume overview sections: %w", mapDBError(err))
+	}
+	return mappers.OverviewToDomain(overviewModel, sections), nil
 }

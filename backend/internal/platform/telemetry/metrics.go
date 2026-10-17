@@ -12,20 +12,26 @@ import (
 )
 
 type Metrics struct {
-	requests                 *prometheus.CounterVec
-	duration                 *prometheus.HistogramVec
-	inFlight                 prometheus.Gauge
-	authLoginAttempts        *prometheus.CounterVec
-	authLoginSuccess         *prometheus.CounterVec
-	authLoginFailures        *prometheus.CounterVec
-	authLogout               *prometheus.CounterVec
-	authSessionRejections    *prometheus.CounterVec
-	authTransactionCleanup   *prometheus.CounterVec
-	authCleanupFailures      *prometheus.CounterVec
-	authLoginDuration        *prometheus.HistogramVec
-	authOIDCExchangeDuration *prometheus.HistogramVec
-	authOIDCVerifyDuration   *prometheus.HistogramVec
-	registry                 *prometheus.Registry
+	requests                   *prometheus.CounterVec
+	duration                   *prometheus.HistogramVec
+	inFlight                   prometheus.Gauge
+	authLoginAttempts          *prometheus.CounterVec
+	authLoginSuccess           *prometheus.CounterVec
+	authLoginFailures          *prometheus.CounterVec
+	authLogout                 *prometheus.CounterVec
+	authSessionRejections      *prometheus.CounterVec
+	authTransactionCleanup     *prometheus.CounterVec
+	authSessionCleanup         *prometheus.CounterVec
+	authCleanupFailures        *prometheus.CounterVec
+	authLoginDuration          *prometheus.HistogramVec
+	authOIDCExchangeDuration   *prometheus.HistogramVec
+	authOIDCVerifyDuration     *prometheus.HistogramVec
+	analyticsDroppedInput      *prometheus.CounterVec
+	analyticsBatchOutcomes     *prometheus.CounterVec
+	analyticsRetentionRuns     *prometheus.CounterVec
+	analyticsRetentionDeleted  *prometheus.CounterVec
+	analyticsRetentionDuration *prometheus.HistogramVec
+	registry                   *prometheus.Registry
 }
 
 func NewMetrics(enabled bool) (*Metrics, error) {
@@ -70,6 +76,9 @@ func NewMetrics(enabled bool) (*Metrics, error) {
 	authTransactionCleanup := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "developers_cv", Name: "auth_transaction_cleanup_total", Help: "Total number of expired authentication transactions removed.",
 	}, []string{"provider", "reason"})
+	authSessionCleanup := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Name: "auth_session_cleanup_total", Help: "Total number of expired authentication sessions removed.",
+	}, []string{"reason"})
 	authCleanupFailures := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "developers_cv", Name: "auth_cleanup_failures_total", Help: "Total number of authentication cleanup failures.",
 	}, []string{"resource"})
@@ -82,13 +91,36 @@ func NewMetrics(enabled bool) (*Metrics, error) {
 	authOIDCVerifyDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "developers_cv", Name: "auth_oidc_verify_duration_seconds", Help: "Telegram OIDC ID token verification duration in seconds.",
 	}, []string{"provider"})
+	analyticsDroppedInput := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv",
+		Name:      "analytics_dropped_input_total",
+		Help:      "Total number of analytics inputs dropped during validation.",
+	}, []string{"kind", "reason"})
+	analyticsBatchOutcomes := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Subsystem: "analytics", Name: "batch_outcomes_total",
+		Help: "Total analytics ingestion batch outcomes by bounded outcome and reason.",
+	}, []string{"outcome", "reason"})
+	analyticsRetentionRuns := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Subsystem: "analytics_retention", Name: "runs_total",
+		Help: "Total analytics retention cleanup runs by outcome.",
+	}, []string{"outcome"})
+	analyticsRetentionDeleted := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "developers_cv", Subsystem: "analytics_retention", Name: "deleted_total",
+		Help: "Total expired analytics records deleted by resource type.",
+	}, []string{"resource"})
+	analyticsRetentionDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "developers_cv", Subsystem: "analytics_retention", Name: "duration_seconds",
+		Help:    "Duration of analytics retention cleanup runs in seconds.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"outcome"})
 
 	registry := prometheus.NewRegistry()
 	collectors := []prometheus.Collector{
 		requests, duration, inFlight,
 		authLoginAttempts, authLoginSuccess, authLoginFailures, authLogout,
-		authSessionRejections, authTransactionCleanup, authCleanupFailures, authLoginDuration,
-		authOIDCExchangeDuration, authOIDCVerifyDuration,
+		authSessionRejections, authTransactionCleanup, authSessionCleanup, authCleanupFailures, authLoginDuration,
+		authOIDCExchangeDuration, authOIDCVerifyDuration, analyticsDroppedInput, analyticsBatchOutcomes,
+		analyticsRetentionRuns, analyticsRetentionDeleted, analyticsRetentionDuration,
 	}
 	for _, collector := range collectors {
 		if err := registry.Register(collector); err != nil {
@@ -100,8 +132,10 @@ func NewMetrics(enabled bool) (*Metrics, error) {
 		authLoginAttempts: authLoginAttempts, authLoginSuccess: authLoginSuccess,
 		authLoginFailures: authLoginFailures, authLogout: authLogout,
 		authSessionRejections: authSessionRejections, authTransactionCleanup: authTransactionCleanup,
-		authCleanupFailures: authCleanupFailures, authLoginDuration: authLoginDuration, authOIDCExchangeDuration: authOIDCExchangeDuration,
-		authOIDCVerifyDuration: authOIDCVerifyDuration, registry: registry,
+		authSessionCleanup: authSessionCleanup, authCleanupFailures: authCleanupFailures, authLoginDuration: authLoginDuration, authOIDCExchangeDuration: authOIDCExchangeDuration,
+		authOIDCVerifyDuration: authOIDCVerifyDuration, analyticsDroppedInput: analyticsDroppedInput,
+		analyticsBatchOutcomes: analyticsBatchOutcomes, analyticsRetentionRuns: analyticsRetentionRuns, analyticsRetentionDeleted: analyticsRetentionDeleted,
+		analyticsRetentionDuration: analyticsRetentionDuration, registry: registry,
 	}, nil
 }
 
@@ -169,6 +203,13 @@ func (m *Metrics) RecordAuthTransactionCleanup(provider, reason string, count in
 	m.authTransactionCleanup.WithLabelValues(provider, reason).Add(float64(count))
 }
 
+func (m *Metrics) RecordAuthSessionCleanup(reason string, count int) {
+	if m == nil || m.authSessionCleanup == nil || count <= 0 {
+		return
+	}
+	m.authSessionCleanup.WithLabelValues(reason).Add(float64(count))
+}
+
 func (m *Metrics) ObserveAuthOIDCExchange(provider string, duration time.Duration) {
 	if m == nil || m.authOIDCExchangeDuration == nil {
 		return
@@ -188,4 +229,79 @@ func (m *Metrics) RecordAuthCleanupFailure(resource string) {
 		return
 	}
 	m.authCleanupFailures.WithLabelValues(resource).Inc()
+}
+
+func (m *Metrics) RecordDroppedAnalyticsInput(kind, reason string) {
+	if m == nil || m.analyticsDroppedInput == nil {
+		return
+	}
+	kind = boundedAnalyticsKind(kind)
+	reason = boundedAnalyticsDropReason(reason)
+	m.analyticsDroppedInput.WithLabelValues(kind, reason).Inc()
+}
+
+func (m *Metrics) RecordAnalyticsBatchOutcome(outcome, reason string) {
+	if m == nil || m.analyticsBatchOutcomes == nil {
+		return
+	}
+	switch outcome {
+	case "accepted", "ignored", "rejected", "failure":
+	default:
+		outcome = "failure"
+		reason = "unknown"
+	}
+	reason = boundedAnalyticsBatchReason(reason)
+	m.analyticsBatchOutcomes.WithLabelValues(outcome, reason).Inc()
+}
+
+func boundedAnalyticsKind(kind string) string {
+	switch kind {
+	case "event", "click":
+		return kind
+	default:
+		return "other"
+	}
+}
+
+func boundedAnalyticsDropReason(reason string) string {
+	switch reason {
+	case "invalid_json_shape", "invalid_fields", "negative_timestamp", "invalid_client_id",
+		"missing_client_id", "duplicate_client_id", "technology_not_in_resume",
+		"invalid_payload_or_type", "section_not_in_layout", "invalid_click",
+		"contact_view_routed_separately",
+		"per_view_limit", "print_deduplicated":
+		return reason
+	default:
+		return "other"
+	}
+}
+
+func boundedAnalyticsBatchReason(reason string) string {
+	switch reason {
+	case "success", "bot_traffic", "stale_sequence", "same_sequence", "invalid_batch",
+		"batch_limit", "view_rejected", "invalid_state", "load_failed", "save_failed",
+		"transaction_failed", "repository_mismatch", "unknown":
+		return reason
+	default:
+		return "unknown"
+	}
+}
+
+func (m *Metrics) RecordAnalyticsRetentionCleanup(outcome string, clicks, views int, duration time.Duration) {
+	if m == nil || m.analyticsRetentionRuns == nil {
+		return
+	}
+	switch outcome {
+	case "success", "failure":
+	default:
+		outcome = "failure"
+	}
+	m.analyticsRetentionRuns.WithLabelValues(outcome).Inc()
+	m.analyticsRetentionDuration.WithLabelValues(outcome).Observe(duration.Seconds())
+	if clicks > 0 {
+		m.analyticsRetentionDeleted.WithLabelValues("clicks").Add(float64(clicks))
+	}
+	if views > 0 {
+		m.analyticsRetentionDeleted.WithLabelValues("views").Add(float64(views))
+	}
 }

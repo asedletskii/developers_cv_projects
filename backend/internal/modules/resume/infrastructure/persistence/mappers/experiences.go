@@ -3,18 +3,31 @@ package mappers
 import (
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func ExperienceToDB(item *domain.Experience) (gormmodel.ResumeExperience, error) {
-	if item == nil {
-		return gormmodel.ResumeExperience{}, fmt.Errorf("experience is nil")
+func ExperiencesToDomain(
+	rows []gormmodel.ResumeExperience,
+	achievements map[uuid.UUID][]gormmodel.ResumeExperienceAchievement,
+	tasks map[uuid.UUID][]gormmodel.ResumeExperienceTask,
+	stack map[uuid.UUID][]gormmodel.ResumeExperienceStack,
+) ([]*domain.Experience, error) {
+	experiences := make([]*domain.Experience, 0, len(rows))
+	for i, row := range rows {
+		experience, err := ExperienceToDomain(row, achievements[row.ID], tasks[row.ID], stack[row.ID])
+		if err != nil {
+			return nil, fmt.Errorf("map experience at index %d: %w", i, err)
+		}
+		experiences = append(experiences, experience)
 	}
-	if item.ID().IsZero() || item.ResumeID().IsZero() {
-		return gormmodel.ResumeExperience{}, fmt.Errorf("experience identity is required")
-	}
+	return experiences, nil
+}
+
+func ExperienceToDB(item *domain.Experience) gormmodel.ResumeExperience {
 	model := gormmodel.ResumeExperience{
 		ID:          item.ID().UUID(),
 		ResumeID:    item.ResumeID().UUID(),
@@ -28,7 +41,7 @@ func ExperienceToDB(item *domain.Experience) (gormmodel.ResumeExperience, error)
 		value := YearMonthToTime(*item.EndDate())
 		model.EndDate = &value
 	}
-	return model, nil
+	return model
 }
 
 func ExperienceToDomain(
@@ -45,16 +58,10 @@ func ExperienceToDomain(
 	if err != nil {
 		return nil, err
 	}
-	start, err := domain.ParseYearMonth(model.StartDate.Format("2006-01"))
-	if err != nil {
-		return nil, err
-	}
+	start := domain.RestoreYearMonth(model.StartDate)
 	var end *domain.YearMonth
 	if model.EndDate != nil {
-		value, err := domain.ParseYearMonth(model.EndDate.Format("2006-01"))
-		if err != nil {
-			return nil, err
-		}
+		value := domain.RestoreYearMonth(*model.EndDate)
 		end = &value
 	}
 	stackValues := make([]domain.ExperienceStackParams, 0, len(stack))
@@ -69,7 +76,7 @@ func ExperienceToDomain(
 	for i, task := range tasks {
 		taskValues[i] = task.Value
 	}
-	return domain.NewExperience(domain.ExperienceParams{
+	return domain.RestoreExperience(domain.ExperienceSnapshot{
 		ID:           id,
 		ResumeID:     resumeID,
 		Company:      model.Company,
@@ -81,7 +88,7 @@ func ExperienceToDomain(
 		Achievements: achievementValues,
 		Tasks:        taskValues,
 		Stack:        stackValues,
-	})
+	}), nil
 }
 
 func ExperienceAchievementsToDB(experienceID sharedvalueobjects.ID, values []string) []gormmodel.ResumeExperienceAchievement {
@@ -118,4 +125,25 @@ func ExperienceStackToDB(experienceID sharedvalueobjects.ID, values []domain.Tec
 		})
 	}
 	return models
+}
+
+func ExperiencesToDBModels(items []*domain.Experience) (
+	[]gormmodel.ResumeExperience,
+	[]gormmodel.ResumeExperienceAchievement,
+	[]gormmodel.ResumeExperienceTask,
+	[]gormmodel.ResumeExperienceStack,
+) {
+	models := make([]gormmodel.ResumeExperience, 0, len(items))
+	achievements := make([]gormmodel.ResumeExperienceAchievement, 0)
+	tasks := make([]gormmodel.ResumeExperienceTask, 0)
+	stack := make([]gormmodel.ResumeExperienceStack, 0)
+	for position, item := range items {
+		model := ExperienceToDB(item)
+		model.SortOrder = position
+		models = append(models, model)
+		achievements = append(achievements, ExperienceAchievementsToDB(item.ID(), item.Achievements())...)
+		tasks = append(tasks, ExperienceTasksToDB(item.ID(), item.Tasks())...)
+		stack = append(stack, ExperienceStackToDB(item.ID(), item.Stack())...)
+	}
+	return models, achievements, tasks, stack
 }

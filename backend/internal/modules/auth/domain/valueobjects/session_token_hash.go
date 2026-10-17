@@ -1,8 +1,13 @@
 package valueobjects
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 const HashSize = 32
+
+var ErrInvalidHash = errors.New("invalid hash")
 
 type SessionTokenHash struct {
 	value [HashSize]byte
@@ -10,7 +15,7 @@ type SessionTokenHash struct {
 
 func NewSessionTokenHash(value []byte) (SessionTokenHash, error) {
 	if len(value) != HashSize {
-		return SessionTokenHash{}, fmt.Errorf("session token hash must be %d bytes", HashSize)
+		return SessionTokenHash{}, fmt.Errorf("%w: session token hash must be %d bytes", ErrInvalidHash, HashSize)
 	}
 	var hash [HashSize]byte
 	copy(hash[:], value)

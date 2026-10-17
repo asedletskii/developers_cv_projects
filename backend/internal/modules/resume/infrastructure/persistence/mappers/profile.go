@@ -1,8 +1,6 @@
 package mappers
 
 import (
-	"fmt"
-
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -10,10 +8,7 @@ import (
 
 func ProfileToDBModels(
 	p *domain.Profile,
-) (gormmodel.ResumeProfile, []gormmodel.ResumeProfileWorkFormat, error) {
-	if p == nil {
-		return gormmodel.ResumeProfile{}, nil, fmt.Errorf("profile is nil")
-	}
+) (gormmodel.ResumeProfile, []gormmodel.ResumeProfileWorkFormat) {
 	m := gormmodel.ResumeProfile{
 		ID:          p.ID().UUID(),
 		ResumeID:    p.ResumeID().UUID(),
@@ -21,7 +16,7 @@ func ProfileToDBModels(
 		Surname:     p.Surname(),
 		Patronymic:  p.Patronymic(),
 		Position:    p.Position(),
-		PhotoPath:   p.PhotoPath().String(),
+		PhotoURL:    p.PhotoURL().String(),
 		DateOfBirth: p.DateOfBirth().Time(),
 		Location:    p.Location(),
 		Relocation:  p.Relocation(),
@@ -30,7 +25,7 @@ func ProfileToDBModels(
 	for i, v := range p.WorkFormats() {
 		fs = append(fs, gormmodel.ResumeProfileWorkFormat{ProfileID: m.ID, Value: string(v), Position: i})
 	}
-	return m, fs, nil
+	return m, fs
 }
 
 func ProfileToDomain(
@@ -45,29 +40,15 @@ func ProfileToDomain(
 	if e != nil {
 		return nil, e
 	}
-	photo, e := domain.NewExternalURL(m.PhotoPath)
-	if e != nil {
-		return nil, e
-	}
-	dob, e := domain.NewDate(m.DateOfBirth)
-	if e != nil {
-		return nil, e
-	}
+	photo := domain.RestoreExternalURL(m.PhotoURL)
+	dob := domain.RestoreDate(m.DateOfBirth)
 	formats := make([]domain.WorkFormat, len(fs))
 	for i, v := range fs {
 		formats[i] = domain.WorkFormat(v.Value)
 	}
-	return domain.NewProfile(domain.ProfileParams{
-		ID:          id,
-		ResumeID:    rid,
-		Name:        m.Name,
-		Surname:     m.Surname,
-		Patronymic:  m.Patronymic,
-		Position:    m.Position,
-		PhotoPath:   photo,
-		DateOfBirth: dob,
-		Location:    m.Location,
-		Relocation:  m.Relocation,
-		WorkFormats: formats,
-	})
+	return domain.RestoreProfile(domain.ProfileSnapshot{
+		ID: id, ResumeID: rid, Name: m.Name, Surname: m.Surname, Patronymic: m.Patronymic,
+		Position: m.Position, PhotoURL: photo, DateOfBirth: dob, Location: m.Location,
+		Relocation: m.Relocation, WorkFormats: formats,
+	}), nil
 }

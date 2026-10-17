@@ -18,9 +18,11 @@ func TestMapDBError(t *testing.T) {
 		want error
 	}{
 		{name: "gorm duplicate", err: gorm.ErrDuplicatedKey, want: domain.ErrDuplicateEntity},
-		{name: "postgres duplicate", err: &pgconn.PgError{Code: postgresUniqueViolationCode}, want: domain.ErrDuplicateEntity},
-		{name: "wrapped postgres duplicate", err: errors.Join(errors.New("write failed"), &pgconn.PgError{Code: postgresUniqueViolationCode}), want: domain.ErrDuplicateEntity},
-		{name: "other postgres error", err: &pgconn.PgError{Code: "23503"}, want: nil},
+		{name: "postgres duplicate", err: &pgconn.PgError{Code: "23505"}, want: domain.ErrDuplicateEntity},
+		{name: "wrapped postgres duplicate", err: errors.Join(errors.New("write failed"), &pgconn.PgError{Code: "23505"}), want: domain.ErrDuplicateEntity},
+		{name: "foreign key violation", err: &pgconn.PgError{Code: "23503"}, want: domain.ErrEntityNotFound},
+		{name: "check violation", err: &pgconn.PgError{Code: "23514"}, want: domain.ErrInvalidEntity},
+		{name: "too long", err: &pgconn.PgError{Code: "22001"}, want: domain.ErrInvalidEntity},
 		{name: "other error", err: errors.New("database unavailable"), want: nil},
 	}
 

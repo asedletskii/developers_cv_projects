@@ -19,9 +19,14 @@ type activityRepoStub struct {
 func (s *activityRepoStub) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
 	return s.resume, nil
 }
+
 func (s *activityRepoStub) Save(context.Context, *domain.Resume) error {
 	s.saved = true
 	return nil
+}
+
+func (s *activityRepoStub) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return s.Save(ctx, resume)
 }
 func (s *activityRepoStub) Create(context.Context, *domain.Resume) error { return nil }
 func (s *activityRepoStub) Delete(context.Context, ports.DeleteResumeParams) error {
@@ -33,7 +38,7 @@ type activityUOWStub struct{}
 func (activityUOWStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestReplaceActivitiesHandlerUsesAggregateRepository(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &activityRepoStub{resume: resume}
 	err = NewReplaceActivitiesHandler(repo, activityUOWStub{}).Handle(context.Background(), ReplaceActivitiesCommand{
@@ -46,7 +51,7 @@ func TestReplaceActivitiesHandlerUsesAggregateRepository(t *testing.T) {
 }
 
 func TestReplaceActivitiesHandlerRejectsStaleVersion(t *testing.T) {
-	resume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: sharedvalueobjects.NewID(), Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	repo := &activityRepoStub{resume: resume}
 	err = NewReplaceActivitiesHandler(repo, activityUOWStub{}).Handle(context.Background(), ReplaceActivitiesCommand{

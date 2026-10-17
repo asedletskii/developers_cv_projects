@@ -11,12 +11,13 @@ import (
 func TestActivityValidation(t *testing.T) {
 	date, err := ParseYearMonth("2025-01")
 	require.NoError(t, err)
-	item, err := NewActivity(ActivityParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Type: ActivityTypeOpenSource, Title: "Open Source", Date: &date})
+	id, resumeID := sharedvalueobjects.NewID(), sharedvalueobjects.NewID()
+	item, err := newActivity(id, resumeID, ActivityParams{ID: id, Type: ActivityTypeOpenSource, Title: "Open Source", Date: &date})
 	require.NoError(t, err)
 	require.Equal(t, ActivityTypeOpenSource, item.Type())
 	require.Equal(t, "2025-01", item.Date().String())
 
-	_, err = NewActivity(ActivityParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Type: ActivityType("invalid"), Title: "Open Source"})
+	_, err = newActivity(id, resumeID, ActivityParams{ID: id, Type: ActivityType("invalid"), Title: "Open Source"})
 	require.Error(t, err)
 }
 

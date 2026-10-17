@@ -20,11 +20,16 @@ type fakeProfileAggregateRepository struct {
 func (r *fakeProfileAggregateRepository) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
 	return r.resume, nil
 }
+
 func (r *fakeProfileAggregateRepository) Save(_ context.Context, resume *domain.Resume) error {
 	r.resume = resume
 	r.version = resume.Version()
 	r.saved = true
 	return nil
+}
+
+func (r *fakeProfileAggregateRepository) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return r.Save(ctx, resume)
 }
 func (r *fakeProfileAggregateRepository) Create(context.Context, *domain.Resume) error { return nil }
 func (r *fakeProfileAggregateRepository) Delete(context.Context, ports.DeleteResumeParams) error {
@@ -32,7 +37,7 @@ func (r *fakeProfileAggregateRepository) Delete(context.Context, ports.DeleteRes
 }
 func newTestResumeForCommand(t *testing.T, uid sharedvalueobjects.ID) *domain.Resume {
 	t.Helper()
-	r, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN, Version: 1})
+	r, err := domain.NewResume(domain.ResumeParams{UserID: uid, Title: "Resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	return r
 }
@@ -44,7 +49,7 @@ func TestReplaceProfileHandlerUsesVersionAndAggregate(t *testing.T) {
 	uow := &fakeCommandUnitOfWork{}
 	photo := testURL(t)
 	birth := testDate(t)
-	err := NewReplaceProfileHandler(repo, uow).Handle(context.Background(), ReplaceProfileCommand{ResumeID: resume.ID(), UserID: uid, Version: 1, Input: ProfileInput{Name: "John", Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: birth, Location: "Paris", WorkFormats: []domain.WorkFormat{domain.WorkFormatRemote}}})
+	err := NewReplaceProfileHandler(repo, uow).Handle(context.Background(), ReplaceProfileCommand{ResumeID: resume.ID(), UserID: uid, Version: 1, Input: ProfileInput{Name: "John", Surname: "Doe", Position: "Developer", PhotoURL: photo, DateOfBirth: birth, Location: "Paris", WorkFormats: []domain.WorkFormat{domain.WorkFormatRemote}}})
 	require.NoError(t, err)
 	require.True(t, repo.saved)
 	require.Equal(t, int64(1), repo.version)

@@ -19,9 +19,10 @@ import (
 )
 
 type Router struct {
-	engine  *gin.Engine
-	health  *health.Service
-	metrics *telemetry.Metrics
+	engine   *gin.Engine
+	internal *gin.Engine
+	health   *health.Service
+	metrics  *telemetry.Metrics
 }
 
 func NewRouter(
@@ -47,12 +48,12 @@ func NewRouter(
 
 	engine.Use(
 		middleware.RequestID(),
+		middleware.Logger(logger),
 		middleware.Recovery(logger),
 		middleware.SecurityHeaders(cfg.HTTP.TLS.Enabled),
 		middleware.CORS(cfg.CORS),
 		middleware.BodyLimit(cfg.HTTP.MaxBodyBytes),
 		telemetry.HTTPMiddleware(cfg.Telemetry.ServiceName),
-		middleware.Logger(logger),
 	)
 	if metrics != nil {
 		engine.Use(metrics.Middleware())
@@ -87,7 +88,12 @@ func NewRouter(
 		).Middleware()
 	}
 
-	router := &Router{engine: engine, health: healthService, metrics: metrics}
+	internal := gin.New()
+	internal.Use(middleware.RequestID(), middleware.Logger(logger), middleware.Recovery(logger))
+	if metrics != nil {
+		internal.Use(metrics.Middleware())
+	}
+	router := &Router{engine: engine, internal: internal, health: healthService, metrics: metrics}
 	router.registerRoutes(
 		resumeHandler,
 		userHandler,
@@ -121,15 +127,12 @@ func (r *Router) registerRoutes(
 ) {
 	engine := r.engine
 	engine.GET("/health", r.healthHandler)
-	engine.GET("/ready", r.readyHandler)
-	if r.metrics != nil {
-		engine.GET("/metrics", gin.WrapH(r.metrics.Handler()))
-	}
 
 	api := engine.Group("/api/v1")
 	auth := api.Group("/auth")
 	if authHandler != nil {
 		authhttp.RegisterPublicRoutes(authHandler, auth, authStartRateLimiter, authCallbackRateLimiter)
+		authhttp.RegisterLogoutRoute(authHandler, auth)
 		authProtected := auth.Group("")
 		authProtected.Use(middleware.Authentication(authenticate))
 		authhttp.RegisterProtectedRoutes(authHandler, authProtected)
@@ -145,6 +148,14 @@ func (r *Router) registerRoutes(
 	engine.NoRoute(func(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})
+	r.internal.GET("/ready", r.readyHandler)
+	if r.metrics != nil {
+		r.internal.GET("/metrics", gin.WrapH(r.metrics.Handler()))
+	}
+}
+
+func (r *Router) InternalHandler() http.Handler {
+	return r.internal
 }
 
 func (r *Router) healthHandler(c *gin.Context) {

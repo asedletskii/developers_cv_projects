@@ -8,10 +8,19 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func EducationToDB(item *domain.Education) (gormmodel.ResumeEducation, error) {
-	if item == nil {
-		return gormmodel.ResumeEducation{}, fmt.Errorf("education is nil")
+func EducationsToDomain(rows []gormmodel.ResumeEducation) ([]*domain.Education, error) {
+	educations := make([]*domain.Education, 0, len(rows))
+	for i, row := range rows {
+		education, err := EducationToDomain(row)
+		if err != nil {
+			return nil, fmt.Errorf("map education at index %d: %w", i, err)
+		}
+		educations = append(educations, education)
 	}
+	return educations, nil
+}
+
+func EducationToDB(item *domain.Education) gormmodel.ResumeEducation {
 	m := gormmodel.ResumeEducation{
 		ID:          item.ID().UUID(),
 		ResumeID:    item.ResumeID().UUID(),
@@ -27,7 +36,7 @@ func EducationToDB(item *domain.Education) (gormmodel.ResumeEducation, error) {
 		v := YearToTime(*item.EndDate())
 		m.EndDate = &v
 	}
-	return m, nil
+	return m
 }
 
 func EducationToDomain(model gormmodel.ResumeEducation) (*domain.Education, error) {
@@ -40,18 +49,12 @@ func EducationToDomain(model gormmodel.ResumeEducation) (*domain.Education, erro
 		return nil, err
 	}
 	grade := domain.EducationLevel(model.Grade)
-	if !grade.IsValid() {
-		return nil, domain.ErrInvalidEntity
-	}
 	var end *domain.Year
 	if model.EndDate != nil {
-		v, e := domain.ParseYear(model.EndDate.Format("2006"))
-		if e != nil {
-			return nil, e
-		}
+		v := domain.RestoreYear(model.EndDate.Year())
 		end = &v
 	}
-	return domain.NewEducation(domain.EducationParams{
+	return domain.RestoreEducation(domain.EducationSnapshot{
 		ID:          id,
 		ResumeID:    rid,
 		Location:    model.Location,
@@ -62,5 +65,15 @@ func EducationToDomain(model gormmodel.ResumeEducation) (*domain.Education, erro
 		Faculty:     model.Faculty,
 		Course:      model.Course,
 		EndDate:     end,
-	})
+	}), nil
+}
+
+func EducationsToDBModels(items []*domain.Education) []gormmodel.ResumeEducation {
+	models := make([]gormmodel.ResumeEducation, 0, len(items))
+	for position, item := range items {
+		model := EducationToDB(item)
+		model.SortOrder = position
+		models = append(models, model)
+	}
+	return models
 }

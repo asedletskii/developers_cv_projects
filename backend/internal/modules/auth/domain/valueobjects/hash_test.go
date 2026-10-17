@@ -9,7 +9,7 @@ import (
 
 func TestSessionTokenHashRequiresSHA256Length(t *testing.T) {
 	_, err := NewSessionTokenHash(make([]byte, HashSize-1))
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrInvalidHash)
 }
 
 func TestStateHashCopiesInput(t *testing.T) {
@@ -22,12 +22,12 @@ func TestStateHashCopiesInput(t *testing.T) {
 
 func TestNonceHashRequiresSHA256Length(t *testing.T) {
 	_, err := NewNonceHash(make([]byte, HashSize+1))
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrInvalidHash)
 }
 
 func TestBrowserBindingHashRequiresSHA256Length(t *testing.T) {
 	_, err := NewBrowserBindingHash(make([]byte, HashSize-1))
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrInvalidHash)
 }
 
 func TestBrowserBindingHashCopiesInput(t *testing.T) {

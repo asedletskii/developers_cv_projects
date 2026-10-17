@@ -33,6 +33,11 @@ func (r *mutationRepositoryStub) Save(_ context.Context, _ *domain.Resume) error
 	return r.saveErr
 }
 
+func (r *mutationRepositoryStub) SaveSection(_ context.Context, _ *domain.Resume, _ ports.ResumeMutationSection) error {
+	r.saveCalled = true
+	return r.saveErr
+}
+
 func (r *mutationRepositoryStub) Create(context.Context, *domain.Resume) error           { return nil }
 func (r *mutationRepositoryStub) Delete(context.Context, ports.DeleteResumeParams) error { return nil }
 
@@ -52,11 +57,9 @@ func (u *mutationUnitOfWorkStub) Do(ctx context.Context, fn func(context.Context
 func newMutationTestResume(t *testing.T) *domain.Resume {
 	t.Helper()
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID:       sharedvalueobjects.NewID(),
 		UserID:   sharedvalueobjects.NewID(),
 		Title:    "Original",
 		Language: domain.ResumeLanguage("en"),
-		Version:  3,
 	})
 	require.NoError(t, err)
 	return resume
@@ -66,14 +69,14 @@ func TestExecuteResumeMutationRejectsMissingDependencies(t *testing.T) {
 	resume := newMutationTestResume(t)
 	uow := &mutationUnitOfWorkStub{}
 
-	err := executeResumeMutation(context.Background(), nil, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", func(*domain.Resume) error {
+	err := executeResumeMutation(context.Background(), nil, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", ports.ResumeMutationTitle, func(*domain.Resume) error {
 		return nil
 	})
 	require.EqualError(t, err, "replace title handler dependencies are nil")
 	require.False(t, uow.called)
 
 	repo := &mutationRepositoryStub{resume: resume}
-	err = executeResumeMutation(context.Background(), repo, nil, resume.ID(), resume.UserID(), resume.Version(), "replace title", func(*domain.Resume) error {
+	err = executeResumeMutation(context.Background(), repo, nil, resume.ID(), resume.UserID(), resume.Version(), "replace title", ports.ResumeMutationTitle, func(*domain.Resume) error {
 		return nil
 	})
 	require.EqualError(t, err, "replace title handler dependencies are nil")
@@ -99,7 +102,7 @@ func TestExecuteResumeMutationRejectsInvalidCommandBeforeTransaction(t *testing.
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := executeResumeMutation(context.Background(), repo, uow, tc.resumeID, tc.userID, tc.version, "replace title", func(*domain.Resume) error {
+			err := executeResumeMutation(context.Background(), repo, uow, tc.resumeID, tc.userID, tc.version, "replace title", ports.ResumeMutationTitle, func(*domain.Resume) error {
 				t.Fatal("mutation must not run")
 				return nil
 			})
@@ -117,7 +120,7 @@ func TestExecuteResumeMutationPropagatesUnitOfWorkError(t *testing.T) {
 	repo := &mutationRepositoryStub{resume: resume}
 	uow := &mutationUnitOfWorkStub{err: repositoryErr}
 
-	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", func(*domain.Resume) error {
+	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", ports.ResumeMutationTitle, func(*domain.Resume) error {
 		t.Fatal("mutation must not run")
 		return nil
 	})
@@ -133,7 +136,7 @@ func TestExecuteResumeMutationPropagatesRepositoryGetError(t *testing.T) {
 	repo := &mutationRepositoryStub{resume: resume, getErr: getErr}
 	uow := &mutationUnitOfWorkStub{}
 
-	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", func(*domain.Resume) error {
+	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", ports.ResumeMutationTitle, func(*domain.Resume) error {
 		t.Fatal("mutation must not run")
 		return nil
 	})
@@ -143,12 +146,37 @@ func TestExecuteResumeMutationPropagatesRepositoryGetError(t *testing.T) {
 	require.False(t, repo.saveCalled)
 }
 
+func TestExecuteResumeMutationRejectsNilResumeFromRepository(t *testing.T) {
+	repo := &mutationRepositoryStub{}
+	uow := &mutationUnitOfWorkStub{}
+	resumeID := sharedvalueobjects.NewID()
+	userID := sharedvalueobjects.NewID()
+
+	err := executeResumeMutation(
+		context.Background(), repo, uow, resumeID, userID, 1,
+		"replace title", ports.ResumeMutationTitle,
+		func(*domain.Resume) error {
+			t.Fatal("mutation must not run")
+			return nil
+		},
+	)
+
+	require.EqualError(t, err, "replace title: repository returned nil resume")
+	require.True(t, uow.called)
+	require.True(t, repo.getCalled)
+	require.False(t, repo.saveCalled)
+}
+
 func TestExecuteResumeMutationRejectsStaleVersion(t *testing.T) {
-	resume := newMutationTestResume(t)
+	created := newMutationTestResume(t)
+	resume := domain.RestoreResume(domain.ResumeSnapshot{
+		ID: created.ID(), UserID: created.UserID(), Title: created.Title(),
+		Language: created.Language(), Status: created.Status(), Version: 2,
+	})
 	repo := &mutationRepositoryStub{resume: resume}
 	uow := &mutationUnitOfWorkStub{}
 
-	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version()-1, "replace title", func(*domain.Resume) error {
+	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), 1, "replace title", ports.ResumeMutationTitle, func(*domain.Resume) error {
 		t.Fatal("mutation must not run")
 		return nil
 	})
@@ -165,7 +193,7 @@ func TestExecuteResumeMutationPropagatesMutationErrorWithoutSaving(t *testing.T)
 	repo := &mutationRepositoryStub{resume: resume}
 	uow := &mutationUnitOfWorkStub{}
 
-	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", func(*domain.Resume) error {
+	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", ports.ResumeMutationTitle, func(*domain.Resume) error {
 		return mutationErr
 	})
 
@@ -179,7 +207,7 @@ func TestExecuteResumeMutationPropagatesSaveError(t *testing.T) {
 	repo := &mutationRepositoryStub{resume: resume, saveErr: saveErr}
 	uow := &mutationUnitOfWorkStub{}
 
-	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", func(r *domain.Resume) error {
+	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", ports.ResumeMutationTitle, func(r *domain.Resume) error {
 		return r.ReplaceTitle("Updated")
 	})
 
@@ -194,7 +222,7 @@ func TestExecuteResumeMutationLoadsMutatesAndSavesAggregate(t *testing.T) {
 	uow := &mutationUnitOfWorkStub{}
 	var received *domain.Resume
 
-	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", func(r *domain.Resume) error {
+	err := executeResumeMutation(context.Background(), repo, uow, resume.ID(), resume.UserID(), resume.Version(), "replace title", ports.ResumeMutationTitle, func(r *domain.Resume) error {
 		received = r
 		return r.ReplaceTitle("Updated")
 	})

@@ -104,24 +104,59 @@ func isBotUA(ua string) bool {
 	if ua == "" {
 		return true
 	}
-	markers := []string{"bot", "crawler", "spider", "slurp", "headless", "phantomjs", "curl/", "wget/", "python-requests", "httpclient", "go-http-client", "bingpreview", "facebookexternalhit", "linkedinbot"}
+
+	markers := []string{
+		"googlebot", "bingbot", "yandexbot", "duckduckbot", "baiduspider",
+		"facebookexternalhit", "facebookcatalog", "linkedinbot", "twitterbot",
+		"slackbot", "telegrambot", "discordbot", "whatsapp", "bingpreview",
+		"crawler", "spider", "slurp", "headless", "phantomjs", "curl/", "wget/",
+		"python-requests", "httpclient", "go-http-client",
+	}
 	for _, marker := range markers {
 		if strings.Contains(ua, marker) {
 			return true
 		}
 	}
+	return hasUserAgentToken(ua, "bot")
+}
+
+func hasUserAgentToken(ua, token string) bool {
+	for start := 0; start < len(ua); {
+		relative := strings.Index(ua[start:], token)
+		if relative < 0 {
+			return false
+		}
+		index := start + relative
+		end := index + len(token)
+		leftBoundary := index == 0 || !isUserAgentWordByte(ua[index-1])
+		rightBoundary := end == len(ua) || !isUserAgentWordByte(ua[end])
+		if leftBoundary && rightBoundary {
+			return true
+		}
+		start = index + len(token)
+	}
 	return false
+}
+
+func isUserAgentWordByte(value byte) bool {
+	return value >= 'a' && value <= 'z' || value >= '0' && value <= '9'
 }
 
 func botReason(ua string) string {
 	ua = strings.ToLower(ua)
-	for _, marker := range []string{"googlebot", "bingbot", "yandexbot", "duckduckbot", "facebookexternalhit", "linkedinbot", "crawler", "spider", "bot"} {
+	for _, marker := range []string{
+		"googlebot", "bingbot", "yandexbot", "duckduckbot", "baiduspider",
+		"facebookexternalhit", "facebookcatalog", "linkedinbot", "twitterbot",
+		"slackbot", "telegrambot", "discordbot", "whatsapp", "bingpreview",
+		"crawler", "spider", "slurp", "headless", "phantomjs", "curl/", "wget/",
+		"python-requests", "httpclient", "go-http-client",
+	} {
 		if strings.Contains(ua, marker) {
 			return marker
 		}
 	}
-	if strings.Contains(ua, "headless") {
-		return "headless"
+	if hasUserAgentToken(ua, "bot") {
+		return "bot"
 	}
 	return "automated"
 }
@@ -131,14 +166,20 @@ func classifyResult(traffic domain.TrafficType, reason, ua string) ports.Traffic
 }
 func classifyDevice(ua string) domain.DeviceType {
 	ua = strings.ToLower(ua)
+	if strings.TrimSpace(ua) == "" {
+		return domain.DeviceUnknown
+	}
 	if strings.Contains(ua, "ipad") || strings.Contains(ua, "tablet") || strings.Contains(ua, "kindle") || strings.Contains(ua, "silk/") {
+		return domain.DeviceTablet
+	}
+	if strings.Contains(ua, "macintosh") && strings.Contains(ua, "mobile/") {
+		return domain.DeviceTablet
+	}
+	if strings.Contains(ua, "android") && !strings.Contains(ua, "mobile") {
 		return domain.DeviceTablet
 	}
 	if strings.Contains(ua, "mobile") || strings.Contains(ua, "iphone") || strings.Contains(ua, "android") {
 		return domain.DeviceMobile
-	}
-	if strings.TrimSpace(ua) == "" {
-		return domain.DeviceUnknown
 	}
 	return domain.DeviceDesktop
 }
@@ -163,6 +204,8 @@ func classifyOS(ua string) domain.OSType {
 	ua = strings.ToLower(ua)
 	switch {
 	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod"):
+		return domain.OSIOS
+	case strings.Contains(ua, "macintosh") && strings.Contains(ua, "mobile/"):
 		return domain.OSIOS
 	case strings.Contains(ua, "android"):
 		return domain.OSAndroid

@@ -13,7 +13,7 @@ func TestContactsRejectsDuplicateHiddenFields(t *testing.T) {
 	require.NoError(t, err)
 	c, err := NewContactMethods(ContactMethodsParams{Telegram: &tg})
 	require.NoError(t, err)
-	_, err = NewContacts(ContactsParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Contacts: c, HiddenContacts: []ContactKey{ContactKeyTelegram, ContactKeyTelegram}})
+	_, err = newContacts(ContactsParams{ID: sharedvalueobjects.NewID(), Contacts: c, HiddenContacts: []ContactKey{ContactKeyTelegram, ContactKeyTelegram}}, sharedvalueobjects.NewID())
 	require.Error(t, err)
 }
 
@@ -22,7 +22,7 @@ func TestContactsKeepsOwnedStateSeparateFromPresentation(t *testing.T) {
 	require.NoError(t, err)
 	c, err := NewContactMethods(ContactMethodsParams{Email: &email})
 	require.NoError(t, err)
-	aggregate, err := NewContacts(ContactsParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Contacts: c})
+	aggregate, err := newContacts(ContactsParams{ID: sharedvalueobjects.NewID(), Contacts: c}, sharedvalueobjects.NewID())
 	require.NoError(t, err)
 	require.Equal(t, "person@example.com", aggregate.Contacts().Email().String())
 }
@@ -38,16 +38,15 @@ func TestContactsClonePreservesContactsText(t *testing.T) {
 	text, err := NewContactsText(ContactsTextParams{Title: &title})
 	require.NoError(t, err)
 
-	aggregate, err := NewContacts(ContactsParams{
-		ID:       sharedvalueobjects.NewID(),
-		ResumeID: sharedvalueobjects.NewID(),
+	aggregate, err := newContacts(ContactsParams{
+		ID: sharedvalueobjects.NewID(),
 		Contacts: func() ContactMethods {
 			contacts, createErr := NewContactMethods(ContactMethodsParams{Phone: "+33123456789"})
 			require.NoError(t, createErr)
 			return contacts
 		}(),
 		Text: &text,
-	})
+	}, sharedvalueobjects.NewID())
 	require.NoError(t, err)
 	require.NotNil(t, aggregate.Text())
 	require.Equal(t, "Contacts", *aggregate.Text().Title())
@@ -59,33 +58,29 @@ func TestContactsRejectsHiddenContactThatIsNotPresent(t *testing.T) {
 	contacts, err := NewContactMethods(ContactMethodsParams{Email: &email})
 	require.NoError(t, err)
 
-	_, err = NewContacts(ContactsParams{
+	_, err = newContacts(ContactsParams{
 		ID:             sharedvalueobjects.NewID(),
-		ResumeID:       sharedvalueobjects.NewID(),
 		Contacts:       contacts,
 		HiddenContacts: []ContactKey{ContactKeyPhone},
-	})
+	}, sharedvalueobjects.NewID())
 
 	require.ErrorIs(t, err, ErrResumeInvariant)
 	require.ErrorContains(t, err, "hidden contact is not filled")
 }
 
 func TestContactsRejectsEmptyContactSet(t *testing.T) {
-	_, err := NewContacts(ContactsParams{
-		ID:       sharedvalueobjects.NewID(),
-		ResumeID: sharedvalueobjects.NewID(),
-	})
+	_, err := newContacts(ContactsParams{ID: sharedvalueobjects.NewID()}, sharedvalueobjects.NewID())
 
 	require.ErrorIs(t, err, ErrInvalidResume)
 }
 
-func newContactsParamsForReplacement(t *testing.T, id sharedvalueobjects.ID, resumeID sharedvalueobjects.ID, email string) ContactsParams {
+func newContactsParamsForReplacement(t *testing.T, id sharedvalueobjects.ID, _ sharedvalueobjects.ID, email string) ContactsParams {
 	t.Helper()
 	emailValue, err := NewEmail(email)
 	require.NoError(t, err)
 	entity, err := NewContactMethods(ContactMethodsParams{Email: &emailValue})
 	require.NoError(t, err)
-	return ContactsParams{ID: id, ResumeID: resumeID, Contacts: entity, HiddenContacts: []ContactKey{ContactKeyEmail}}
+	return ContactsParams{ID: id, Contacts: entity, HiddenContacts: []ContactKey{ContactKeyEmail}}
 }
 
 func TestResumeReplaceContactsCreatesAndPreservesID(t *testing.T) {
@@ -115,28 +110,14 @@ func TestResumeReplaceContactsOwnsResumeID(t *testing.T) {
 	require.Equal(t, resume.ID(), resume.Contacts().ResumeID())
 }
 
-func TestContactsValidationAndReplacement(t *testing.T) {
+func TestContactsValidation(t *testing.T) {
 	id, resumeID := sharedvalueobjects.NewID(), sharedvalueobjects.NewID()
 	contactsEntity, err := NewContactMethods(ContactMethodsParams{Phone: "+33123456789"})
 	require.NoError(t, err)
-	contacts, err := NewContacts(ContactsParams{ID: id, ResumeID: resumeID, Contacts: contactsEntity, HiddenContacts: []ContactKey{ContactKeyPhone}})
+	_, err = newContacts(ContactsParams{ID: id, Contacts: contactsEntity, HiddenContacts: []ContactKey{ContactKeyPhone}}, resumeID)
 	require.NoError(t, err)
 
-	email, err := NewEmail("person@example.com")
-	require.NoError(t, err)
-	replacementEntity, err := NewContactMethods(ContactMethodsParams{
-		Phone: "+33123456789",
-		Email: &email,
-	})
-	require.NoError(t, err)
-
-	err = contacts.Replace(ContactsParams{Contacts: replacementEntity, HiddenContacts: []ContactKey{ContactKeyEmail}})
-	require.NoError(t, err)
-	require.Equal(t, id, contacts.ID())
-	require.Equal(t, resumeID, contacts.ResumeID())
-	require.Equal(t, []ContactKey{ContactKeyEmail}, contacts.HiddenContacts())
-
-	_, err = NewContacts(ContactsParams{ID: id, ResumeID: resumeID, Contacts: contactsEntity, HiddenContacts: []ContactKey{ContactKeyEmail, ContactKeyEmail}})
+	_, err = newContacts(ContactsParams{ID: id, Contacts: contactsEntity, HiddenContacts: []ContactKey{ContactKeyEmail, ContactKeyEmail}}, resumeID)
 	require.Error(t, err)
 }
 
@@ -167,7 +148,7 @@ func TestContributorValidation(t *testing.T) {
 }
 
 func TestContactsRequireAtLeastOneValue(t *testing.T) {
-	_, err := NewContacts(ContactsParams{})
+	_, err := newContacts(ContactsParams{ID: sharedvalueobjects.NewID()}, sharedvalueobjects.NewID())
 	require.Error(t, err)
 
 	contacts, err := NewContactMethods(ContactMethodsParams{Phone: " +33123456789 "})
@@ -205,7 +186,30 @@ func TestNewContactsTextNormalizesAndClonesValues(t *testing.T) {
 	require.Equal(t, "Contacts", *value.Title())
 	require.Equal(t, "Reach me", *value.Subtitle())
 
-	clone := value.Clone()
+	clone := value.clone()
 	require.Equal(t, "Contacts", *clone.Title())
 	require.Equal(t, "Reach me", *clone.Subtitle())
+}
+
+func TestRestoreContactsTextPreservesSnapshotValues(t *testing.T) {
+	title := " Contacts "
+	text := RestoreContactsText(ContactsTextParams{Title: &title})
+
+	err := text.validate()
+
+	require.NoError(t, err)
+	require.Equal(t, " Contacts ", *text.Title())
+}
+
+func TestResumeReplaceContactsDoesNotMutateOnError(t *testing.T) {
+	resume := newTestResume(t)
+	require.NoError(t, resume.ReplaceContacts(newContactsParamsForReplacement(t, sharedvalueobjects.ID{}, resume.ID(), "first@example.com")))
+	existing := resume.Contacts()
+
+	invalid := ContactsParams{ID: existing.ID()}
+	err := resume.ReplaceContacts(invalid)
+
+	require.ErrorIs(t, err, ErrInvalidResume)
+	require.Equal(t, existing.ID(), resume.Contacts().ID())
+	require.Equal(t, existing.Contacts().Email().String(), resume.Contacts().Contacts().Email().String())
 }

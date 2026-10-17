@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/application/ownership"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -40,7 +40,10 @@ func (h *ReplaceStatusResumeLinkHandler) Handle(ctx context.Context, c ReplaceSt
 		if err != nil {
 			return err
 		}
-		if _, err := h.resumes.GetOwned(tx, resumequeries.GetResumeQuery{ResumeID: link.ResumeID(), UserID: c.UserID}); err != nil {
+		if link == nil {
+			return fmt.Errorf("replace resume link status: repository returned nil link")
+		}
+		if err := ownership.EnsureResumeOwned(tx, h.resumes, ports.ResumeOwnershipQuery{ResumeID: link.ResumeID(), UserID: c.UserID}); err != nil {
 			return err
 		}
 		if link.Version() != c.Version {

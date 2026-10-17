@@ -18,9 +18,27 @@ type DeleteResumeParams struct {
 	Version  int64
 }
 
+type ResumeMutationSection string
+
+const (
+	ResumeMutationTitle        ResumeMutationSection = "title"
+	ResumeMutationStatus       ResumeMutationSection = "status"
+	ResumeMutationOverview     ResumeMutationSection = "overview"
+	ResumeMutationProfile      ResumeMutationSection = "profile"
+	ResumeMutationContacts     ResumeMutationSection = "contacts"
+	ResumeMutationSkills       ResumeMutationSection = "skills"
+	ResumeMutationLanguages    ResumeMutationSection = "languages"
+	ResumeMutationTechnologies ResumeMutationSection = "technologies"
+	ResumeMutationExperiences  ResumeMutationSection = "experiences"
+	ResumeMutationEducations   ResumeMutationSection = "educations"
+	ResumeMutationCourses      ResumeMutationSection = "courses"
+	ResumeMutationActivities   ResumeMutationSection = "activities"
+	ResumeMutationProjects     ResumeMutationSection = "projects"
+)
+
 type ResumeRepository interface {
 	Get(context.Context, GetResumeParams) (*domain.Resume, error)
-	Save(context.Context, *domain.Resume) error
+	SaveSection(context.Context, *domain.Resume, ResumeMutationSection) error
 	Create(context.Context, *domain.Resume) error
 	Delete(context.Context, DeleteResumeParams) error
 }

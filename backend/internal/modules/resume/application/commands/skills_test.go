@@ -20,9 +20,14 @@ type fakeSkillsAggregateRepository struct {
 func (r *fakeSkillsAggregateRepository) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
 	return r.resume, nil
 }
+
 func (r *fakeSkillsAggregateRepository) Save(_ context.Context, resume *domain.Resume) error {
 	r.resume, r.version, r.saved = resume, resume.Version(), true
 	return nil
+}
+
+func (r *fakeSkillsAggregateRepository) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return r.Save(ctx, resume)
 }
 func (r *fakeSkillsAggregateRepository) Create(context.Context, *domain.Resume) error { return nil }
 func (r *fakeSkillsAggregateRepository) Delete(context.Context, ports.DeleteResumeParams) error {

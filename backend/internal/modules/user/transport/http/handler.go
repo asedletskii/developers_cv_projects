@@ -5,11 +5,11 @@ import (
 
 	"developers-cv/backend/internal/modules/user/application/commands"
 	"developers-cv/backend/internal/modules/user/application/queries"
-	profilehandler "developers-cv/backend/internal/modules/user/transport/http/profile"
+	"developers-cv/backend/internal/modules/user/transport/http/handlers"
 )
 
 type Handler struct {
-	profile *profilehandler.Handler
+	profile *handlers.ProfileHandler
 }
 
 type HandlerDependencies struct {
@@ -18,8 +18,8 @@ type HandlerDependencies struct {
 }
 
 func NewHandler(deps HandlerDependencies) *Handler {
-	return &Handler{profile: profilehandler.NewHandler(deps.GetProfile, deps.ReplaceProfile)}
+	return &Handler{profile: handlers.NewProfileHandler(deps.GetProfile, deps.ReplaceProfile)}
 }
 
-func (h *Handler) GetProfile(c *gin.Context)     { h.profile.Get(c) }
-func (h *Handler) ReplaceProfile(c *gin.Context) { h.profile.Replace(c) }
+func (h *Handler) GetProfile(c *gin.Context)     { h.profile.GetProfile(c) }
+func (h *Handler) ReplaceProfile(c *gin.Context) { h.profile.ReplaceProfile(c) }

@@ -28,9 +28,8 @@ type ResumeProjectTechnology struct {
 }
 
 type ResumeProjectContributor struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	ProjectID uuid.UUID `gorm:"type:uuid;not null;index"`
-	Position  int       `gorm:"not null"`
+	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Position  int       `gorm:"primaryKey"`
 	Name      string    `gorm:"not null"`
 	Surname   string    `gorm:"not null"`
 	Role      string    `gorm:"not null"`

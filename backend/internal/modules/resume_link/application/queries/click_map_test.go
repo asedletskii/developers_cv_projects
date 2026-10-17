@@ -8,7 +8,6 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -25,6 +24,10 @@ func (clickMapOwnershipStub) GetOwned(context.Context, resumequeries.GetResumeQu
 	return resumequeries.ResumeView{ID: "resume"}, nil
 }
 
+func (clickMapOwnershipStub) OwnsResume(context.Context, resumequeries.GetResumeQuery) (bool, error) {
+	return true, nil
+}
+
 type clickMapPublicStub struct {
 	view resumequeries.PublicResumeView
 }
@@ -38,8 +41,6 @@ type clickMapLayoutStub struct{ snapshot domain.LayoutSnapshot }
 func (s clickMapLayoutStub) Build(resumequeries.PublicResumeView) (domain.LayoutSnapshot, error) {
 	return s.snapshot, nil
 }
-
-var _ ports.LayoutSnapshotBuilder = clickMapLayoutStub{}
 
 type clickMapReaderStub struct{ query LinkClicksQuery }
 

@@ -3,23 +3,20 @@ package repository
 import (
 	"errors"
 
-	"gorm.io/gorm"
-
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/platform/database"
 )
 
-const postgresUniqueViolationCode = "23505"
-
 func mapDBError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, gorm.ErrDuplicatedKey) {
+	mapped := database.MapPostgresError(err)
+	if errors.Is(mapped, database.ErrUniqueViolation) {
 		return domain.ErrDuplicateEntity
 	}
-	var sqlStateError interface{ SQLState() string }
-	if errors.As(err, &sqlStateError) && sqlStateError.SQLState() == postgresUniqueViolationCode {
-		return domain.ErrDuplicateEntity
+	if errors.Is(mapped, database.ErrForeignKeyViolation) {
+		return domain.ErrEntityNotFound
 	}
-	return err
+	if errors.Is(mapped, database.ErrConstraintViolation) || errors.Is(mapped, database.ErrInvalidData) {
+		return domain.ErrInvalidEntity
+	}
+	return mapped
 }

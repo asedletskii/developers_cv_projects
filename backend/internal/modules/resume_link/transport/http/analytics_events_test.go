@@ -14,29 +14,34 @@ import (
 
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
+	"developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type analyticsHandlerRepoStub struct{}
 
-func (analyticsHandlerRepoStub) ApplyBatch(context.Context, sharedvalueobjects.ID, sharedvalueobjects.ID, domain.ViewStateUpdate, []*domain.AnalyticsEvent, []*domain.AnalyticsClick) error {
-	return nil
-}
-
-type analyticsHandlerViewStub struct{}
-
-func (analyticsHandlerViewStub) CreateView(context.Context, *domain.View) error { return nil }
-func (analyticsHandlerViewStub) UpdateViewState(context.Context, sharedvalueobjects.ID, domain.ViewStateUpdate) error {
-	return nil
-}
-func (analyticsHandlerViewStub) GetView(_ context.Context, id sharedvalueobjects.ID) (*domain.View, error) {
-	layout, err := domain.NewLayoutSnapshot([]resumedomain.SectionID{resumedomain.SectionAbout}, map[resumedomain.SectionID]string{resumedomain.SectionAbout: "0123456789abcdef"})
+func (analyticsHandlerRepoStub) LoadAnalyticsBatchForUpdate(_ context.Context, viewID, linkID sharedvalueobjects.ID, _, _, _ bool) (domain.AnalyticsBatchSnapshot, error) {
+	layout, err := domain.NewLayoutSnapshot(
+		[]resumedomain.SectionID{resumedomain.SectionAbout},
+		map[resumedomain.SectionID]string{resumedomain.SectionAbout: "0123456789abcdef"},
+	)
 	if err != nil {
-		return nil, err
+		return domain.AnalyticsBatchSnapshot{}, err
 	}
-	return domain.NewView(domain.ViewParams{ID: id, LinkID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32), Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSLinux, Traffic: domain.TrafficHuman, Layout: layout, StartedAt: time.Now().UTC()})
+	view, err := domain.RestoreView(domain.ViewSnapshot{
+		ID: viewID, LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
+		Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSLinux,
+		Traffic: domain.TrafficHuman, Layout: layout, StartedAt: time.Now().UTC(), CreatedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		return domain.AnalyticsBatchSnapshot{}, err
+	}
+	return domain.AnalyticsBatchSnapshot{View: view, LinkStatus: domain.ResumeLinkStatusActive, ResumeStatus: resumedomain.ResumeStatusOpened}, nil
+}
+
+func (analyticsHandlerRepoStub) SaveAnalyticsBatch(context.Context, *domain.View, []*domain.AnalyticsEvent, []*domain.AnalyticsClick) error {
+	return nil
 }
 
 type analyticsHandlerUOWStub struct{}
@@ -45,11 +50,55 @@ func (analyticsHandlerUOWStub) Do(ctx context.Context, fn func(context.Context) 
 	return fn(ctx)
 }
 
-var _ ports.AnalyticsBatchRepository = analyticsHandlerRepoStub{}
+type analyticsHandlerObserverStub struct {
+	dropped  map[string]int
+	outcomes map[string]int
+}
+
+func (s *analyticsHandlerObserverStub) RecordAnalyticsBatchOutcome(outcome, reason string) {
+	if s.outcomes == nil {
+		s.outcomes = make(map[string]int)
+	}
+	s.outcomes[outcome+":"+reason]++
+}
+
+func (s *analyticsHandlerObserverStub) RecordDroppedAnalyticsInput(kind, reason string) {
+	if s.dropped == nil {
+		s.dropped = make(map[string]int)
+	}
+	s.dropped[kind+":"+reason]++
+}
+
+func TestAnalyticsEventsHandlerObservesMalformedElementsAndKeepsPartialAcceptance(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	observer := &analyticsHandlerObserverStub{}
+	ingest := commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, observer)
+	handler := handlers.NewResumeLinkAnalyticsEventsHandler(ingest)
+	engine := gin.New()
+	engine.POST("/api/v1/cv/:linkId/events", handler.Handle)
+
+	validEventID := uuid.New()
+	body := `{"viewId":"` + uuid.New().String() + `","seq":1,"final":false,"state":{"activeMs":0,"maxSection":"about"},` +
+		`"events":[null,{"id":"bad","type":"download","at":1},{"id":"` + uuid.New().String() + `","type":"download","at":-1},{"id":"` + validEventID.String() + `","type":"download","at":1}],` +
+		`"clicks":[null,{"section":"about","x":10,"y":20,"vw":800,"target":"button","at":-1}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+uuid.New().String()+"/events", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, 1, observer.dropped["event:invalid_json_shape"])
+	require.Equal(t, 1, observer.dropped["event:invalid_client_id"])
+	require.Equal(t, 1, observer.dropped["event:negative_timestamp"])
+	require.Equal(t, 1, observer.dropped["click:invalid_json_shape"])
+	require.Equal(t, 1, observer.dropped["click:negative_timestamp"])
+	require.Equal(t, 1, observer.outcomes["accepted:success"])
+}
 
 func TestAnalyticsEventsHandlerAcceptsTextPlain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewAnalyticsEventsHandler(commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerViewStub{}, analyticsHandlerUOWStub{}))
+	handler := handlers.NewResumeLinkAnalyticsEventsHandler(commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, nil))
 	engine := gin.New()
 	engine.POST("/api/v1/cv/:linkId/events", handler.Handle)
 
@@ -67,7 +116,8 @@ func TestAnalyticsEventsHandlerAcceptsTextPlain(t *testing.T) {
 
 func TestAnalyticsEventsHandlerRejectsInvalidViewID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewAnalyticsEventsHandler(commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerViewStub{}, analyticsHandlerUOWStub{}))
+	observer := &analyticsHandlerObserverStub{}
+	handler := handlers.NewResumeLinkAnalyticsEventsHandler(commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, observer))
 	engine := gin.New()
 	engine.POST("/api/v1/cv/:linkId/events", handler.Handle)
 
@@ -77,11 +127,12 @@ func TestAnalyticsEventsHandlerRejectsInvalidViewID(t *testing.T) {
 	engine.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Equal(t, 1, observer.outcomes["rejected:invalid_batch"])
 }
 
 func TestAnalyticsEventsHandlerMapsInactiveLinkToGone(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewAnalyticsEventsHandler(commands.NewIngestAnalyticsBatchHandler(analyticsHandlerInactiveRepoStub{}, analyticsHandlerViewStub{}, analyticsHandlerUOWStub{}))
+	handler := handlers.NewResumeLinkAnalyticsEventsHandler(commands.NewIngestAnalyticsBatchHandler(analyticsHandlerInactiveRepoStub{}, analyticsHandlerUOWStub{}, nil))
 	engine := gin.New()
 	engine.POST("/api/v1/cv/:linkId/events", handler.Handle)
 	viewID := uuid.New()
@@ -94,6 +145,10 @@ func TestAnalyticsEventsHandlerMapsInactiveLinkToGone(t *testing.T) {
 
 type analyticsHandlerInactiveRepoStub struct{}
 
-func (analyticsHandlerInactiveRepoStub) ApplyBatch(context.Context, sharedvalueobjects.ID, sharedvalueobjects.ID, domain.ViewStateUpdate, []*domain.AnalyticsEvent, []*domain.AnalyticsClick) error {
-	return domain.ErrResumeLinkInactive
+func (analyticsHandlerInactiveRepoStub) LoadAnalyticsBatchForUpdate(context.Context, sharedvalueobjects.ID, sharedvalueobjects.ID, bool, bool, bool) (domain.AnalyticsBatchSnapshot, error) {
+	return domain.AnalyticsBatchSnapshot{}, domain.ErrResumeLinkInactive
+}
+
+func (analyticsHandlerInactiveRepoStub) SaveAnalyticsBatch(context.Context, *domain.View, []*domain.AnalyticsEvent, []*domain.AnalyticsClick) error {
+	return nil
 }

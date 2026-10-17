@@ -15,15 +15,26 @@ type ProfileInput struct {
 	Surname     string
 	Patronymic  *string
 	Position    string
-	PhotoPath   domain.ExternalURL
+	PhotoURL    domain.ExternalURL
 	DateOfBirth domain.Date
 	Location    string
 	Relocation  bool
 	WorkFormats []domain.WorkFormat
 }
 
-func (i ProfileInput) toDomain(resumeID sharedvalueobjects.ID) domain.ProfileParams {
-	return domain.ProfileParams{ID: i.ID, ResumeID: resumeID, Name: i.Name, Surname: i.Surname, Patronymic: i.Patronymic, Position: i.Position, PhotoPath: i.PhotoPath, DateOfBirth: i.DateOfBirth, Location: i.Location, Relocation: i.Relocation, WorkFormats: append([]domain.WorkFormat(nil), i.WorkFormats...)}
+func (i ProfileInput) toDomain() domain.ProfileParams {
+	return domain.ProfileParams{
+		ID:          i.ID,
+		Name:        i.Name,
+		Surname:     i.Surname,
+		Patronymic:  i.Patronymic,
+		Position:    i.Position,
+		PhotoURL:    i.PhotoURL,
+		DateOfBirth: i.DateOfBirth,
+		Location:    i.Location,
+		Relocation:  i.Relocation,
+		WorkFormats: append([]domain.WorkFormat(nil), i.WorkFormats...),
+	}
 }
 
 type ReplaceProfileCommand struct {
@@ -47,7 +58,8 @@ func (h *ReplaceProfileHandler) Handle(ctx context.Context, c ReplaceProfileComm
 		return fmt.Errorf("replace profile handler dependencies are nil")
 	}
 
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace profile", func(resume *domain.Resume) error {
-		return resume.ReplaceProfile(c.Input.toDomain(c.ResumeID))
+	profile := c.Input.toDomain()
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace profile", ports.ResumeMutationProfile, func(resume *domain.Resume) error {
+		return resume.ReplaceProfile(profile)
 	})
 }

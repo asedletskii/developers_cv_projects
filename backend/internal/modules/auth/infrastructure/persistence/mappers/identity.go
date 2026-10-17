@@ -33,21 +33,13 @@ func IdentityToDomain(model gormmodel.UserIdentity) (*domain.Identity, error) {
 	if err != nil {
 		return nil, fmt.Errorf("map identity user id: %w", err)
 	}
-	provider, err := domain.NewProvider(model.Provider)
-	if err != nil {
-		return nil, err
-	}
+	provider := domain.Provider(model.Provider)
 	subject, err := valueobjects.NewProviderSubject(model.ProviderSubject)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("map identity provider subject: %w", err)
 	}
-	return domain.NewIdentity(domain.IdentityParams{
-		ID:              id,
-		UserID:          userID,
-		Provider:        provider,
-		ProviderSubject: subject,
-		CreatedAt:       model.CreatedAt,
-		UpdatedAt:       model.UpdatedAt,
-		LastLoginAt:     model.LastLoginAt,
+	return domain.RestoreIdentity(domain.IdentitySnapshot{
+		ID: id, UserID: userID, Provider: provider, ProviderSubject: subject,
+		CreatedAt: model.CreatedAt, UpdatedAt: model.UpdatedAt, LastLoginAt: model.LastLoginAt,
 	})
 }

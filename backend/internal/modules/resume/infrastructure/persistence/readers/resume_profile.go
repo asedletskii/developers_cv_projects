@@ -30,7 +30,7 @@ func (r *ResumeReader) loadProfile(ctx context.Context, db *gorm.DB, resumeID uu
 	}
 	view.Profile = &queries.ResumeProfileView{
 		ID: model.ID.String(), Name: model.Name, Surname: model.Surname,
-		Patronymic: model.Patronymic, Position: model.Position, PhotoPath: model.PhotoPath,
+		Patronymic: model.Patronymic, Position: model.Position, PhotoURL: model.PhotoURL,
 		DateOfBirth: model.DateOfBirth.Format("2006-01-02"), Location: model.Location, Relocation: model.Relocation,
 		WorkFormat: workFormat,
 	}

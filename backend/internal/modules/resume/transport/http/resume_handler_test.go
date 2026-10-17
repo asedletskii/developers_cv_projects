@@ -16,6 +16,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/transport/http/handlers"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -93,7 +94,7 @@ func TestHandlerDeletesResumeWithVersion(t *testing.T) {
 	resume := newStubResume(t, resumeID, userID, 4)
 	repository := &stubResumeRepository{resume: resume}
 	deleteHandler := commands.NewDeleteResumeHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
+	handler := handlers.NewResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -116,7 +117,7 @@ func TestHandlerRejectsDeleteWithNonPositiveVersion(t *testing.T) {
 	userID := uuid.New()
 	resumeID := uuid.New()
 	deleteHandler := commands.NewDeleteResumeHandler(&stubResumeRepository{}, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
+	handler := handlers.NewResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -141,7 +142,7 @@ func TestHandlerMapsDeleteConcurrencyConflictToPreconditionFailed(t *testing.T) 
 	resumeID := uuid.New()
 	repository := &stubResumeRepository{deleteErr: domain.ErrConcurrencyConflict}
 	deleteHandler := commands.NewDeleteResumeHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
+	handler := handlers.NewResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -167,7 +168,7 @@ func TestHandlerReturnsResumeVersion(t *testing.T) {
 	getHandler := queries.NewGetResumeQueryHandler(stubOwnedResumeReader{
 		view: queries.ResumeView{ID: resumeID.String(), Title: "CV", Version: int64Ptr(42)},
 	})
-	handler := newResumeHandler(nil, getHandler, nil, nil, nil, nil)
+	handler := handlers.NewResumeHandler(nil, getHandler, nil, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -187,7 +188,7 @@ func TestHandlerReturnsResumeVersion(t *testing.T) {
 func TestHandlerRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	handler := newResumeHandler(nil, nil, nil, nil, nil, queries.NewListResumesQueryHandler(&stubListReader{}))
+	handler := handlers.NewResumeHandler(nil, nil, nil, nil, nil, queries.NewListResumesQueryHandler(&stubListReader{}))
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, middleware.ErrUnauthenticated
@@ -211,7 +212,7 @@ func TestHandlerReturnsCurrentUsersResumes(t *testing.T) {
 			{ID: "resume-a", Title: "Senior Go Developer", Version: 3},
 		},
 	}
-	handler := newResumeHandler(nil, nil, nil, nil, nil, queries.NewListResumesQueryHandler(reader))
+	handler := handlers.NewResumeHandler(nil, nil, nil, nil, nil, queries.NewListResumesQueryHandler(reader))
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -247,7 +248,9 @@ func (r *stubResumeRepository) Save(_ context.Context, resume *domain.Resume) er
 	r.version = resume.Version()
 	return nil
 }
-
+func (r *stubResumeRepository) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return r.Save(ctx, resume)
+}
 func (r *stubResumeRepository) Create(context.Context, *domain.Resume) error { return nil }
 func (r *stubResumeRepository) Delete(context.Context, ports.DeleteResumeParams) error {
 	return r.deleteErr
@@ -265,10 +268,9 @@ func newStubResume(t *testing.T, resumeID uuid.UUID, userID uuid.UUID, version i
 	require.NoError(t, err)
 	uid, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
-	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: id, UserID: uid, Title: "Old title", Language: domain.ResumeLanguageEN, Version: version,
+	resume := domain.RestoreResume(domain.ResumeSnapshot{
+		ID: id, UserID: uid, Title: "Old title", Language: domain.ResumeLanguageEN, Status: domain.ResumeStatusDraft, Version: version,
 	})
-	require.NoError(t, err)
 	return resume
 }
 
@@ -280,7 +282,7 @@ func TestHandlerReplacesResumeTitle(t *testing.T) {
 	resume := newStubResume(t, resumeID, userID, 4)
 	repository := &stubResumeRepository{resume: resume}
 	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
+	handler := handlers.NewResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -303,7 +305,7 @@ func TestHandlerRejectsLanguageInResumeTitleReplacement(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	replaceHandler := commands.NewReplaceResumeTitleHandler(&stubResumeRepository{}, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
+	handler := handlers.NewResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -328,7 +330,7 @@ func TestHandlerMapsResumeTitleConcurrencyConflictToPreconditionFailed(t *testin
 	resume := newStubResume(t, resumeID, userID, 2)
 	repository := &stubResumeRepository{resume: resume}
 	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
+	handler := handlers.NewResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -355,7 +357,7 @@ func TestHandlerReturnsBadRequestForInvalidResumeTitle(t *testing.T) {
 	resume := newStubResume(t, resumeID, userID, 1)
 	repository := &stubResumeRepository{resume: resume}
 	replaceHandler := commands.NewReplaceResumeTitleHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
+	handler := handlers.NewResumeHandler(nil, nil, replaceHandler, nil, nil, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
@@ -383,7 +385,7 @@ func TestHandlerChangesResumeStatusAndReturnsNoContent(t *testing.T) {
 	resume := newStubResume(t, resumeID, userID, 4)
 	repository := &stubResumeRepository{resume: resume}
 	statusHandler := commands.NewChangeResumeStatusHandler(repository, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, nil, nil, statusHandler, nil)
+	handler := handlers.NewResumeHandler(nil, nil, nil, nil, statusHandler, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
@@ -406,7 +408,7 @@ func TestHandlerRejectsInvalidResumeStatusTransition(t *testing.T) {
 	resumeID := uuid.New()
 	resume := newStubResume(t, resumeID, userID, 4)
 	statusHandler := commands.NewChangeResumeStatusHandler(&stubResumeRepository{resume: resume}, stubResumeUnitOfWork{})
-	handler := newResumeHandler(nil, nil, nil, nil, statusHandler, nil)
+	handler := handlers.NewResumeHandler(nil, nil, nil, nil, statusHandler, nil)
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))

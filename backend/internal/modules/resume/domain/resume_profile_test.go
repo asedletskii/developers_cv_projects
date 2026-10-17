@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -8,13 +9,13 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func newReplacementProfileParams(t *testing.T, id, resumeID sharedvalueobjects.ID, name string) ProfileParams {
+func newReplacementProfileParams(t *testing.T, id, _ sharedvalueobjects.ID, name string) ProfileParams {
 	t.Helper()
 	photo, err := NewExternalURL("https://example.com/profile.jpg")
 	require.NoError(t, err)
 	dob, err := ParseDate("1998-04-12")
 	require.NoError(t, err)
-	return ProfileParams{ID: id, ResumeID: resumeID, Name: name, Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: dob, Location: "Paris", WorkFormats: []WorkFormat{WorkFormatRemote}}
+	return ProfileParams{ID: id, Name: name, Surname: "Doe", Position: "Developer", PhotoURL: photo, DateOfBirth: dob, Location: "Paris", WorkFormats: []WorkFormat{WorkFormatRemote}}
 }
 
 func TestResumeReplaceProfileCreatesAndGeneratesID(t *testing.T) {
@@ -50,31 +51,62 @@ func TestResumeReplaceProfileRejectsInvalidProfile(t *testing.T) {
 	require.ErrorIs(t, err, ErrDuplicateEntity)
 }
 
-func TestProfileReplacePreservesIdentityAndNormalizesFields(t *testing.T) {
+func TestNewProfileNormalizesFieldsAndValidates(t *testing.T) {
 	photo, err := NewExternalURL("https://example.com/photo")
 	require.NoError(t, err)
 	birth, err := ParseDate("1990-01-01")
 	require.NoError(t, err)
 	id, resumeID := sharedvalueobjects.NewID(), sharedvalueobjects.NewID()
 
-	profile, err := NewProfile(ProfileParams{ID: id, ResumeID: resumeID, Name: " John ", Surname: " Doe ", Position: " Developer ", PhotoPath: photo, DateOfBirth: birth, Location: " Paris ", WorkFormats: []WorkFormat{WorkFormatRemote}})
+	profile, err := newProfile(ProfileParams{ID: id, Name: " John ", Surname: " Doe ", Position: " Developer ", PhotoURL: photo, DateOfBirth: birth, Location: " Paris ", WorkFormats: []WorkFormat{WorkFormatRemote}}, resumeID)
 	require.NoError(t, err)
 	require.Equal(t, "John", profile.Name())
 	require.Equal(t, []WorkFormat{WorkFormatRemote}, profile.WorkFormats())
 
-	invalid := *profile
-	_ = invalid
-	_, err = NewProfile(ProfileParams{ID: id, ResumeID: resumeID, Name: "John", Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: birth, Location: "Paris", WorkFormats: []WorkFormat{WorkFormatRemote, WorkFormatRemote}})
+	_, err = newProfile(ProfileParams{ID: id, Name: "John", Surname: "Doe", Position: "Developer", PhotoURL: photo, DateOfBirth: birth, Location: "Paris", WorkFormats: []WorkFormat{WorkFormatRemote, WorkFormatRemote}}, resumeID)
 	require.ErrorIs(t, err, ErrDuplicateEntity)
 
 	future, err := ParseDate("2999-01-01")
 	require.NoError(t, err)
-	_, err = NewProfile(ProfileParams{ID: id, ResumeID: resumeID, Name: "John", Surname: "Doe", Position: "Developer", PhotoPath: photo, DateOfBirth: future, Location: "Paris"})
+	_, err = newProfile(ProfileParams{ID: id, Name: "John", Surname: "Doe", Position: "Developer", PhotoURL: photo, DateOfBirth: future, Location: "Paris"}, resumeID)
 	require.Error(t, err)
 
-	err = profile.Replace(ProfileParams{Name: " Jane ", Surname: " Doe ", Position: " Lead ", PhotoPath: photo, DateOfBirth: birth, Location: " Lyon "})
+}
+
+func TestNewProfileRejectsNameAboveConfiguredLimit(t *testing.T) {
+	resumeID := sharedvalueobjects.NewID()
+	params := newReplacementProfileParams(t, sharedvalueobjects.NewID(), resumeID, strings.Repeat("a", MaxProfileNameLength+1))
+	_, err := newProfile(params, resumeID)
+	require.ErrorIs(t, err, ErrInvalidEntity)
+}
+
+func TestRestoreProfilePreservesSnapshotText(t *testing.T) {
+	photo, err := NewExternalURL("https://example.com/profile.jpg")
 	require.NoError(t, err)
-	require.Equal(t, id, profile.ID())
-	require.Equal(t, resumeID, profile.ResumeID())
-	require.Equal(t, "Jane", profile.Name())
+	dob, err := ParseDate("1998-04-12")
+	require.NoError(t, err)
+	profile := RestoreProfile(ProfileSnapshot{
+		ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(),
+		Name: " John ", Surname: "Doe", Position: "Developer", PhotoURL: photo,
+		DateOfBirth: dob, Location: "Paris",
+	})
+
+	err = profile.validate()
+
+	require.NoError(t, err)
+	require.Equal(t, " John ", profile.Name())
+}
+
+func TestResumeReplaceProfileDoesNotMutateOnError(t *testing.T) {
+	resume := newTestResume(t)
+	require.NoError(t, resume.ReplaceProfile(newReplacementProfileParams(t, sharedvalueobjects.ID{}, resume.ID(), "John")))
+	existing := resume.Profile()
+
+	invalid := newReplacementProfileParams(t, sharedvalueobjects.ID{}, resume.ID(), "Jane")
+	invalid.WorkFormats = []WorkFormat{WorkFormatRemote, WorkFormatRemote}
+	err := resume.ReplaceProfile(invalid)
+
+	require.ErrorIs(t, err, ErrDuplicateEntity)
+	require.Equal(t, existing.ID(), resume.Profile().ID())
+	require.Equal(t, existing.Name(), resume.Profile().Name())
 }

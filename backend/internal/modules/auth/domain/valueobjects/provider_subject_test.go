@@ -15,10 +15,10 @@ func TestNewProviderSubjectPreservesOpaqueValue(t *testing.T) {
 
 func TestNewProviderSubjectRejectsEmpty(t *testing.T) {
 	_, err := NewProviderSubject("   ")
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrInvalidProviderSubject)
 }
 
 func TestNewProviderSubjectRejectsTooLong(t *testing.T) {
 	_, err := NewProviderSubject(strings.Repeat("a", MaxProviderSubjectLength+1))
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrInvalidProviderSubject)
 }

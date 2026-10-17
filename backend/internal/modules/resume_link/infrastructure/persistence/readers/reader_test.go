@@ -33,7 +33,7 @@ func testUUID(value string) uuid.UUID {
 func TestGetStatisticsReturnsErrorWhenReaderDatabaseIsUnavailable(t *testing.T) {
 	reader := NewResumeLinkReader(nil)
 
-	_, err := reader.GetLinkStatistics(context.Background(), queries.GetResumeLinkStatisticsQuery{
+	_, err := reader.GetLinkStatistics(context.Background(), queries.LinkAnalyticsQuery{
 		LinkID: sharedvalueobjects.NewID(),
 	})
 	require.Error(t, err)

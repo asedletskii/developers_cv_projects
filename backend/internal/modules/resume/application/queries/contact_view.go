@@ -34,8 +34,11 @@ func (h *ContactViewQueryHandler) Handle(ctx context.Context, query ContactViewQ
 	if h == nil || h.reader == nil {
 		return ContactView{}, fmt.Errorf("contact view query handler dependencies are nil")
 	}
-	if query.ResumeID.IsZero() || !query.Contact.IsValid() {
+	if query.ResumeID.IsZero() {
 		return ContactView{}, fmt.Errorf("invalid contact view query")
+	}
+	if _, err := domain.ParseContactKey(string(query.Contact)); err != nil {
+		return ContactView{}, fmt.Errorf("invalid contact view query: %w", err)
 	}
 	return h.reader.GetContactForView(ctx, query)
 }

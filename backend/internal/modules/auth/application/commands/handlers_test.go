@@ -37,6 +37,7 @@ type transactionRepositoryStub struct {
 	transaction *domain.AuthTransaction
 	createErr   error
 	findErr     error
+	returnNil   bool
 	consumed    int
 }
 
@@ -50,6 +51,9 @@ func (r *transactionRepositoryStub) Create(_ context.Context, transaction *domai
 func (r *transactionRepositoryStub) FindByStateHash(_ context.Context, _ valueobjects.StateHash) (*domain.AuthTransaction, error) {
 	if r.findErr != nil {
 		return nil, r.findErr
+	}
+	if r.returnNil {
+		return nil, nil
 	}
 	return r.transaction, nil
 }
@@ -71,7 +75,9 @@ type oidcStub struct {
 	gotNonceHash valueobjects.NonceHash
 }
 
-func (o *oidcStub) AuthorizationURL(params ports.TelegramAuthorizationParams) string { return o.url }
+func (o *oidcStub) AuthorizationURL(ctx context.Context, params ports.TelegramAuthorizationParams) (string, error) {
+	return o.url, nil
+}
 func (o *oidcStub) Exchange(_ context.Context, _ string, _ string, _ string, nonceHash valueobjects.NonceHash) (ports.VerifiedIdentity, error) {
 	o.gotNonceHash = nonceHash
 	if o.exchangeErr != nil {
@@ -83,6 +89,7 @@ func (o *oidcStub) Exchange(_ context.Context, _ string, _ string, _ string, non
 type identityRepositoryStub struct {
 	identity    *domain.Identity
 	findErr     error
+	returnNil   bool
 	createErr   error
 	updateCalls int
 	createCalls int
@@ -91,6 +98,9 @@ type identityRepositoryStub struct {
 func (r *identityRepositoryStub) FindByProviderSubject(context.Context, domain.Provider, valueobjects.ProviderSubject) (*domain.Identity, error) {
 	if r.findErr != nil {
 		return nil, r.findErr
+	}
+	if r.returnNil {
+		return nil, nil
 	}
 	if r.identity == nil {
 		return nil, domain.ErrEntityNotFound
@@ -112,6 +122,7 @@ func (r *identityRepositoryStub) UpdateLastLogin(context.Context, sharedvalueobj
 
 type sessionRepositoryStub struct {
 	session     *domain.Session
+	returnNil   bool
 	createErr   error
 	touchCalls  int
 	revokeCalls int
@@ -125,6 +136,9 @@ func (r *sessionRepositoryStub) Create(_ context.Context, session *domain.Sessio
 	return nil
 }
 func (r *sessionRepositoryStub) FindActiveByTokenHash(context.Context, valueobjects.SessionTokenHash) (*domain.Session, error) {
+	if r.returnNil {
+		return nil, nil
+	}
 	if r.session == nil {
 		return nil, domain.ErrEntityNotFound
 	}
@@ -194,7 +208,7 @@ func testTransaction(t *testing.T, at time.Time) *domain.AuthTransaction {
 	binding := sha256.Sum256([]byte("browser-binding"))
 	bb, err := valueobjects.NewBrowserBindingHash(binding[:])
 	require.NoError(t, err)
-	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{ID: sharedvalueobjects.NewID(), Provider: testProvider(t), StateHash: sh, NonceHash: nh, BrowserBindingHash: bb, CodeVerifier: "verifier", RedirectURI: "https://example/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
+	tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{Provider: testProvider(t), StateHash: sh, NonceHash: nh, BrowserBindingHash: bb, CodeVerifier: "verifier", RedirectURI: "https://example/callback", CreatedAt: at, ExpiresAt: at.Add(5 * time.Minute)})
 	require.NoError(t, err)
 	return tx
 }
@@ -202,7 +216,7 @@ func testSession(t *testing.T, at time.Time, lastSeen time.Time) *domain.Session
 	t.Helper()
 	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
 	require.NoError(t, err)
-	s, err := domain.NewSession(domain.SessionParams{ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), TokenHash: hash, CreatedAt: at, LastSeenAt: lastSeen, ExpiresAt: at.Add(time.Hour)})
+	s, err := domain.NewSession(domain.SessionParams{UserID: sharedvalueobjects.NewID(), TokenHash: hash, CreatedAt: at, LastSeenAt: lastSeen, ExpiresAt: at.Add(time.Hour)})
 	require.NoError(t, err)
 	return s
 }
@@ -243,6 +257,17 @@ func TestCompleteTelegramLoginRejectsInvalidState(t *testing.T) {
 	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
 
 	require.ErrorIs(t, err, application.ErrStateInvalid)
+}
+
+func TestCompleteTelegramLoginRejectsNilTransactionFromRepository(t *testing.T) {
+	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
+	repo := &transactionRepositoryStub{returnNil: true}
+	h := NewCompleteTelegramLoginHandler(repo, &identityRepositoryStub{}, &sessionRepositoryStub{}, &oidcStub{}, &provisionerStub{userID: sharedvalueobjects.NewID()}, tokenGeneratorStub{session: []byte("session-token")}, &uowStub{}, time.Hour)
+	h.now = func() time.Time { return at }
+
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
+
+	require.EqualError(t, err, "find auth transaction: repository returned nil transaction")
 }
 
 func TestCompleteTelegramLoginRejectsConsumedTransaction(t *testing.T) {
@@ -334,11 +359,34 @@ func TestCompleteTelegramLoginCreatesUserIdentityAndSession(t *testing.T) {
 	require.NotEqual(t, []byte("session-token"), sessions.session.TokenHash().Bytes())
 }
 
+func TestCompleteTelegramLoginRejectsNilIdentityFromRepository(t *testing.T) {
+	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
+	identityRepo := &identityRepositoryStub{returnNil: true}
+	oidc := &oidcStub{identity: ports.VerifiedIdentity{Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub")}}
+	uow := &uowStub{}
+	h := NewCompleteTelegramLoginHandler(
+		&transactionRepositoryStub{transaction: testTransaction(t, at)},
+		identityRepo,
+		&sessionRepositoryStub{},
+		oidc,
+		&provisionerStub{userID: sharedvalueobjects.NewID()},
+		tokenGeneratorStub{session: []byte("session-token")},
+		uow,
+		time.Hour,
+	)
+	h.now = func() time.Time { return at }
+
+	_, err := h.Handle(context.Background(), "code", "state", "browser-binding")
+
+	require.EqualError(t, err, "find auth identity: repository returned nil identity")
+	require.Equal(t, 1, uow.calls)
+}
+
 func TestCompleteTelegramLoginReusesExistingIdentity(t *testing.T) {
 	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
 	identityID := sharedvalueobjects.NewID()
 	userID := sharedvalueobjects.NewID()
-	existingIdentity, err := domain.NewIdentity(domain.IdentityParams{ID: identityID, UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
+	existingIdentity, err := domain.RestoreIdentity(domain.IdentitySnapshot{ID: identityID, UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
 	require.NoError(t, err)
 	repo := &transactionRepositoryStub{transaction: testTransaction(t, at)}
 	identityRepo := &identityRepositoryStub{identity: existingIdentity}
@@ -358,7 +406,7 @@ func TestCompleteTelegramLoginRetriesIdentityConflict(t *testing.T) {
 	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
 	tx := testTransaction(t, at)
 	userID := sharedvalueobjects.NewID()
-	existingIdentity, err := domain.NewIdentity(domain.IdentityParams{ID: sharedvalueobjects.NewID(), UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
+	existingIdentity, err := domain.NewIdentity(domain.IdentityParams{UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
 	require.NoError(t, err)
 	tracing := &raceIdentityRepository{identity: existingIdentity}
 	oidc := &oidcStub{identity: ports.VerifiedIdentity{Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub")}}
@@ -432,9 +480,34 @@ func TestLogoutIsIdempotentForMissingSession(t *testing.T) {
 func TestLogoutRevokesSession(t *testing.T) {
 	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
 	sessions := &sessionRepositoryStub{session: testSession(t, at, at)}
-	h := NewLogoutHandler(sessions, &uowStub{})
+	uow := &uowStub{}
+	h := NewLogoutHandler(sessions, uow)
 	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
 	require.NoError(t, err)
 	require.NoError(t, h.Handle(context.Background(), hash, at.Add(time.Minute)))
 	require.Equal(t, 1, sessions.revokeCalls)
+	require.Equal(t, 1, uow.calls)
+}
+
+func TestLogoutRejectsNilSessionFromRepository(t *testing.T) {
+	sessions := &sessionRepositoryStub{returnNil: true}
+	h := NewLogoutHandler(sessions, &uowStub{})
+	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
+	require.NoError(t, err)
+
+	err = h.Handle(context.Background(), hash, time.Now().UTC())
+
+	require.EqualError(t, err, "logout: session repository returned nil session")
+}
+
+func TestLogoutRejectsZeroTimestamp(t *testing.T) {
+	sessions := &sessionRepositoryStub{}
+	h := NewLogoutHandler(sessions, &uowStub{})
+	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
+	require.NoError(t, err)
+
+	err = h.Handle(context.Background(), hash, time.Time{})
+
+	require.EqualError(t, err, "logout: timestamp must be set")
+	require.Zero(t, sessions.revokeCalls)
 }

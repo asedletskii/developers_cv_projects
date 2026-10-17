@@ -4,20 +4,22 @@ package persistence_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
+	"developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/testutil/pgtest"
 )
 
 type phase6PostgresFixture struct {
@@ -35,21 +37,7 @@ func newPhase6PostgresFixture(t *testing.T) *phase6PostgresFixture {
 		t.Skip("integration test")
 	}
 
-	ctx := context.Background()
-	container, err := testpostgres.Run(
-		ctx,
-		"postgres:17-alpine",
-		testpostgres.WithDatabase("developers_cv"),
-		testpostgres.WithUsername("developers_cv"),
-		testpostgres.WithPassword("test-password"),
-		testpostgres.BasicWaitStrategies(),
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
@@ -58,7 +46,7 @@ func newPhase6PostgresFixture(t *testing.T) *phase6PostgresFixture {
 	owner := sharedvalueobjects.NewID()
 	insertResumeTestUser(t, ctx, dsn, owner)
 	resume := newTestResume(t, owner)
-	overview := domain.ResumeOverviewParams{Greeting: domain.NewGreeting(domain.GreetingParams{}), Sections: []domain.SectionSettings{}}
+	overview := domain.ResumeOverviewParams{Greeting: mustGreeting(t, domain.GreetingParams{}), Sections: []domain.SectionSettings{}}
 	require.NoError(t, resume.ReplaceOverview(overview))
 	uow := database.NewUnitOfWork(gormDB)
 	resumeRepo := repository.NewResumeRepository(gormDB)
@@ -102,7 +90,7 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	require.NoError(t, err)
 	overview := domain.ResumeOverviewParams{
 		Theme:        &theme,
-		Greeting:     domain.NewGreeting(domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
+		Greeting:     mustGreeting(t, domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
 		Availability: &availability,
 		ResumeLink:   &link,
 		Sections:     []domain.SectionSettings{section},
@@ -118,7 +106,7 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, loaded.Overview())
 	require.Equal(t, "Hello", loaded.Overview().Greeting().First())
-	require.Equal(t, "#112233", loaded.Overview().Theme().Primary.String())
+	require.Equal(t, "#112233", loaded.Overview().Theme().Primary().String())
 	require.Len(t, loaded.Overview().Sections(), 1)
 	require.Equal(t, domain.SectionAbout, loaded.Overview().Sections()[0].ID())
 	require.Equal(t, int64(2), loaded.Version())
@@ -132,7 +120,7 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	updatedAvailability, err := domain.NewAvailability(domain.AvailabilityParams{Status: domain.AvailabilityStatusBusy, Note: stringPtr("Not available")})
 	require.NoError(t, err)
 	updatedOverview := domain.ResumeOverviewParams{
-		Greeting:     domain.NewGreeting(domain.GreetingParams{First: "Updated", Second: "I build", SecondHighlight: "systems", Third: ""}),
+		Greeting:     mustGreeting(t, domain.GreetingParams{First: "Updated", Second: "I build", SecondHighlight: "systems", Third: ""}),
 		Availability: &updatedAvailability,
 		Sections:     []domain.SectionSettings{updatedSection},
 	}
@@ -155,6 +143,27 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	require.ErrorIs(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Save(tx, stale)
 	}), domain.ErrConcurrencyConflict)
+}
+
+func TestPostgresResumeRepositoryReturnsInitializedEmptyCollections(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+
+	loaded, err := repository.NewResumeRepository(fixture.gorm).Get(fixture.ctx, ports.GetResumeParams{
+		ResumeID: fixture.resume.ID(),
+		UserID:   fixture.owner,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, loaded.Experiences())
+	require.NotNil(t, loaded.Educations())
+	require.NotNil(t, loaded.Courses())
+	require.NotNil(t, loaded.Activities())
+	require.NotNil(t, loaded.Projects())
+	require.Empty(t, loaded.Experiences())
+	require.Empty(t, loaded.Educations())
+	require.Empty(t, loaded.Courses())
+	require.Empty(t, loaded.Activities())
+	require.Empty(t, loaded.Projects())
 }
 
 func TestPostgresResumeAggregateContactsReplacement(t *testing.T) {
@@ -217,6 +226,60 @@ func TestPostgresResumeAggregateContactsReplacement(t *testing.T) {
 	}), domain.ErrConcurrencyConflict)
 }
 
+func TestPostgresResumeTechnologyNamesMustBeUniquePerCollection(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	conn, err := pgx.Connect(fixture.ctx, fixture.dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(fixture.ctx)) })
+
+	resumeID := fixture.resume.ID().UUID()
+	technologyID := sharedvalueobjects.NewID().UUID()
+	_, err = conn.Exec(fixture.ctx,
+		`INSERT INTO resume_technologies (id, resume_id, name, position) VALUES ($1, $2, 'Go', 0)`,
+		technologyID, resumeID,
+	)
+	require.NoError(t, err)
+	_, err = conn.Exec(fixture.ctx,
+		`INSERT INTO resume_technologies (id, resume_id, name, position) VALUES ($1, $2, 'Go', 1)`,
+		sharedvalueobjects.NewID().UUID(), resumeID,
+	)
+	require.Error(t, err, "resume technologies must reject duplicate names")
+
+	experienceID := sharedvalueobjects.NewID().UUID()
+	_, err = conn.Exec(fixture.ctx,
+		`INSERT INTO resume_experiences (id, resume_id, sort_order, company, position, start_date) VALUES ($1, $2, 0, 'Acme', 'Developer', '2024-01-01')`,
+		experienceID, resumeID,
+	)
+	require.NoError(t, err)
+	_, err = conn.Exec(fixture.ctx,
+		`INSERT INTO resume_experience_stack (experience_id, position, name) VALUES ($1, 0, 'Go')`,
+		experienceID,
+	)
+	require.NoError(t, err)
+	_, err = conn.Exec(fixture.ctx,
+		`INSERT INTO resume_experience_stack (experience_id, position, name) VALUES ($1, 1, 'Go')`,
+		experienceID,
+	)
+	require.Error(t, err, "experience stack must reject duplicate technology names")
+
+	projectID := sharedvalueobjects.NewID().UUID()
+	_, err = conn.Exec(fixture.ctx,
+		`INSERT INTO resume_projects (id, resume_id, sort_order, name) VALUES ($1, $2, 0, 'Project')`,
+		projectID, resumeID,
+	)
+	require.NoError(t, err)
+	_, err = conn.Exec(fixture.ctx,
+		`INSERT INTO resume_project_technologies (project_id, position, name) VALUES ($1, 0, 'Go')`,
+		projectID,
+	)
+	require.NoError(t, err)
+	_, err = conn.Exec(fixture.ctx,
+		`INSERT INTO resume_project_technologies (project_id, position, name) VALUES ($1, 1, 'Go')`,
+		projectID,
+	)
+	require.Error(t, err, "project stack must reject duplicate technology names")
+}
+
 func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 	fixture := newPhase6PostgresFixture(t)
 	ctx := fixture.ctx
@@ -236,14 +299,13 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 	courseID := sharedvalueobjects.NewID()
 	activityID := sharedvalueobjects.NewID()
 	projectID := sharedvalueobjects.NewID()
-	contributorID := sharedvalueobjects.NewID()
 	now := time.Now().UTC()
 
 	statements := []struct {
 		query string
 		args  []any
 	}{
-		{`INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_path,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','https://example.com/photo','1998-01-01','Paris',false)`, []any{profileID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_url,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','https://example.com/photo','1998-01-01','Paris',false)`, []any{profileID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_profile_work_formats (profile_id,value,position) VALUES ($1,'remote',0)`, []any{profileID.UUID()}},
 		{`INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, []any{contactsID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_contact_hidden (contacts_id,value,position) VALUES ($1,'email',0)`, []any{contactsID.UUID()}},
@@ -251,7 +313,7 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 		{`INSERT INTO resume_skills (id,resume_id) VALUES ($1,$2)`, []any{skillsID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_skill_hard (skills_id,value,position) VALUES ($1,'architecture',0)`, []any{skillsID.UUID()}},
 		{`INSERT INTO resume_skill_soft (skills_id,value,position) VALUES ($1,'communication',0)`, []any{skillsID.UUID()}},
-		{`INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, []any{languageID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume_spoken_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, []any{languageID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_technologies (id,resume_id,name,position) VALUES ($1,$2,'Go',0)`, []any{technologyID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2024-01-01')`, []any{experienceID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, []any{experienceID.UUID()}},
@@ -263,7 +325,7 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 		{`INSERT INTO resume_projects (id,resume_id,sort_order,name) VALUES ($1,$2,0,'CV')`, []any{projectID.UUID(), resumeID.UUID()}},
 		{`INSERT INTO resume_project_screenshots (project_id,position,path) VALUES ($1,0,'https://example.com/shot.png')`, []any{projectID.UUID()}},
 		{`INSERT INTO resume_project_technologies (project_id,position,name) VALUES ($1,0,'Go')`, []any{projectID.UUID()}},
-		{`INSERT INTO resume_project_contributors (id,project_id,position,name,surname,role,email) VALUES ($1,$2,0,'Jane','Doe','Developer','jane@example.com')`, []any{contributorID.UUID(), projectID.UUID()}},
+		{`INSERT INTO resume_project_contributors (project_id,position,name,surname,role,email) VALUES ($1,0,'Jane','Doe','Developer','jane@example.com')`, []any{projectID.UUID()}},
 		{`UPDATE resumes SET updated_at = $1 WHERE id = $2`, []any{now, resumeID.UUID()}},
 	}
 	for _, statement := range statements {
@@ -279,7 +341,7 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 	tables := []string{
 		"resumes", "resume_overviews", "resume_overview_sections", "resume_profiles", "resume_profile_work_formats",
 		"resume_contacts", "resume_contact_hidden", "resume_contacts_text", "resume_skills", "resume_skill_hard",
-		"resume_skill_soft", "resume_languages", "resume_technologies", "resume_experiences", "resume_experience_achievements",
+		"resume_skill_soft", "resume_spoken_languages", "resume_technologies", "resume_experiences", "resume_experience_achievements",
 		"resume_experience_tasks", "resume_experience_stack", "resume_educations", "resume_courses", "resume_activities", "resume_projects",
 		"resume_project_screenshots", "resume_project_technologies", "resume_project_contributors",
 	}
@@ -318,12 +380,12 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	gormDB := fixture.gorm
 	resumeRepo := repository.NewResumeRepository(gormDB)
 
-	secondResume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: owner, Title: "Second resume", Language: domain.ResumeLanguageEN})
+	secondResume, err := domain.NewResume(domain.ResumeParams{UserID: owner, Title: "Second resume", Language: domain.ResumeLanguageEN})
 	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, secondResume)
 	}))
-	duplicateLanguageResume, err := domain.NewResume(domain.ResumeParams{ID: sharedvalueobjects.NewID(), UserID: owner, Title: "Duplicate language", Language: domain.ResumeLanguageRU})
+	duplicateLanguageResume, err := domain.NewResume(domain.ResumeParams{UserID: owner, Title: "Duplicate language", Language: domain.ResumeLanguageRU})
 	require.NoError(t, err)
 	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, duplicateLanguageResume)
@@ -333,10 +395,10 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',0,'B2')`, resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume_spoken_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',0,'B2')`, resumeID.UUID())
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',1,'C1')`, resumeID.UUID())
-	require.Error(t, err, "duplicate resume language must violate UNIQUE(resume_id, language)")
+	_, err = conn.Exec(ctx, `INSERT INTO resume_spoken_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',1,'C1')`, resumeID.UUID())
+	require.Error(t, err, "duplicate author language must violate UNIQUE(resume_id, language)")
 
 	checks := []struct {
 		name  string
@@ -401,7 +463,7 @@ func TestPostgresExperiencesAggregateReplacement(t *testing.T) {
 
 	updated := loaded.Experiences()[1]
 	require.NoError(t, loaded.ReplaceExperiences([]domain.ExperienceParams{{
-		ID: updated.ID(), ResumeID: loaded.ID(), Company: "Beta Updated", Position: "Principal Engineer",
+		ID: updated.ID(), Company: "Beta Updated", Position: "Principal Engineer",
 		StartDate: updated.StartDate(), Achievements: []string{"Led migration", "Reduced latency"},
 		Tasks: []string{"Lead migration", "Review PRs"},
 		Stack: []domain.ExperienceStackParams{{Name: "Go"}, {Name: "PostgreSQL"}},
@@ -526,9 +588,8 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.NoError(t, err)
 		entries := loaded.Technologies().Entries()
 		firstID, secondID := entries[0].ID(), entries[1].ID()
-		collectionID := loaded.Technologies().ID()
 
-		require.NoError(t, loaded.ReplaceTechnologies(domain.ResumeTechnologiesParams{ID: collectionID, Entries: []domain.ResumeTechnologyEntryParams{
+		require.NoError(t, loaded.ReplaceTechnologies(domain.ResumeTechnologiesParams{Entries: []domain.ResumeTechnologyEntryParams{
 			{ID: secondID, Name: "PostgreSQL", Position: 0},
 			{ID: firstID, Name: "Go", Position: 1},
 		}}))
@@ -567,4 +628,295 @@ func TestPostgresOrderedAggregateReplacementPreservesIDsOnReorder(t *testing.T) 
 		require.Len(t, loaded.Projects()[0].Stack(), 1)
 		require.Equal(t, "PostgreSQL", loaded.Projects()[0].Stack()[0].Name())
 	})
+}
+
+func TestPostgresResumeSaveAllowsAbsentOptionalOverview(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+	loaded, err := resumeRepo.Get(fixture.ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.NotNil(t, loaded.Overview())
+
+	withoutOverview := domain.RestoreResume(domain.ResumeSnapshot{
+		ID:              loaded.ID(),
+		UserID:          loaded.UserID(),
+		Title:           loaded.Title(),
+		Language:        loaded.Language(),
+		Status:          loaded.Status(),
+		Version:         loaded.Version(),
+		Profile:         loaded.Profile(),
+		Contacts:        loaded.Contacts(),
+		Skills:          loaded.Skills(),
+		SpokenLanguages: loaded.SpokenLanguages(),
+		Technologies:    loaded.Technologies(),
+		Experiences:     loaded.Experiences(),
+		Educations:      loaded.Educations(),
+		Courses:         loaded.Courses(),
+		Activities:      loaded.Activities(),
+		Projects:        loaded.Projects(),
+	})
+	require.NoError(t, fixture.uow.Do(fixture.ctx, func(tx context.Context) error {
+		return resumeRepo.Save(tx, withoutOverview)
+	}))
+
+	persisted, err := resumeRepo.Get(fixture.ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Nil(t, persisted.Overview())
+	require.Equal(t, loaded.Version()+1, persisted.Version())
+
+	reader := readers.NewResumeReader(fixture.gorm)
+	view, err := reader.GetOwned(fixture.ctx, queries.GetResumeQuery{
+		ResumeID: fixture.resume.ID(),
+		UserID:   fixture.owner,
+	})
+	require.NoError(t, err)
+	require.Empty(t, view.Overview.Greeting.First)
+	require.NotNil(t, view.Overview.Sections)
+	require.Empty(t, view.Overview.Sections)
+
+	overviewView, err := reader.GetOwnedOverview(fixture.ctx, queries.GetResumeQuery{
+		ResumeID: fixture.resume.ID(),
+		UserID:   fixture.owner,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, overviewView.Sections)
+	require.Empty(t, overviewView.Sections)
+}
+
+func TestPostgresResumeSaveSectionOnlyUpdatesRequestedSection(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+	ctx := fixture.ctx
+
+	projectParams := []domain.ProjectParams{{Name: "Existing project", Description: stringPtr("Must survive overview update")}}
+	require.NoError(t, fixture.resume.ReplaceProjects(projectParams))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, fixture.resume, ports.ResumeMutationProjects)
+	}))
+
+	loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), loaded.Version())
+	require.Len(t, loaded.Projects(), 1)
+	require.Equal(t, "Existing project", loaded.Projects()[0].Name())
+
+	updatedOverview := domain.ResumeOverviewParams{
+		Greeting: mustGreeting(t, domain.GreetingParams{First: "Section-only update"}),
+		Sections: []domain.SectionSettings{},
+	}
+	require.NoError(t, loaded.ReplaceOverview(updatedOverview))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, loaded, ports.ResumeMutationOverview)
+	}))
+
+	loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, int64(3), loaded.Version())
+	require.Equal(t, "Section-only update", loaded.Overview().Greeting().First())
+	require.Len(t, loaded.Projects(), 1)
+	require.Equal(t, "Existing project", loaded.Projects()[0].Name())
+}
+
+func TestPostgresResumeSaveSectionRejectsStaleVersionWithoutChangingSection(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+	ctx := fixture.ctx
+
+	first, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	stale, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+
+	require.NoError(t, first.ReplaceTitle("Winner"))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, first, ports.ResumeMutationTitle)
+	}))
+
+	require.NoError(t, stale.ReplaceTitle("Stale overwrite"))
+	err = fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, stale, ports.ResumeMutationTitle)
+	})
+	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
+
+	loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, "Winner", loaded.Title())
+	require.Equal(t, int64(2), loaded.Version())
+}
+
+func TestPostgresResumeRootMutationsUseAggregateAndCAS(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+	ctx := fixture.ctx
+
+	first, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	stale, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+
+	require.NoError(t, first.ReplaceTitle("Root-only title"))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, first, ports.ResumeMutationTitle)
+	}))
+
+	loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, "Root-only title", loaded.Title())
+	require.Equal(t, int64(2), loaded.Version())
+	require.NoError(t, loaded.ReplaceStatus(domain.ResumeStatusOpened))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, loaded, ports.ResumeMutationStatus)
+	}))
+
+	require.NoError(t, stale.ReplaceTitle("Stale title"))
+	err = fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, stale, ports.ResumeMutationTitle)
+	})
+	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
+
+	loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, "Root-only title", loaded.Title())
+	require.Equal(t, domain.ResumeStatusOpened, loaded.Status())
+	require.Equal(t, int64(3), loaded.Version())
+	require.NotNil(t, loaded.Overview())
+}
+
+func TestPostgresResumeSaveSectionRollsBackVersionAndSectionOnChildWriteFailure(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+	ctx := fixture.ctx
+
+	oldScreenshot, err := domain.NewExternalURL("https://example.com/assets/old.png")
+	require.NoError(t, err)
+	require.NoError(t, fixture.resume.ReplaceProjects([]domain.ProjectParams{{
+		Name:        "Existing project",
+		Description: stringPtr("Must survive failed replacement"),
+		Screenshots: []domain.ExternalURL{oldScreenshot},
+	}}))
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, fixture.resume, ports.ResumeMutationProjects)
+	}))
+
+	loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	initialVersion := loaded.Version()
+	require.Len(t, loaded.Projects(), 1)
+	require.Equal(t, "Existing project", loaded.Projects()[0].Name())
+
+	newScreenshot, err := domain.NewExternalURL("https://example.com/assets/new.png")
+	require.NoError(t, err)
+	require.NoError(t, loaded.ReplaceProjects([]domain.ProjectParams{{
+		Name:        "Replacement project",
+		Description: stringPtr("This write must fail"),
+		Screenshots: []domain.ExternalURL{newScreenshot},
+	}}))
+
+	err = fixture.gorm.Exec(`
+CREATE FUNCTION fail_resume_project_screenshot_insert() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'forced child insert failure';
+END;
+$$`).Error
+	require.NoError(t, err)
+	err = fixture.gorm.Exec(`
+CREATE TRIGGER fail_resume_project_screenshot_insert_trigger
+BEFORE INSERT ON resume_project_screenshots
+FOR EACH ROW EXECUTE FUNCTION fail_resume_project_screenshot_insert()`).Error
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		cleanupErr := fixture.gorm.Exec("DROP TRIGGER IF EXISTS fail_resume_project_screenshot_insert_trigger ON resume_project_screenshots").Error
+		require.NoError(t, cleanupErr)
+		cleanupErr = fixture.gorm.Exec("DROP FUNCTION IF EXISTS fail_resume_project_screenshot_insert()").Error
+		require.NoError(t, cleanupErr)
+	})
+
+	err = fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.SaveSection(tx, loaded, ports.ResumeMutationProjects)
+	})
+	require.Error(t, err)
+
+	persisted, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, initialVersion, persisted.Version(), "version increment must rollback with failed child write")
+	require.Len(t, persisted.Projects(), 1)
+	require.Equal(t, "Existing project", persisted.Projects()[0].Name(), "deleted/replaced parent row must rollback")
+	require.NotNil(t, persisted.Projects()[0].Description())
+	require.Equal(t, "Must survive failed replacement", *persisted.Projects()[0].Description())
+	require.Len(t, persisted.Projects()[0].Screenshots(), 1)
+	require.Equal(t, "https://example.com/assets/old.png", persisted.Projects()[0].Screenshots()[0].String())
+}
+
+func TestPostgresConcurrentSectionMutationsWithSameVersionHaveSingleWinner(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+	ctx := fixture.ctx
+
+	titleCandidate, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	overviewCandidate, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, titleCandidate.Version(), overviewCandidate.Version())
+
+	require.NoError(t, titleCandidate.ReplaceTitle("Concurrent title winner"))
+	require.NoError(t, overviewCandidate.ReplaceOverview(domain.ResumeOverviewParams{
+		Greeting: mustGreeting(t, domain.GreetingParams{First: "Concurrent overview winner"}),
+		Sections: []domain.SectionSettings{},
+	}))
+
+	start := make(chan struct{})
+	type mutationResult struct {
+		err error
+	}
+	results := make(chan mutationResult, 2)
+
+	go func() {
+		<-start
+		err := fixture.uow.Do(ctx, func(tx context.Context) error {
+			return resumeRepo.SaveSection(tx, titleCandidate, ports.ResumeMutationTitle)
+		})
+		results <- mutationResult{err: err}
+	}()
+	go func() {
+		<-start
+		err := fixture.uow.Do(ctx, func(tx context.Context) error {
+			return resumeRepo.SaveSection(tx, overviewCandidate, ports.ResumeMutationOverview)
+		})
+		results <- mutationResult{err: err}
+	}()
+	close(start)
+
+	first := <-results
+	second := <-results
+	var successes, conflicts int
+	for _, result := range []mutationResult{first, second} {
+		if result.err == nil {
+			successes++
+			continue
+		}
+		if errors.Is(result.err, domain.ErrConcurrencyConflict) {
+			conflicts++
+		}
+	}
+	require.Equal(t, 1, successes, "exactly one mutation based on the same aggregate version must commit")
+	require.Equal(t, 1, conflicts, "the losing mutation must report a version conflict")
+
+	persisted, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), persisted.Version())
+	titleWon := persisted.Title() == "Concurrent title winner"
+	overviewWon := persisted.Overview() != nil && persisted.Overview().Greeting().First() == "Concurrent overview winner"
+	require.NotEqual(t, titleWon, overviewWon, "only the winning section may be visible")
+}
+
+func TestPostgresResumeOverviewRejectsAvailabilityFieldsWithoutStatus(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	err := fixture.gorm.Exec(
+		"UPDATE resume_overviews SET availability_note = ? WHERE resume_id = ?",
+		"orphaned note",
+		fixture.resume.ID().UUID(),
+	).Error
+
+	require.Error(t, err)
 }

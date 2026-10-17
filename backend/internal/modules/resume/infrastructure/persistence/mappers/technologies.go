@@ -8,22 +8,15 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func TechnologiesToDomain(
-	rows []gormmodel.ResumeTechnology,
-	resumeID sharedvalueobjects.ID,
-) (*domain.ResumeTechnologies, error) {
+func TechnologiesToDomain(rows []gormmodel.ResumeTechnology) (*domain.ResumeTechnologies, error) {
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	collectionID, err := sharedvalueobjects.IDFromUUID(rows[0].ID)
-	if err != nil {
-		return nil, err
-	}
 	entries := make([]domain.ResumeTechnologyEntryParams, 0, len(rows))
-	for _, row := range rows {
+	for i, row := range rows {
 		id, err := sharedvalueobjects.IDFromUUID(row.ID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("map technology at index %d: %w", i, err)
 		}
 		entries = append(entries, domain.ResumeTechnologyEntryParams{
 			ID:       id,
@@ -31,24 +24,34 @@ func TechnologiesToDomain(
 			Position: row.Position,
 		})
 	}
-	return domain.NewResumeTechnologies(domain.ResumeTechnologiesParams{
-		ID:       collectionID,
-		ResumeID: resumeID,
-		Entries:  entries,
-	})
+	return domain.RestoreResumeTechnologies(domain.ResumeTechnologiesParams{
+		Entries: entries,
+	}), nil
 }
 
 func TechnologyToDB(
 	x domain.ResumeTechnologyEntry,
 	resumeID sharedvalueobjects.ID,
-) (gormmodel.ResumeTechnology, error) {
-	if x.ID().IsZero() {
-		return gormmodel.ResumeTechnology{}, fmt.Errorf("technology id is required")
-	}
+) gormmodel.ResumeTechnology {
 	return gormmodel.ResumeTechnology{
 		ID:       x.ID().UUID(),
 		ResumeID: resumeID.UUID(),
 		Name:     x.Name(),
 		Position: x.Position(),
-	}, nil
+	}
+}
+
+func ResumeTechnologiesToDBModels(
+	collection *domain.ResumeTechnologies,
+	resumeID sharedvalueobjects.ID,
+) []gormmodel.ResumeTechnology {
+	if collection == nil {
+		return nil
+	}
+	entries := collection.Entries()
+	models := make([]gormmodel.ResumeTechnology, 0, len(entries))
+	for _, entry := range entries {
+		models = append(models, TechnologyToDB(entry, resumeID))
+	}
+	return models
 }

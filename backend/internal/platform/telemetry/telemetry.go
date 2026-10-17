@@ -63,6 +63,7 @@ func New(cfg config.TelemetryConfig, log *zap.Logger) (*Service, error) {
 	provider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(cfg.SampleRatio))),
 	)
 	otel.SetTracerProvider(provider)
 	SetGlobalPropagation()

@@ -26,10 +26,6 @@ func (r *UserReader) GetUser(ctx context.Context, query queries.GetUserQuery) (*
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("get user: reader dependencies are nil")
 	}
-	if query.ID.IsZero() {
-		return nil, fmt.Errorf("get user: invalid user id")
-	}
-
 	var model gormmodel.User
 	db := database.DBFromContext(ctx, r.db)
 	if err := db.WithContext(ctx).First(&model, "id = ?", query.ID.UUID()).Error; err != nil {
@@ -39,5 +35,9 @@ func (r *UserReader) GetUser(ctx context.Context, query queries.GetUserQuery) (*
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	return mappers.UserToDomain(model)
+	user, err := mappers.UserToDomain(model)
+	if err != nil {
+		return nil, fmt.Errorf("get user: map user: %w", err)
+	}
+	return user, nil
 }

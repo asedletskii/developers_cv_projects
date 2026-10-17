@@ -23,6 +23,18 @@ type AuthTransaction struct {
 }
 
 type AuthTransactionParams struct {
+	Provider           Provider
+	StateHash          valueobjects.StateHash
+	NonceHash          valueobjects.NonceHash
+	BrowserBindingHash valueobjects.BrowserBindingHash
+	CodeVerifier       string
+	RedirectURI        string
+	CreatedAt          time.Time
+	ExpiresAt          time.Time
+	ConsumedAt         *time.Time
+}
+
+type AuthTransactionSnapshot struct {
 	ID                 sharedvalueobjects.ID
 	Provider           Provider
 	StateHash          valueobjects.StateHash
@@ -36,31 +48,73 @@ type AuthTransactionParams struct {
 }
 
 func NewAuthTransaction(params AuthTransactionParams) (*AuthTransaction, error) {
-	if params.ID.IsZero() || !params.Provider.IsValid() {
-		return nil, fmt.Errorf("%w: invalid transaction identity", ErrInvalidAuthTransaction)
-	}
-	codeVerifier := strings.TrimSpace(params.CodeVerifier)
-	redirectURI := strings.TrimSpace(params.RedirectURI)
-	if codeVerifier == "" || redirectURI == "" {
-		return nil, fmt.Errorf("%w: code verifier and redirect uri are required", ErrInvalidAuthTransaction)
-	}
+	id := sharedvalueobjects.NewID()
 	createdAt := params.CreatedAt.UTC()
 	expiresAt := params.ExpiresAt.UTC()
-	if createdAt.IsZero() || expiresAt.IsZero() || !expiresAt.After(createdAt) {
-		return nil, fmt.Errorf("%w: invalid transaction timestamps", ErrInvalidAuthTransaction)
-	}
 	var consumedAt *time.Time
 	if params.ConsumedAt != nil {
 		value := params.ConsumedAt.UTC()
-		if value.IsZero() || value.Before(createdAt) {
-			return nil, fmt.Errorf("%w: invalid consumed timestamp", ErrInvalidAuthTransaction)
-		}
 		consumedAt = &value
 	}
-	if params.BrowserBindingHash.IsZero() {
-		return nil, fmt.Errorf("%w: browser binding hash is required", ErrInvalidAuthTransaction)
+	if err := validateAuthTransaction(
+		id, params.Provider, params.StateHash, params.NonceHash, params.BrowserBindingHash,
+		strings.TrimSpace(params.CodeVerifier), strings.TrimSpace(params.RedirectURI),
+		createdAt, expiresAt, consumedAt,
+	); err != nil {
+		return nil, err
 	}
-	return &AuthTransaction{id: params.ID, provider: params.Provider, stateHash: params.StateHash, nonceHash: params.NonceHash, browserBindingHash: params.BrowserBindingHash, codeVerifier: codeVerifier, redirectURI: redirectURI, createdAt: createdAt, expiresAt: expiresAt, consumedAt: consumedAt}, nil
+	return &AuthTransaction{
+		id: id, provider: params.Provider, stateHash: params.StateHash, nonceHash: params.NonceHash,
+		browserBindingHash: params.BrowserBindingHash, codeVerifier: strings.TrimSpace(params.CodeVerifier),
+		redirectURI: strings.TrimSpace(params.RedirectURI), createdAt: createdAt, expiresAt: expiresAt,
+		consumedAt: consumedAt,
+	}, nil
+}
+
+func RestoreAuthTransaction(snapshot AuthTransactionSnapshot) (*AuthTransaction, error) {
+	if err := validateAuthTransaction(
+		snapshot.ID, snapshot.Provider, snapshot.StateHash, snapshot.NonceHash, snapshot.BrowserBindingHash,
+		snapshot.CodeVerifier, snapshot.RedirectURI, snapshot.CreatedAt, snapshot.ExpiresAt, snapshot.ConsumedAt,
+	); err != nil {
+		return nil, err
+	}
+	return &AuthTransaction{
+		id: snapshot.ID, provider: snapshot.Provider, stateHash: snapshot.StateHash, nonceHash: snapshot.NonceHash,
+		browserBindingHash: snapshot.BrowserBindingHash, codeVerifier: snapshot.CodeVerifier,
+		redirectURI: snapshot.RedirectURI, createdAt: snapshot.CreatedAt, expiresAt: snapshot.ExpiresAt,
+		consumedAt: cloneTime(snapshot.ConsumedAt),
+	}, nil
+}
+
+func validateAuthTransaction(
+	id sharedvalueobjects.ID,
+	provider Provider,
+	stateHash valueobjects.StateHash,
+	nonceHash valueobjects.NonceHash,
+	browserBindingHash valueobjects.BrowserBindingHash,
+	codeVerifier, redirectURI string,
+	createdAt, expiresAt time.Time,
+	consumedAt *time.Time,
+) error {
+	if id.IsZero() || !provider.IsValid() {
+		return fmt.Errorf("%w: invalid transaction identity", ErrInvalidAuthTransaction)
+	}
+	if codeVerifier == "" || redirectURI == "" {
+		return fmt.Errorf("%w: code verifier and redirect uri are required", ErrInvalidAuthTransaction)
+	}
+	if createdAt.IsZero() || expiresAt.IsZero() || !expiresAt.After(createdAt) {
+		return fmt.Errorf("%w: invalid transaction timestamps", ErrInvalidAuthTransaction)
+	}
+	if consumedAt != nil {
+		value := *consumedAt
+		if value.IsZero() || value.Before(createdAt) {
+			return fmt.Errorf("%w: invalid consumed timestamp", ErrInvalidAuthTransaction)
+		}
+	}
+	if browserBindingHash.IsZero() {
+		return fmt.Errorf("%w: browser binding hash is required", ErrInvalidAuthTransaction)
+	}
+	return nil
 }
 
 func (a *AuthTransaction) ID() sharedvalueobjects.ID         { return a.id }

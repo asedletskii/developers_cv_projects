@@ -25,6 +25,17 @@ type PublicVisitInput struct {
 	HasCookie bool
 }
 
+type CreatePublicVisitInput struct {
+	LinkID   sharedvalueobjects.ID
+	ResumeID sharedvalueobjects.ID
+	Resume   resumequeries.PublicResumeView
+	Visitor  PublicVisitInput
+}
+
+type PublicVisitCreator interface {
+	Handle(context.Context, CreatePublicVisitInput) (*domain.View, VisitorIdentityResult, error)
+}
+
 type VisitorIdentity interface {
 	Identify(now time.Time, input PublicVisitInput) (VisitorIdentityResult, error)
 }

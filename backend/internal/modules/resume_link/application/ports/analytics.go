@@ -22,5 +22,14 @@ type ClickRepository interface {
 }
 
 type AnalyticsBatchRepository interface {
-	ApplyBatch(context.Context, sharedvalueobjects.ID, sharedvalueobjects.ID, domain.ViewStateUpdate, []*domain.AnalyticsEvent, []*domain.AnalyticsClick) error
+	LoadAnalyticsBatchForUpdate(context.Context, sharedvalueobjects.ID, sharedvalueobjects.ID, bool, bool, bool) (domain.AnalyticsBatchSnapshot, error)
+	SaveAnalyticsBatch(context.Context, *domain.View, []*domain.AnalyticsEvent, []*domain.AnalyticsClick) error
+}
+
+type AnalyticsInputObserver interface {
+	RecordDroppedAnalyticsInput(kind, reason string)
+}
+
+type AnalyticsBatchOutcomeObserver interface {
+	RecordAnalyticsBatchOutcome(outcome, reason string)
 }

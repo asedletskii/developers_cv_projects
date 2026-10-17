@@ -37,17 +37,11 @@ func SessionToDomain(model gormmodel.AuthSession) (*domain.Session, error) {
 	}
 	hash, err := valueobjects.NewSessionTokenHash(model.TokenHash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("map session token hash: %w", err)
 	}
-	return domain.NewSession(domain.SessionParams{
-		ID:         id,
-		UserID:     userID,
-		TokenHash:  hash,
-		CreatedAt:  model.CreatedAt,
-		LastSeenAt: model.LastSeenAt,
-		ExpiresAt:  model.ExpiresAt,
-		RevokedAt:  model.RevokedAt,
-		UserAgent:  model.UserAgent,
-		IPAddress:  model.IPAddress,
+	return domain.RestoreSession(domain.SessionSnapshot{
+		ID: id, UserID: userID, TokenHash: hash,
+		CreatedAt: model.CreatedAt, LastSeenAt: model.LastSeenAt, ExpiresAt: model.ExpiresAt,
+		RevokedAt: model.RevokedAt, UserAgent: model.UserAgent, IPAddress: model.IPAddress,
 	})
 }

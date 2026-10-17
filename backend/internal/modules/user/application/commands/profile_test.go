@@ -60,8 +60,8 @@ func TestReplaceProfileHandlerRejectsInvalidPhotoURL(t *testing.T) {
 	repo := &fakeProfileRepository{}
 	h := NewReplaceProfileHandler(repo, fakeUnitOfWork{})
 	err := h.Handle(context.Background(), ReplaceProfileCommand{
-		UserID:    sharedvalueobjects.NewID(),
-		PhotoPath: stringPtr("/profiles/dmitry.svg"),
+		UserID:   sharedvalueobjects.NewID(),
+		PhotoURL: stringPtr("/profiles/dmitry.svg"),
 	})
 	require.ErrorIs(t, err, domain.ErrInvalidProfile)
 	require.Nil(t, repo.profile)

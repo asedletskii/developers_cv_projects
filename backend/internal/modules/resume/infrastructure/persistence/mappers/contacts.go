@@ -1,8 +1,6 @@
 package mappers
 
 import (
-	"fmt"
-
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -12,11 +10,7 @@ func ContactsToDBModels(c *domain.Contacts) (
 	gormmodel.ResumeContacts,
 	[]gormmodel.ResumeContactHidden,
 	*gormmodel.ResumeContactsText,
-	error,
 ) {
-	if c == nil {
-		return gormmodel.ResumeContacts{}, nil, nil, fmt.Errorf("contacts is nil")
-	}
 	d := c.Contacts()
 	m := gormmodel.ResumeContacts{ID: c.ID().UUID(), ResumeID: c.ResumeID().UUID()}
 	if v := d.Phone(); v != nil {
@@ -51,7 +45,7 @@ func ContactsToDBModels(c *domain.Contacts) (
 			text.Subtitle = &value
 		}
 	}
-	return m, h, text, nil
+	return m, h, text
 }
 
 func ContactsToDomain(
@@ -59,61 +53,39 @@ func ContactsToDomain(
 	h []gormmodel.ResumeContactHidden,
 	t *gormmodel.ResumeContactsText,
 ) (*domain.Contacts, error) {
-	var tg *domain.Telegram
+	var telegram *domain.Telegram
 	if m.Telegram != nil {
-		x, err := domain.NewTelegram(*m.Telegram)
-		if err != nil {
-			return nil, err
-		}
-		tg = &x
+		value := domain.RestoreTelegram(*m.Telegram)
+		telegram = &value
 	}
-	var em *domain.Email
+	var email *domain.Email
 	if m.Email != nil {
-		x, err := domain.NewEmail(*m.Email)
-		if err != nil {
-			return nil, err
-		}
-		em = &x
+		value := domain.RestoreEmail(*m.Email)
+		email = &value
 	}
-	contactValues := domain.ContactMethodsParams{
-		Phone:    PointerStringValue(m.Phone),
-		Telegram: tg,
-		Email:    em,
-	}
-	contactMethods, err := domain.NewContactMethods(contactValues)
-	if err != nil {
-		return nil, err
-	}
+	contactMethods := domain.RestoreContactMethods(domain.ContactMethodsParams{
+		Phone: PointerStringValue(m.Phone), Telegram: telegram, Email: email,
+	})
 	hidden := make([]domain.ContactKey, len(h))
-	for i, v := range h {
-		hidden[i] = domain.ContactKey(v.Value)
+	for i, value := range h {
+		hidden[i] = domain.ContactKey(value.Value)
 	}
 	var text *domain.ContactsText
 	if t != nil {
-		x, err := domain.NewContactsText(domain.ContactsTextParams{
-			Title:    t.Title,
-			Subtitle: t.Subtitle,
-		})
-		if err != nil {
-			return nil, err
-		}
-		text = &x
+		value := domain.RestoreContactsText(domain.ContactsTextParams{Title: t.Title, Subtitle: t.Subtitle})
+		text = &value
 	}
 	id, err := sharedvalueobjects.IDFromUUID(m.ID)
 	if err != nil {
 		return nil, err
 	}
-	rid, err := sharedvalueobjects.IDFromUUID(m.ResumeID)
+	resumeID, err := sharedvalueobjects.IDFromUUID(m.ResumeID)
 	if err != nil {
 		return nil, err
 	}
-	return domain.NewContacts(domain.ContactsParams{
-		ID:             id,
-		ResumeID:       rid,
-		Contacts:       contactMethods,
-		HiddenContacts: hidden,
-		Text:           text,
-	})
+	return domain.RestoreContacts(domain.ContactsSnapshot{
+		ID: id, ResumeID: resumeID, Contacts: contactMethods, HiddenContacts: hidden, Text: text,
+	}), nil
 }
 
 func PointerStringValue(v *string) string {

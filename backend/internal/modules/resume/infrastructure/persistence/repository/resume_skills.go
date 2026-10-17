@@ -15,56 +15,37 @@ import (
 func persistSkills(tx *gorm.DB, resume *domain.Resume) error {
 	skills := resume.Skills()
 	if skills == nil {
-		var current gormmodel.ResumeSkills
-		err := tx.Where("resume_id = ?", resume.ID().UUID()).First(&current).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("load resume skills: %w", mapDBError(err))
-		}
-		if err := tx.Where("skills_id = ?", current.ID).Delete(&gormmodel.ResumeSkillHard{}).Error; err != nil {
-			return fmt.Errorf("delete resume hard skills: %w", mapDBError(err))
-		}
-		if err := tx.Where("skills_id = ?", current.ID).Delete(&gormmodel.ResumeSkillSoft{}).Error; err != nil {
-			return fmt.Errorf("delete resume soft skills: %w", mapDBError(err))
-		}
-		if err := tx.Delete(&current).Error; err != nil {
+		if err := tx.Where("resume_id = ?", resume.ID().UUID()).Delete(&gormmodel.ResumeSkills{}).Error; err != nil {
 			return fmt.Errorf("delete resume skills: %w", mapDBError(err))
 		}
 		return nil
 	}
 
-	m, hardModels, softModels, err := mappers.SkillsToDBModels(skills)
-	if err != nil {
-		return fmt.Errorf("map resume skills: %w", err)
+	m, hardModels, softModels := mappers.SkillsToDBModels(skills)
+	result := tx.Model(&gormmodel.ResumeSkills{}).
+		Where("id = ? AND resume_id = ?", m.ID, resume.ID().UUID()).UpdateColumn("resume_id", resume.ID().UUID())
+	if result.Error != nil {
+		return fmt.Errorf("update resume skills: %w", mapDBError(result.Error))
 	}
-	var current gormmodel.ResumeSkills
-	err = tx.Where("resume_id = ?", resume.ID().UUID()).First(&current).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if result.RowsAffected == 0 {
 		if err := tx.Create(&m).Error; err != nil {
 			return fmt.Errorf("create resume skills: %w", mapDBError(err))
 		}
-	} else if err != nil {
-		return fmt.Errorf("load resume skills: %w", mapDBError(err))
-	} else if current.ID != m.ID {
-		return fmt.Errorf("%w: skills identity mismatch", domain.ErrResumeInvariant)
 	}
-
 	if err := tx.Where("skills_id = ?", m.ID).Delete(&gormmodel.ResumeSkillHard{}).Error; err != nil {
 		return fmt.Errorf("replace resume hard skills: %w", mapDBError(err))
 	}
 	if err := tx.Where("skills_id = ?", m.ID).Delete(&gormmodel.ResumeSkillSoft{}).Error; err != nil {
 		return fmt.Errorf("replace resume soft skills: %w", mapDBError(err))
 	}
-	for _, model := range hardModels {
-		if err := tx.Create(&model).Error; err != nil {
-			return fmt.Errorf("create resume hard skill: %w", mapDBError(err))
+	if len(hardModels) > 0 {
+		if err := tx.Create(&hardModels).Error; err != nil {
+			return fmt.Errorf("create resume hard skills: %w", mapDBError(err))
 		}
 	}
-	for _, model := range softModels {
-		if err := tx.Create(&model).Error; err != nil {
-			return fmt.Errorf("create resume soft skill: %w", mapDBError(err))
+	if len(softModels) > 0 {
+		if err := tx.Create(&softModels).Error; err != nil {
+			return fmt.Errorf("create resume soft skills: %w", mapDBError(err))
 		}
 	}
 	return nil
@@ -87,5 +68,9 @@ func loadSkills(tx *gorm.DB, resumeID sharedvalueobjects.ID) (*domain.Skills, er
 	if err := tx.Where("skills_id = ?", m.ID).Order("position").Find(&softRows).Error; err != nil {
 		return nil, fmt.Errorf("get resume soft skills: %w", mapDBError(err))
 	}
-	return mappers.SkillsToDomain(m, hardRows, softRows, resumeID)
+	skills, err := mappers.SkillsToDomain(m, hardRows, softRows)
+	if err != nil {
+		return nil, fmt.Errorf("map resume skills: %w", err)
+	}
+	return skills, nil
 }

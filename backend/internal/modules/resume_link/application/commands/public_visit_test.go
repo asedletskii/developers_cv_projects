@@ -27,6 +27,12 @@ func (s *publicVisitViewsStub) UpdateViewState(context.Context, sharedvalueobjec
 	return nil
 }
 
+type publicVisitUnitOfWorkStub struct{}
+
+func (publicVisitUnitOfWorkStub) Do(ctx context.Context, fn func(context.Context) error) error {
+	return fn(ctx)
+}
+
 type publicVisitIdentityStub struct{}
 
 func (publicVisitIdentityStub) Identify(_ time.Time, _ ports.PublicVisitInput) (ports.VisitorIdentityResult, error) {
@@ -47,7 +53,7 @@ func (publicVisitLayoutStub) Build(resumequeries.PublicResumeView) (domain.Layou
 
 func TestCreatePublicVisitPersistsCompleteView(t *testing.T) {
 	views := &publicVisitViewsStub{}
-	handler := NewCreatePublicVisitHandler(views, publicVisitIdentityStub{}, publicVisitClassifierStub{}, publicVisitLayoutStub{})
+	handler := NewCreatePublicVisitHandler(views, publicVisitUnitOfWorkStub{}, publicVisitIdentityStub{}, publicVisitClassifierStub{}, publicVisitLayoutStub{})
 	linkID := sharedvalueobjects.NewID()
 	view, identity, err := handler.Handle(context.Background(), CreatePublicVisitInput{LinkID: linkID})
 	require.NoError(t, err)

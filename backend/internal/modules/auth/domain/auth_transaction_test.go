@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func newHashes(t *testing.T) (valueobjects.StateHash, valueobjects.NonceHash) {
@@ -27,7 +26,7 @@ func newTestTransaction(t *testing.T) (*AuthTransaction, time.Time) {
 	binding, err := valueobjects.NewBrowserBindingHash(bytes.Repeat([]byte{3}, valueobjects.HashSize))
 	require.NoError(t, err)
 	transaction, err := NewAuthTransaction(AuthTransactionParams{
-		ID: sharedvalueobjects.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
+		Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
 		CodeVerifier: "verifier", RedirectURI: "https://example.com/callback", CreatedAt: created,
 		ExpiresAt: created.Add(5 * time.Minute),
 	})
@@ -40,6 +39,30 @@ func TestNewAuthTransaction(t *testing.T) {
 	require.False(t, transaction.IsConsumed())
 	require.False(t, transaction.IsExpired(created.Add(time.Minute)))
 	require.Equal(t, "verifier", transaction.CodeVerifier())
+}
+
+func TestNewAuthTransactionGeneratesIDAndRestorePreservesValues(t *testing.T) {
+	created := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
+	state, nonce := newHashes(t)
+	binding, err := valueobjects.NewBrowserBindingHash(bytes.Repeat([]byte{3}, valueobjects.HashSize))
+	require.NoError(t, err)
+	transaction, err := NewAuthTransaction(AuthTransactionParams{
+		Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
+		CodeVerifier: " verifier ", RedirectURI: " https://example.com/callback ",
+		CreatedAt: created, ExpiresAt: created.Add(5 * time.Minute),
+	})
+	require.NoError(t, err)
+	require.False(t, transaction.ID().IsZero())
+	require.Equal(t, "verifier", transaction.CodeVerifier())
+
+	restored, err := RestoreAuthTransaction(AuthTransactionSnapshot{
+		ID: transaction.ID(), Provider: transaction.Provider(), StateHash: state, NonceHash: nonce,
+		BrowserBindingHash: binding, CodeVerifier: " verifier ", RedirectURI: " https://example.com/callback ",
+		CreatedAt: created, ExpiresAt: created.Add(5 * time.Minute),
+	})
+	require.NoError(t, err)
+	require.Equal(t, " verifier ", restored.CodeVerifier())
+	require.Equal(t, " https://example.com/callback ", restored.RedirectURI())
 }
 
 func TestAuthTransactionConsume(t *testing.T) {
@@ -62,7 +85,7 @@ func TestNewAuthTransactionRejectsInvalidTimestamps(t *testing.T) {
 	binding, err := valueobjects.NewBrowserBindingHash(bytes.Repeat([]byte{3}, valueobjects.HashSize))
 	require.NoError(t, err)
 	_, err = NewAuthTransaction(AuthTransactionParams{
-		ID: sharedvalueobjects.NewID(), Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
+		Provider: ProviderTelegram, StateHash: state, NonceHash: nonce, BrowserBindingHash: binding,
 		CodeVerifier: "verifier", RedirectURI: "https://example.com/callback", CreatedAt: created,
 		ExpiresAt: created,
 	})

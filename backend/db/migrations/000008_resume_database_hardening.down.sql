@@ -1,6 +1,0 @@
-CREATE INDEX idx_resume_experiences_resume_id ON resume_experiences(resume_id);
-CREATE INDEX idx_resume_educations_resume_id ON resume_educations(resume_id);
-CREATE INDEX idx_resume_courses_resume_id ON resume_courses(resume_id);
-CREATE INDEX idx_resume_activities_resume_id ON resume_activities(resume_id);
-CREATE INDEX idx_resume_projects_resume_id ON resume_projects(resume_id);
-CREATE INDEX idx_resume_project_contributors_project_id ON resume_project_contributors(project_id);

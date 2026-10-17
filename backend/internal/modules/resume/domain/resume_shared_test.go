@@ -1,10 +1,13 @@
 package domain
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestResumeEnumValidationContracts(t *testing.T) {
@@ -13,13 +16,13 @@ func TestResumeEnumValidationContracts(t *testing.T) {
 		valid func() bool
 		bad   func() bool
 	}{
-		{"work format", func() bool { return WorkFormatRemote.IsValid() }, func() bool { return WorkFormat("invalid").IsValid() }},
-		{"resume language", func() bool { return ResumeLanguageEN.IsValid() }, func() bool { return ResumeLanguage("invalid").IsValid() }},
-		{"spoken language", func() bool { return SpokenLanguageEN.IsValid() }, func() bool { return SpokenLanguage("invalid").IsValid() }},
-		{"language grade", func() bool { return LanguageGradeC1.IsValid() }, func() bool { return LanguageGrade("invalid").IsValid() }},
-		{"education level", func() bool { return EducationLevelMaster.IsValid() }, func() bool { return EducationLevel(99).IsValid() }},
-		{"contact key", func() bool { return ContactKeyEmail.IsValid() }, func() bool { return ContactKey("invalid").IsValid() }},
-		{"activity type", func() bool { return ActivityTypeOpenSource.IsValid() }, func() bool { return ActivityType("invalid").IsValid() }},
+		{"work format", func() bool { return WorkFormatRemote.isValid() }, func() bool { return WorkFormat("invalid").isValid() }},
+		{"resume language", func() bool { return ResumeLanguageEN.isValid() }, func() bool { return ResumeLanguage("invalid").isValid() }},
+		{"spoken language", func() bool { return SpokenLanguageEN.isValid() }, func() bool { return SpokenLanguage("invalid").isValid() }},
+		{"language grade", func() bool { return LanguageGradeC1.isValid() }, func() bool { return LanguageGrade("invalid").isValid() }},
+		{"education level", func() bool { return EducationLevelMaster.isValid() }, func() bool { return EducationLevel(99).isValid() }},
+		{"contact key", func() bool { return ContactKeyEmail.isValid() }, func() bool { return ContactKey("invalid").isValid() }},
+		{"activity type", func() bool { return ActivityTypeOpenSource.isValid() }, func() bool { return ActivityType("invalid").isValid() }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -58,15 +61,27 @@ func TestDateNormalizesToUTCDateOnly(t *testing.T) {
 	require.Equal(t, time.UTC, value.Time().Location())
 }
 
-func TestExternalURLAllowsHTTPAndHTTPS(t *testing.T) {
-	for _, value := range []string{
-		"https://example.com/avatar.svg",
-		"http://example.com/avatar.svg",
-	} {
-		url, err := NewExternalURL(value)
-		require.NoError(t, err)
-		require.Equal(t, value, url.String())
-	}
+func TestExternalURLAllowsHTTPS(t *testing.T) {
+	value := "https://example.com/avatar.svg"
+	parsed, err := NewExternalURL(value)
+	require.NoError(t, err)
+	require.Equal(t, value, parsed.String())
+}
+
+func TestExternalURLRejectsHTTP(t *testing.T) {
+	_, err := NewExternalURL("http://example.com/avatar.svg")
+	require.ErrorIs(t, err, ErrInvalidValue)
+}
+
+func TestExternalURLRejectsUserInformation(t *testing.T) {
+	_, err := NewExternalURL("https://user:password@example.com/avatar.svg")
+	require.ErrorIs(t, err, ErrInvalidValue)
+}
+
+func TestExternalURLRejectsOverlongValue(t *testing.T) {
+	value := "https://example.com/" + strings.Repeat("a", MaxExternalURLLength)
+	_, err := NewExternalURL(value)
+	require.ErrorIs(t, err, ErrInvalidValue)
 }
 
 func TestExternalURLRejectsUnsupportedScheme(t *testing.T) {
@@ -77,4 +92,59 @@ func TestExternalURLRejectsUnsupportedScheme(t *testing.T) {
 func TestExternalURLRejectsRelativePath(t *testing.T) {
 	_, err := NewExternalURL("/assets/avatar.svg")
 	require.Error(t, err)
+}
+
+func TestParseResumeStatus(t *testing.T) {
+	status, err := ParseResumeStatus(string(ResumeStatusOpened))
+	require.NoError(t, err)
+	require.Equal(t, ResumeStatusOpened, status)
+
+	_, err = ParseResumeStatus("invalid")
+	require.ErrorIs(t, err, ErrInvalidValue)
+}
+
+func TestParseContactKey(t *testing.T) {
+	key, err := ParseContactKey(string(ContactKeyEmail))
+	require.NoError(t, err)
+	require.Equal(t, ContactKeyEmail, key)
+
+	_, err = ParseContactKey("invalid")
+	require.ErrorIs(t, err, ErrInvalidValue)
+}
+
+func TestResolveSingletonIDUsesCanonicalIdentityPolicy(t *testing.T) {
+	currentID := sharedvalueobjects.NewID()
+	generatedID, err := resolveSingletonID(sharedvalueobjects.ID{}, sharedvalueobjects.ID{}, "profile")
+	require.NoError(t, err)
+	require.False(t, generatedID.IsZero())
+
+	preservedID, err := resolveSingletonID(sharedvalueobjects.ID{}, currentID, "profile")
+	require.NoError(t, err)
+	require.Equal(t, currentID, preservedID)
+
+	updatedID, err := resolveSingletonID(currentID, currentID, "profile")
+	require.NoError(t, err)
+	require.Equal(t, currentID, updatedID)
+
+	_, err = resolveSingletonID(sharedvalueobjects.NewID(), currentID, "profile")
+	require.ErrorIs(t, err, ErrResumeInvariant)
+	_, err = resolveSingletonID(currentID, sharedvalueobjects.ID{}, "profile")
+	require.ErrorIs(t, err, ErrResumeInvariant)
+}
+
+func TestResolveCollectionItemIDUsesCanonicalIdentityPolicy(t *testing.T) {
+	currentID := sharedvalueobjects.NewID()
+	existing := map[sharedvalueobjects.ID]struct{}{currentID: {}}
+
+	generatedID, err := resolveCollectionItemID(sharedvalueobjects.ID{}, existing, "project")
+	require.NoError(t, err)
+	require.False(t, generatedID.IsZero())
+	require.NotEqual(t, currentID, generatedID)
+
+	preservedID, err := resolveCollectionItemID(currentID, existing, "project")
+	require.NoError(t, err)
+	require.Equal(t, currentID, preservedID)
+
+	_, err = resolveCollectionItemID(sharedvalueobjects.NewID(), existing, "project")
+	require.ErrorIs(t, err, ErrResumeInvariant)
 }

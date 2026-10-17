@@ -15,7 +15,6 @@ import (
 
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -30,9 +29,23 @@ func (r fakeResumeOwnershipReader) GetOwned(context.Context, resumequeries.GetRe
 	return resumequeries.ResumeView{ID: "resume"}, nil
 }
 
+func (r fakeResumeOwnershipReader) OwnsResume(ctx context.Context, query resumequeries.GetResumeQuery) (bool, error) {
+	_, err := r.GetOwned(ctx, query)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 type fakeRepository struct{ err error }
 
 func (r *fakeRepository) Create(context.Context, *domain.ResumeLink) error { return r.err }
+func (r *fakeRepository) LockResumeForLinkCreation(context.Context, sharedvalueobjects.ID) error {
+	return nil
+}
+func (r *fakeRepository) CountByResumeID(context.Context, sharedvalueobjects.ID) (int64, error) {
+	return 0, nil
+}
 
 func (r *fakeRepository) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
 	return nil, r.err
@@ -42,8 +55,6 @@ func (r *fakeRepository) ReplaceStatus(context.Context, sharedvalueobjects.ID, b
 }
 
 func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error { return r.err }
-
-var _ ports.ResumeLinkRepository = (*fakeRepository)(nil)
 
 func newTestHandler(err error) *Handler {
 	commandHandler := commands.NewCreateResumeLinkHandler(

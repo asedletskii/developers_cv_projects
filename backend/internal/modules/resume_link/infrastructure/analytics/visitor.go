@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -37,7 +38,7 @@ func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput
 	if i == nil || len(i.secret) < 32 {
 		return ports.VisitorIdentityResult{}, errors.New("visitor identifier is not configured")
 	}
-	ipHash := i.dailyHMAC(now, "ip", input.IP)
+	ipHash := i.dailyHMAC(now, "ip", normalizeIPForAnalytics(input.IP))
 	secure := i.production
 	if input.HasCookie && input.VisitorID != (sharedvalueobjects.ID{}) {
 		return ports.VisitorIdentityResult{VisitorID: input.VisitorID, IPHash: ipHash}, nil
@@ -72,6 +73,22 @@ func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput
 		}
 	}
 	return result, nil
+}
+
+func normalizeIPForAnalytics(value string) string {
+	addr, err := netip.ParseAddr(strings.TrimSpace(value))
+	if err != nil {
+		return value
+	}
+	addr = addr.Unmap()
+	if addr.Is6() {
+		addr = addr.WithZone("")
+		prefix, err := addr.Prefix(64)
+		if err == nil {
+			return prefix.Masked().String()
+		}
+	}
+	return addr.String()
 }
 
 func (i *VisitorIdentifier) dailyHMAC(now time.Time, kind, value string) []byte {

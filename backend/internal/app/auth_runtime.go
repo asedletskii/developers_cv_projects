@@ -9,7 +9,6 @@ import (
 
 	authports "developers-cv/backend/internal/modules/auth/application/ports"
 	authqueries "developers-cv/backend/internal/modules/auth/application/queries"
-	authmock "developers-cv/backend/internal/modules/auth/infrastructure/mock"
 	authobservability "developers-cv/backend/internal/modules/auth/infrastructure/observability"
 	authsession "developers-cv/backend/internal/modules/auth/infrastructure/session"
 	resumelinkanalytics "developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
@@ -30,7 +29,7 @@ func newAuthenticate(authenticator runtimeAuthenticator) middleware.Authenticate
 	return func(ctx context.Context, request *http.Request) (uuid.UUID, error) {
 		userID, err := authenticator.Authenticate(ctx, request)
 		if err != nil {
-			if errors.Is(err, middleware.ErrUnauthenticated) || errors.Is(err, authmock.ErrUnauthenticated) {
+			if errors.Is(err, middleware.ErrUnauthenticated) || isMockUnauthenticated(err) {
 				return uuid.Nil, middleware.ErrUnauthenticated
 			}
 			return uuid.Nil, err
@@ -42,7 +41,7 @@ func newAuthenticate(authenticator runtimeAuthenticator) middleware.Authenticate
 func newRuntimeAuthenticator(cfg config.AuthConfig, currentSession *authqueries.CurrentSessionHandler, reader userqueries.UserReader, observer authports.AuthObserver) (runtimeAuthenticator, error) {
 	switch cfg.Mode {
 	case "mock":
-		return authmock.NewMockAuthenticator(reader), nil
+		return newMockAuthenticator(reader)
 	case "telegram":
 		return authsession.NewAuthenticator(currentSession, cfg.Cookie.Name, observer), nil
 	default:
@@ -50,19 +49,21 @@ func newRuntimeAuthenticator(cfg config.AuthConfig, currentSession *authqueries.
 	}
 }
 
-func newAuthObserver(log *zap.Logger, metrics *telemetry.Metrics, serviceName string) authports.AuthObserver {
-	return authobservability.NewObserver(log, metrics, serviceName)
+func newAuthObserver(log *zap.Logger, metrics *telemetry.Metrics, cfg config.Config) authports.AuthObserver {
+	return authobservability.NewObserver(log, metrics, cfg.Telemetry.ServiceName)
 }
 
-func newOptionalAuthenticate(cfg config.AuthConfig, authenticator runtimeAuthenticator) middleware.AuthenticateFunc {
-	return func(ctx context.Context, request *http.Request) (uuid.UUID, error) {
+type optionalAuthenticateFunc middleware.AuthenticateFunc
+
+func newOptionalAuthenticate(cfg config.AuthConfig, authenticator runtimeAuthenticator) optionalAuthenticateFunc {
+	return optionalAuthenticateFunc(func(ctx context.Context, request *http.Request) (uuid.UUID, error) {
 		if request == nil {
 			return uuid.Nil, middleware.ErrUnauthenticated
 		}
 		hasCredentials := false
 		switch cfg.Mode {
 		case "mock":
-			hasCredentials = request.Header.Get(authmock.MockUserIDHeader) != ""
+			hasCredentials = hasMockCredentials(request)
 		case "telegram":
 			_, err := request.Cookie(cfg.Cookie.Name)
 			hasCredentials = err == nil
@@ -71,7 +72,7 @@ func newOptionalAuthenticate(cfg config.AuthConfig, authenticator runtimeAuthent
 			return uuid.Nil, middleware.ErrUnauthenticated
 		}
 		return newAuthenticate(authenticator)(ctx, request)
-	}
+	})
 }
 
 func newAnalyticsVisitorIdentifier(cfg config.Config) (*resumelinkanalytics.VisitorIdentifier, error) {

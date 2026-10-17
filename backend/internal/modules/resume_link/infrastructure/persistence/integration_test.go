@@ -5,9 +5,6 @@ package persistence_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -18,8 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
@@ -30,44 +25,12 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/testutil/pgtest"
 )
-
-func applyMigrations(t *testing.T, ctx context.Context, dsn string) {
-	t.Helper()
-	config, err := pgx.ParseConfig(dsn)
-	require.NoError(t, err)
-	conn, err := pgx.ConnectConfig(ctx, config)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-
-	migrationsDir := filepath.Join("..", "..", "..", "..", "..", "db", "migrations")
-	entries, err := os.ReadDir(migrationsDir)
-	require.NoError(t, err)
-	var migrationFiles []string
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" || !strings.HasSuffix(entry.Name(), ".up.sql") {
-			continue
-		}
-		migrationFiles = append(migrationFiles, entry.Name())
-	}
-	sort.Strings(migrationFiles)
-	for _, name := range migrationFiles {
-		content, err := os.ReadFile(filepath.Join(migrationsDir, name))
-		require.NoError(t, err)
-		_, err = conn.Exec(ctx, string(content))
-		require.NoErrorf(t, err, "failed to apply migration %s", name)
-	}
-}
 
 func newDatabase(t *testing.T) (context.Context, string, *gorm.DB, *repository.ResumeLinkRepository, *readers.ResumeLinkReader) {
 	t.Helper()
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
@@ -96,7 +59,7 @@ func TestResumeLinkPersistence(t *testing.T) {
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "  HH  "})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "  HH  "})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) }))
@@ -135,14 +98,14 @@ func TestResumeLinkPersistence(t *testing.T) {
 	require.Equal(t, resumeID.String(), linkView.ResumeID)
 
 	second, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "GitHub",
+		ResumeID: resumeID, Name: "GitHub",
 	})
 	require.NoError(t, err)
 	foreignResumeID := sharedvalueobjects.NewID()
 	foreignOwnerID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, foreignOwnerID, foreignResumeID)
 	foreign, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID: sharedvalueobjects.NewID(), ResumeID: foreignResumeID, Name: "Telegram",
+		ResumeID: foreignResumeID, Name: "Telegram",
 	})
 	require.NoError(t, err)
 
@@ -174,7 +137,7 @@ func TestResumeLinkMigrationCascade(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "GitHub"})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "GitHub"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) }))
@@ -193,13 +156,7 @@ func TestReplaceStatusResumeLinkIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
@@ -276,9 +233,9 @@ func TestResumeLinkPersistenceEnforcesUniqueNameWithinResume(t *testing.T) {
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
-	first, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
+	first, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "HH"})
 	require.NoError(t, err)
-	second, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH"})
+	second, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "HH"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, first) }))
@@ -287,7 +244,7 @@ func TestResumeLinkPersistenceEnforcesUniqueNameWithinResume(t *testing.T) {
 
 	otherResumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, otherResumeID)
-	otherResumeLink, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: otherResumeID, Name: "HH"})
+	otherResumeLink, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: otherResumeID, Name: "HH"})
 	require.NoError(t, err)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, otherResumeLink) }))
 }
@@ -301,7 +258,10 @@ func TestReplaceStatusResumeLinkNoOpPreservesVersionAndUpdatedAt(t *testing.T) {
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
 
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH", Version: 3})
+	link, err := domain.RestoreResumeLink(domain.ResumeLinkSnapshot{
+		ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: "HH",
+		Status: domain.ResumeLinkStatusActive, Version: 3,
+	})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) }))
@@ -347,13 +307,12 @@ func TestResumeLinkPersistenceEnforcesMaximumLinksConcurrently(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: resumeID, Name: fmt.Sprintf("link-%d", i)})
-			if err != nil {
-				errs <- err
-				return
-			}
 			uow := database.NewUnitOfWork(gormDB)
-			errs <- uow.Do(ctx, func(tx context.Context) error { return repo.Create(tx, link) })
+			handler := commands.NewCreateResumeLinkHandler(repo, resumereaders.NewResumeReader(gormDB), uow)
+			_, err := handler.Handle(ctx, commands.CreateResumeLinkCommand{
+				UserID: owner, ResumeID: resumeID, Name: fmt.Sprintf("link-%d", i),
+			})
+			errs <- err
 		}(i)
 	}
 	wg.Wait()

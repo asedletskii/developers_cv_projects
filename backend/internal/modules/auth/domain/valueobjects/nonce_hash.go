@@ -8,7 +8,7 @@ type NonceHash struct {
 
 func NewNonceHash(value []byte) (NonceHash, error) {
 	if len(value) != HashSize {
-		return NonceHash{}, fmt.Errorf("nonce hash must be %d bytes", HashSize)
+		return NonceHash{}, fmt.Errorf("%w: nonce hash must be %d bytes", ErrInvalidHash, HashSize)
 	}
 	var hash [HashSize]byte
 	copy(hash[:], value)

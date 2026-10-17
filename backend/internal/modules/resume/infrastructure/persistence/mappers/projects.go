@@ -10,10 +10,24 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func ProjectToDB(project *domain.Project) (gormmodel.ResumeProject, error) {
-	if project == nil {
-		return gormmodel.ResumeProject{}, fmt.Errorf("project is nil")
+func ProjectsToDomain(
+	rows []gormmodel.ResumeProject,
+	screenshots map[uuid.UUID][]gormmodel.ResumeProjectScreenshot,
+	technologies map[uuid.UUID][]gormmodel.ResumeProjectTechnology,
+	contributors map[uuid.UUID][]gormmodel.ResumeProjectContributor,
+) ([]*domain.Project, error) {
+	projects := make([]*domain.Project, 0, len(rows))
+	for i, row := range rows {
+		project, err := ProjectToDomain(row, screenshots[row.ID], technologies[row.ID], contributors[row.ID])
+		if err != nil {
+			return nil, fmt.Errorf("map project at index %d: %w", i, err)
+		}
+		projects = append(projects, project)
 	}
+	return projects, nil
+}
+
+func ProjectToDB(project *domain.Project) gormmodel.ResumeProject {
 	return gormmodel.ResumeProject{
 		ID:          project.ID().UUID(),
 		ResumeID:    project.ResumeID().UUID(),
@@ -22,7 +36,7 @@ func ProjectToDB(project *domain.Project) (gormmodel.ResumeProject, error) {
 		Role:        project.Role(),
 		Link:        ExternalURLToDB(project.Link()),
 		GitLink:     ExternalURLToDB(project.GitLink()),
-	}, nil
+	}
 }
 
 func ProjectToDomain(
@@ -41,88 +55,44 @@ func ProjectToDomain(
 	}
 	screenshotValues := make([]domain.ExternalURL, 0, len(screenshots))
 	for _, screenshot := range screenshots {
-		value, err := domain.NewExternalURL(screenshot.Path)
-		if err != nil {
-			return nil, err
-		}
-		screenshotValues = append(screenshotValues, value)
+		screenshotValues = append(screenshotValues, domain.RestoreExternalURL(screenshot.Path))
 	}
 	stack := make([]domain.Technology, 0, len(technologies))
 	for _, technology := range technologies {
-		item, err := domain.NewTechnology(domain.TechnologyParams{Name: technology.Name})
-		if err != nil {
-			return nil, err
-		}
-		stack = append(stack, item)
+		stack = append(stack, domain.RestoreTechnology(domain.TechnologyParams{Name: technology.Name}))
 	}
 	contributorValues := make([]domain.Contributor, 0, len(contributors))
 	for _, contributor := range contributors {
 		var telegram *domain.Telegram
 		if contributor.Telegram != nil {
-			value, err := domain.NewTelegram(*contributor.Telegram)
-			if err != nil {
-				return nil, err
-			}
+			value := domain.RestoreTelegram(*contributor.Telegram)
 			telegram = &value
 		}
 		var email *domain.Email
 		if contributor.Email != nil {
-			value, err := domain.NewEmail(*contributor.Email)
-			if err != nil {
-				return nil, err
-			}
+			value := domain.RestoreEmail(*contributor.Email)
 			email = &value
 		}
-		phone := ""
-		if contributor.Phone != nil {
-			phone = *contributor.Phone
-		}
-		contacts, err := domain.NewContactMethods(domain.ContactMethodsParams{
-			Phone:    phone,
-			Telegram: telegram,
-			Email:    email,
+		contacts := domain.RestoreContactMethods(domain.ContactMethodsParams{
+			Phone: PointerStringValue(contributor.Phone), Telegram: telegram, Email: email,
 		})
-		if err != nil {
-			return nil, err
-		}
-		item, err := domain.NewContributor(domain.ContributorParams{
-			Name:     contributor.Name,
-			Surname:  contributor.Surname,
-			Role:     contributor.Role,
-			Contacts: contacts,
-		})
-		if err != nil {
-			return nil, err
-		}
-		contributorValues = append(contributorValues, item)
+		contributorValues = append(contributorValues, domain.RestoreContributor(domain.ContributorParams{
+			Name: contributor.Name, Surname: contributor.Surname, Role: contributor.Role, Contacts: contacts,
+		}))
 	}
 	var link, gitLink *domain.ExternalURL
 	if model.Link != nil {
-		value, err := domain.NewExternalURL(*model.Link)
-		if err != nil {
-			return nil, err
-		}
+		value := domain.RestoreExternalURL(*model.Link)
 		link = &value
 	}
 	if model.GitLink != nil {
-		value, err := domain.NewExternalURL(*model.GitLink)
-		if err != nil {
-			return nil, err
-		}
+		value := domain.RestoreExternalURL(*model.GitLink)
 		gitLink = &value
 	}
-	return domain.NewProject(domain.ProjectParams{
-		ID:           id,
-		ResumeID:     resumeID,
-		Name:         model.Name,
-		Description:  model.Description,
-		Role:         model.Role,
-		Screenshots:  screenshotValues,
-		Link:         link,
-		GitLink:      gitLink,
-		Stack:        stack,
-		Contributors: contributorValues,
-	})
+	return domain.RestoreProject(domain.ProjectSnapshot{
+		ID: id, ResumeID: resumeID, Name: model.Name, Description: model.Description, Role: model.Role,
+		Screenshots: screenshotValues, Link: link, GitLink: gitLink, Stack: stack, Contributors: contributorValues,
+	}), nil
 }
 
 func ProjectScreenshotsToDB(projectID sharedvalueobjects.ID, values []domain.ExternalURL) []gormmodel.ResumeProjectScreenshot {
@@ -153,7 +123,6 @@ func ProjectContributorsToDB(projectID sharedvalueobjects.ID, values []domain.Co
 	models := make([]gormmodel.ResumeProjectContributor, 0, len(values))
 	for position, contributor := range values {
 		item := gormmodel.ResumeProjectContributor{
-			ID:        uuid.New(),
 			ProjectID: projectID.UUID(),
 			Position:  position,
 			Name:      contributor.Name(),
@@ -172,4 +141,25 @@ func ProjectContributorsToDB(projectID sharedvalueobjects.ID, values []domain.Co
 		models = append(models, item)
 	}
 	return models
+}
+
+func ProjectsToDBModels(items []*domain.Project) (
+	[]gormmodel.ResumeProject,
+	[]gormmodel.ResumeProjectScreenshot,
+	[]gormmodel.ResumeProjectTechnology,
+	[]gormmodel.ResumeProjectContributor,
+) {
+	models := make([]gormmodel.ResumeProject, 0, len(items))
+	screenshots := make([]gormmodel.ResumeProjectScreenshot, 0)
+	technologies := make([]gormmodel.ResumeProjectTechnology, 0)
+	contributors := make([]gormmodel.ResumeProjectContributor, 0)
+	for position, item := range items {
+		model := ProjectToDB(item)
+		model.SortOrder = position
+		models = append(models, model)
+		screenshots = append(screenshots, ProjectScreenshotsToDB(item.ID(), item.Screenshots())...)
+		technologies = append(technologies, ProjectTechnologiesToDB(item.ID(), item.Stack())...)
+		contributors = append(contributors, ProjectContributorsToDB(item.ID(), item.Contributors())...)
+	}
+	return models, screenshots, technologies, contributors
 }

@@ -24,14 +24,20 @@ func (h *LogoutHandler) Handle(ctx context.Context, tokenHash valueobjects.Sessi
 	if h == nil || h.sessions == nil || h.uow == nil {
 		return fmt.Errorf("logout handler dependencies are nil")
 	}
-	session, err := h.sessions.FindActiveByTokenHash(ctx, tokenHash)
-	if err != nil {
-		if errors.Is(err, domain.ErrEntityNotFound) {
-			return nil
-		}
-		return err
+	if now.IsZero() {
+		return fmt.Errorf("logout: timestamp must be set")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
+		session, err := h.sessions.FindActiveByTokenHash(tx, tokenHash)
+		if err != nil {
+			if errors.Is(err, domain.ErrEntityNotFound) {
+				return nil
+			}
+			return err
+		}
+		if session == nil {
+			return fmt.Errorf("logout: session repository returned nil session")
+		}
 		if err := session.Revoke(now); err != nil {
 			return err
 		}

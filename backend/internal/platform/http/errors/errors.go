@@ -68,6 +68,8 @@ func From(err error) *AppError {
 
 func WriteError(c *gin.Context, err error) {
 	appErr := From(err)
+	ginErr := c.Error(err)
+	ginErr.Type = gin.ErrorTypePrivate
 	requestID := requestid.Get(c)
 	if requestID == "" && c.Request != nil {
 		requestID = c.GetHeader(requestid.Header)

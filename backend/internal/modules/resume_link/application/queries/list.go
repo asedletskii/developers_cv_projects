@@ -44,7 +44,7 @@ func (h *ListResumeLinksQueryHandler) Handle(ctx context.Context, query ListResu
 	if query.UserID.IsZero() || query.ResumeID.IsZero() {
 		return nil, fmt.Errorf("invalid list resume links query")
 	}
-	if _, err := h.resumes.GetOwned(ctx, resumequeries.GetResumeQuery{ResumeID: query.ResumeID, UserID: query.UserID}); err != nil {
+	if err := EnsureResumeOwned(ctx, h.resumes, resumequeries.GetResumeQuery{ResumeID: query.ResumeID, UserID: query.UserID}); err != nil {
 		return nil, err
 	}
 	return h.reader.ListByResumeID(ctx, query)

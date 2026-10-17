@@ -5,20 +5,14 @@ package commands
 import (
 	"context"
 	"fmt"
-	"os"
-	"sort"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"crypto/sha256"
-	"path/filepath"
 	"sync/atomic"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"developers-cv/backend/internal/modules/auth/application/ports"
 	"developers-cv/backend/internal/modules/auth/domain"
@@ -28,6 +22,7 @@ import (
 	userrepo "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/testutil/pgtest"
 )
 
 type integrationTokenGenerator struct{ counter atomic.Uint64 }
@@ -51,8 +46,8 @@ func (g *integrationTokenGenerator) Hash(value []byte) []byte {
 
 type integrationOIDCStub struct{ subject valueobjects.ProviderSubject }
 
-func (o integrationOIDCStub) AuthorizationURL(params ports.TelegramAuthorizationParams) string {
-	return ""
+func (o integrationOIDCStub) AuthorizationURL(ctx context.Context, params ports.TelegramAuthorizationParams) (string, error) {
+	return "https://telegram.example/auth", nil
 }
 func (o integrationOIDCStub) Exchange(context.Context, string, string, string, valueobjects.NonceHash) (ports.VerifiedIdentity, error) {
 	return ports.VerifiedIdentity{Provider: testIntegrationProvider(), ProviderSubject: o.subject}, nil
@@ -86,13 +81,7 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 		t.Skip("integration test")
 	}
 
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, container.Terminate(ctx)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyAuthIntegrationMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 
 	db, err := database.NewGORM(dsn)
 	require.NoError(t, err)
@@ -126,7 +115,7 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 		bindingHash, err := valueobjects.NewBrowserBindingHash(generator.Hash([]byte("binding-" + state)))
 		require.NoError(t, err)
 		tx, err := domain.NewAuthTransaction(domain.AuthTransactionParams{
-			ID: sharedvalueobjects.NewID(), Provider: testIntegrationProvider(), StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: bindingHash,
+			Provider: testIntegrationProvider(), StateHash: stateHash, NonceHash: nonceHash, BrowserBindingHash: bindingHash,
 			CodeVerifier: "verifier", RedirectURI: "https://example.test/callback", CreatedAt: now, ExpiresAt: now.Add(5 * time.Minute),
 		})
 		require.NoError(t, err)
@@ -170,32 +159,6 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 	require.Equal(t, baselineUsersCount+1, usersCount)
 	require.Equal(t, int64(1), identitiesCount)
 	require.Equal(t, int64(2), sessionsCount)
-}
-
-func applyAuthIntegrationMigrations(t *testing.T, ctx context.Context, dsn string) {
-	t.Helper()
-	cfg, err := pgx.ParseConfig(dsn)
-	require.NoError(t, err)
-	conn, err := pgx.ConnectConfig(ctx, cfg)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	dir := filepath.Join("..", "..", "..", "..", "..", "db", "migrations")
-	entries, err := os.ReadDir(dir)
-	require.NoError(t, err)
-	var names []string
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".up.sql") {
-			continue
-		}
-		names = append(names, entry.Name())
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		sql, err := os.ReadFile(filepath.Join(dir, name))
-		require.NoError(t, err)
-		_, err = conn.Exec(ctx, string(sql))
-		require.NoErrorf(t, err, "failed to apply %s", name)
-	}
 }
 
 func testIntegrationProvider() domain.Provider {

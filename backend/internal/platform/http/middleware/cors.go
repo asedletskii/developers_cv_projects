@@ -9,10 +9,14 @@ import (
 )
 
 func CORS(cfg config.CORSConfig) gin.HandlerFunc {
+	allowHeaders := []string{"Origin", "Content-Type", "Accept", "Authorization", requestid.Header}
+	if cfg.AllowMockAuthHeader {
+		allowHeaders = append(allowHeaders, "X-Mock-User-ID")
+	}
 	return cors.New(cors.Config{
 		AllowOrigins:     cfg.AllowedOrigins,
 		AllowMethods:     []string{"GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Mock-User-ID", requestid.Header},
+		AllowHeaders:     allowHeaders,
 		ExposeHeaders:    []string{requestid.Header, "X-View-Id"},
 		AllowCredentials: cfg.AllowCredentials,
 		MaxAge:           12 * 60 * 60,

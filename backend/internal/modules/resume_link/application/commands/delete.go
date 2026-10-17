@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/application/ownership"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -37,7 +37,10 @@ func (h *DeleteResumeLinkHandler) Handle(ctx context.Context, command DeleteResu
 		if err != nil {
 			return err
 		}
-		if _, err := h.resumes.GetOwned(tx, resumequeries.GetResumeQuery{
+		if link == nil {
+			return fmt.Errorf("delete resume link: repository returned nil link")
+		}
+		if err := ownership.EnsureResumeOwned(tx, h.resumes, ports.ResumeOwnershipQuery{
 			ResumeID: link.ResumeID(),
 			UserID:   command.UserID,
 		}); err != nil {

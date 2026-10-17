@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"unicode/utf8"
 
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -95,6 +96,10 @@ func validateLocalizedProfile(profile LocalizedProfile, language ProfileLanguage
 	if profile.surname != nil && strings.TrimSpace(*profile.surname) == "" {
 		return fmt.Errorf("%w: %s surname is empty", ErrInvalidProfile, language)
 	}
+	if !withinLength(profile.name, 100) || !withinLength(profile.surname, 100) ||
+		!withinLength(profile.patronymic, 100) || !withinLength(profile.position, 200) || !withinLength(profile.location, 200) {
+		return fmt.Errorf("%w: localized profile field exceeds configured length", ErrInvalidProfile)
+	}
 	return nil
 }
 
@@ -106,9 +111,12 @@ func validatePhotoURL(photoURL *string) error {
 	if value == "" {
 		return fmt.Errorf("%w: photo URL is empty", ErrInvalidProfile)
 	}
+	if len(value) > 2048 {
+		return fmt.Errorf("%w: photo URL exceeds 2048 bytes", ErrInvalidProfile)
+	}
 	parsed, err := url.ParseRequestURI(value)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return fmt.Errorf("%w: photo URL must be an http(s) URL", ErrInvalidProfile)
+	if err != nil || parsed.Hostname() == "" || parsed.Scheme != "https" || parsed.User != nil {
+		return fmt.Errorf("%w: photo URL must be an HTTPS URL without user information", ErrInvalidProfile)
 	}
 	return nil
 }
@@ -134,7 +142,7 @@ func (p *Profile) EN() LocalizedProfile {
 	return p.en
 }
 
-func (p *Profile) PhotoPath() *string {
+func (p *Profile) PhotoURL() *string {
 	if p == nil {
 		return nil
 	}
@@ -166,4 +174,8 @@ func normalizeOptionalString(value *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func withinLength(value *string, max int) bool {
+	return value == nil || utf8.RuneCountInString(*value) <= max
 }

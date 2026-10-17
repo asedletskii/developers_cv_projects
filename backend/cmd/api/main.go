@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,7 +27,8 @@ func main() {
 
 	application, err := app.Initialize()
 	if err != nil {
-		panic(err)
+		_, _ = fmt.Fprintf(os.Stderr, "initialize application: %v\n", err)
+		os.Exit(1)
 	}
 
 	if err := application.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {

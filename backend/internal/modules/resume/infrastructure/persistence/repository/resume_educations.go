@@ -12,22 +12,7 @@ import (
 )
 
 func persistEducations(tx *gorm.DB, resume *domain.Resume) error {
-	models := make([]gormmodel.ResumeEducation, 0, len(resume.Educations()))
-	for position, item := range resume.Educations() {
-		if item == nil {
-			return fmt.Errorf("%w: nil education", domain.ErrResumeInvariant)
-		}
-		if item.ResumeID() != resume.ID() {
-			return fmt.Errorf("%w: education does not belong to resume", domain.ErrResumeInvariant)
-		}
-		model, err := mappers.EducationToDB(item)
-		if err != nil {
-			return err
-		}
-		model.SortOrder = position
-		models = append(models, model)
-	}
-
+	models := mappers.EducationsToDBModels(resume.Educations())
 	if err := tx.Where("resume_id = ?", resume.ID().UUID()).Delete(&gormmodel.ResumeEducation{}).Error; err != nil {
 		return fmt.Errorf("replace resume educations: %w", mapDBError(err))
 	}
@@ -38,21 +23,11 @@ func persistEducations(tx *gorm.DB, resume *domain.Resume) error {
 	}
 	return nil
 }
+
 func loadEducations(tx *gorm.DB, resumeID sharedvalueobjects.ID) ([]*domain.Education, error) {
 	var rows []gormmodel.ResumeEducation
 	if err := tx.Where("resume_id = ?", resumeID.UUID()).Order("sort_order").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("get resume educations: %w", mapDBError(err))
 	}
-	out := make([]*domain.Education, 0, len(rows))
-	for _, row := range rows {
-		x, err := mappers.EducationToDomain(row)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, x)
-	}
-	if len(out) == 0 {
-		return nil, nil
-	}
-	return out, nil
+	return mappers.EducationsToDomain(rows)
 }

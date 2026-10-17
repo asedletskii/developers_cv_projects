@@ -20,8 +20,8 @@ func (b *LayoutSnapshotBuilder) Build(resume resumequeries.PublicResumeView) (do
 	if len(sections) == 0 {
 		sections = defaultSections()
 	}
-	ordered := make([]resumequeries.OverviewSectionSettings, 0, len(sections)+1)
-	ordered = append(ordered, resumequeries.OverviewSectionSettings{ID: "about", Enabled: true})
+	ordered := make([]resumequeries.PublicSectionSettings, 0, len(sections)+1)
+	ordered = append(ordered, resumequeries.PublicSectionSettings{ID: "about", Enabled: true})
 	for _, section := range sections {
 		if section.ID != "about" {
 			ordered = append(ordered, section)
@@ -49,11 +49,32 @@ func (b *LayoutSnapshotBuilder) Build(resume resumequeries.PublicResumeView) (do
 	if len(order) == 0 {
 		return domain.LayoutSnapshot{}, fmt.Errorf("public resume has no visible analytics sections")
 	}
-	return domain.NewLayoutSnapshot(order, hashes)
+	return domain.NewLayoutSnapshot(order, hashes, publicTechnologies(resume))
 }
 
-func defaultSections() []resumequeries.OverviewSectionSettings {
-	return []resumequeries.OverviewSectionSettings{
+func publicTechnologies(resume resumequeries.PublicResumeView) []string {
+	values := make([]string, 0, len(resume.Technologies))
+	for _, technology := range resume.Technologies {
+		values = append(values, technology.Name)
+	}
+	if resume.Skills != nil {
+		values = append(values, resume.Skills.HardSkills...)
+	}
+	for _, experience := range resume.Experiences {
+		for _, technology := range experience.Stack {
+			values = append(values, technology.Name)
+		}
+	}
+	for _, project := range resume.Projects {
+		for _, technology := range project.Stack {
+			values = append(values, technology.Name)
+		}
+	}
+	return values
+}
+
+func defaultSections() []resumequeries.PublicSectionSettings {
+	return []resumequeries.PublicSectionSettings{
 		{ID: "about", Enabled: true}, {ID: "techStack", Enabled: true}, {ID: "experience", Enabled: true},
 		{ID: "skills", Enabled: true}, {ID: "education", Enabled: true}, {ID: "courses", Enabled: true},
 		{ID: "projects", Enabled: true}, {ID: "activities", Enabled: true}, {ID: "contacts", Enabled: true},
@@ -88,23 +109,23 @@ func sectionHash(id resumedomain.SectionID, r resumequeries.PublicResumeView) (s
 	switch id {
 	case resumedomain.SectionAbout:
 		value = struct {
-			Profile   any                          `json:"profile"`
-			Languages []resumequeries.LanguageView `json:"languages"`
-		}{profileWithoutID(r.Profile), r.Languages}
+			Profile   any                                `json:"profile"`
+			Languages []resumequeries.PublicLanguageView `json:"languages"`
+		}{canonicalProfileProjection(r.Profile), r.Languages}
 	case resumedomain.SectionExperience:
-		value = stripExperienceIDs(r.Experiences)
+		value = canonicalExperienceProjection(r.Experiences)
 	case resumedomain.SectionSkills:
-		value = stripSkillsID(r.Skills)
+		value = canonicalSkillsProjection(r.Skills)
 	case resumedomain.SectionEducation:
-		value = stripEducationIDs(r.Educations)
+		value = canonicalEducationProjection(r.Educations)
 	case resumedomain.SectionCourses:
-		value = stripCourseIDs(r.Courses)
+		value = canonicalCourseProjection(r.Courses)
 	case resumedomain.SectionProjects:
-		value = stripProjectIDs(r.Projects)
+		value = canonicalProjectProjection(r.Projects)
 	case resumedomain.SectionActivities:
-		value = stripActivityIDs(r.Activities)
+		value = canonicalActivityProjection(r.Activities)
 	case resumedomain.SectionContacts:
-		value = stripContactsID(r.Contacts)
+		value = canonicalContactsProjection(r.Contacts)
 	default:
 		return "", fmt.Errorf("unsupported layout section %q", id)
 	}
@@ -119,7 +140,7 @@ func sectionHash(id resumedomain.SectionID, r resumequeries.PublicResumeView) (s
 	return hex.EncodeToString(sum[:8]), nil
 }
 
-func profileWithoutID(v *resumequeries.ResumeProfileView) any {
+func canonicalProfileProjection(v *resumequeries.PublicProfileView) any {
 	if v == nil {
 		return nil
 	}
@@ -128,32 +149,32 @@ func profileWithoutID(v *resumequeries.ResumeProfileView) any {
 		Surname     string   `json:"surname"`
 		Patronymic  *string  `json:"patronymic,omitempty"`
 		Position    string   `json:"position"`
-		PhotoPath   string   `json:"photoPath"`
+		PhotoURL    string   `json:"photoPath"`
 		DateOfBirth string   `json:"dateOfBirth"`
 		Location    string   `json:"location"`
 		Relocation  bool     `json:"relocation"`
 		WorkFormat  []string `json:"workFormat"`
-	}{v.Name, v.Surname, v.Patronymic, v.Position, v.PhotoPath, v.DateOfBirth, v.Location, v.Relocation, v.WorkFormat}
+	}{v.Name, v.Surname, v.Patronymic, v.Position, v.PhotoURL, v.DateOfBirth, v.Location, v.Relocation, v.WorkFormat}
 }
 
-func stripExperienceIDs(v []resumequeries.ExperienceView) []any {
+func canonicalExperienceProjection(v []resumequeries.PublicExperienceView) []any {
 	out := make([]any, len(v))
 	for i, x := range v {
 		out[i] = struct {
-			Company      string                                  `json:"company"`
-			Position     string                                  `json:"position"`
-			Location     *string                                 `json:"location,omitempty"`
-			StartDate    string                                  `json:"startDate"`
-			EndDate      *string                                 `json:"endDate,omitempty"`
-			Description  *string                                 `json:"description,omitempty"`
-			Achievements []string                                `json:"achievements"`
-			Tasks        []string                                `json:"tasks"`
-			Stack        []resumequeries.ExperienceStackItemView `json:"stack"`
+			Company      string                                        `json:"company"`
+			Position     string                                        `json:"position"`
+			Location     *string                                       `json:"location,omitempty"`
+			StartDate    string                                        `json:"startDate"`
+			EndDate      *string                                       `json:"endDate,omitempty"`
+			Description  *string                                       `json:"description,omitempty"`
+			Achievements []string                                      `json:"achievements"`
+			Tasks        []string                                      `json:"tasks"`
+			Stack        []resumequeries.PublicExperienceStackItemView `json:"stack"`
 		}{x.Company, x.Position, x.Location, x.StartDate, x.EndDate, x.Description, x.Achievements, x.Tasks, x.Stack}
 	}
 	return out
 }
-func stripSkillsID(v *resumequeries.SkillsView) any {
+func canonicalSkillsProjection(v *resumequeries.PublicSkillsView) any {
 	if v == nil {
 		return nil
 	}
@@ -162,7 +183,7 @@ func stripSkillsID(v *resumequeries.SkillsView) any {
 		SoftSkills []string `json:"softSkills"`
 	}{v.HardSkills, v.SoftSkills}
 }
-func stripEducationIDs(v []resumequeries.EducationView) []any {
+func canonicalEducationProjection(v []resumequeries.PublicEducationView) []any {
 	out := make([]any, len(v))
 	for i, x := range v {
 		out[i] = struct {
@@ -178,7 +199,7 @@ func stripEducationIDs(v []resumequeries.EducationView) []any {
 	}
 	return out
 }
-func stripCourseIDs(v []resumequeries.CourseView) []any {
+func canonicalCourseProjection(v []resumequeries.PublicCourseView) []any {
 	out := make([]any, len(v))
 	for i, x := range v {
 		out[i] = struct {
@@ -191,7 +212,7 @@ func stripCourseIDs(v []resumequeries.CourseView) []any {
 	}
 	return out
 }
-func stripActivityIDs(v []resumequeries.ActivityView) []any {
+func canonicalActivityProjection(v []resumequeries.PublicActivityView) []any {
 	out := make([]any, len(v))
 	for i, x := range v {
 		out[i] = struct {
@@ -204,23 +225,21 @@ func stripActivityIDs(v []resumequeries.ActivityView) []any {
 	}
 	return out
 }
-func stripProjectIDs(v []resumequeries.ProjectView) []any {
+func canonicalProjectProjection(v []resumequeries.PublicProjectView) []any {
 	out := make([]any, len(v))
 	for i, x := range v {
 		out[i] = struct {
-			Name         string                                 `json:"name"`
-			Description  *string                                `json:"description,omitempty"`
-			Role         *string                                `json:"role,omitempty"`
-			Screenshots  []string                               `json:"screenshots"`
-			Link         *string                                `json:"link,omitempty"`
-			GitLink      *string                                `json:"gitLink,omitempty"`
-			Stack        []resumequeries.ProjectTechnologyView  `json:"stack"`
-			Contributors []resumequeries.ProjectContributorView `json:"contributors"`
-		}{x.Name, x.Description, x.Role, x.Screenshots, x.Link, x.GitLink, x.Stack, x.Contributors}
+			Name         string                                       `json:"name"`
+			Description  *string                                      `json:"description,omitempty"`
+			Screenshots  []string                                     `json:"screenshots"`
+			Link         *string                                      `json:"link,omitempty"`
+			Stack        []resumequeries.PublicProjectTechnologyView  `json:"stack"`
+			Contributors []resumequeries.PublicProjectContributorView `json:"contributors"`
+		}{x.Name, x.Description, x.Screenshots, x.Link, x.Stack, x.Contributors}
 	}
 	return out
 }
-func stripContactsID(v *resumequeries.ResumeContactsView) any {
+func canonicalContactsProjection(v *resumequeries.PublicContactsView) any {
 	if v == nil {
 		return nil
 	}
@@ -229,6 +248,6 @@ func stripContactsID(v *resumequeries.ResumeContactsView) any {
 		Telegram       *string                               `json:"telegram,omitempty"`
 		Email          *string                               `json:"email,omitempty"`
 		HiddenContacts []string                              `json:"hiddenContacts"`
-		ContactsText   *resumequeries.ResumeContactsTextView `json:"contactsText,omitempty"`
+		ContactsText   *resumequeries.PublicContactsTextView `json:"contactsText,omitempty"`
 	}{v.Phone, v.Telegram, v.Email, v.HiddenContacts, v.ContactsText}
 }

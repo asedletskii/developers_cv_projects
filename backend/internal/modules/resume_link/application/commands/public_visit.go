@@ -5,21 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type CreatePublicVisitInput struct {
-	LinkID   sharedvalueobjects.ID
-	ResumeID sharedvalueobjects.ID
-	Resume   resumequeries.PublicResumeView
-	Visitor  ports.PublicVisitInput
-}
+type CreatePublicVisitInput = ports.CreatePublicVisitInput
 
 type CreatePublicVisitHandler struct {
 	views      ports.ViewRepository
+	uow        ports.UnitOfWork
 	identity   ports.VisitorIdentity
 	classifier ports.TrafficClassifier
 	layout     ports.LayoutSnapshotBuilder
@@ -28,15 +22,19 @@ type CreatePublicVisitHandler struct {
 
 func NewCreatePublicVisitHandler(
 	views ports.ViewRepository,
+	uow ports.UnitOfWork,
 	identity ports.VisitorIdentity,
 	classifier ports.TrafficClassifier,
 	layout ports.LayoutSnapshotBuilder,
 ) *CreatePublicVisitHandler {
-	return &CreatePublicVisitHandler{views: views, identity: identity, classifier: classifier, layout: layout, clock: func() time.Time { return time.Now().UTC() }}
+	return &CreatePublicVisitHandler{
+		views: views, uow: uow, identity: identity, classifier: classifier, layout: layout,
+		clock: func() time.Time { return time.Now().UTC() },
+	}
 }
 
 func (h *CreatePublicVisitHandler) Handle(ctx context.Context, input CreatePublicVisitInput) (*domain.View, ports.VisitorIdentityResult, error) {
-	if h == nil || h.views == nil || h.identity == nil || h.classifier == nil || h.layout == nil {
+	if h == nil || h.views == nil || h.uow == nil || h.identity == nil || h.classifier == nil || h.layout == nil {
 		return nil, ports.VisitorIdentityResult{}, fmt.Errorf("create public visit: dependencies are nil")
 	}
 	if input.LinkID.IsZero() {
@@ -58,7 +56,7 @@ func (h *CreatePublicVisitHandler) Handle(ctx context.Context, input CreatePubli
 		return nil, ports.VisitorIdentityResult{}, fmt.Errorf("create public visit: build layout: %w", err)
 	}
 	view, err := domain.NewView(domain.ViewParams{
-		ID: sharedvalueobjects.NewID(), LinkID: input.LinkID, VisitorID: identity.VisitorID, IPHash: identity.IPHash,
+		LinkID: input.LinkID, VisitorID: identity.VisitorID, IPHash: identity.IPHash,
 		Device: classification.Device, Browser: classification.Browser, OS: classification.OS,
 		ReferrerHost: input.Visitor.Referrer, Traffic: classification.Traffic, TrafficReason: classification.Reason,
 		Layout: layout, StartedAt: now, CreatedAt: now,
@@ -66,7 +64,9 @@ func (h *CreatePublicVisitHandler) Handle(ctx context.Context, input CreatePubli
 	if err != nil {
 		return nil, ports.VisitorIdentityResult{}, fmt.Errorf("create public visit: build view: %w", err)
 	}
-	if err := h.views.CreateView(ctx, view); err != nil {
+	if err := h.uow.Do(ctx, func(txCtx context.Context) error {
+		return h.views.CreateView(txCtx, view)
+	}); err != nil {
 		return nil, ports.VisitorIdentityResult{}, fmt.Errorf("create public visit: persist view: %w", err)
 	}
 	identity.ViewID = view.ID()

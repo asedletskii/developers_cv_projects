@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,30 +14,17 @@ func TestSkillsAcceptsArbitraryHardAndSoftSkillValues(t *testing.T) {
 	hard := []string{"architecture", "testing"}
 	soft := []string{"communication", "teamwork"}
 
-	skills, err := NewSkills(SkillsParams{
-		ID:       sharedvalueobjects.NewID(),
-		ResumeID: sharedvalueobjects.NewID(),
-		Hard:     hard,
-		Soft:     soft,
-	})
+	skills, err := newSkills(SkillsParams{ID: sharedvalueobjects.NewID(), Hard: hard, Soft: soft}, sharedvalueobjects.NewID())
 	require.NoError(t, err)
 	require.Equal(t, hard, skills.HardSkills())
 	require.Equal(t, soft, skills.SoftSkills())
 }
 
 func TestSkillsRejectsDuplicatesWithinEachCategory(t *testing.T) {
-	_, err := NewSkills(SkillsParams{
-		ID:       sharedvalueobjects.NewID(),
-		ResumeID: sharedvalueobjects.NewID(),
-		Hard:     []string{"testing", "testing"},
-	})
+	_, err := newSkills(SkillsParams{ID: sharedvalueobjects.NewID(), Hard: []string{"testing", "testing"}}, sharedvalueobjects.NewID())
 	require.ErrorIs(t, err, ErrInvalidEntity)
 
-	_, err = NewSkills(SkillsParams{
-		ID:       sharedvalueobjects.NewID(),
-		ResumeID: sharedvalueobjects.NewID(),
-		Soft:     []string{"teamwork", "teamwork"},
-	})
+	_, err = newSkills(SkillsParams{ID: sharedvalueobjects.NewID(), Soft: []string{"teamwork", "teamwork"}}, sharedvalueobjects.NewID())
 	require.ErrorIs(t, err, ErrInvalidEntity)
 }
 
@@ -78,4 +67,41 @@ func TestResumeReplaceSkillsPreservesExplicitExistingID(t *testing.T) {
 	id := resume.Skills().ID()
 	require.NoError(t, resume.ReplaceSkills(SkillsParams{ID: id, Hard: []string{"architecture"}}))
 	require.Equal(t, id, resume.Skills().ID())
+}
+
+func TestNewSkillsRejectsTooManyItems(t *testing.T) {
+	values := make([]string, MaxSkillsPerResume+1)
+	for i := range values {
+		values[i] = fmt.Sprintf("skill-%d", i)
+	}
+	_, err := newSkills(SkillsParams{ID: sharedvalueobjects.NewID(), Hard: values}, sharedvalueobjects.NewID())
+	require.ErrorIs(t, err, ErrInvalidEntity)
+}
+
+func TestNewSkillsRejectsOverlongValue(t *testing.T) {
+	_, err := newSkills(SkillsParams{ID: sharedvalueobjects.NewID(), Hard: []string{strings.Repeat("a", MaxSkillLength+1)}}, sharedvalueobjects.NewID())
+	require.ErrorIs(t, err, ErrInvalidEntity)
+}
+
+func TestSkillsValidationRejectsNonNormalizedValues(t *testing.T) {
+	skills := RestoreSkills(SkillsSnapshot{
+		ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(),
+		Hard: []string{" Go "},
+	})
+
+	err := skills.validate()
+
+	require.ErrorIs(t, err, ErrInvalidEntity)
+}
+
+func TestResumeReplaceSkillsDoesNotMutateOnError(t *testing.T) {
+	resume := newTestResume(t)
+	require.NoError(t, resume.ReplaceSkills(SkillsParams{Hard: []string{"testing"}}))
+	existing := resume.Skills()
+
+	err := resume.ReplaceSkills(SkillsParams{Hard: []string{"architecture", "architecture"}})
+
+	require.ErrorIs(t, err, ErrInvalidEntity)
+	require.Equal(t, existing.ID(), resume.Skills().ID())
+	require.Equal(t, existing.HardSkills(), resume.Skills().HardSkills())
 }

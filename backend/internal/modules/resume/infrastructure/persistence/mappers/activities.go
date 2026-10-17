@@ -8,10 +8,19 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func ActivityToDB(item *domain.Activity) (gormmodel.ResumeActivity, error) {
-	if item == nil {
-		return gormmodel.ResumeActivity{}, fmt.Errorf("activity is nil")
+func ActivitiesToDomain(rows []gormmodel.ResumeActivity) ([]*domain.Activity, error) {
+	activities := make([]*domain.Activity, 0, len(rows))
+	for i, row := range rows {
+		activity, err := ActivityToDomain(row)
+		if err != nil {
+			return nil, fmt.Errorf("map activity at index %d: %w", i, err)
+		}
+		activities = append(activities, activity)
 	}
+	return activities, nil
+}
+
+func ActivityToDB(item *domain.Activity) gormmodel.ResumeActivity {
 	model := gormmodel.ResumeActivity{
 		ID:          item.ID().UUID(),
 		ResumeID:    item.ResumeID().UUID(),
@@ -24,7 +33,7 @@ func ActivityToDB(item *domain.Activity) (gormmodel.ResumeActivity, error) {
 		value := YearMonthToTime(*item.Date())
 		model.Date = &value
 	}
-	return model, nil
+	return model
 }
 
 func ActivityToDomain(model gormmodel.ResumeActivity) (*domain.Activity, error) {
@@ -37,26 +46,17 @@ func ActivityToDomain(model gormmodel.ResumeActivity) (*domain.Activity, error) 
 		return nil, err
 	}
 	activityType := domain.ActivityType(model.Type)
-	if !activityType.IsValid() {
-		return nil, domain.ErrInvalidEntity
-	}
 	var date *domain.YearMonth
 	if model.Date != nil {
-		value, err := domain.ParseYearMonth(model.Date.Format("2006-01"))
-		if err != nil {
-			return nil, err
-		}
+		value := domain.RestoreYearMonth(*model.Date)
 		date = &value
 	}
 	var link *domain.ExternalURL
 	if model.Link != nil {
-		value, err := domain.NewExternalURL(*model.Link)
-		if err != nil {
-			return nil, err
-		}
+		value := domain.RestoreExternalURL(*model.Link)
 		link = &value
 	}
-	return domain.NewActivity(domain.ActivityParams{
+	return domain.RestoreActivity(domain.ActivitySnapshot{
 		ID:          id,
 		ResumeID:    resumeID,
 		Type:        activityType,
@@ -64,5 +64,15 @@ func ActivityToDomain(model gormmodel.ResumeActivity) (*domain.Activity, error) 
 		Description: model.Description,
 		Date:        date,
 		Link:        link,
-	})
+	}), nil
+}
+
+func ActivitiesToDBModels(items []*domain.Activity) []gormmodel.ResumeActivity {
+	models := make([]gormmodel.ResumeActivity, 0, len(items))
+	for position, item := range items {
+		model := ActivityToDB(item)
+		model.SortOrder = position
+		models = append(models, model)
+	}
+	return models
 }

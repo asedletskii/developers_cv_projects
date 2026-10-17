@@ -17,98 +17,41 @@ import (
 )
 
 func (r *ResumeRepository) Get(ctx context.Context, params ports.GetResumeParams) (*domain.Resume, error) {
-	return r.loadResume(ctx, params.ResumeID, params.UserID)
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("get resume: repository dependencies are nil")
+	}
+	var resume *domain.Resume
+	err := database.WithReadSnapshot(ctx, r.db, func(snapshotCtx context.Context) error {
+		var err error
+		resume, err = r.loadResume(snapshotCtx, params.ResumeID, params.UserID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resume, nil
 }
 
 func (r *ResumeRepository) Create(ctx context.Context, resume *domain.Resume) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("create resume: repository dependencies are nil")
+	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("create resume: %w", err)
 	}
 	if resume == nil {
-		return fmt.Errorf("resume is nil")
+		return fmt.Errorf("create resume: resume is nil")
 	}
-	createdAt := time.Now().UTC()
-	updatedAt := time.Now().UTC()
-	m, err := mappers.ResumeToDB(resume, createdAt, updatedAt)
-	if err != nil {
-		return fmt.Errorf("create resume: %w", err)
-	}
-	if err := tx.WithContext(ctx).Create(&m).Error; err != nil {
+
+	now := time.Now().UTC()
+	model := mappers.ResumeToDB(resume, now, now)
+	tx = tx.WithContext(ctx)
+	if err := tx.Create(&model).Error; err != nil {
 		return fmt.Errorf("create resume: %w", mapDBError(err))
 	}
-	if resume.Profile() != nil {
-		pm, fs, err := mappers.ProfileToDBModels(resume.Profile())
-		if err != nil {
-			return fmt.Errorf("create resume profile: %w", err)
-		}
-		if err := tx.WithContext(ctx).Create(&pm).Error; err != nil {
-			return fmt.Errorf("create resume profile: %w", mapDBError(err))
-		}
-		if len(fs) > 0 {
-			if err := tx.WithContext(ctx).Create(&fs).Error; err != nil {
-				return fmt.Errorf("create resume profile work formats: %w", mapDBError(err))
-			}
-		}
-	}
-	if resume.Overview() != nil {
-		p, sections, err := mappers.OverviewToDBModels(resume.ID(), resume.Overview())
-		if err != nil {
-			return fmt.Errorf("create resume overview: %w", err)
-		}
-		if err := tx.WithContext(ctx).Create(&p).Error; err != nil {
-			return fmt.Errorf("create resume overview: %w", mapDBError(err))
-		}
-		if len(sections) > 0 {
-			if err := tx.WithContext(ctx).Create(&sections).Error; err != nil {
-				return fmt.Errorf("create resume overview sections: %w", mapDBError(err))
-			}
-		}
-	}
-	if resume.Contacts() != nil {
-		if err := persistContacts(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume contacts: %w", err)
-		}
-	}
-	if resume.Skills() != nil {
-		if err := persistSkills(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume skills: %w", err)
-		}
-	}
-	if resume.Languages() != nil {
-		if err := persistLanguages(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume languages: %w", err)
-		}
-	}
-	if resume.Technologies() != nil {
-		if err := persistTechnologies(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume technologies: %w", err)
-		}
-	}
-	if len(resume.Experiences()) > 0 {
-		if err := persistExperiences(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume experiences: %w", err)
-		}
-	}
-	if len(resume.Educations()) > 0 {
-		if err := persistEducations(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume educations: %w", err)
-		}
-	}
-	if len(resume.Courses()) > 0 {
-		if err := persistCourses(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume courses: %w", err)
-		}
-	}
-	if len(resume.Activities()) > 0 {
-		if err := persistActivities(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume activities: %w", err)
-		}
-	}
-	if len(resume.Projects()) > 0 {
-		if err := persistProjects(tx.WithContext(ctx), resume); err != nil {
-			return fmt.Errorf("create resume projects: %w", err)
-		}
+	if err := persistAllSections(tx, resume); err != nil {
+		return fmt.Errorf("create resume sections: %w", err)
 	}
 	return nil
 }
@@ -117,57 +60,125 @@ func (r *ResumeRepository) Save(ctx context.Context, resume *domain.Resume) erro
 	if r == nil || r.db == nil {
 		return fmt.Errorf("save resume: repository dependencies are nil")
 	}
-	if resume == nil || resume.ID().IsZero() || resume.UserID().IsZero() || resume.Version() < 1 {
-		return fmt.Errorf("save resume: invalid aggregate or expected version")
+	if resume == nil {
+		return fmt.Errorf("save resume: resume is nil")
 	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("save resume: %w", err)
 	}
-	result := tx.WithContext(ctx).Model(&gormmodel.Resume{}).Where("id = ? AND user_id = ? AND version = ?", resume.ID().UUID(), resume.UserID().UUID(), resume.Version()).Updates(map[string]any{"title": resume.Title(), "language": string(resume.Language()), "status": string(resume.Status()), "version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC()})
+	result := tx.WithContext(ctx).
+		Model(&gormmodel.Resume{}).
+		Where("id = ? AND user_id = ? AND version = ?", resume.ID().UUID(), resume.UserID().UUID(), resume.Version()).
+		Updates(map[string]any{
+			"title":      resume.Title(),
+			"language":   string(resume.Language()),
+			"status":     string(resume.Status()),
+			"version":    gorm.Expr("version + 1"),
+			"updated_at": time.Now().UTC(),
+		})
 	if result.Error != nil {
 		return fmt.Errorf("save resume: %w", mapDBError(result.Error))
 	}
 	if result.RowsAffected != 1 {
 		return domain.ErrConcurrencyConflict
 	}
-	if err := persistOverview(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistProfile(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistContacts(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistSkills(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistLanguages(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistTechnologies(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistExperiences(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistEducations(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistCourses(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistActivities(tx.WithContext(ctx), resume); err != nil {
-		return err
-	}
-	if err := persistProjects(tx.WithContext(ctx), resume); err != nil {
-		return err
+	if err := persistAllSections(tx.WithContext(ctx), resume); err != nil {
+		return fmt.Errorf("save resume sections: %w", err)
 	}
 	return nil
 }
 
+type resumeSectionPersister struct {
+	section ports.ResumeMutationSection
+	name    string
+	save    func(*gorm.DB, *domain.Resume) error
+}
+
+var resumeSectionPersisters = [...]resumeSectionPersister{
+	{section: ports.ResumeMutationOverview, name: "overview", save: persistOverview},
+	{section: ports.ResumeMutationProfile, name: "profile", save: persistProfile},
+	{section: ports.ResumeMutationContacts, name: "contacts", save: persistContacts},
+	{section: ports.ResumeMutationSkills, name: "skills", save: persistSkills},
+	{section: ports.ResumeMutationLanguages, name: "spoken languages", save: persistLanguages},
+	{section: ports.ResumeMutationTechnologies, name: "technologies", save: persistTechnologies},
+	{section: ports.ResumeMutationExperiences, name: "experiences", save: persistExperiences},
+	{section: ports.ResumeMutationEducations, name: "educations", save: persistEducations},
+	{section: ports.ResumeMutationCourses, name: "courses", save: persistCourses},
+	{section: ports.ResumeMutationActivities, name: "activities", save: persistActivities},
+	{section: ports.ResumeMutationProjects, name: "projects", save: persistProjects},
+}
+
+func persistAllSections(tx *gorm.DB, resume *domain.Resume) error {
+	for _, section := range resumeSectionPersisters {
+		if err := section.save(tx, resume); err != nil {
+			return fmt.Errorf("persist %s: %w", section.name, err)
+		}
+	}
+	return nil
+}
+
+func (r *ResumeRepository) SaveSection(ctx context.Context, resume *domain.Resume, section ports.ResumeMutationSection) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("save resume section: repository dependencies are nil")
+	}
+	if resume == nil {
+		return fmt.Errorf("save resume section: resume is nil")
+	}
+	saveSection, supported := mutationSectionPersister(section)
+	if !supported {
+		return fmt.Errorf("save resume section: unsupported mutation section %q", section)
+	}
+	tx, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return fmt.Errorf("save resume section: %w", err)
+	}
+
+	updates := map[string]any{
+		"version":    gorm.Expr("version + 1"),
+		"updated_at": time.Now().UTC(),
+	}
+	switch section {
+	case ports.ResumeMutationTitle:
+		updates["title"] = resume.Title()
+	case ports.ResumeMutationStatus:
+		updates["status"] = string(resume.Status())
+	}
+	result := tx.WithContext(ctx).Model(&gormmodel.Resume{}).
+		Where("id = ? AND user_id = ? AND version = ?", resume.ID().UUID(), resume.UserID().UUID(), resume.Version()).
+		Updates(updates)
+	if result.Error != nil {
+		return fmt.Errorf("save resume section: %w", mapDBError(result.Error))
+	}
+	if result.RowsAffected != 1 {
+		return domain.ErrConcurrencyConflict
+	}
+
+	if saveSection != nil {
+		if err := saveSection(tx.WithContext(ctx), resume); err != nil {
+			return fmt.Errorf("save resume section %q: %w", section, err)
+		}
+	}
+	return nil
+}
+
+func mutationSectionPersister(section ports.ResumeMutationSection) (func(*gorm.DB, *domain.Resume) error, bool) {
+	switch section {
+	case ports.ResumeMutationTitle, ports.ResumeMutationStatus:
+		return nil, true
+	}
+	for _, persister := range resumeSectionPersisters {
+		if persister.section == section {
+			return persister.save, true
+		}
+	}
+	return nil, false
+}
+
 func (r *ResumeRepository) Delete(ctx context.Context, params ports.DeleteResumeParams) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("delete resume: repository dependencies are nil")
+	}
 	resumeID, userID, version := params.ResumeID, params.UserID, params.Version
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
@@ -175,7 +186,7 @@ func (r *ResumeRepository) Delete(ctx context.Context, params ports.DeleteResume
 	}
 	res := tx.WithContext(ctx).Where("id = ? AND user_id = ? AND version = ?", resumeID.UUID(), userID.UUID(), version).Delete(&gormmodel.Resume{})
 	if res.Error != nil {
-		return fmt.Errorf("delete resume: %w", res.Error)
+		return fmt.Errorf("delete resume: %w", mapDBError(res.Error))
 	}
 	if res.RowsAffected != 1 {
 		return domain.ErrConcurrencyConflict
@@ -193,43 +204,15 @@ func (r *ResumeRepository) loadResume(ctx context.Context, resumeID sharedvalueo
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrEntityNotFound
 		}
-		return nil, fmt.Errorf("get resume: %w", err)
+		return nil, fmt.Errorf("get resume: %w", mapDBError(err))
 	}
-	var profileModel gormmodel.ResumeProfile
-	var profile *domain.Profile
-	if err := tx.WithContext(ctx).Where("resume_id = ?", m.ID).First(&profileModel).Error; err == nil {
-		var formats []gormmodel.ResumeProfileWorkFormat
-		if err := tx.WithContext(ctx).Where("profile_id = ?", profileModel.ID).Order("position").Find(&formats).Error; err != nil {
-			return nil, fmt.Errorf("get resume profile work formats: %w", err)
-		}
-		profile, err = mappers.ProfileToDomain(profileModel, formats)
-		if err != nil {
-			return nil, err
-		}
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("get resume profile: %w", err)
+	profile, err := loadResumeProfile(ctx, tx, m.ID)
+	if err != nil {
+		return nil, err
 	}
-	var contactsModel gormmodel.ResumeContacts
-	var contacts *domain.Contacts
-	if err := tx.WithContext(ctx).Where("resume_id = ?", m.ID).First(&contactsModel).Error; err == nil {
-		var hidden []gormmodel.ResumeContactHidden
-		if err := tx.WithContext(ctx).Where("contacts_id = ?", contactsModel.ID).Order("position").Find(&hidden).Error; err != nil {
-			return nil, fmt.Errorf("get resume contact hidden: %w", err)
-		}
-		var textModel gormmodel.ResumeContactsText
-		textErr := tx.WithContext(ctx).Where("contacts_id = ?", contactsModel.ID).First(&textModel).Error
-		var text *gormmodel.ResumeContactsText
-		if textErr == nil {
-			text = &textModel
-		} else if !errors.Is(textErr, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("get resume contacts text: %w", textErr)
-		}
-		contacts, err = mappers.ContactsToDomain(contactsModel, hidden, text)
-		if err != nil {
-			return nil, err
-		}
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("get resume contacts: %w", err)
+	contacts, err := loadResumeContacts(ctx, tx, m.ID)
+	if err != nil {
+		return nil, err
 	}
 	skills, err := loadSkills(tx.WithContext(ctx), resumeID)
 	if err != nil {
@@ -263,29 +246,27 @@ func (r *ResumeRepository) loadResume(ctx context.Context, resumeID sharedvalueo
 	if err != nil {
 		return nil, err
 	}
-	var overviewModel gormmodel.ResumeOverview
-	if err := tx.WithContext(ctx).Where("resume_id = ?", m.ID).First(&overviewModel).Error; err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("get resume overview: %w", err)
-		}
-	} else {
-		var sections []gormmodel.ResumeOverviewSection
-		if err := tx.WithContext(ctx).Where("resume_id = ?", m.ID).Order("position").Find(&sections).Error; err != nil {
-			return nil, fmt.Errorf("get resume overview sections: %w", err)
-		}
-		o, err := mappers.OverviewToDomain(overviewModel, sections)
-		if err != nil {
-			return nil, err
-		}
-		snapshot, err := mappers.ResumeToDomainSnapshot(m, o, profile, contacts, skills, languages, technologies, experiences, educations, courses, activities, projects)
-		if err != nil {
-			return nil, err
-		}
-		return domain.ReconstructResume(snapshot)
-	}
-	snapshot, err := mappers.ResumeToDomainSnapshot(m, nil, profile, contacts, skills, languages, technologies, experiences, educations, courses, activities, projects)
+	overview, err := loadResumeOverview(ctx, tx, m.ID)
 	if err != nil {
 		return nil, err
 	}
-	return domain.ReconstructResume(snapshot)
+
+	snapshot, err := mappers.ResumeToDomainSnapshot(
+		m,
+		overview,
+		profile,
+		contacts,
+		skills,
+		languages,
+		technologies,
+		experiences,
+		educations,
+		courses,
+		activities,
+		projects,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("map resume: %w", err)
+	}
+	return domain.RestoreResume(snapshot), nil
 }

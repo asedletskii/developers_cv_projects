@@ -13,7 +13,7 @@ type ResumeProfile struct {
 	Surname     string    `gorm:"not null"`
 	Patronymic  *string
 	Position    string    `gorm:"not null"`
-	PhotoPath   string    `gorm:"not null"`
+	PhotoURL    string    `gorm:"column:photo_url;not null"`
 	DateOfBirth time.Time `gorm:"type:date;not null"`
 	Location    string    `gorm:"not null"`
 	Relocation  bool      `gorm:"not null"`

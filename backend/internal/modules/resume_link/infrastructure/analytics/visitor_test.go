@@ -75,3 +75,40 @@ func TestVisitorIdentifierFallbackIsRandomWithoutCookie(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, first.VisitorID, otherVisitor.VisitorID)
 }
+
+func TestVisitorIdentifierNormalizesIPv6To64ForIPHash(t *testing.T) {
+	identifier, err := NewVisitorIdentifier("abcdefghijklmnopqrstuvwxyz0123456789", false)
+	require.NoError(t, err)
+	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+
+	first, err := identifier.Identify(now, ports.PublicVisitInput{IP: "2001:db8:abcd:12::1"})
+	require.NoError(t, err)
+	second, err := identifier.Identify(now, ports.PublicVisitInput{IP: "2001:db8:abcd:12:ffff:ffff:ffff:ffff"})
+	require.NoError(t, err)
+	otherSubnet, err := identifier.Identify(now, ports.PublicVisitInput{IP: "2001:db8:abcd:13::1"})
+	require.NoError(t, err)
+
+	require.Equal(t, first.IPHash, second.IPHash)
+	require.NotEqual(t, first.IPHash, otherSubnet.IPHash)
+}
+
+func TestVisitorIdentifierRotatesIPHashDaily(t *testing.T) {
+	identifier, err := NewVisitorIdentifier("abcdefghijklmnopqrstuvwxyz0123456789", false)
+	require.NoError(t, err)
+	input := ports.PublicVisitInput{IP: "192.0.2.10"}
+	dayOne := time.Date(2026, 10, 5, 23, 59, 0, 0, time.UTC)
+	dayTwo := dayOne.Add(2 * time.Minute)
+
+	first, err := identifier.Identify(dayOne, input)
+	require.NoError(t, err)
+	second, err := identifier.Identify(dayTwo, input)
+	require.NoError(t, err)
+
+	require.NotEqual(t, first.IPHash, second.IPHash, "IP pseudonym must rotate at UTC day boundary")
+	require.Len(t, first.IPHash, 32, "stored IP identifier is an HMAC digest, not the raw IP")
+}
+
+func TestNormalizeIPForAnalyticsUnmapsIPv4MappedAddress(t *testing.T) {
+	require.Equal(t, "192.0.2.1", normalizeIPForAnalytics("::ffff:192.0.2.1"))
+	require.Equal(t, "2001:db8:abcd:12::/64", normalizeIPForAnalytics("2001:db8:abcd:12:1:2:3:4"))
+}

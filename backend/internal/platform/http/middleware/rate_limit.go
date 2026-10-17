@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"math"
 	"net/http"
+	"net/netip"
+	"strconv"
 	"sync"
 	"time"
 
@@ -29,6 +32,7 @@ type RateLimiter struct {
 	rate        rate.Limit
 	burst       int
 	lastCleanup time.Time
+	overflow    *rate.Limiter
 }
 
 func NewRateLimiter(r float64, burst int) *RateLimiter {
@@ -37,6 +41,7 @@ func NewRateLimiter(r float64, burst int) *RateLimiter {
 		rate:        rate.Limit(r),
 		burst:       burst,
 		lastCleanup: time.Now(),
+		overflow:    rate.NewLimiter(rate.Limit(r), burst),
 	}
 }
 
@@ -48,30 +53,74 @@ func (l *RateLimiter) Middleware() gin.HandlerFunc {
 		}
 
 		now := time.Now()
-		ip := c.ClientIP()
+		key := limiterKey(c.ClientIP())
 
 		l.mu.Lock()
 		l.cleanupLocked(now)
 
-		current, ok := l.visitors[ip]
+		current, ok := l.visitors[key]
 		if !ok {
-			if len(l.visitors) >= maxVisitors {
-				l.evictOneLocked()
+			if len(l.visitors) < maxVisitors {
+				current = visitor{limiter: rate.NewLimiter(l.rate, l.burst)}
+				ok = true
+			} else {
+				current = visitor{limiter: l.overflow}
 			}
-			current = visitor{limiter: rate.NewLimiter(l.rate, l.burst)}
 		}
 		current.lastSeen = now
-		l.visitors[ip] = current
+		if ok {
+			l.visitors[key] = current
+		}
 		allowed := current.limiter.AllowN(now, 1)
+		retryAfter := ""
+		if !allowed {
+			retryAfter = retryAfterSeconds(current.limiter, now, l.rate)
+		}
 		l.mu.Unlock()
 
 		if !allowed {
-			c.Header("Retry-After", "1")
+			c.Header("Retry-After", retryAfter)
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeTooMany, http.StatusTooManyRequests, "Too many requests"))
 			return
 		}
 		c.Next()
 	}
+}
+
+func limiterKey(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return ip
+	}
+	addr = addr.Unmap()
+	if addr.Is6() {
+		addr = addr.WithZone("")
+		prefix, err := addr.Prefix(64)
+		if err == nil {
+			return prefix.Masked().String()
+		}
+	}
+	return addr.String()
+}
+
+func retryAfterSeconds(limiter *rate.Limiter, now time.Time, configuredRate rate.Limit) string {
+	ratePerSecond := float64(configuredRate)
+	if ratePerSecond <= 0 || math.IsNaN(ratePerSecond) || math.IsInf(ratePerSecond, 0) {
+		return "1"
+	}
+	missingTokens := 1 - limiter.TokensAt(now)
+	if missingTokens <= 0 {
+		return "1"
+	}
+	seconds := math.Ceil(missingTokens / ratePerSecond)
+	if seconds < 1 {
+		seconds = 1
+	}
+	maxInt := int(^uint(0) >> 1)
+	if math.IsInf(seconds, 1) || math.IsNaN(seconds) || seconds >= float64(maxInt) {
+		return strconv.Itoa(maxInt)
+	}
+	return strconv.Itoa(int(seconds))
 }
 
 func isRateLimitExempt(path string) bool {
@@ -89,11 +138,4 @@ func (l *RateLimiter) cleanupLocked(now time.Time) {
 		}
 	}
 	l.lastCleanup = now
-}
-
-func (l *RateLimiter) evictOneLocked() {
-	for ip := range l.visitors {
-		delete(l.visitors, ip)
-		return
-	}
 }

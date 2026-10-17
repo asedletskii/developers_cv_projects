@@ -30,3 +30,10 @@ func testURL(t *testing.T) domain.ExternalURL {
 	require.NoError(t, err)
 	return v
 }
+
+func mustGreeting(t *testing.T, params domain.GreetingParams) domain.Greeting {
+	t.Helper()
+	value, err := domain.NewGreeting(params)
+	require.NoError(t, err)
+	return value
+}

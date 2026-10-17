@@ -14,8 +14,8 @@ func TestEducationValidation(t *testing.T) {
 	endDate, err := ParseYear("2024")
 	require.NoError(t, err)
 
-	item, err := NewEducation(EducationParams{
-		ID: id, ResumeID: resumeID, Location: "Paris", University: "University",
+	item, err := newEducation(id, resumeID, EducationParams{
+		ID: id, Location: "Paris", University: "University",
 		Grade: EducationLevelMaster, ProgramName: "Computer Science", Faculty: "Engineering", EndDate: &endDate,
 	})
 	require.NoError(t, err)
@@ -23,12 +23,12 @@ func TestEducationValidation(t *testing.T) {
 	require.Equal(t, resumeID, item.ResumeID())
 	require.Equal(t, "2024", item.EndDate().String())
 
-	_, err = NewEducation(EducationParams{ID: id, ResumeID: resumeID, Location: "", University: "University", Grade: EducationLevelMaster, ProgramName: "CS", Faculty: "Engineering"})
+	_, err = newEducation(id, resumeID, EducationParams{ID: id, Location: "", University: "University", Grade: EducationLevelMaster, ProgramName: "CS", Faculty: "Engineering"})
 	require.Error(t, err)
 }
 
 func educationParams(r *Resume, id sharedvalueobjects.ID, name string) *EducationParams {
-	return &EducationParams{ID: id, ResumeID: r.ID(), Location: "Berlin", University: name, Grade: EducationLevelMaster, ProgramName: "Computer Science", Faculty: "Engineering"}
+	return &EducationParams{ID: id, Location: "Berlin", University: name, Grade: EducationLevelMaster, ProgramName: "Computer Science", Faculty: "Engineering"}
 }
 
 func TestResumeReplaceEducations(t *testing.T) {

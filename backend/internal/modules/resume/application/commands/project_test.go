@@ -19,9 +19,14 @@ type projectRepoStub struct {
 func (s *projectRepoStub) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
 	return s.resume, nil
 }
+
 func (s *projectRepoStub) Save(context.Context, *domain.Resume) error {
 	s.saved = true
 	return nil
+}
+
+func (s *projectRepoStub) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
+	return s.Save(ctx, resume)
 }
 func (s *projectRepoStub) Create(context.Context, *domain.Resume) error           { return nil }
 func (s *projectRepoStub) Delete(context.Context, ports.DeleteResumeParams) error { return nil }
@@ -32,8 +37,8 @@ func (projectUOWStub) Do(ctx context.Context, fn func(context.Context) error) er
 
 func TestReplaceProjectsHandlerUsesAggregateRepository(t *testing.T) {
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(),
-		Title: "Resume", Language: domain.ResumeLanguageEN,
+		UserID: sharedvalueobjects.NewID(),
+		Title:  "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 
@@ -49,8 +54,8 @@ func TestReplaceProjectsHandlerUsesAggregateRepository(t *testing.T) {
 
 func TestReplaceProjectsHandlerRejectsStaleVersion(t *testing.T) {
 	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(),
-		Title: "Resume", Language: domain.ResumeLanguageEN,
+		UserID: sharedvalueobjects.NewID(),
+		Title:  "Resume", Language: domain.ResumeLanguageEN,
 	})
 	require.NoError(t, err)
 

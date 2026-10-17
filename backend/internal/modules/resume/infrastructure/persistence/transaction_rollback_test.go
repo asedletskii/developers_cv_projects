@@ -10,14 +10,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/testutil/pgtest"
 )
 
 func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
@@ -25,14 +24,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		t.Skip("integration test")
 	}
 
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
@@ -45,7 +37,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 
 	resume := newTestResume(t, owner)
 	require.NoError(t, resume.ReplaceOverview(domain.ResumeOverviewParams{
-		Greeting: domain.NewGreeting(domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
+		Greeting: mustGreeting(t, domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
 	}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, resume)
@@ -68,7 +60,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 			Name:        "John",
 			Surname:     "Doe",
 			Position:    "Developer",
-			PhotoPath:   photo,
+			PhotoURL:    photo,
 			DateOfBirth: date,
 			Location:    "Paris",
 			WorkFormats: []domain.WorkFormat{domain.WorkFormatRemote},
@@ -122,7 +114,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 			Surname:     updatedProfile.Surname(),
 			Patronymic:  updatedProfile.Patronymic(),
 			Position:    "Senior Developer",
-			PhotoPath:   updatedProfile.PhotoPath(),
+			PhotoURL:    updatedProfile.PhotoURL(),
 			DateOfBirth: updatedProfile.DateOfBirth(),
 			Location:    updatedProfile.Location(),
 			Relocation:  updatedProfile.Relocation(),

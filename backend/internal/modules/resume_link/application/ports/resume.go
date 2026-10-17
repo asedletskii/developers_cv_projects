@@ -6,6 +6,8 @@ import (
 	"developers-cv/backend/internal/modules/resume/application/queries"
 )
 
+type ResumeOwnershipQuery = queries.GetResumeQuery
+
 type ResumeOwnershipReader interface {
-	GetOwned(context.Context, queries.GetResumeQuery) (queries.ResumeView, error)
+	OwnsResume(context.Context, ResumeOwnershipQuery) (bool, error)
 }
