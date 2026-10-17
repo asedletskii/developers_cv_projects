@@ -15,40 +15,8 @@ import (
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
-
-type statisticsHTTPLinkReader struct {
-	view queries.ResumeLinkPublicView
-	err  error
-}
-
-func (s statisticsHTTPLinkReader) GetByID(context.Context, queries.PublicResumeLinkQuery) (queries.ResumeLinkPublicView, error) {
-	return s.view, s.err
-}
-
-type statisticsHTTPOwnershipReader struct {
-	err error
-}
-
-func (s statisticsHTTPOwnershipReader) GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	if s.err != nil {
-		return resumequeries.ResumeView{}, s.err
-	}
-	return resumequeries.ResumeView{ID: "resume"}, nil
-}
-
-func (s statisticsHTTPOwnershipReader) GetOwnedOverview(_ context.Context, _ resumequeries.GetResumeQuery) (resumequeries.ResumeOverviewView, error) {
-	if s.err != nil {
-		return resumequeries.ResumeOverviewView{}, s.err
-	}
-	return resumequeries.ResumeOverviewView{}, nil
-}
-
-func (s statisticsHTTPOwnershipReader) OwnsResume(context.Context, resumequeries.GetResumeQuery) (bool, error) {
-	return s.err == nil, s.err
-}
 
 type statisticsHTTPReader struct {
 	result queries.LinkStatistics
@@ -92,13 +60,7 @@ func newStatisticsHTTPHandler(
 }
 
 func newStatisticsHTTPServer(handler *Handler, userID uuid.UUID) *gin.Engine {
-	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
-		return userID, nil
-	}))
-	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
-	return engine
+	return newAuthenticatedEngine(handler, userID)
 }
 
 func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
@@ -106,9 +68,9 @@ func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: resumeID.String()}},
-		statisticsHTTPOwnershipReader{},
-		statisticsHTTPOwnershipReader{},
+		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: resumeID.String()}},
+		resumeOwnershipReaderStub{},
+		resumeOwnershipReaderStub{},
 		statisticsHTTPReader{result: queries.LinkStatistics{Views: 125, ContactViews: 17}},
 	), userID)
 
@@ -122,9 +84,9 @@ func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 
 func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
-		statisticsHTTPOwnershipReader{},
-		statisticsHTTPOwnershipReader{},
+		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		resumeOwnershipReaderStub{},
+		resumeOwnershipReaderStub{},
 		statisticsHTTPReader{result: queries.LinkStatistics{}},
 	), uuid.New())
 
@@ -138,9 +100,9 @@ func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 
 func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
-		statisticsHTTPOwnershipReader{err: resumequeries.ErrResumeNotFound},
-		statisticsHTTPOwnershipReader{err: resumequeries.ErrResumeNotFound},
+		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		resumeOwnershipReaderStub{err: resumequeries.ErrResumeNotFound},
+		resumeOwnershipReaderStub{err: resumequeries.ErrResumeNotFound},
 		statisticsHTTPReader{},
 	), uuid.New())
 
@@ -153,9 +115,9 @@ func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 
 func TestStatisticsHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{err: queries.ErrResumeLinkNotFound},
-		statisticsHTTPOwnershipReader{},
-		statisticsHTTPOwnershipReader{},
+		resumeLinkPublicReaderStub{err: queries.ErrResumeLinkNotFound},
+		resumeOwnershipReaderStub{},
+		resumeOwnershipReaderStub{},
 		statisticsHTTPReader{},
 	), uuid.New())
 
@@ -168,9 +130,9 @@ func TestStatisticsHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 
 func TestStatisticsHandlerReturnsBadRequestForInvalidUUID(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{},
-		statisticsHTTPOwnershipReader{},
-		statisticsHTTPOwnershipReader{},
+		resumeLinkPublicReaderStub{},
+		resumeOwnershipReaderStub{},
+		resumeOwnershipReaderStub{},
 		statisticsHTTPReader{},
 	), uuid.New())
 
@@ -183,9 +145,9 @@ func TestStatisticsHandlerReturnsBadRequestForInvalidUUID(t *testing.T) {
 
 func TestStatisticsHandlerReturnsInternalErrorForReaderFailure(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
-		statisticsHTTPOwnershipReader{},
-		statisticsHTTPOwnershipReader{},
+		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		resumeOwnershipReaderStub{},
+		resumeOwnershipReaderStub{},
 		statisticsHTTPReader{err: errors.New("db down")},
 	), uuid.New())
 
@@ -198,9 +160,9 @@ func TestStatisticsHandlerReturnsInternalErrorForReaderFailure(t *testing.T) {
 
 func TestAnalyticsReadRejectsInvalidPeriod(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
-		statisticsHTTPOwnershipReader{},
-		statisticsHTTPOwnershipReader{},
+		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		resumeOwnershipReaderStub{},
+		resumeOwnershipReaderStub{},
 		statisticsHTTPReader{},
 	), uuid.New())
 
@@ -213,9 +175,9 @@ func TestAnalyticsReadRejectsInvalidPeriod(t *testing.T) {
 
 func TestAnalyticsReadDailyRouteReturnsZeroDays(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		statisticsHTTPLinkReader{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
-		statisticsHTTPOwnershipReader{},
-		statisticsHTTPOwnershipReader{},
+		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		resumeOwnershipReaderStub{},
+		resumeOwnershipReaderStub{},
 		statisticsHTTPReader{},
 	), uuid.New())
 

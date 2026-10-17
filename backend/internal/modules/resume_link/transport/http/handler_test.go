@@ -17,57 +17,16 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
-
-type fakeResumeOwnershipReader struct{ err error }
-
-func (r fakeResumeOwnershipReader) GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	if r.err != nil {
-		return resumequeries.ResumeView{}, r.err
-	}
-	return resumequeries.ResumeView{ID: "resume"}, nil
-}
-
-func (r fakeResumeOwnershipReader) OwnsResume(ctx context.Context, query resumequeries.GetResumeQuery) (bool, error) {
-	_, err := r.GetOwned(ctx, query)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-type fakeRepository struct{ err error }
-
-func (r *fakeRepository) Create(context.Context, *domain.ResumeLink) error { return r.err }
-func (r *fakeRepository) LockResumeForLinkCreation(context.Context, sharedvalueobjects.ID) error {
-	return nil
-}
-func (r *fakeRepository) CountByResumeID(context.Context, sharedvalueobjects.ID) (int64, error) {
-	return 0, nil
-}
-
-func (r *fakeRepository) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
-	return nil, r.err
-}
-func (r *fakeRepository) ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error {
-	return r.err
-}
-
-func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error { return r.err }
 
 func newTestHandler(err error) *Handler {
 	commandHandler := commands.NewCreateResumeLinkHandler(
-		&fakeRepository{err: err},
-		fakeResumeOwnershipReader{},
-		fakeUnitOfWork{},
+		&resumeLinkRepositoryStub{err: err},
+		resumeOwnershipReaderStub{},
+		unitOfWorkStub{},
 	)
 	return NewHandler(HandlerDependencies{Create: commandHandler})
 }
-
-type fakeUnitOfWork struct{}
-
-func (fakeUnitOfWork) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestCreateHandlerRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -132,7 +91,7 @@ func TestCreateHandlerMapsBadRequestAndNotFound(t *testing.T) {
 		})
 	}
 
-	missingResumeHandler := NewHandler(HandlerDependencies{Create: commands.NewCreateResumeLinkHandler(&fakeRepository{}, fakeResumeOwnershipReader{err: resumequeries.ErrResumeNotFound}, fakeUnitOfWork{})})
+	missingResumeHandler := NewHandler(HandlerDependencies{Create: commands.NewCreateResumeLinkHandler(&resumeLinkRepositoryStub{}, resumeOwnershipReaderStub{err: resumequeries.ErrResumeNotFound}, unitOfWorkStub{})})
 	engine = gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
 	RegisterRoutes(missingResumeHandler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)

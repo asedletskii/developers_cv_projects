@@ -30,71 +30,10 @@ func (s lifecycleReaderStub) ListByResumeID(context.Context, queries.ListResumeL
 	return s.items, s.err
 }
 
-type lifecycleOwnershipStub struct {
-	err error
-}
-
-func (s lifecycleOwnershipStub) GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	if s.err != nil {
-		return resumequeries.ResumeView{}, s.err
-	}
-	return resumequeries.ResumeView{ID: "resume"}, nil
-}
-
-func (s lifecycleOwnershipStub) OwnsResume(ctx context.Context, query resumequeries.GetResumeQuery) (bool, error) {
-	_, err := s.GetOwned(ctx, query)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-type lifecycleRepositoryStub struct {
-	link           *domain.ResumeLink
-	getErr         error
-	delErr         error
-	deleted        bool
-	replaced       bool
-	replaceErr     error
-	replaceActive  bool
-	replaceVersion int64
-}
-
-func (s *lifecycleRepositoryStub) Create(context.Context, *domain.ResumeLink) error { return nil }
-func (s *lifecycleRepositoryStub) LockResumeForLinkCreation(context.Context, sharedvalueobjects.ID) error {
-	return nil
-}
-func (s *lifecycleRepositoryStub) CountByResumeID(context.Context, sharedvalueobjects.ID) (int64, error) {
-	return 0, nil
-}
-func (s *lifecycleRepositoryStub) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
-	if s.getErr != nil {
-		return nil, s.getErr
-	}
-	return s.link, nil
-}
-func (s *lifecycleRepositoryStub) ReplaceStatus(_ context.Context, _ sharedvalueobjects.ID, active bool, version int64) error {
-	s.replaced = true
-	s.replaceActive = active
-	s.replaceVersion = version
-	return s.replaceErr
-}
-
-func (s *lifecycleRepositoryStub) Delete(context.Context, sharedvalueobjects.ID) error {
-	s.deleted = true
-	return s.delErr
-}
-
 func newLifecycleHandler(reader queries.ResumeLinkReader, ownership ports.ResumeOwnershipReader, repo ports.ResumeLinkRepository) *Handler {
 	list := queries.NewListResumeLinksQueryHandler(reader, ownership)
-	deleteHandler := commands.NewDeleteResumeLinkHandler(repo, ownership, lifecycleUnitOfWork{})
+	deleteHandler := commands.NewDeleteResumeLinkHandler(repo, ownership, unitOfWorkStub{})
 	return NewHandler(HandlerDependencies{List: list, Delete: deleteHandler})
-}
-
-type lifecycleUnitOfWork struct{}
-
-func (lifecycleUnitOfWork) Do(ctx context.Context, fn func(context.Context) error) error {
-	return fn(ctx)
 }
 
 func restoreHTTPResumeLink(t *testing.T, resumeID sharedvalueobjects.ID, version int64) *domain.ResumeLink {
@@ -111,10 +50,10 @@ func TestReplaceStatusHandlerDeactivatesOwnedLink(t *testing.T) {
 	userID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	link := restoreHTTPResumeLink(t, resumeID, 3)
-	repo := &lifecycleRepositoryStub{link: link}
-	ownership := lifecycleOwnershipStub{}
+	repo := &resumeLinkRepositoryStub{link: link}
+	ownership := resumeOwnershipReaderStub{}
 	h := NewHandler(HandlerDependencies{
-		Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, ownership, lifecycleUnitOfWork{}),
+		Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, ownership, unitOfWorkStub{}),
 	})
 	engine := newAuthenticatedEngine(h, userID.UUID())
 
@@ -132,9 +71,9 @@ func TestReplaceStatusHandlerDeactivatesOwnedLink(t *testing.T) {
 func TestReplaceStatusHandlerUsesStandardErrorForInvalidVersion(t *testing.T) {
 	h := NewHandler(HandlerDependencies{
 		Lifecycle: commands.NewReplaceStatusResumeLinkHandler(
-			&lifecycleRepositoryStub{},
-			lifecycleOwnershipStub{},
-			lifecycleUnitOfWork{},
+			&resumeLinkRepositoryStub{},
+			resumeOwnershipReaderStub{},
+			unitOfWorkStub{},
 		),
 	})
 	engine := newAuthenticatedEngine(h, uuid.New())
@@ -155,9 +94,9 @@ func TestReplaceStatusHandlerUsesStandardErrorForInvalidVersion(t *testing.T) {
 func TestReplaceStatusHandlerUsesStandardErrorForInvalidStatus(t *testing.T) {
 	h := NewHandler(HandlerDependencies{
 		Lifecycle: commands.NewReplaceStatusResumeLinkHandler(
-			&lifecycleRepositoryStub{},
-			lifecycleOwnershipStub{},
-			lifecycleUnitOfWork{},
+			&resumeLinkRepositoryStub{},
+			resumeOwnershipReaderStub{},
+			unitOfWorkStub{},
 		),
 	})
 	engine := newAuthenticatedEngine(h, uuid.New())
@@ -176,7 +115,7 @@ func TestReplaceStatusHandlerUsesStandardErrorForInvalidStatus(t *testing.T) {
 }
 
 func TestReplaceStatusHandlerRejectsInvalidBody(t *testing.T) {
-	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(&lifecycleRepositoryStub{}, lifecycleOwnershipStub{}, lifecycleUnitOfWork{})})
+	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(&resumeLinkRepositoryStub{}, resumeOwnershipReaderStub{}, unitOfWorkStub{})})
 	engine := newAuthenticatedEngine(h, uuid.New())
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/link/"+uuid.NewString()+"/status", strings.NewReader(`{"status":"paused","version":1}`))
@@ -190,8 +129,8 @@ func TestReplaceStatusHandlerRejectsInvalidBody(t *testing.T) {
 func TestReplaceStatusHandlerRejectsStaleVersion(t *testing.T) {
 	resumeID := sharedvalueobjects.NewID()
 	link := restoreHTTPResumeLink(t, resumeID, 4)
-	repo := &lifecycleRepositoryStub{link: link}
-	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, lifecycleOwnershipStub{}, lifecycleUnitOfWork{})})
+	repo := &resumeLinkRepositoryStub{link: link}
+	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, resumeOwnershipReaderStub{}, unitOfWorkStub{})})
 	engine := newAuthenticatedEngine(h, uuid.New())
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/link/"+link.ID().String()+"/status", strings.NewReader(`{"status":"inactive","version":3}`))
@@ -218,7 +157,7 @@ func TestListHandlerReturnsLinks(t *testing.T) {
 	resumeID := sharedvalueobjects.NewID()
 	h := newLifecycleHandler(lifecycleReaderStub{
 		items: []queries.ResumeLinkListItem{{ID: uuid.NewString(), Name: "HH", Status: "active", Version: 1}},
-	}, lifecycleOwnershipStub{}, &lifecycleRepositoryStub{})
+	}, resumeOwnershipReaderStub{}, &resumeLinkRepositoryStub{})
 	engine := newAuthenticatedEngine(h, userID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/links?resumeId="+resumeID.String(), nil)
@@ -231,7 +170,7 @@ func TestListHandlerReturnsLinks(t *testing.T) {
 
 func TestListHandlerReturnsNotFoundForForeignResume(t *testing.T) {
 	userID := uuid.New()
-	h := newLifecycleHandler(lifecycleReaderStub{}, lifecycleOwnershipStub{err: resumequeries.ErrResumeNotFound}, &lifecycleRepositoryStub{})
+	h := newLifecycleHandler(lifecycleReaderStub{}, resumeOwnershipReaderStub{err: resumequeries.ErrResumeNotFound}, &resumeLinkRepositoryStub{})
 	engine := newAuthenticatedEngine(h, userID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/links?resumeId="+uuid.NewString(), nil)
@@ -245,8 +184,8 @@ func TestDeleteHandlerDeletesOwnedLink(t *testing.T) {
 	userID := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	link := restoreHTTPResumeLink(t, resumeID, 1)
-	repo := &lifecycleRepositoryStub{link: link}
-	h := newLifecycleHandler(lifecycleReaderStub{}, lifecycleOwnershipStub{}, repo)
+	repo := &resumeLinkRepositoryStub{link: link}
+	h := newLifecycleHandler(lifecycleReaderStub{}, resumeOwnershipReaderStub{}, repo)
 	engine := newAuthenticatedEngine(h, userID.UUID())
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/lk/link/"+link.ID().String(), nil)
@@ -258,7 +197,7 @@ func TestDeleteHandlerDeletesOwnedLink(t *testing.T) {
 }
 
 func TestDeleteHandlerReturnsNotFoundForMissingLink(t *testing.T) {
-	h := newLifecycleHandler(lifecycleReaderStub{}, lifecycleOwnershipStub{}, &lifecycleRepositoryStub{getErr: domain.ErrEntityNotFound})
+	h := newLifecycleHandler(lifecycleReaderStub{}, resumeOwnershipReaderStub{}, &resumeLinkRepositoryStub{getErr: domain.ErrEntityNotFound})
 	engine := newAuthenticatedEngine(h, uuid.New())
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/lk/link/"+uuid.NewString(), nil)
@@ -271,8 +210,8 @@ func TestDeleteHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 func TestReplaceStatusHandlerReturnsPreconditionFailedEnvelope(t *testing.T) {
 	resumeID := sharedvalueobjects.NewID()
 	link := restoreHTTPResumeLink(t, resumeID, 4)
-	repo := &lifecycleRepositoryStub{link: link}
-	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, lifecycleOwnershipStub{}, lifecycleUnitOfWork{})})
+	repo := &resumeLinkRepositoryStub{link: link}
+	h := NewHandler(HandlerDependencies{Lifecycle: commands.NewReplaceStatusResumeLinkHandler(repo, resumeOwnershipReaderStub{}, unitOfWorkStub{})})
 	engine := newAuthenticatedEngine(h, uuid.New())
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/link/"+link.ID().String()+"/status", strings.NewReader(`{"status":"inactive","version":3}`))

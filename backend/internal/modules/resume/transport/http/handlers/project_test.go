@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -12,46 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
-	"developers-cv/backend/internal/modules/resume/application/ports"
-	"developers-cv/backend/internal/modules/resume/domain"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/testutil/resumefixture"
 )
-
-type projectHTTPRepoStub struct {
-	resume *domain.Resume
-	saved  bool
-}
-
-func (s *projectHTTPRepoStub) Get(context.Context, ports.GetResumeParams) (*domain.Resume, error) {
-	return s.resume, nil
-}
-func (s *projectHTTPRepoStub) Save(context.Context, *domain.Resume) error {
-	s.saved = true
-	return nil
-}
-func (r *projectHTTPRepoStub) SaveSection(ctx context.Context, resume *domain.Resume, _ ports.ResumeMutationSection) error {
-	return r.Save(ctx, resume)
-}
-func (s *projectHTTPRepoStub) Create(context.Context, *domain.Resume) error { return nil }
-func (s *projectHTTPRepoStub) Delete(context.Context, ports.DeleteResumeParams) error {
-	return nil
-}
-
-type projectHTTPUOWStub struct{}
-
-func (projectHTTPUOWStub) Do(ctx context.Context, fn func(context.Context) error) error {
-	return fn(ctx)
-}
 
 func TestReplaceProjectsReturnsNoContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	resume, err := domain.NewResume(domain.ResumeParams{
-		UserID: sharedvalueobjects.NewID(),
-		Title:  "Resume", Language: domain.ResumeLanguageEN,
-	})
-	require.NoError(t, err)
+	resume, repo := newHandlerTestResume(t)
 
-	h := NewProjectHandler(commands.NewReplaceProjectsHandler(&projectHTTPRepoStub{resume: resume}, projectHTTPUOWStub{}))
+	h := NewProjectHandler(commands.NewReplaceProjectsHandler(repo, resumefixture.UnitOfWork{}))
 	engine := gin.New()
 	engine.PUT("/resume/:resumeId/projects", func(c *gin.Context) {
 		c.Set("user_id", resume.UserID().UUID())
@@ -68,13 +35,9 @@ func TestReplaceProjectsReturnsNoContent(t *testing.T) {
 
 func TestReplaceProjectsRejectsNonPositiveVersion(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	resume, err := domain.NewResume(domain.ResumeParams{
-		UserID: sharedvalueobjects.NewID(),
-		Title:  "Resume", Language: domain.ResumeLanguageEN,
-	})
-	require.NoError(t, err)
+	resume, repo := newHandlerTestResume(t)
 
-	h := NewProjectHandler(commands.NewReplaceProjectsHandler(&projectHTTPRepoStub{resume: resume}, projectHTTPUOWStub{}))
+	h := NewProjectHandler(commands.NewReplaceProjectsHandler(repo, resumefixture.UnitOfWork{}))
 	engine := gin.New()
 	engine.PUT("/resume/:resumeId/projects", func(c *gin.Context) {
 		c.Set("user_id", resume.UserID().UUID())

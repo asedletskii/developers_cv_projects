@@ -18,22 +18,6 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type clickHTTPLinkStub struct{ resumeID string }
-
-func (s clickHTTPLinkStub) GetByID(context.Context, queries.PublicResumeLinkQuery) (queries.ResumeLinkPublicView, error) {
-	return queries.ResumeLinkPublicView{ResumeID: s.resumeID}, nil
-}
-
-type clickHTTPOwnershipStub struct{}
-
-func (clickHTTPOwnershipStub) GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	return resumequeries.ResumeView{ID: "resume"}, nil
-}
-
-func (clickHTTPOwnershipStub) OwnsResume(context.Context, resumequeries.GetResumeQuery) (bool, error) {
-	return true, nil
-}
-
 type clickHTTPPublicStub struct{}
 
 func (clickHTTPPublicStub) Handle(context.Context, resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error) {
@@ -60,8 +44,8 @@ func newClickHTTPHandler(t *testing.T) *Handler {
 	)
 	require.NoError(t, err)
 	clicks := queries.NewAnalyticsClickQueryHandler(
-		clickHTTPLinkStub{resumeID: sharedvalueobjects.NewID().String()},
-		clickHTTPOwnershipStub{},
+		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		resumeOwnershipReaderStub{},
 		clickHTTPPublicStub{},
 		clickHTTPLayoutStub{snapshot: layout},
 		clickHTTPReaderStub{},
