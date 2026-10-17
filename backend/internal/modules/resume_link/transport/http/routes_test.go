@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+
+	"developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
 )
 
 func TestRegisterRoutesPreservesResumeLinkRouteContract(t *testing.T) {
