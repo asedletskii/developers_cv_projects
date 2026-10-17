@@ -1,11 +1,11 @@
 APP_NAME := developers-cv-api
 GO := go
 GO_VERSION := $(shell cat .go-version)
-GOLANGCI_LINT_VERSION := 2.13.2
+GOLANGCI_LINT_VERSION := $(shell cat .golangci-lint-version)
 export GOTOOLCHAIN := go$(GO_VERSION)
 
 
-.PHONY: help fmt fmt-check download-deps verify-deps vet test test-unit test-devauth check-integration build build-check run run-mock-auth check-lint-version lint generate generate-check vulncheck compose-check docker-build compose-up compose-down check release-check migrate-up migrate-down migrate-version seed-dev
+.PHONY: help fmt fmt-check download-deps verify-deps vet test test-unit test-devauth check-integration build build-check run run-mock-auth check-go-version check-lint-version lint generate generate-check vulncheck compose-check docker-build compose-up compose-down check release-check migrate-up migrate-down migrate-version seed-dev
 
 help:
 	@printf '%s\n' \
@@ -21,6 +21,7 @@ help:
 		'make run             - run API locally (without mock auth)' \
 		'make run-mock-auth   - run API locally with mock auth (-tags=devauth)' \
 		'make test-devauth    - run tests with mock auth compiled in' \
+		'make check-go-version - verify go.mod matches the pinned Go toolchain' \
 		'make check-lint-version - verify the pinned golangci-lint version' \
 		'make lint            - run golangci-lint with the pinned version' \
 		'make generate        - regenerate Wire code' \
@@ -83,6 +84,18 @@ run-mock-auth:
 test-devauth:
 	$(GO) test -tags=devauth -count=1 ./...
 
+check-go-version:
+	@module_version=$$(awk '$$1 == "go" { print $$2; exit }' go.mod); \
+	if [ "$$module_version" != "$(GO_VERSION)" ]; then \
+		echo "Go version mismatch: go.mod requires $$module_version, .go-version pins $(GO_VERSION)" >&2; \
+		exit 1; \
+	fi
+	@docker_version=$$(sed -n 's/^ARG GO_VERSION=//p' Dockerfile); \
+	if [ "$$docker_version" != "$(GO_VERSION)" ]; then \
+		echo "Go version mismatch: Dockerfile defaults to $$docker_version, .go-version pins $(GO_VERSION)" >&2; \
+		exit 1; \
+	fi
+
 check-lint-version:
 	@command -v golangci-lint >/dev/null 2>&1 || { echo 'golangci-lint is not installed; expected version $(GOLANGCI_LINT_VERSION)' >&2; exit 1; }
 	@golangci-lint version | grep -Eq "(^|[[:space:]])v?$(GOLANGCI_LINT_VERSION)([[:space:]]|$$)" || { echo 'golangci-lint version mismatch; CI uses $(GOLANGCI_LINT_VERSION)' >&2; golangci-lint version; exit 1; }
@@ -124,7 +137,7 @@ compose-check:
 	docker compose -f ../docker-compose.prod.yml config -q
 
 docker-build:
-	docker build -t $(APP_NAME):local .
+	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(APP_NAME):local .
 
 compose-up:
 	docker compose up -d --build
@@ -133,6 +146,7 @@ compose-down:
 	docker compose down
 
 check:
+	$(MAKE) check-go-version
 	$(MAKE) download-deps
 	$(MAKE) fmt-check
 	$(MAKE) verify-deps
