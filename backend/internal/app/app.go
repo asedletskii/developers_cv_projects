@@ -60,7 +60,7 @@ type backgroundWorker interface {
 
 func (a *Application) Run(ctx context.Context) error {
 	if ctx == nil {
-		ctx = context.Background()
+		return errors.New("application run context is nil")
 	}
 	workerCtx, workerCancel := context.WithCancel(ctx)
 	a.workerCancel = workerCancel
@@ -93,15 +93,15 @@ func (a *Application) Run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		return a.Shutdown(context.Background())
+		return a.Shutdown(context.WithoutCancel(ctx))
 	case err := <-serverErr:
-		return errors.Join(err, a.Shutdown(context.Background()))
+		return errors.Join(err, a.Shutdown(context.WithoutCancel(ctx)))
 	}
 }
 
 func (a *Application) Shutdown(ctx context.Context) error {
 	if ctx == nil {
-		ctx = context.Background()
+		return errors.New("application shutdown context is nil")
 	}
 	shutdownTimeout := a.shutdownTimeout
 	if shutdownTimeout <= 0 {

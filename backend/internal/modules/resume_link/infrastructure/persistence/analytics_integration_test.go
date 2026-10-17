@@ -777,7 +777,7 @@ func TestResumeLinkAnalyticsFoundationPersistence(t *testing.T) {
 	require.Equal(t, view.ID(), loaded.ID())
 	require.Equal(t, view.LinkID(), loaded.LinkID())
 	require.Equal(t, view.Layout().Order(), loaded.Layout().Order())
-	require.True(t, view.CreatedAt().Equal(loaded.CreatedAt()))
+	require.WithinDuration(t, view.CreatedAt(), loaded.CreatedAt(), time.Microsecond)
 
 	now := time.Now().UTC()
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {

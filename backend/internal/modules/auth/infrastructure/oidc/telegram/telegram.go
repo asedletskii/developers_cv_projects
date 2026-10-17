@@ -90,7 +90,7 @@ func (a *oidcAdapter) getProvider(ctx context.Context) (*oidcProvider, error) {
 		if time.Now().Before(a.nextRetryAt) {
 			retryAt, lastErr := a.nextRetryAt, a.lastErr
 			a.mu.Unlock()
-			return nil, fmt.Errorf("%w: discovery retry is delayed until %s: %v", ports.ErrProviderUnavailable, retryAt.UTC().Format(time.RFC3339), lastErr)
+			return nil, fmt.Errorf("%w: discovery retry is delayed until %s: %w", ports.ErrProviderUnavailable, retryAt.UTC().Format(time.RFC3339), lastErr)
 		}
 
 		initialized := make(chan struct{})
@@ -121,7 +121,7 @@ func (a *oidcAdapter) getProvider(ctx context.Context) (*oidcProvider, error) {
 		a.mu.Unlock()
 
 		if err != nil {
-			return nil, fmt.Errorf("%w: discover Telegram OIDC provider: %v", ports.ErrProviderUnavailable, err)
+			return nil, fmt.Errorf("%w: discover Telegram OIDC provider: %w", ports.ErrProviderUnavailable, err)
 		}
 		return provider, nil
 	}

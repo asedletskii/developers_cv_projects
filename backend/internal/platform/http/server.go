@@ -58,22 +58,31 @@ func (s *Server) Run() error {
 		}
 	}
 	go serve(s.server, s.cfg.TLS.Enabled, s.cfg.TLS.CertFile, s.cfg.TLS.KeyFile)
+	serverCount := 1
 	if s.internalServer != nil {
+		serverCount++
 		s.log.Info("internal observability server starting", zap.String("address", s.internalServer.Addr))
 		go serve(s.internalServer, false, "", "")
 	}
-	err := <-errCh
-	if err != nil {
-		if closeErr := s.server.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("close public HTTP server after listener failure: %w", closeErr))
-		}
-		if s.internalServer != nil {
-			if closeErr := s.internalServer.Close(); closeErr != nil {
-				err = errors.Join(err, fmt.Errorf("close internal HTTP server after listener failure: %w", closeErr))
+	var result error
+	serversClosed := false
+	for range serverCount {
+		if err := <-errCh; err != nil {
+			result = errors.Join(result, err)
+			if !serversClosed {
+				serversClosed = true
+				if closeErr := s.server.Close(); closeErr != nil {
+					result = errors.Join(result, fmt.Errorf("close public HTTP server after listener failure: %w", closeErr))
+				}
+				if s.internalServer != nil {
+					if closeErr := s.internalServer.Close(); closeErr != nil {
+						result = errors.Join(result, fmt.Errorf("close internal HTTP server after listener failure: %w", closeErr))
+					}
+				}
 			}
 		}
 	}
-	return err
+	return result
 }
 
 func effectiveShutdownTimeout(configured time.Duration) time.Duration {

@@ -164,13 +164,13 @@ func applyMigrations(ctx context.Context, dsn string) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("connect to migration database: %w", err)
 	}
-	defer func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func(ctx context.Context) {
+		closeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if err := conn.Close(closeCtx); err != nil {
 			retErr = errors.Join(retErr, fmt.Errorf("close migration database connection: %w", err))
 		}
-	}()
+	}(context.WithoutCancel(ctx))
 
 	for _, name := range names {
 		content, err := root.ReadFile(name)

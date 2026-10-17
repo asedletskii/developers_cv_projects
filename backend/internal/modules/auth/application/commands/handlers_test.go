@@ -57,8 +57,8 @@ func (r *transactionRepositoryStub) FindByStateHash(_ context.Context, _ valueob
 	}
 	return r.transaction, nil
 }
-func (r *transactionRepositoryStub) FindByStateHashForUpdate(_ context.Context, _ valueobjects.StateHash) (*domain.AuthTransaction, error) {
-	return r.FindByStateHash(context.Background(), valueobjects.StateHash{})
+func (r *transactionRepositoryStub) FindByStateHashForUpdate(ctx context.Context, _ valueobjects.StateHash) (*domain.AuthTransaction, error) {
+	return r.FindByStateHash(ctx, valueobjects.StateHash{})
 }
 func (r *transactionRepositoryStub) Consume(_ context.Context, _ sharedvalueobjects.ID, _ time.Time) error {
 	r.consumed++

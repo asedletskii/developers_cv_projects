@@ -46,14 +46,6 @@ jobs:
           version: v${{ env.GOLANGCI_LINT_VERSION }}
           working-directory: backend
 
-      - name: Candidate linter baseline - errorlint
-        continue-on-error: true
-        run: golangci-lint run --enable-only errorlint --issues-exit-code=0 ./...
-
-      - name: Candidate linter baseline - contextcheck
-        continue-on-error: true
-        run: golangci-lint run --enable-only contextcheck --issues-exit-code=0 ./...
-
       - name: Vet
         run: go vet ./...
 

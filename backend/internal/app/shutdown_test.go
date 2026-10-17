@@ -65,6 +65,14 @@ func (w cancellationWorkerStub) Run(ctx context.Context) {
 	close(w.done)
 }
 
+func TestApplicationRejectsNilContexts(t *testing.T) {
+	application := NewApplication(&lifecycleServerStub{}, &lifecycleTelemetryStub{}, zap.NewNop(), nil, time.Second, nil)
+	var nilContext context.Context
+
+	require.EqualError(t, application.Run(nilContext), "application run context is nil")
+	require.EqualError(t, application.Shutdown(nilContext), "application shutdown context is nil")
+}
+
 func TestApplicationRunShutsDownResourcesWhenServerStops(t *testing.T) {
 	serverErr := errors.New("listener failed")
 	server := &lifecycleServerStub{runErr: serverErr}

@@ -44,9 +44,6 @@ func (w *Worker) Run(ctx context.Context) {
 	if w == nil || w.cleanup == nil {
 		return
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	interval := w.interval
 	if interval <= 0 {
@@ -80,7 +77,7 @@ func (w *Worker) run(ctx context.Context) error {
 		return nil
 	}
 	if ctx == nil {
-		ctx = context.Background()
+		return errors.New("analytics cleanup context is nil")
 	}
 
 	maxRunDuration := w.maxRunDuration

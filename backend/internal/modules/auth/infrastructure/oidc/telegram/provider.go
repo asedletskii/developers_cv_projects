@@ -101,7 +101,7 @@ func (t *oidcProvider) exchangeAndVerifyCode(ctx context.Context, code string, r
 	}
 	exchangeSpan.End()
 	if err != nil {
-		return ports.VerifiedIdentity{}, fmt.Errorf("%w: %v", ports.ErrTokenExchangeFailed, err)
+		return ports.VerifiedIdentity{}, fmt.Errorf("%w: %w", ports.ErrTokenExchangeFailed, err)
 	}
 
 	rawIDToken, ok := token.Extra("id_token").(string)
@@ -121,7 +121,7 @@ func (t *oidcProvider) exchangeAndVerifyCode(ctx context.Context, code string, r
 	}
 	verifySpan.End()
 	if err != nil {
-		return ports.VerifiedIdentity{}, fmt.Errorf("%w: %v", ports.ErrIDTokenInvalid, err)
+		return ports.VerifiedIdentity{}, fmt.Errorf("%w: %w", ports.ErrIDTokenInvalid, err)
 	}
 
 	var claims struct {

@@ -1,14 +1,17 @@
 APP_NAME := developers-cv-api
 GO := go
+GO_VERSION := $(shell cat .go-version)
 GOLANGCI_LINT_VERSION := 2.13.2
+export GOTOOLCHAIN := go$(GO_VERSION)
 
 
-.PHONY: help fmt fmt-check verify-deps vet test test-unit test-devauth check-integration build run run-mock-auth check-lint-version lint generate generate-check docker-build compose-up compose-down check release-check migrate-up migrate-down migrate-version seed-dev
+.PHONY: help fmt fmt-check download-deps verify-deps vet test test-unit test-devauth check-integration build build-check run run-mock-auth check-lint-version lint generate generate-check vulncheck compose-check docker-build compose-up compose-down check release-check migrate-up migrate-down migrate-version seed-dev
 
 help:
 	@printf '%s\n' \
 		'make fmt             - format Go source files' \
 		'make fmt-check       - verify Go formatting without modifying files' \
+		'make download-deps   - download Go modules' \
 		'make verify-deps     - verify downloaded Go modules' \
 		'make vet             - run go vet' \
 		'make test            - run all Go tests without cache' \
@@ -22,6 +25,8 @@ help:
 		'make lint            - run golangci-lint with the pinned version' \
 		'make generate        - regenerate Wire code' \
 		'make generate-check  - verify Wire output is reproducible without changing files' \
+		'make vulncheck       - scan dependencies and code with govulncheck' \
+		'make compose-check   - validate local, stage, and production Compose files' \
 		'make docker-build    - build backend image' \
 		'make compose-up      - start local infrastructure' \
 		'make compose-down    - stop local infrastructure' \
@@ -29,7 +34,7 @@ help:
 		'make migrate-down    - rollback last database migration' \
 		'make migrate-version - show current database migration version' \
 		'make seed-dev        - insert optional local demo users/profiles' \
-		'make check           - run non-mutating local quality checks' \
+		'make check           - run backend checks required by CI (requires Docker)' \
 		'make release-check   - run quality, integration, and container build gates'
 
 fmt:
@@ -41,6 +46,9 @@ fmt-check:
 		printf 'Go files need formatting:\n%s\n' "$$files"; \
 		exit 1; \
 	fi
+
+download-deps:
+	$(GO) mod download
 
 verify-deps:
 	$(GO) mod verify
@@ -59,6 +67,12 @@ check-integration:
 
 build:
 	$(GO) build ./cmd/api
+
+build-check:
+	@set -eu; \
+	output_dir=$$(mktemp -d); \
+	trap 'rm -rf "$$output_dir"' EXIT HUP INT TERM; \
+	$(GO) build -o "$$output_dir/$(APP_NAME)" ./cmd/api
 
 run:
 	$(GO) run ./cmd/api
@@ -92,6 +106,23 @@ generate-check:
 		exit 1; \
 	fi
 
+vulncheck:
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+compose-check:
+	@set -eu; \
+	backend_env_created=0; root_env_created=0; \
+	if [ ! -f .env ]; then cp .env.example .env; backend_env_created=1; fi; \
+	if [ ! -f ../.env ]; then cp ../.env.example ../.env; root_env_created=1; fi; \
+	cleanup() { \
+		if [ "$$backend_env_created" -eq 1 ]; then rm -f .env; fi; \
+		if [ "$$root_env_created" -eq 1 ]; then rm -f ../.env; fi; \
+	}; \
+	trap cleanup EXIT HUP INT TERM; \
+	docker compose config -q; \
+	docker compose -f ../docker-compose.stage.yml config -q; \
+	docker compose -f ../docker-compose.prod.yml config -q
+
 docker-build:
 	docker build -t $(APP_NAME):local .
 
@@ -102,16 +133,20 @@ compose-down:
 	docker compose down
 
 check:
+	$(MAKE) download-deps
 	$(MAKE) fmt-check
 	$(MAKE) verify-deps
-	$(MAKE) generate-check
+	$(MAKE) lint
 	$(MAKE) vet
 	$(MAKE) test
-	$(MAKE) lint
+	$(MAKE) check-integration
+	$(MAKE) generate-check
+	$(MAKE) vulncheck
+	$(MAKE) build-check
+	$(MAKE) compose-check
 
 release-check:
 	$(MAKE) check
-	$(MAKE) check-integration
 	$(MAKE) docker-build
 
 migrate-up:

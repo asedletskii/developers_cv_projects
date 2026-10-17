@@ -55,7 +55,7 @@ func New(cfg config.TelemetryConfig, log *zap.Logger) (*Service, error) {
 	)
 	if err != nil {
 		if shutdownErr := exporter.Shutdown(context.Background()); shutdownErr != nil {
-			return nil, fmt.Errorf("create telemetry resource: %w; shutdown exporter: %v", err, shutdownErr)
+			return nil, fmt.Errorf("create telemetry resource: %w; shutdown exporter: %w", err, shutdownErr)
 		}
 		return nil, fmt.Errorf("create telemetry resource: %w", err)
 	}

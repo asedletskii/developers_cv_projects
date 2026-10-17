@@ -33,9 +33,6 @@ func (w *Worker) Run(ctx context.Context) {
 	if w == nil || w.cleanup == nil {
 		return
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	transactionTicker := time.NewTicker(w.interval)
 	sessionTicker := time.NewTicker(sessionCleanupInterval)
