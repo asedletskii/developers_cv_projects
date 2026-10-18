@@ -3,12 +3,9 @@ package commands
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
-	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
-	analyticsdomain "developers-cv/backend/internal/modules/analytics/domain"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -143,143 +140,6 @@ func (r *resumeReaderStub) OwnsResume(_ context.Context, query resumequeries.Get
 		return false, r.err
 	}
 	return true, nil
-}
-
-type analyticsBatchRepositoryStub struct {
-	called       bool
-	err          error
-	events       int
-	received     []*analyticsdomain.AnalyticsEvent
-	technologies []string
-}
-
-func (r *analyticsBatchRepositoryStub) LoadAnalyticsBatchForUpdate(_ context.Context, viewID, linkID sharedvalueobjects.ID, _, _, _ bool) (analyticsports.AnalyticsBatchSnapshot, error) {
-	layout, err := analyticsdomain.NewLayoutSnapshot(
-		[]analyticsdomain.AnalyticsSectionID{analyticsdomain.AnalyticsSectionAbout},
-		map[analyticsdomain.AnalyticsSectionID]string{analyticsdomain.AnalyticsSectionAbout: "0123456789abcdef"},
-		r.technologies,
-	)
-	if err != nil {
-		return analyticsports.AnalyticsBatchSnapshot{}, err
-	}
-	now := time.Now().UTC()
-	view, err := analyticsdomain.RestoreView(analyticsdomain.ViewSnapshot{
-		ID: viewID, LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
-		Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSLinux,
-		Traffic: analyticsdomain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
-	})
-	if err != nil {
-		return analyticsports.AnalyticsBatchSnapshot{}, err
-	}
-	return analyticsports.AnalyticsBatchSnapshot{
-		View: view,
-		LinkContext: analyticsports.LinkAnalyticsContext{
-			LinkID: linkID, ResumeID: sharedvalueobjects.NewID(), LinkActive: true, ResumePublished: true,
-		},
-	}, nil
-}
-func (r *analyticsBatchRepositoryStub) SaveAnalyticsBatch(_ context.Context, _ *analyticsdomain.View, events []*analyticsdomain.AnalyticsEvent, _ []*analyticsdomain.AnalyticsClick) error {
-	r.called = true
-	r.events = len(events)
-	r.received = append([]*analyticsdomain.AnalyticsEvent(nil), events...)
-	return r.err
-}
-
-type analyticsInputObserverStub struct {
-	dropped  map[string]int
-	outcomes map[string]int
-}
-
-func (s *analyticsInputObserverStub) RecordAnalyticsBatchOutcome(outcome, reason string) {
-	if s.outcomes == nil {
-		s.outcomes = make(map[string]int)
-	}
-	s.outcomes[outcome+":"+reason]++
-}
-func (s *analyticsInputObserverStub) RecordDroppedAnalyticsInput(kind, reason string) {
-	if s.dropped == nil {
-		s.dropped = make(map[string]int)
-	}
-	s.dropped[kind+":"+reason]++
-}
-
-type viewRepositoryStub struct {
-	created *analyticsdomain.View
-	view    *analyticsdomain.View
-	getErr  error
-}
-
-func (r *viewRepositoryStub) CreateView(_ context.Context, view *analyticsdomain.View) error {
-	r.created = view
-	return nil
-}
-func (r *viewRepositoryStub) GetView(context.Context, sharedvalueobjects.ID) (*analyticsdomain.View, error) {
-	return r.view, r.getErr
-}
-func (r *viewRepositoryStub) UpdateViewState(context.Context, sharedvalueobjects.ID, analyticsdomain.ViewStateUpdate) error {
-	return nil
-}
-
-type analyticsEventRepositoryStub struct {
-	events []*analyticsdomain.AnalyticsEvent
-	err    error
-}
-
-func (r *analyticsEventRepositoryStub) RecordEvents(_ context.Context, events []*analyticsdomain.AnalyticsEvent) error {
-	r.events = append(r.events, events...)
-	return r.err
-}
-
-type analyticsRetentionRepositoryStub struct {
-	clicks   int
-	views    int
-	clickErr error
-	viewErr  error
-	cutoffs  []time.Time
-}
-
-func (r *analyticsRetentionRepositoryStub) DeleteExpiredClicks(_ context.Context, cutoff time.Time, _ int) (int, error) {
-	r.cutoffs = append(r.cutoffs, cutoff)
-	return r.clicks, r.clickErr
-}
-func (r *analyticsRetentionRepositoryStub) DeleteExpiredViews(_ context.Context, cutoff time.Time, _ int) (int, error) {
-	r.cutoffs = append(r.cutoffs, cutoff)
-	return r.views, r.viewErr
-}
-
-type visitorIdentityStub struct{}
-
-func (visitorIdentityStub) Identify(_ time.Time, _ analyticsports.PublicVisitInput) (analyticsports.VisitorIdentityResult, error) {
-	return analyticsports.VisitorIdentityResult{VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32)}, nil
-}
-
-type trafficClassifierStub struct{}
-
-func (trafficClassifierStub) Classify(context.Context, analyticsports.TrafficClassificationInput) (analyticsports.TrafficClassificationResult, error) {
-	return analyticsports.TrafficClassificationResult{Traffic: analyticsdomain.TrafficHuman, Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSMacOS}, nil
-}
-
-type layoutSnapshotBuilderStub struct{}
-
-func (layoutSnapshotBuilderStub) Build(analyticsports.ResumeAnalyticsLayout) (analyticsdomain.LayoutSnapshot, error) {
-	return analyticsdomain.NewLayoutSnapshot([]analyticsdomain.AnalyticsSectionID{analyticsdomain.AnalyticsSectionAbout}, map[analyticsdomain.AnalyticsSectionID]string{analyticsdomain.AnalyticsSectionAbout: "0123456789abcdef"})
-}
-
-func newCommandTestView(t *testing.T, viewID, linkID sharedvalueobjects.ID) *analyticsdomain.View {
-	t.Helper()
-	layout, err := analyticsdomain.NewLayoutSnapshot(
-		[]analyticsdomain.AnalyticsSectionID{analyticsdomain.AnalyticsSectionAbout},
-		map[analyticsdomain.AnalyticsSectionID]string{analyticsdomain.AnalyticsSectionAbout: "0123456789abcdef"},
-	)
-	require.NoError(t, err)
-	now := time.Now().UTC()
-	view, err := analyticsdomain.RestoreView(analyticsdomain.ViewSnapshot{
-		ID: viewID, LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
-		Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSLinux,
-		Traffic: analyticsdomain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
-	})
-	require.NoError(t, err)
-	return view
 }
 
 func restoreCommandTestLink(t *testing.T, status domain.ResumeLinkStatus, version int64) *domain.ResumeLink {
