@@ -24,9 +24,8 @@ func (r *ResumeReader) loadOverview(ctx context.Context, db *gorm.DB, resumeID u
 		return fmt.Errorf("get overview: %w", err)
 	}
 	result := queries.ResumeOverviewView{
-		Greeting:   queries.OverviewGreeting{First: model.GreetingFirst, Second: model.GreetingSecond, SecondHighlight: model.GreetingHighlight, Third: model.GreetingThird},
-		ResumeLink: model.ResumeLink,
-		Sections:   make([]queries.OverviewSectionSettings, 0),
+		Greeting: queries.OverviewGreeting{First: model.GreetingFirst, Second: model.GreetingSecond, SecondHighlight: model.GreetingHighlight, Third: model.GreetingThird},
+		Sections: make([]queries.OverviewSectionSettings, 0),
 	}
 	if model.AvailabilityStatus != nil {
 		result.Availability = &queries.OverviewAvailability{Status: *model.AvailabilityStatus, Note: model.AvailabilityNote}

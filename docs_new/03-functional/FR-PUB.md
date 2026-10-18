@@ -7,8 +7,8 @@
 | ID | Требование | Приоритет | Статус | Комментарий |
 |---|---|---|---|---|
 | FR-PUB-001 | `GET /api/v1/cv/:linkId` без аутентификации должен возвращать `200` и публичную проекцию резюме, если ссылка существует и активна, а резюме в статусе `opened` | Must | Реализовано | `resume_link/application/queries/public.go` |
-| FR-PUB-002 | Публичная проекция — плоская структура: `id, title, language, updatedAt`, поля профиля, контакты с `hiddenContacts` и `contactsText`, `hardSkills, softSkills`, поля обзора (`theme, greeting, availability, resumeLink, sections`), `languages, technologies, experience, education, courses, activities, projects`. Незаполненные одиночки — пустые значения, а не отсутствие поля | Must | Реализовано | Отличия от кабинетного ответа — [`docs/api/public.md`](../../docs/api/public.md), план унификации — [`unification-plan.md`](../../docs/api/unification-plan.md) |
-| FR-PUB-003 | Несуществующая ссылка, выключенная ссылка, резюме не в статусе `opened` — одинаковый ответ `404 "Resume not found"`. По ответу нельзя определить причину | Must | Реализовано | |
+| FR-PUB-002 | Публичная проекция — вложенная структура без top-level resume ID, owner ID, status и version: `title, language, createdAt, updatedAt`, `overview` (`theme, greeting, availability, sections`), `profile`, `contacts` с `hiddenContacts` и `contactsText`, `skills`, `languages, technologies, experiences, educations, courses, activities, projects`. `overview.resumeLink` не входит в публичную проекцию. Незаполненные одиночные `profile`, `contacts`, `skills` могут отсутствовать; коллекции всегда массивы | Must | Реализовано | [`docs/api/public.md`](../../docs/api/public.md); редакторский overview contract не меняется |
+| FR-PUB-003 | Несуществующая ссылка и резюме не в статусе `opened` возвращают `404 "Resume not found"`; существующая выключенная ссылка возвращает `410 "Resume link is no longer active"` | Must | Реализовано | Статусы сохранены по действующему API-контракту |
 | FR-PUB-004 | Публичная проекция не должна содержать статус и версию резюме, идентификатор пользователя и значения скрытых контактов | Must | Реализовано | `queries.ToPublic`, тесты `public_resume_test.go` |
 | FR-PUB-005 | Ответ публичной проекции — `Cache-Control: no-store` | Must | Реализовано | Глобально в `SecurityHeaders` |
 | FR-PUB-006 | Каждый успешный ответ регистрирует событие просмотра ссылки ([FR-ANL-001](FR-ANL.md)). Ошибка записи события не влияет на ответ | Must | Реализовано | Таймаут записи — 2 с |
@@ -49,7 +49,7 @@
 
 | ID | Требование | Приоритет | Статус | Комментарий |
 |---|---|---|---|---|
-| FR-PUB-040 | Если задан `resumeLink`, на странице есть кнопка «Скачать резюме» (ссылка с атрибутом `download`); иначе кнопки нет | Should | Реализовано | `ResumeButton` |
+| FR-PUB-040 | На странице есть кнопка «Скачать резюме», которая формирует HTML-файл из текущих данных резюме; внешняя ссылка `resumeLink` не требуется | Should | Реализовано | `ResumeButton`, `useDownloadResume` |
 | FR-PUB-041 | При печати страница переключается в светлую тему, скрывает элементы с `data-print-hidden` и возвращает тему после печати | Should | Реализовано | `usePrintLightTheme` |
 
 ## Ошибки

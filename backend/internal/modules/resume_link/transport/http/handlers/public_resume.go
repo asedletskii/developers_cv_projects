@@ -9,9 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	analyticscommands "developers-cv/backend/internal/modules/analytics/application/commands"
+	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/commands"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/common"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
@@ -22,7 +22,7 @@ import (
 type PublicResumeLinkHandler struct{ query PublicResumeLinkQuery }
 
 type PublicResumeLinkQuery interface {
-	HandleWithVisit(context.Context, queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, ports.VisitorIdentityResult, error)
+	HandleWithVisit(context.Context, queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, analyticsports.VisitorIdentityResult, error)
 }
 
 const referrerHostHeader = "X-Referrer-Host"
@@ -49,9 +49,9 @@ func (h *PublicResumeLinkHandler) Handle(c *gin.Context) {
 		return
 	}
 	referrerHost := parseReferrerHost(c.GetHeader(referrerHostHeader))
-	input := &commands.CreatePublicVisitInput{
+	input := &analyticscommands.CreatePublicVisitInput{
 		LinkID: linkID,
-		Visitor: ports.PublicVisitInput{
+		Visitor: analyticsports.PublicVisitInput{
 			IP:        c.ClientIP(),
 			UserAgent: c.Request.UserAgent(),
 			Referrer:  referrerHost,
@@ -63,7 +63,7 @@ func (h *PublicResumeLinkHandler) Handle(c *gin.Context) {
 			input.Visitor.OwnerID = ownerID
 		}
 	}
-	for _, cookieName := range []string{ports.ProductionVisitorCookieName, ports.LocalVisitorCookieName} {
+	for _, cookieName := range []string{analyticsports.ProductionVisitorCookieName, analyticsports.LocalVisitorCookieName} {
 		cookie, err := c.Request.Cookie(cookieName)
 		if err != nil {
 			continue

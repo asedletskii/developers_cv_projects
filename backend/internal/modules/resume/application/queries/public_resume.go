@@ -35,7 +35,6 @@ type PublicOverviewView struct {
 	Theme        *PublicThemeSettings    `json:"theme,omitempty"`
 	Greeting     PublicGreeting          `json:"greeting"`
 	Availability *PublicAvailability     `json:"availability,omitempty"`
-	ResumeLink   *string                 `json:"resumeLink,omitempty"`
 	Sections     []PublicSectionSettings `json:"sections"`
 }
 
@@ -280,9 +279,8 @@ func ToPublicResumeView(view ResumeView) PublicResumeView {
 
 func toPublicOverview(value ResumeOverviewView) PublicOverviewView {
 	result := PublicOverviewView{
-		Greeting:   PublicGreeting{First: value.Greeting.First, Second: value.Greeting.Second, SecondHighlight: value.Greeting.SecondHighlight, Third: value.Greeting.Third},
-		ResumeLink: cloneStringPointer(value.ResumeLink),
-		Sections:   make([]PublicSectionSettings, 0, len(value.Sections)),
+		Greeting: PublicGreeting{First: value.Greeting.First, Second: value.Greeting.Second, SecondHighlight: value.Greeting.SecondHighlight, Third: value.Greeting.Third},
+		Sections: make([]PublicSectionSettings, 0, len(value.Sections)),
 	}
 	if value.Theme != nil {
 		result.Theme = &PublicThemeSettings{Primary: value.Theme.Primary, Secondary: value.Theme.Secondary}

@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
+	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -34,26 +34,26 @@ func NewVisitorIdentifier(secret string, production bool) (*VisitorIdentifier, e
 	return &VisitorIdentifier{secret: []byte(secret), production: production}, nil
 }
 
-func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput) (ports.VisitorIdentityResult, error) {
+func (i *VisitorIdentifier) Identify(now time.Time, input analyticsports.PublicVisitInput) (analyticsports.VisitorIdentityResult, error) {
 	if i == nil || len(i.secret) < 32 {
-		return ports.VisitorIdentityResult{}, errors.New("visitor identifier is not configured")
+		return analyticsports.VisitorIdentityResult{}, errors.New("visitor identifier is not configured")
 	}
 	ipHash := i.dailyHMAC(now, "ip", normalizeIPForAnalytics(input.IP))
 	secure := i.production
 	if input.HasCookie && input.VisitorID != (sharedvalueobjects.ID{}) {
-		return ports.VisitorIdentityResult{VisitorID: input.VisitorID, IPHash: ipHash}, nil
+		return analyticsports.VisitorIdentityResult{VisitorID: input.VisitorID, IPHash: ipHash}, nil
 	}
 	visitorUUID := uuid.New()
 	visitorID, err := sharedvalueobjects.IDFromUUID(visitorUUID)
 	if err != nil {
-		return ports.VisitorIdentityResult{}, fmt.Errorf("create fallback visitor id: %w", err)
+		return analyticsports.VisitorIdentityResult{}, fmt.Errorf("create fallback visitor id: %w", err)
 	}
 
-	result := ports.VisitorIdentityResult{VisitorID: visitorID, IPHash: ipHash}
+	result := analyticsports.VisitorIdentityResult{VisitorID: visitorID, IPHash: ipHash}
 	result.SetCookie = true
 	if secure {
 		result.Cookie = &http.Cookie{
-			Name:     ports.ProductionVisitorCookieName,
+			Name:     analyticsports.ProductionVisitorCookieName,
 			Value:    visitorUUID.String(),
 			Path:     CookiePath,
 			MaxAge:   CookieMaxAge,
@@ -63,7 +63,7 @@ func (i *VisitorIdentifier) Identify(now time.Time, input ports.PublicVisitInput
 		}
 	} else {
 		result.Cookie = &http.Cookie{ // #nosec G124
-			Name:     ports.LocalVisitorCookieName,
+			Name:     analyticsports.LocalVisitorCookieName,
 			Value:    visitorUUID.String(),
 			Path:     CookiePath,
 			MaxAge:   CookieMaxAge,

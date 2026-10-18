@@ -13,7 +13,6 @@ func OverviewToDBModels(
 	theme := o.Theme()
 	greeting := o.Greeting()
 	availability := o.Availability()
-	resumeLink := o.ResumeLink()
 	sections := o.Sections()
 	m := gormmodel.ResumeOverview{
 		ResumeID:          id.UUID(),
@@ -33,10 +32,6 @@ func OverviewToDBModels(
 			v := *n
 			m.AvailabilityNote = &v
 		}
-	}
-	if resumeLink != nil {
-		v := resumeLink.String()
-		m.ResumeLink = &v
 	}
 	if theme != nil {
 		if theme.Primary() != nil {
@@ -80,11 +75,6 @@ func OverviewToDomain(
 		value := domain.RestoreAvailability(params)
 		availability = &value
 	}
-	var resumeLink *domain.ExternalURL
-	if m.ResumeLink != nil {
-		value := domain.RestoreExternalURL(*m.ResumeLink)
-		resumeLink = &value
-	}
 	var theme *domain.ThemeSettings
 	if m.ThemePrimary != nil || m.ThemeSecondary != nil {
 		var primary, secondary *domain.Color
@@ -106,6 +96,6 @@ func OverviewToDomain(
 		}))
 	}
 	return domain.RestoreResumeOverview(domain.ResumeOverviewParams{
-		Theme: theme, Greeting: g, Availability: availability, ResumeLink: resumeLink, Sections: sections,
+		Theme: theme, Greeting: g, Availability: availability, Sections: sections,
 	})
 }

@@ -19,6 +19,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 
+	analyticscommands "developers-cv/backend/internal/modules/analytics/application/commands"
+	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticsreaders "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
+	analyticsrepository "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
@@ -28,8 +33,8 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
-	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
-	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
+	resumelinkreaders "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
+	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
 	"developers-cv/backend/internal/platform/database"
 	"developers-cv/backend/internal/platform/http/middleware"
@@ -44,19 +49,19 @@ func (s *integrationTokenVerifierStub) Verify(context.Context, string, string) e
 	return s.err
 }
 
-func newAnalyticsPublicLinkQuery(t *testing.T, linkReader *readers.ResumeLinkReader, resumeReader *resumereaders.ResumeReader, linkRepository *repository.ResumeLinkRepository, uow ports.UnitOfWork) *queries.PublicResumeLinkQueryHandler {
+func newAnalyticsPublicLinkQuery(t *testing.T, linkReader *resumelinkreaders.ResumeLinkReader, resumeReader *resumereaders.ResumeReader, analyticsRepository *analyticsrepository.AnalyticsRepository, uow ports.UnitOfWork) *queries.PublicResumeLinkQueryHandler {
 	t.Helper()
 	visitorIdentifier, err := analytics.NewVisitorIdentifier("integration-analytics-secret-32-bytes-minimum", false)
 	require.NoError(t, err)
-	visit := commands.NewCreatePublicVisitHandler(
-		linkRepository,
+	visit := analyticscommands.NewCreatePublicVisitHandler(
+		analyticsRepository,
 		uow,
 		visitorIdentifier,
 		analytics.NewTrafficClassifier(5, time.Minute),
 		analytics.NewLayoutSnapshotBuilder(),
 	)
 	return queries.NewPublicResumeLinkQueryHandlerWithVisit(
-		linkReader,
+		queries.NewActivePublicResumeLinkResolver(linkReader),
 		resumequeries.NewPublicResumeQueryHandler(resumeReader),
 		resumeReader,
 		visit,
@@ -88,13 +93,13 @@ func TestCreateResumeLinkIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
+	linkRepository := resumelinkrepository.NewResumeLinkRepository(gormDB)
 	create := commands.NewCreateResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 	handler := NewHandler(HandlerDependencies{Create: create})
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+resumeID.String()+`","name":"HH"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -138,14 +143,14 @@ func TestPublicResumeThroughLinkIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
 	publicResume := resumequeries.NewPublicResumeQueryHandler(resumeReader)
-	publicLink := queries.NewPublicResumeLinkQueryHandler(linkReader, publicResume)
+	publicLink := queries.NewPublicResumeLinkQueryHandler(queries.NewActivePublicResumeLinkResolver(linkReader), publicResume)
 	handler := handlers.NewPublicResumeLinkHandler(publicLink)
 
 	engine := gin.New()
 	api := engine.Group("/api/v1")
-	RegisterRoutes(NewHandler(HandlerDependencies{Public: handler}), api, api, api.Group("/lk"), nil, nil)
+	RegisterRoutes(NewHandler(HandlerDependencies{Public: handler}), api, api, api.Group("/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+activeLinkID.String(), nil)
 	w := httptest.NewRecorder()
@@ -215,14 +220,14 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
-	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, linkRepository, database.NewUnitOfWork(gormDB))
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
+	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
 	downloadContacts := resumequeries.NewDownloadContactsQueryHandler(resumeReader)
-	contactEventRecorder := commands.NewRecordPublicInteractionEventHandler(linkRepository, linkRepository, database.NewUnitOfWork(gormDB))
+	contactEventRecorder := analyticscommands.NewRecordPublicInteractionEventHandler(analyticsRepository, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(
-		linkReader,
+		queries.NewActivePublicResumeLinkResolver(linkReader),
 		contactView,
 		downloadContacts,
 		contactEventRecorder,
@@ -234,7 +239,7 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	engine := gin.New()
 	api := engine.Group("/api/v1")
 	linkHandler := NewHandler(HandlerDependencies{Public: handlers.NewPublicResumeLinkHandler(publicLink), ContactView: contactHandler})
-	RegisterRoutes(linkHandler, api, api, api.Group("/lk"), nil, nil)
+	RegisterRoutes(linkHandler, api, api, api.Group("/lk"), nil)
 
 	getPublic := func(linkID uuid.UUID) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -290,7 +295,7 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, response.Code)
 
 	var contactEvents int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, activeLinkID).Scan(&contactEvents))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics_events WHERE link_id = $1`, activeLinkID).Scan(&contactEvents))
 	require.Equal(t, 1, contactEvents)
 }
 
@@ -328,29 +333,33 @@ func TestLinkStatisticsIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
-	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, linkRepository, database.NewUnitOfWork(gormDB))
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	analyticsReader := analyticsreaders.NewAnalyticsReader(gormDB)
+	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
+	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
 	downloadContacts := resumequeries.NewDownloadContactsQueryHandler(resumeReader)
-	contactEventRecorder := commands.NewRecordPublicInteractionEventHandler(linkRepository, linkRepository, database.NewUnitOfWork(gormDB))
+	contactEventRecorder := analyticscommands.NewRecordPublicInteractionEventHandler(analyticsRepository, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(
-		linkReader,
+		queries.NewActivePublicResumeLinkResolver(linkReader),
 		contactView,
 		downloadContacts,
 		contactEventRecorder,
 		func(err error) { t.Errorf("record contact view analytics: %v", err) },
 	)
-	statistics := queries.NewLinkStatisticsHandler(linkReader, resumeReader, linkReader)
+	access := queries.NewAnalyticsAccessReader(linkReader, resumeReader, resumeReader, nil)
+	statistics := analyticsqueries.NewLinkStatisticsHandler(access, analyticsReader)
 
 	publicHandler := handlers.NewPublicResumeLinkHandler(publicLink)
 	verifier := &integrationTokenVerifierStub{}
 	contactHandler := handlers.NewPublicContactViewHandler(contactThroughLink, verifier)
+	analyticsHandler := analyticshttp.NewHandler(analyticshttp.HandlerDependencies{
+		Ingest:     analyticscommands.NewIngestAnalyticsBatchHandler(analyticsRepository, database.NewUnitOfWork(gormDB), nil),
+		Statistics: statistics,
+	})
 	linkHandler := NewHandler(HandlerDependencies{
-		Public:              publicHandler,
-		ContactView:         contactHandler,
-		AnalyticsEvents:     handlers.NewResumeLinkAnalyticsEventsHandler(commands.NewIngestAnalyticsBatchHandler(linkRepository, database.NewUnitOfWork(gormDB), nil)),
-		AnalyticsStatistics: statistics,
+		Public:      publicHandler,
+		ContactView: contactHandler,
 	})
 
 	engine := gin.New()
@@ -359,7 +368,8 @@ func TestLinkStatisticsIntegration(t *testing.T) {
 	lk.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(linkHandler, api, api, lk, nil, nil)
+	RegisterRoutes(linkHandler, api, api, lk, nil)
+	analyticshttp.RegisterRoutes(analyticsHandler, api, lk, nil)
 
 	getPublic := func() *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -433,9 +443,10 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
-	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, linkRepository, database.NewUnitOfWork(gormDB))
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	linkRepository := resumelinkrepository.NewResumeLinkRepository(gormDB)
+	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
+	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	lifecycle := commands.NewReplaceStatusResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 
 	linkHandler := NewHandler(HandlerDependencies{
@@ -448,7 +459,7 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	lk.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(linkHandler, api, api, lk, nil, nil)
+	RegisterRoutes(linkHandler, api, api, lk, nil)
 
 	getPublic := func() *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -473,7 +484,7 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	require.Equal(t, http.StatusOK, getPublic().Code)
 
 	var eventCount int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, linkID).Scan(&eventCount))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics_events WHERE link_id = $1`, linkID).Scan(&eventCount))
 	require.Equal(t, 0, eventCount)
 }
 
@@ -523,20 +534,23 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
 	resumeRepository := resumerepository.NewResumeRepository(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
-	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, linkRepository, database.NewUnitOfWork(gormDB))
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	analyticsReader := analyticsreaders.NewAnalyticsReader(gormDB)
+	linkRepository := resumelinkrepository.NewResumeLinkRepository(gormDB)
+	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
+	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
 	downloadContacts := resumequeries.NewDownloadContactsQueryHandler(resumeReader)
-	contactEventRecorder := commands.NewRecordPublicInteractionEventHandler(linkRepository, linkRepository, database.NewUnitOfWork(gormDB))
+	contactEventRecorder := analyticscommands.NewRecordPublicInteractionEventHandler(analyticsRepository, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(
-		linkReader,
+		queries.NewActivePublicResumeLinkResolver(linkReader),
 		contactView,
 		downloadContacts,
 		contactEventRecorder,
 		func(err error) { t.Errorf("record contact view analytics: %v", err) },
 	)
-	statistics := queries.NewLinkStatisticsHandler(linkReader, resumeReader, linkReader)
+	access := queries.NewAnalyticsAccessReader(linkReader, resumeReader, resumeReader, nil)
+	statistics := analyticsqueries.NewLinkStatisticsHandler(access, analyticsReader)
 	createLink := commands.NewCreateResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 	listLinks := queries.NewListResumeLinksQueryHandler(linkReader, resumeReader)
 	deleteLink := commands.NewDeleteResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
@@ -545,13 +559,12 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	deleteResume := resumecommands.NewDeleteResumeHandler(resumeRepository, database.NewUnitOfWork(gormDB))
 
 	linkHandler := NewHandler(HandlerDependencies{
-		Create:              createLink,
-		List:                listLinks,
-		Delete:              deleteLink,
-		Public:              handlers.NewPublicResumeLinkHandler(publicLink),
-		ContactView:         handlers.NewPublicContactViewHandler(contactThroughLink, &integrationTokenVerifierStub{}),
-		AnalyticsStatistics: statistics,
-		Lifecycle:           lifecycle,
+		Create:      createLink,
+		List:        listLinks,
+		Delete:      deleteLink,
+		Public:      handlers.NewPublicResumeLinkHandler(publicLink),
+		ContactView: handlers.NewPublicContactViewHandler(contactThroughLink, &integrationTokenVerifierStub{}),
+		Lifecycle:   lifecycle,
 	})
 	resumeHandler := resumehttp.NewHandler(resumehttp.HandlerDependencies{
 		DeleteResume:       deleteResume,
@@ -566,7 +579,8 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 		return currentUser, nil
 	}))
 	resumehttp.RegisterRoutes(resumeHandler, lk)
-	RegisterRoutes(linkHandler, api, api, lk, nil, nil)
+	RegisterRoutes(linkHandler, api, api, lk, nil)
+	analyticshttp.RegisterRoutes(analyticshttp.NewHandler(analyticshttp.HandlerDependencies{Statistics: statistics}), api, lk, nil)
 
 	do := func(method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -698,7 +712,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 
 	var linksAfterDelete, eventsAfterDelete int
 	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_links WHERE resume_id = $1`, resumeA).Scan(&linksAfterDelete))
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id IN ($1, $2)`, linkAHH, linkATelegram).Scan(&eventsAfterDelete))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics_events WHERE link_id IN ($1, $2)`, linkAHH, linkATelegram).Scan(&eventsAfterDelete))
 	require.Equal(t, 0, linksAfterDelete)
 	require.Equal(t, 0, eventsAfterDelete)
 

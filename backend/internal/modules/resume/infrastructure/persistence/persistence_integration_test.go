@@ -75,6 +75,15 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	fixture := newPhase6PostgresFixture(t)
 	ctx := fixture.ctx
 	resume := fixture.resume
+	var removedFieldCount int
+	require.NoError(t, fixture.gorm.Raw(`
+		SELECT count(*)
+		FROM information_schema.columns
+		WHERE table_schema = current_schema()
+		  AND table_name = 'resume_overviews'
+		  AND column_name = 'resume_link'
+	`).Scan(&removedFieldCount).Error)
+	require.Zero(t, removedFieldCount)
 
 	primary, err := domain.NewColor("#112233")
 	require.NoError(t, err)
@@ -86,13 +95,10 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	require.NoError(t, err)
 	section, err := domain.NewSectionSettings(domain.SectionSettingsParams{ID: domain.SectionAbout, Enabled: true, Collapsed: false})
 	require.NoError(t, err)
-	link, err := domain.NewExternalURL("https://example.com/cv.pdf")
-	require.NoError(t, err)
 	overview := domain.ResumeOverviewParams{
 		Theme:        &theme,
 		Greeting:     mustGreeting(t, domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
 		Availability: &availability,
-		ResumeLink:   &link,
 		Sections:     []domain.SectionSettings{section},
 	}
 	require.NoError(t, resume.ReplaceOverview(overview))
@@ -134,7 +140,6 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	require.Equal(t, int64(3), loaded.Version())
 	require.Equal(t, "Updated", loaded.Overview().Greeting().First())
 	require.Nil(t, loaded.Overview().Theme())
-	require.Nil(t, loaded.Overview().ResumeLink())
 	require.Equal(t, domain.AvailabilityStatusBusy, loaded.Overview().Availability().Status())
 	require.Len(t, loaded.Overview().Sections(), 1)
 	require.Equal(t, domain.SectionProjects, loaded.Overview().Sections()[0].ID())
@@ -413,11 +418,6 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 		{
 			name:  "invalid activity enum",
 			query: `INSERT INTO resume_activities (id,resume_id,sort_order,type,title) VALUES (gen_random_uuid(),$1,0,'unknown','Activity')`,
-			args:  []any{resumeID.UUID()},
-		},
-		{
-			name:  "external URL without host",
-			query: `UPDATE resume_overviews SET resume_link = 'https:///missing-host' WHERE resume_id = $1`,
 			args:  []any{resumeID.UUID()},
 		},
 	}

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
 	authcommands "developers-cv/backend/internal/modules/auth/application/commands"
 	authports "developers-cv/backend/internal/modules/auth/application/ports"
 	authqueries "developers-cv/backend/internal/modules/auth/application/queries"
@@ -127,11 +128,12 @@ func newRouter(
 	resumeHandler *resumehttp.Handler,
 	userHandler *userhttp.Handler,
 	resumeLinkHandler *resumelinkhttp.Handler,
+	analyticsHandler *analyticshttp.Handler,
 	authHandler *authhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
 	optionalAuthenticate optionalAuthenticateFunc,
 ) (*httpserver.Router, error) {
-	return httpserver.NewRouter(cfg, log, healthService, metrics, resumeHandler, userHandler, resumeLinkHandler, authHandler, authenticate, middleware.AuthenticateFunc(optionalAuthenticate))
+	return httpserver.NewRouter(cfg, log, healthService, metrics, resumeHandler, userHandler, resumeLinkHandler, authHandler, authenticate, middleware.AuthenticateFunc(optionalAuthenticate), analyticsHandler)
 }
 
 func newAuthHandler(

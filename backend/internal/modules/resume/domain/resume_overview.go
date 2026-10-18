@@ -10,7 +10,6 @@ type ResumeOverviewParams struct {
 	Theme        *ThemeSettings
 	Greeting     Greeting
 	Availability *Availability
-	ResumeLink   *ExternalURL
 	Sections     []SectionSettings
 }
 
@@ -18,7 +17,6 @@ type ResumeOverview struct {
 	theme        *ThemeSettings
 	greeting     Greeting
 	availability *Availability
-	resumeLink   *ExternalURL
 	sections     []SectionSettings
 }
 
@@ -33,8 +31,8 @@ func newResumeOverview(params ResumeOverviewParams) (*ResumeOverview, error) {
 func RestoreResumeOverview(params ResumeOverviewParams) *ResumeOverview {
 	return &ResumeOverview{
 		theme: cloneThemeSettings(params.Theme), greeting: params.Greeting,
-		availability: cloneAvailability(params.Availability), resumeLink: cloneExternalURL(params.ResumeLink),
-		sections: cloneSectionSettings(params.Sections),
+		availability: cloneAvailability(params.Availability),
+		sections:     cloneSectionSettings(params.Sections),
 	}
 }
 
@@ -44,7 +42,7 @@ func (o *ResumeOverview) validate() error {
 	}
 	params := ResumeOverviewParams{
 		Theme: o.theme, Greeting: o.greeting, Availability: o.availability,
-		ResumeLink: o.resumeLink, Sections: o.sections,
+		Sections: o.sections,
 	}
 	if err := validateOverviewSections(params.Sections); err != nil {
 		return err
@@ -59,9 +57,6 @@ func (o *ResumeOverview) Theme() *ThemeSettings { return cloneThemeSettings(o.th
 func (o *ResumeOverview) Greeting() Greeting    { return o.greeting }
 func (o *ResumeOverview) Availability() *Availability {
 	return cloneAvailability(o.availability)
-}
-func (o *ResumeOverview) ResumeLink() *ExternalURL {
-	return cloneExternalURL(o.resumeLink)
 }
 func (o *ResumeOverview) Sections() []SectionSettings {
 	return cloneSectionSettings(o.sections)
@@ -79,11 +74,6 @@ func validateOverviewValueObjects(params ResumeOverviewParams) error {
 		}
 		if from := params.Availability.From(); from != nil && from.IsZero() {
 			return fmt.Errorf("%w: invalid availability date", ErrInvalidValue)
-		}
-	}
-	if params.ResumeLink != nil {
-		if err := params.ResumeLink.validate(); err != nil {
-			return fmt.Errorf("%w: invalid resume link", ErrInvalidValue)
 		}
 	}
 	return nil
@@ -393,7 +383,6 @@ func cloneResumeOverview(value *ResumeOverview) *ResumeOverview {
 	copy := *value
 	copy.theme = cloneThemeSettings(value.theme)
 	copy.availability = cloneAvailability(value.availability)
-	copy.resumeLink = cloneExternalURL(value.resumeLink)
 	copy.sections = cloneSectionSettings(value.sections)
 	return &copy
 }

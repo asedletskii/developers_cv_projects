@@ -94,10 +94,7 @@ func TestNewThemeSettingsRejectsZeroValueColors(t *testing.T) {
 
 func TestNewResumeOverviewRejectsZeroValueNestedObjects(t *testing.T) {
 	availability := Availability{}
-	link := ExternalURL{}
 	_, err := newResumeOverview(ResumeOverviewParams{Availability: &availability})
-	require.ErrorIs(t, err, ErrInvalidValue)
-	_, err = newResumeOverview(ResumeOverviewParams{ResumeLink: &link})
 	require.ErrorIs(t, err, ErrInvalidValue)
 }
 
