@@ -5,6 +5,7 @@ package mock
 import (
 	"context"
 	"testing"
+	"time"
 
 	"net/http/httptest"
 
@@ -36,7 +37,8 @@ func TestMockAuthenticatorAuthenticatesExistingUser(t *testing.T) {
 	userID := uuid.New()
 	id, err := sharedvalueobjects.IDFromUUID(userID)
 	require.NoError(t, err)
-	user, err := domain.NewUser(domain.UserParams{ID: id})
+	now := time.Now().UTC()
+	user, err := domain.RestoreUser(domain.UserSnapshot{ID: id, CreatedAt: now, UpdatedAt: now})
 	require.NoError(t, err)
 
 	authenticator := NewMockAuthenticator(&fakeUserReader{

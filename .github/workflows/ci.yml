@@ -52,6 +52,9 @@ jobs:
       - name: Unit tests
         run: go test -count=1 ./...
 
+      - name: Devauth unit tests
+        run: go test -tags devauth -count=1 ./...
+
       - name: PostgreSQL integration tests
         run: go test -tags integration -count=1 ./...
 
