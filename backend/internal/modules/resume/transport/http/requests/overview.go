@@ -11,7 +11,6 @@ type ResumeOverviewRequest struct {
 	Theme        *OverviewThemeRequest        `json:"theme,omitempty"`
 	Greeting     OverviewGreetingRequest      `json:"greeting"`
 	Availability *OverviewAvailabilityRequest `json:"availability,omitempty"`
-	ResumeLink   *string                      `json:"resumeLink,omitempty"`
 	Sections     []OverviewSectionRequest     `json:"sections"`
 }
 
@@ -38,13 +37,6 @@ type OverviewSectionRequest struct {
 
 func (r ResumeOverviewRequest) ToCommand(uid sharedvalueobjects.ID, id sharedvalueobjects.ID) (commands.ReplaceOverviewCommand, error) {
 	input := commands.OverviewInput{Greeting: commands.GreetingInput{First: r.Greeting.First, Second: r.Greeting.Second, SecondHighlight: r.Greeting.SecondHighlight, Third: r.Greeting.Third}}
-	if r.ResumeLink != nil {
-		link, err := domain.NewExternalURL(*r.ResumeLink)
-		if err != nil {
-			return commands.ReplaceOverviewCommand{}, err
-		}
-		input.ResumeLink = &link
-	}
 	if r.Theme != nil {
 		theme := &commands.ThemeInput{}
 		if r.Theme.Primary != nil {

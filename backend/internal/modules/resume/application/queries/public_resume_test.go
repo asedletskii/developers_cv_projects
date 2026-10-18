@@ -2,10 +2,9 @@ package queries
 
 import (
 	"context"
-	"testing"
-
 	"encoding/json"
 	"reflect"
+	"testing"
 
 	"github.com/stretchr/testify/require"
 
@@ -61,6 +60,34 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 	require.Empty(t, result.Projects[0].Screenshots)
 	require.NotNil(t, result.Projects[0].Contributors)
 	require.Empty(t, result.Projects[0].Contributors)
+	require.NotContains(t, payload, "resumeLink")
+}
+
+func TestToResumeAnalyticsLayoutContainsPublicSectionInputsOnly(t *testing.T) {
+	phone := "+33123456789"
+	view := PublicResumeView{
+		Title:    "Private editor metadata",
+		Language: "en",
+		Overview: PublicOverviewView{
+			Sections: []PublicSectionSettings{{ID: "projects", Enabled: true}},
+		},
+		Profile:  &PublicProfileView{Name: "Ada"},
+		Contacts: &PublicContactsView{Phone: &phone},
+	}
+
+	layout, err := ToResumeAnalyticsLayout(view)
+
+	require.NoError(t, err)
+	require.Len(t, layout.Sections, 1)
+	require.Equal(t, "about", layout.Sections[0].ID)
+	require.Len(t, layout.Sections[0].Hash, 16)
+	require.Empty(t, layout.Technologies)
+	encoded, err := json.Marshal(layout)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "Ada")
+	require.NotContains(t, string(encoded), phone)
+	require.NotContains(t, string(encoded), "Profile")
+	require.NotContains(t, string(encoded), "Contacts")
 }
 
 func TestToPublicDoesNotMutateSourceProjects(t *testing.T) {

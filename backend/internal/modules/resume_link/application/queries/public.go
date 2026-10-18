@@ -5,17 +5,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-
+	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
-	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type PublicResumeLinkQuery struct {
 	LinkID sharedvalueobjects.ID
-	Visit  *ports.CreatePublicVisitInput
+	Visit  *analyticsports.CreatePublicVisitInput
 }
 
 type ResumeLinkPublicView struct {
@@ -36,6 +34,7 @@ type PublicAnalyticsFailureStage string
 
 const (
 	PublicAnalyticsStageOwnerResolution PublicAnalyticsFailureStage = "owner_resolution"
+	PublicAnalyticsStageLayoutBuild     PublicAnalyticsFailureStage = "layout_build"
 	PublicAnalyticsStageVisitCreation   PublicAnalyticsFailureStage = "visit_creation"
 )
 
@@ -49,26 +48,26 @@ type PublicAnalyticsFailure struct {
 type PublicAnalyticsErrorReporter func(PublicAnalyticsFailure)
 
 type PublicResumeLinkQueryHandler struct {
-	links                ResumeLinkPublicReader
+	linkResolver         PublicResumeLinkResolver
 	resume               ResumePublicQuery
 	owner                ports.ResumeOwnershipReader
-	visit                ports.PublicVisitCreator
+	visit                analyticsports.PublicVisitCreator
 	reportAnalyticsError PublicAnalyticsErrorReporter
 }
 
-func NewPublicResumeLinkQueryHandler(links ResumeLinkPublicReader, resume ResumePublicQuery) *PublicResumeLinkQueryHandler {
-	return &PublicResumeLinkQueryHandler{links: links, resume: resume}
+func NewPublicResumeLinkQueryHandler(linkResolver PublicResumeLinkResolver, resume ResumePublicQuery) *PublicResumeLinkQueryHandler {
+	return &PublicResumeLinkQueryHandler{linkResolver: linkResolver, resume: resume}
 }
 
 func NewPublicResumeLinkQueryHandlerWithVisit(
-	links ResumeLinkPublicReader,
+	linkResolver PublicResumeLinkResolver,
 	resume ResumePublicQuery,
 	owner ports.ResumeOwnershipReader,
-	visit ports.PublicVisitCreator,
+	visit analyticsports.PublicVisitCreator,
 	reportAnalyticsError PublicAnalyticsErrorReporter,
 ) *PublicResumeLinkQueryHandler {
 	return &PublicResumeLinkQueryHandler{
-		links: links, resume: resume, owner: owner, visit: visit,
+		linkResolver: linkResolver, resume: resume, owner: owner, visit: visit,
 		reportAnalyticsError: reportAnalyticsError,
 	}
 }
@@ -82,34 +81,16 @@ func (h *PublicResumeLinkQueryHandler) handle(
 	ctx context.Context,
 	query PublicResumeLinkQuery,
 ) (resumequeries.PublicResumeView, sharedvalueobjects.ID, error) {
-	if h == nil || h.links == nil || h.resume == nil {
+	if h == nil || h.linkResolver == nil || h.resume == nil {
 		return resumequeries.PublicResumeView{}, sharedvalueobjects.ID{}, fmt.Errorf("public resume link query handler dependencies are nil")
 	}
 	if query.LinkID.IsZero() {
 		return resumequeries.PublicResumeView{}, sharedvalueobjects.ID{}, fmt.Errorf("invalid resume link id")
 	}
 
-	link, err := h.links.GetByID(ctx, query)
+	resumeID, err := h.linkResolver.Resolve(ctx, query.LinkID)
 	if err != nil {
-		if errors.Is(err, domain.ErrEntityNotFound) {
-			return resumequeries.PublicResumeView{}, sharedvalueobjects.ID{}, ErrResumeLinkNotFound
-		}
 		return resumequeries.PublicResumeView{}, sharedvalueobjects.ID{}, err
-	}
-	if domain.ResumeLinkStatus(link.Status) == domain.ResumeLinkStatusInactive {
-		return resumequeries.PublicResumeView{}, sharedvalueobjects.ID{}, domain.ErrResumeLinkInactive
-	}
-	if domain.ResumeLinkStatus(link.Status) != domain.ResumeLinkStatusActive {
-		return resumequeries.PublicResumeView{}, sharedvalueobjects.ID{}, ErrResumeLinkNotFound
-	}
-
-	resumeUUID, err := uuid.Parse(link.ResumeID)
-	if err != nil {
-		return resumequeries.PublicResumeView{}, sharedvalueobjects.ID{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
-	}
-	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
-	if err != nil {
-		return resumequeries.PublicResumeView{}, sharedvalueobjects.ID{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
 
 	view, err := h.resume.Handle(ctx, resumequeries.PublicResumeQuery{ID: resumeID})
@@ -127,17 +108,35 @@ func (h *PublicResumeLinkQueryHandler) handle(
 func (h *PublicResumeLinkQueryHandler) HandleWithVisit(
 	ctx context.Context,
 	query PublicResumeLinkQuery,
-) (resumequeries.PublicResumeView, ports.VisitorIdentityResult, error) {
+) (resumequeries.PublicResumeView, analyticsports.VisitorIdentityResult, error) {
 	view, resumeID, err := h.handle(ctx, query)
 	if err != nil {
-		return resumequeries.PublicResumeView{}, ports.VisitorIdentityResult{}, err
+		return resumequeries.PublicResumeView{}, analyticsports.VisitorIdentityResult{}, err
 	}
 	if h == nil || h.visit == nil || query.Visit == nil {
-		return view, ports.VisitorIdentityResult{}, nil
+		return view, analyticsports.VisitorIdentityResult{}, nil
 	}
 	visitInput := *query.Visit
 	visitInput.ResumeID = resumeID
-	visitInput.Resume = view
+	layout, err := resumequeries.ToResumeAnalyticsLayout(view)
+	if err != nil {
+		h.reportPublicAnalyticsFailure(PublicAnalyticsFailure{
+			Stage:    PublicAnalyticsStageLayoutBuild,
+			LinkID:   query.LinkID,
+			ResumeID: resumeID,
+			Err:      err,
+		})
+		return view, analyticsports.VisitorIdentityResult{}, nil
+	}
+	visitInput.ResumeLayout = analyticsports.ResumeAnalyticsLayout{
+		Sections:     make([]analyticsports.ResumeAnalyticsSection, 0, len(layout.Sections)),
+		Technologies: append([]string{}, layout.Technologies...),
+	}
+	for _, section := range layout.Sections {
+		visitInput.ResumeLayout.Sections = append(visitInput.ResumeLayout.Sections, analyticsports.ResumeAnalyticsSection{
+			ID: section.ID, Hash: section.Hash,
+		})
+	}
 	if !visitInput.Visitor.OwnerID.IsZero() {
 		if h.owner == nil {
 			visitInput.Visitor.OwnerID = sharedvalueobjects.ID{}
@@ -166,7 +165,7 @@ func (h *PublicResumeLinkQueryHandler) HandleWithVisit(
 			ResumeID: visitInput.ResumeID,
 			Err:      err,
 		})
-		return view, ports.VisitorIdentityResult{}, nil
+		return view, analyticsports.VisitorIdentityResult{}, nil
 	}
 	return view, identity, nil
 }

@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticsdomain "developers-cv/backend/internal/modules/analytics/domain"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumedomain "developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -149,34 +149,39 @@ type analyticsBatchRepositoryStub struct {
 	called       bool
 	err          error
 	events       int
-	received     []*domain.AnalyticsEvent
+	received     []*analyticsdomain.AnalyticsEvent
 	technologies []string
 }
 
-func (r *analyticsBatchRepositoryStub) LoadAnalyticsBatchForUpdate(_ context.Context, viewID, linkID sharedvalueobjects.ID, _, _, _ bool) (domain.AnalyticsBatchSnapshot, error) {
-	layout, err := domain.NewLayoutSnapshot(
-		[]resumedomain.SectionID{resumedomain.SectionAbout},
-		map[resumedomain.SectionID]string{resumedomain.SectionAbout: "0123456789abcdef"},
+func (r *analyticsBatchRepositoryStub) LoadAnalyticsBatchForUpdate(_ context.Context, viewID, linkID sharedvalueobjects.ID, _, _, _ bool) (analyticsports.AnalyticsBatchSnapshot, error) {
+	layout, err := analyticsdomain.NewLayoutSnapshot(
+		[]analyticsdomain.AnalyticsSectionID{analyticsdomain.AnalyticsSectionAbout},
+		map[analyticsdomain.AnalyticsSectionID]string{analyticsdomain.AnalyticsSectionAbout: "0123456789abcdef"},
 		r.technologies,
 	)
 	if err != nil {
-		return domain.AnalyticsBatchSnapshot{}, err
+		return analyticsports.AnalyticsBatchSnapshot{}, err
 	}
 	now := time.Now().UTC()
-	view, err := domain.RestoreView(domain.ViewSnapshot{
+	view, err := analyticsdomain.RestoreView(analyticsdomain.ViewSnapshot{
 		ID: viewID, LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
-		Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSLinux,
-		Traffic: domain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
+		Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSLinux,
+		Traffic: analyticsdomain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
 	})
 	if err != nil {
-		return domain.AnalyticsBatchSnapshot{}, err
+		return analyticsports.AnalyticsBatchSnapshot{}, err
 	}
-	return domain.AnalyticsBatchSnapshot{View: view, LinkStatus: domain.ResumeLinkStatusActive, ResumeStatus: resumedomain.ResumeStatusOpened}, nil
+	return analyticsports.AnalyticsBatchSnapshot{
+		View: view,
+		LinkContext: analyticsports.LinkAnalyticsContext{
+			LinkID: linkID, ResumeID: sharedvalueobjects.NewID(), LinkActive: true, ResumePublished: true,
+		},
+	}, nil
 }
-func (r *analyticsBatchRepositoryStub) SaveAnalyticsBatch(_ context.Context, _ *domain.View, events []*domain.AnalyticsEvent, _ []*domain.AnalyticsClick) error {
+func (r *analyticsBatchRepositoryStub) SaveAnalyticsBatch(_ context.Context, _ *analyticsdomain.View, events []*analyticsdomain.AnalyticsEvent, _ []*analyticsdomain.AnalyticsClick) error {
 	r.called = true
 	r.events = len(events)
-	r.received = append([]*domain.AnalyticsEvent(nil), events...)
+	r.received = append([]*analyticsdomain.AnalyticsEvent(nil), events...)
 	return r.err
 }
 
@@ -199,28 +204,28 @@ func (s *analyticsInputObserverStub) RecordDroppedAnalyticsInput(kind, reason st
 }
 
 type viewRepositoryStub struct {
-	created *domain.View
-	view    *domain.View
+	created *analyticsdomain.View
+	view    *analyticsdomain.View
 	getErr  error
 }
 
-func (r *viewRepositoryStub) CreateView(_ context.Context, view *domain.View) error {
+func (r *viewRepositoryStub) CreateView(_ context.Context, view *analyticsdomain.View) error {
 	r.created = view
 	return nil
 }
-func (r *viewRepositoryStub) GetView(context.Context, sharedvalueobjects.ID) (*domain.View, error) {
+func (r *viewRepositoryStub) GetView(context.Context, sharedvalueobjects.ID) (*analyticsdomain.View, error) {
 	return r.view, r.getErr
 }
-func (r *viewRepositoryStub) UpdateViewState(context.Context, sharedvalueobjects.ID, domain.ViewStateUpdate) error {
+func (r *viewRepositoryStub) UpdateViewState(context.Context, sharedvalueobjects.ID, analyticsdomain.ViewStateUpdate) error {
 	return nil
 }
 
 type analyticsEventRepositoryStub struct {
-	events []*domain.AnalyticsEvent
+	events []*analyticsdomain.AnalyticsEvent
 	err    error
 }
 
-func (r *analyticsEventRepositoryStub) RecordEvents(_ context.Context, events []*domain.AnalyticsEvent) error {
+func (r *analyticsEventRepositoryStub) RecordEvents(_ context.Context, events []*analyticsdomain.AnalyticsEvent) error {
 	r.events = append(r.events, events...)
 	return r.err
 }
@@ -244,34 +249,34 @@ func (r *analyticsRetentionRepositoryStub) DeleteExpiredViews(_ context.Context,
 
 type visitorIdentityStub struct{}
 
-func (visitorIdentityStub) Identify(_ time.Time, _ ports.PublicVisitInput) (ports.VisitorIdentityResult, error) {
-	return ports.VisitorIdentityResult{VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32)}, nil
+func (visitorIdentityStub) Identify(_ time.Time, _ analyticsports.PublicVisitInput) (analyticsports.VisitorIdentityResult, error) {
+	return analyticsports.VisitorIdentityResult{VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32)}, nil
 }
 
 type trafficClassifierStub struct{}
 
-func (trafficClassifierStub) Classify(context.Context, ports.TrafficClassificationInput) (ports.TrafficClassificationResult, error) {
-	return ports.TrafficClassificationResult{Traffic: domain.TrafficHuman, Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSMacOS}, nil
+func (trafficClassifierStub) Classify(context.Context, analyticsports.TrafficClassificationInput) (analyticsports.TrafficClassificationResult, error) {
+	return analyticsports.TrafficClassificationResult{Traffic: analyticsdomain.TrafficHuman, Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSMacOS}, nil
 }
 
 type layoutSnapshotBuilderStub struct{}
 
-func (layoutSnapshotBuilderStub) Build(resumequeries.PublicResumeView) (domain.LayoutSnapshot, error) {
-	return domain.NewLayoutSnapshot([]resumedomain.SectionID{resumedomain.SectionAbout}, map[resumedomain.SectionID]string{resumedomain.SectionAbout: "0123456789abcdef"})
+func (layoutSnapshotBuilderStub) Build(analyticsports.ResumeAnalyticsLayout) (analyticsdomain.LayoutSnapshot, error) {
+	return analyticsdomain.NewLayoutSnapshot([]analyticsdomain.AnalyticsSectionID{analyticsdomain.AnalyticsSectionAbout}, map[analyticsdomain.AnalyticsSectionID]string{analyticsdomain.AnalyticsSectionAbout: "0123456789abcdef"})
 }
 
-func newCommandTestView(t *testing.T, viewID, linkID sharedvalueobjects.ID) *domain.View {
+func newCommandTestView(t *testing.T, viewID, linkID sharedvalueobjects.ID) *analyticsdomain.View {
 	t.Helper()
-	layout, err := domain.NewLayoutSnapshot(
-		[]resumedomain.SectionID{resumedomain.SectionAbout},
-		map[resumedomain.SectionID]string{resumedomain.SectionAbout: "0123456789abcdef"},
+	layout, err := analyticsdomain.NewLayoutSnapshot(
+		[]analyticsdomain.AnalyticsSectionID{analyticsdomain.AnalyticsSectionAbout},
+		map[analyticsdomain.AnalyticsSectionID]string{analyticsdomain.AnalyticsSectionAbout: "0123456789abcdef"},
 	)
 	require.NoError(t, err)
 	now := time.Now().UTC()
-	view, err := domain.RestoreView(domain.ViewSnapshot{
+	view, err := analyticsdomain.RestoreView(analyticsdomain.ViewSnapshot{
 		ID: viewID, LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
-		Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSLinux,
-		Traffic: domain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
+		Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSLinux,
+		Traffic: analyticsdomain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
 	})
 	require.NoError(t, err)
 	return view

@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
 	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
@@ -36,7 +37,15 @@ func NewRouter(
 	authHandler *authhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
 	optionalAuthenticate middleware.AuthenticateFunc,
+	analyticsHandlers ...*analyticshttp.Handler,
 ) (*Router, error) {
+	if len(analyticsHandlers) > 1 {
+		return nil, fmt.Errorf("expected at most one Analytics HTTP handler, got %d", len(analyticsHandlers))
+	}
+	var analyticsHandler *analyticshttp.Handler
+	if len(analyticsHandlers) == 1 {
+		analyticsHandler = analyticsHandlers[0]
+	}
 	if cfg.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -98,6 +107,7 @@ func NewRouter(
 		resumeHandler,
 		userHandler,
 		resumeLinkHandler,
+		analyticsHandler,
 		authHandler,
 		authenticate,
 		authStartRateLimiter,
@@ -117,6 +127,7 @@ func (r *Router) registerRoutes(
 	resumeHandler *resumehttp.Handler,
 	userHandler *userhttp.Handler,
 	resumeLinkHandler *resumelinkhttp.Handler,
+	analyticsHandler *analyticshttp.Handler,
 	authHandler *authhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
 	authStartRateLimiter gin.HandlerFunc,
@@ -144,7 +155,8 @@ func (r *Router) registerRoutes(
 	public := api.Group("")
 	public.Use(middleware.OptionalAuthentication(optionalAuthenticate))
 	anonymous := api.Group("")
-	resumelinkhttp.RegisterRoutes(resumeLinkHandler, public, anonymous, lk, contactViewRateLimiter, analyticsEventsRateLimiter)
+	resumelinkhttp.RegisterRoutes(resumeLinkHandler, public, anonymous, lk, contactViewRateLimiter)
+	analyticshttp.RegisterRoutes(analyticsHandler, anonymous, lk, analyticsEventsRateLimiter)
 	engine.NoRoute(func(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})

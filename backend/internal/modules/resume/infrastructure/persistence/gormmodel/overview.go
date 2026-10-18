@@ -15,7 +15,6 @@ type ResumeOverview struct {
 	AvailabilityStatus *string
 	AvailabilityFrom   *time.Time `gorm:"type:date"`
 	AvailabilityNote   *string
-	ResumeLink         *string
 	ThemePrimary       *string
 	ThemeSecondary     *string
 }

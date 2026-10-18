@@ -46,6 +46,15 @@ func TestAllMigrationsCanBeRolledBack(t *testing.T) {
 		require.NoError(t, err, "read migration %s", name)
 		_, err = conn.Exec(ctx, string(content))
 		require.NoError(t, err, "apply rollback migration %s", name)
+		if strings.HasPrefix(name, "000002_") {
+			for _, table := range []string{
+				"resume_link_views", "resume_link_events", "resume_link_clicks", "resume_link_visitors",
+			} {
+				var actual *string
+				require.NoError(t, conn.QueryRow(ctx, "SELECT to_regclass($1)::text", "public."+table).Scan(&actual))
+				require.NotNil(t, actual, "rollback of migration 2 should restore %s", table)
+			}
+		}
 	}
 
 	var usersTable *string
@@ -54,6 +63,26 @@ func TestAllMigrationsCanBeRolledBack(t *testing.T) {
 	var resumesTable *string
 	require.NoError(t, conn.QueryRow(ctx, "SELECT to_regclass('public.resumes')::text").Scan(&resumesTable))
 	require.Nil(t, resumesTable, "rollback should remove the resumes table")
+}
+
+func TestAnalyticsTablesUseAnalyticsOwnedNames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	ctx, dsn := NewDatabase(t)
+	conn, err := pgx.Connect(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
+
+	for _, table := range []string{
+		"analytics_views", "analytics_events", "analytics_clicks", "analytics_visitors",
+	} {
+		var actual *string
+		require.NoError(t, conn.QueryRow(ctx, "SELECT to_regclass($1)::text", "public."+table).Scan(&actual))
+		require.NotNil(t, actual, "expected table %s", table)
+		require.Equal(t, table, *actual)
+	}
 }
 
 func migrationDirectory(t *testing.T) string {

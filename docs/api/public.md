@@ -1,41 +1,90 @@
-# Публичная проекция
+# Публичная проекция резюме
 
-Плоское представление резюме для страницы `/cv/:resumeId`. Авторизации нет — резюме открыто любому, кто знает адрес.
-Фронтенд: `getPublicResume` → `CurriculumVitaeScreen` и предпросмотр в кабинете (`LkResumeScreen`).
+Публичная страница открывается по **идентификатору именованной ссылки** (`linkId`), не по `resumeId`. Единственная публичная ручка получения резюме — `GET /api/v1/cv/:linkId`.
 
-## `GET /cv/:resumeId`
+Актуальная функциональная спецификация: [FR-PUB](../../docs_new/03-functional/FR-PUB.md). Контракт посещений и аналитики: [analytics API](./analytics.md).
 
-Тела нет. **Ответ `200`** — собранная из всех секций плоская структура (тип `Person` на фронтенде). Записать через эту ручку ничего нельзя.
+## `GET /api/v1/cv/:linkId`
 
-| Поле | Тип | Откуда |
-|---|---|---|
-| `id`, `title`, `language` | | резюме |
-| `updatedAt` | datetime | резюме (может отсутствовать) |
-| `name`, `surname`, `patronymic`, `position`, `photoPath`, `dateOfBirth`, `location`, `relocation`, `workFormat` | | [профиль](personal.md) |
-| `contacts` (`phone`, `telegram`, `email`), `hiddenContacts`, `contactsText` | | [контакты](personal.md) |
-| `hardSkills`, `softSkills` | string[] | [навыки](personal.md) |
-| `theme`, `greeting`, `availability`, `sections` | | [обзор](overview.md) (без обёртки `presentation`); `resumeLink` убрано — фронтенд его не использует |
-| `languages` | `{ language, grade? }[]` | [языки](languages-technologies.md), по порядку |
-| `technologies` | `{ name }[]` | [стэк](languages-technologies.md), по порядку |
-| `experience` | | [опыт](experience.md); у записи `stack` (`{name}[]`) вместо `technologies` |
-| `education`, `courses`, `activities` | | [образование](education.md), [активности](activities.md) |
-| `projects` | `{ id, name, description?, stack, link? }[]` | [проекты](projects.md) — только краткая часть |
+Без тела запроса и аутентификации. Бэкенд находит ссылку, проверяет её статус, разрешает связанное резюме и возвращает его только если резюме опубликовано (`opened`).
 
-**Отличия от ответа `GET /lk/resume/:id`:**
-- имена: `experience`/`education` вместо `experiences`/`educations`, у опыта `stack` вместо `technologies`;
-- нет `resumeId` у записей, у технологий и стэков нет `grade`, у проектов нет `role`, `screenshots`, `gitLink`, `contributors`;
-- профиль, контакты и навыки развёрнуты на верхний уровень; если их не создавали, поля пусты (`""`, `[]`, `{}`), а не отсутствуют;
-- массивы приходят как `[]`, но фронтенд дополнительно превращает `null` в `[]` (`normalizePerson`).
+Успешное тело — публичная проекция модуля `resume`, а не кабинетное представление:
 
-**Ошибки:** `400` — `resumeId` не UUID; `404` — резюме нет.
+```json
+{
+  "title": "Backend Developer",
+  "language": "en",
+  "createdAt": "2026-10-01T10:00:00Z",
+  "updatedAt": "2026-10-10T12:00:00Z",
+  "overview": {
+    "greeting": {
+      "first": "Hello",
+      "second": "I'm Ada",
+      "secondHighlight": "Ada",
+      "third": "Backend Developer"
+    },
+    "sections": []
+  },
+  "profile": {
+    "id": "profile-id",
+    "name": "Ada",
+    "surname": "Lovelace",
+    "position": "Backend Developer",
+    "photoPath": "https://example.com/photo.png",
+    "dateOfBirth": "",
+    "location": "",
+    "relocation": false,
+    "workFormat": []
+  },
+  "contacts": {
+    "id": "contacts-id",
+    "hiddenContacts": ["email"]
+  },
+  "skills": {
+    "id": "skills-id",
+    "hardSkills": ["Go"],
+    "softSkills": []
+  },
+  "languages": [],
+  "technologies": [],
+  "experiences": [],
+  "educations": [],
+  "courses": [],
+  "activities": [],
+  "projects": []
+}
+```
 
-**Аналитика.** Этот же запрос создаёт визит: в ответе должны быть заголовок `X-View-Id` и cookie посетителя — см. [analytics.md](analytics.md#get-cvlinkid--выдача-резюме-и-визит).
+The example is illustrative: optional values are omitted, IDs are child-section IDs, and the collections are empty in this example. The response does not expose a top-level resume ID, owner/user ID, resume status, or version. It includes profile, contacts, skills and overview as nested objects; collection names are `experiences` and `educations`. A hidden contact value is omitted from the JSON and listed in `contacts.hiddenContacts`.
+The public projection does not include `overview.resumeLink`. The editor's overview contract is unchanged by this public projection change.
 
-**Скрытые контакты.** Сейчас `contacts` приходят в открытом виде, а `hiddenContacts` лишь подсказывает интерфейсу не показывать их сразу — парсер прочтёт всё из JSON. Планируется отдавать скрытые значения только отдельным запросом с проверкой на бота (см. обсуждение защиты от парсинга).
+The public projection is built by `resume/application/queries.PublicResumeQueryHandler` and its reader. It intentionally differs from the full editor view. Public projects omit editor-only fields (role, Git link and contributor data); section fields and supported collection entries are described by the corresponding `Public*View` types.
 
-## `POST /cv/:linkId/contact-views` — раскрытие контактов и Turnstile
+### Response headers
 
-Для раскрытия одного скрытого контакта тело содержит `initiator: "contact"` и ключ контакта:
+| Header | Behavior |
+|---|---|
+| `Cache-Control` | `no-store` |
+| `X-View-Id` | Present only when optional visit creation succeeds |
+| `Set-Cookie` | A visitor cookie is set when required by successful visit creation |
+
+Failure to create a visit does not fail the resume response. Without `X-View-Id`, the frontend does not start the visit tracker.
+
+### Errors
+
+| Status | Current behavior |
+|---|---|
+| `400` | `linkId` is not a UUID |
+| `404` | Link does not exist or the associated resume is not published |
+| `410` | Link exists but is inactive |
+
+The `410` behavior for an inactive link is intentional and retained. Unknown links and unpublished resumes return `404`.
+
+## `POST /api/v1/cv/:linkId/contact-views`
+
+Reveals one hidden contact or returns available contacts for download. This route also uses `linkId`; it never accepts a public resume ID as an access key.
+
+For one contact:
 
 ```json
 {
@@ -46,9 +95,9 @@
 }
 ```
 
-Ответ: `{ "contact": "email", "value": "person@example.com" }`.
+Response: `{"contact":"email","value":"person@example.com"}`.
 
-Для скачивания файл собирается на фронтенде из публичного резюме и всех контактов. Запрос отличается тем, что `contact` не передаётся:
+For download:
 
 ```json
 {
@@ -58,10 +107,8 @@
 }
 ```
 
-Ответ содержит только заполненные контакты, включая скрытые в публичном представлении:
-`{ "contacts": { "phone": "...", "telegram": "...", "email": "..." } }`.
-Успешная выдача при корректном `viewId`, относящемся к этой ссылке, также записывает событие `download`; статистика скачиваний уже учитывает этот тип события.
+Response: `{"contacts":[{"contact":"email","value":"person@example.com"}]}`. Only non-empty contacts are included. An omitted `initiator` is accepted for compatibility when `contact` is supplied.
 
-`initiator` принимает `contact` или `download`. Для совместимости с прежним клиентом поле можно не передавать, если указан `contact`; запрос без `initiator` и без контакта некорректен. При `initiator: "contact"` контакт обязателен, а при `initiator: "download"` он должен отсутствовать.
+Both paths use the same application resolver and status mapping as public resume retrieval: unknown links return `404`, inactive links return `410`. The resolver checks the link before asking `resume` for contact data. If a verifier is configured, a valid one-time Turnstile token is required. A `viewId` is optional; when supplied, it is used only for best-effort analytics recording and is checked against the link by the analytics recorder.
 
-Оба сценария требуют активную ссылку на опубликованное резюме и проходят общую проверку Turnstile, если она включена на сервере. Фронтенд перед каждым действием запрашивает у Cloudflare новый токен (режим `execute`, `interaction-only`: задача показывается, только если Cloudflare сочтёт её нужной) и отправляет его в `turnstileToken`. Токен **одноразовый** и живёт 300 секунд.
+The `resume` module owns the contact data and hidden-contact rules. The link flow owns resolving the public link. Analytics records action metadata only; it must not store contact values.

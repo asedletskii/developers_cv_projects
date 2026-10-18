@@ -15,13 +15,45 @@ import (
 
 const modulePath = "developers-cv/backend"
 
-var crossModuleImportAllowlist = map[string]map[string]struct{}{
+var crossModuleImportAllowlist = map[string]map[string]map[string]struct{}{
 	"auth": {
-		modulePath + "/internal/modules/user/application/queries": {},
+		"application": {
+			modulePath + "/internal/modules/user/application/queries": {},
+		},
+		"infrastructure": {
+			modulePath + "/internal/modules/user/application/queries": {},
+		},
 	},
 	"resume_link": {
-		modulePath + "/internal/modules/resume/application/queries": {},
-		modulePath + "/internal/modules/resume/domain":              {},
+		"application": {
+			modulePath + "/internal/modules/resume/application/queries":     {},
+			modulePath + "/internal/modules/resume/domain":                  {},
+			modulePath + "/internal/modules/analytics/domain":               {},
+			modulePath + "/internal/modules/analytics/application/ports":    {},
+			modulePath + "/internal/modules/analytics/application/commands": {},
+			modulePath + "/internal/modules/analytics/application/queries":  {},
+		},
+		"infrastructure": {
+			modulePath + "/internal/modules/resume/domain":                                   {},
+			modulePath + "/internal/modules/analytics/domain":                                {},
+			modulePath + "/internal/modules/analytics/application/ports":                     {},
+			modulePath + "/internal/modules/analytics/infrastructure/persistence/gormmodel":  {},
+			modulePath + "/internal/modules/analytics/infrastructure/persistence/readers":    {},
+			modulePath + "/internal/modules/analytics/infrastructure/persistence/repository": {},
+		},
+		"transport": {
+			modulePath + "/internal/modules/resume/application/queries":     {},
+			modulePath + "/internal/modules/resume/domain":                  {},
+			modulePath + "/internal/modules/analytics/application/ports":    {},
+			modulePath + "/internal/modules/analytics/application/commands": {},
+			modulePath + "/internal/modules/analytics/transport/http":       {},
+		},
+	},
+	"analytics": {
+		"infrastructure": {
+			modulePath + "/internal/modules/resume/domain":      {},
+			modulePath + "/internal/modules/resume_link/domain": {},
+		},
 	},
 }
 
@@ -76,6 +108,13 @@ func TestDomainDoesNotDependOnPlatformOrTestUtilities(t *testing.T) {
 	}
 }
 
+func TestResumeLinkAnalyticsDomainDoesNotDependOnResumeDomain(t *testing.T) {
+	root := internalRoot(t)
+	resumeDomain := moduleImport("resume", "domain")
+	checkImports(t, filepath.Join(root, "modules", "resume_link", "domain"), []string{resumeDomain})
+	checkImports(t, filepath.Join(root, "modules", "resume_link", "infrastructure", "analytics"), []string{resumeDomain})
+}
+
 func TestCommandsAndQueriesAreIndependent(t *testing.T) {
 	root := internalRoot(t)
 	modules := discoverModules(t, filepath.Join(root, "modules"))
@@ -119,8 +158,8 @@ func TestCrossModuleImportsFollowAllowlist(t *testing.T) {
 						t.Errorf("module %s: %s imports %s from module %s: %s", sourceModule, path, importPath, targetModule, reason)
 						continue
 					}
-					if _, allowed := crossModuleImportAllowlist[sourceModule][importPath]; !allowed {
-						t.Errorf("module %s: %s imports cross-module package %s; add this exact package to the allowlist only after architectural review", sourceModule, path, importPath)
+					if _, allowed := crossModuleImportAllowlist[sourceModule][sourceLayer][importPath]; !allowed {
+						t.Errorf("module %s layer %s: %s imports cross-module package %s; add this exact package to the layer allowlist only after architectural review", sourceModule, sourceLayer, path, importPath)
 					}
 				}
 			})

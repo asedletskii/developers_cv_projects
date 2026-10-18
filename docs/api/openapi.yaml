@@ -2160,6 +2160,22 @@ components:
       required:
       - greeting
       - sections
+    PublicResumeOverview:
+      type: object
+      properties:
+        theme:
+          $ref: '#/components/schemas/OverviewTheme'
+        greeting:
+          $ref: '#/components/schemas/OverviewGreeting'
+        availability:
+          $ref: '#/components/schemas/OverviewAvailability'
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/OverviewSection'
+      required:
+      - greeting
+      - sections
     ResumeProfile:
       type: object
       properties:
@@ -3192,7 +3208,7 @@ components:
         createdAt: *id003
         updatedAt: *id003
         overview:
-          $ref: '#/components/schemas/ResumeOverview'
+          $ref: '#/components/schemas/PublicResumeOverview'
         profile:
           $ref: '#/components/schemas/ResumeProfile'
         contacts:

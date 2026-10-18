@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
 	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
 
 	"go.uber.org/zap/zaptest"
@@ -275,6 +276,10 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
 }
 
+func testAnalyticsHandler() *analyticshttp.Handler {
+	return analyticshttp.NewHandler(analyticshttp.HandlerDependencies{})
+}
+
 type routerGetProfileReader struct{}
 
 func (routerGetProfileReader) GetProfile(_ context.Context, query userqueries.GetProfileQuery) (userqueries.ProfileView, error) {
@@ -344,6 +349,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		nil,
 		fakeAuthenticate,
 		nil,
+		testAnalyticsHandler(),
 	)
 	require.NoError(t, err)
 
@@ -478,6 +484,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 					return uuid.Nil, middleware.ErrUnauthenticated
 				},
 				nil,
+				testAnalyticsHandler(),
 			)
 			require.NoError(t, err)
 

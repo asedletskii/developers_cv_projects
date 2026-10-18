@@ -12,7 +12,6 @@ func TestResumeOverviewViewUsesRootFields(t *testing.T) {
 		Theme:        &OverviewThemeSettings{Primary: "#E8785A"},
 		Greeting:     OverviewGreeting{First: "Hello", Second: "I am", SecondHighlight: "Ada", Third: "Engineer"},
 		Availability: &OverviewAvailability{Status: "open"},
-		ResumeLink:   stringPtr("https://example.com/cv.pdf"),
 		Sections:     []OverviewSectionSettings{{ID: "about", Enabled: true, Collapsed: false}},
 	}
 
@@ -23,10 +22,10 @@ func TestResumeOverviewViewUsesRootFields(t *testing.T) {
 		"theme":{"primary":"#E8785A"},
 		"greeting":{"first":"Hello","second":"I am","secondHighlight":"Ada","third":"Engineer"},
 		"availability":{"status":"open"},
-		"resumeLink":"https://example.com/cv.pdf",
 		"sections":[{"id":"about","enabled":true,"collapsed":false}]
 	}`, string(data))
 	require.NotContains(t, string(data), `"presentation"`)
+	require.NotContains(t, string(data), `"resumeLink"`)
 }
 
 func TestResumeOverviewViewEmptySectionsSerializeAsArray(t *testing.T) {

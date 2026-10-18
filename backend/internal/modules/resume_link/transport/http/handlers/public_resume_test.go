@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
+	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -22,14 +22,14 @@ type queryStub struct {
 	view     resumequeries.PublicResumeView
 	err      error
 	query    queries.PublicResumeLinkQuery
-	identity ports.VisitorIdentityResult
+	identity analyticsports.VisitorIdentityResult
 }
 
 func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, error) {
 	s.query = query
 	return s.view, s.err
 }
-func (s *queryStub) HandleWithVisit(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, ports.VisitorIdentityResult, error) {
+func (s *queryStub) HandleWithVisit(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, analyticsports.VisitorIdentityResult, error) {
 	s.query = query
 	return s.view, s.identity, s.err
 }
@@ -86,7 +86,7 @@ func TestHandlerEmitsViewIDAndVisitorCookie(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	viewID := sharedvalueobjects.NewID()
 	cookieID := sharedvalueobjects.NewID()
-	query := &queryStub{view: resumequeries.PublicResumeView{Title: "CV"}, identity: ports.VisitorIdentityResult{ViewID: viewID, SetCookie: true, Cookie: &http.Cookie{Name: "cv_vid", Value: cookieID.String(), Path: "/api/v1/cv", MaxAge: 31536000, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}}}
+	query := &queryStub{view: resumequeries.PublicResumeView{Title: "CV"}, identity: analyticsports.VisitorIdentityResult{ViewID: viewID, SetCookie: true, Cookie: &http.Cookie{Name: "cv_vid", Value: cookieID.String(), Path: "/api/v1/cv", MaxAge: 31536000, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}}}
 	engine := gin.New()
 	engine.GET("/api/v1/cv/:linkId", NewPublicResumeLinkHandler(query).Handle)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)

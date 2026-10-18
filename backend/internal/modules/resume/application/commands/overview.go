@@ -33,7 +33,6 @@ type OverviewInput struct {
 	Theme        *ThemeInput
 	Greeting     GreetingInput
 	Availability *AvailabilityInput
-	ResumeLink   *domain.ExternalURL
 	Sections     []SectionInput
 }
 
@@ -81,7 +80,6 @@ func (i OverviewInput) toDomain() (domain.ResumeOverviewParams, error) {
 		Theme:        theme,
 		Greeting:     greeting,
 		Availability: availability,
-		ResumeLink:   i.ResumeLink,
 		Sections:     sections,
 	}, nil
 }

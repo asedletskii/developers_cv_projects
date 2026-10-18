@@ -2,15 +2,11 @@ package queries
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-
+	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumedomain "developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
-	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -50,26 +46,26 @@ type ResumeContactsDownloadQuery interface {
 type ContactViewAnalyticsErrorReporter func(error)
 
 type ContactViewThroughLinkQueryHandler struct {
-	links                  ResumeLinkPublicReader
+	linkResolver           PublicResumeLinkResolver
 	resumeContactView      ResumeContactViewQuery
 	resumeContactsDownload ResumeContactsDownloadQuery
-	analytics              ports.PublicInteractionEventRecorder
+	analytics              analyticsports.PublicInteractionEventRecorder
 	reportAnalyticsError   ContactViewAnalyticsErrorReporter
 }
 
-func NewContactViewThroughLinkQueryHandler(links ResumeLinkPublicReader, resume ResumeContactViewQuery) *ContactViewThroughLinkQueryHandler {
-	return &ContactViewThroughLinkQueryHandler{links: links, resumeContactView: resume}
+func NewContactViewThroughLinkQueryHandler(linkResolver PublicResumeLinkResolver, resume ResumeContactViewQuery) *ContactViewThroughLinkQueryHandler {
+	return &ContactViewThroughLinkQueryHandler{linkResolver: linkResolver, resumeContactView: resume}
 }
 
 func NewContactViewThroughLinkQueryHandlerWithAnalytics(
-	links ResumeLinkPublicReader,
+	linkResolver PublicResumeLinkResolver,
 	resumeContactView ResumeContactViewQuery,
 	resumeContactsDownload ResumeContactsDownloadQuery,
-	analytics ports.PublicInteractionEventRecorder,
+	analytics analyticsports.PublicInteractionEventRecorder,
 	reportAnalyticsError ContactViewAnalyticsErrorReporter,
 ) *ContactViewThroughLinkQueryHandler {
 	return &ContactViewThroughLinkQueryHandler{
-		links:                  links,
+		linkResolver:           linkResolver,
 		resumeContactView:      resumeContactView,
 		resumeContactsDownload: resumeContactsDownload,
 		analytics:              analytics,
@@ -81,7 +77,7 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(
 	ctx context.Context,
 	query ContactViewThroughLinkQuery,
 ) (ContactViewThroughLinkResult, error) {
-	if h == nil || h.links == nil {
+	if h == nil || h.linkResolver == nil {
 		return ContactViewThroughLinkResult{}, fmt.Errorf("contact view through link query handler dependencies are nil")
 	}
 	initiator := query.Initiator
@@ -108,27 +104,9 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(
 		return ContactViewThroughLinkResult{}, fmt.Errorf("invalid contact view through link query")
 	}
 
-	link, err := h.links.GetByID(ctx, PublicResumeLinkQuery{LinkID: query.LinkID})
+	resumeID, err := h.linkResolver.Resolve(ctx, query.LinkID)
 	if err != nil {
-		if errors.Is(err, domain.ErrEntityNotFound) {
-			return ContactViewThroughLinkResult{}, ErrResumeLinkNotFound
-		}
 		return ContactViewThroughLinkResult{}, err
-	}
-	if domain.ResumeLinkStatus(link.Status) == domain.ResumeLinkStatusInactive {
-		return ContactViewThroughLinkResult{}, domain.ErrResumeLinkInactive
-	}
-	if domain.ResumeLinkStatus(link.Status) != domain.ResumeLinkStatusActive {
-		return ContactViewThroughLinkResult{}, ErrResumeLinkNotFound
-	}
-
-	resumeUUID, err := uuid.Parse(link.ResumeID)
-	if err != nil {
-		return ContactViewThroughLinkResult{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
-	}
-	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
-	if err != nil {
-		return ContactViewThroughLinkResult{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
 	}
 
 	var result ContactViewThroughLinkResult

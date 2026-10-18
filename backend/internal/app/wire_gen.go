@@ -7,10 +7,17 @@
 package app
 
 import (
-	commands4 "developers-cv/backend/internal/modules/auth/application/commands"
+	commands4 "developers-cv/backend/internal/modules/analytics/application/commands"
+	"developers-cv/backend/internal/modules/analytics/application/ports"
+	queries4 "developers-cv/backend/internal/modules/analytics/application/queries"
+	cleanup2 "developers-cv/backend/internal/modules/analytics/infrastructure/cleanup"
+	readers3 "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
+	repository4 "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
+	http4 "developers-cv/backend/internal/modules/analytics/transport/http"
+	commands5 "developers-cv/backend/internal/modules/auth/application/commands"
 	ports2 "developers-cv/backend/internal/modules/auth/application/ports"
 	"developers-cv/backend/internal/modules/auth/infrastructure/cleanup"
-	repository4 "developers-cv/backend/internal/modules/auth/infrastructure/persistence/repository"
+	repository5 "developers-cv/backend/internal/modules/auth/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/auth/infrastructure/token"
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
@@ -18,17 +25,15 @@ import (
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
 	commands3 "developers-cv/backend/internal/modules/resume_link/application/commands"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	queries3 "developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
-	cleanup2 "developers-cv/backend/internal/modules/resume_link/infrastructure/cleanup"
 	readers2 "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
 	repository3 "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	http3 "developers-cv/backend/internal/modules/resume_link/transport/http"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
 	commands2 "developers-cv/backend/internal/modules/user/application/commands"
 	queries2 "developers-cv/backend/internal/modules/user/application/queries"
-	readers3 "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
+	readers4 "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	repository2 "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	http2 "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
@@ -112,7 +117,9 @@ func initialize() (*Application, func(), error) {
 	resumeLinkReader := readers2.NewResumeLinkReader(db)
 	listResumeLinksQueryHandler := queries3.NewListResumeLinksQueryHandler(resumeLinkReader, resumeReader)
 	deleteResumeLinkHandler := commands3.NewDeleteResumeLinkHandler(resumeLinkRepository, resumeReader, unitOfWork)
+	activePublicResumeLinkResolver := queries3.NewActivePublicResumeLinkResolver(resumeLinkReader)
 	publicResumeQueryHandler := queries.NewPublicResumeQueryHandler(resumeReader)
+	analyticsRepository := repository4.NewAnalyticsRepository(db)
 	visitorIdentifier, err := newAnalyticsVisitorIdentifier(configConfig)
 	if err != nil {
 		cleanup3()
@@ -120,49 +127,53 @@ func initialize() (*Application, func(), error) {
 	}
 	trafficClassifier := newAnalyticsTrafficClassifier(configConfig)
 	layoutSnapshotBuilder := analytics.NewLayoutSnapshotBuilder()
-	createPublicVisitHandler := commands3.NewCreatePublicVisitHandler(resumeLinkRepository, unitOfWork, visitorIdentifier, trafficClassifier, layoutSnapshotBuilder)
+	createPublicVisitHandler := commands4.NewCreatePublicVisitHandler(analyticsRepository, unitOfWork, visitorIdentifier, trafficClassifier, layoutSnapshotBuilder)
 	publicAnalyticsErrorReporter := newPublicAnalyticsErrorReporter(logger)
-	publicResumeLinkQueryHandler := queries3.NewPublicResumeLinkQueryHandlerWithVisit(resumeLinkReader, publicResumeQueryHandler, resumeReader, createPublicVisitHandler, publicAnalyticsErrorReporter)
+	publicResumeLinkQueryHandler := queries3.NewPublicResumeLinkQueryHandlerWithVisit(activePublicResumeLinkResolver, publicResumeQueryHandler, resumeReader, createPublicVisitHandler, publicAnalyticsErrorReporter)
 	publicResumeLinkHandler := handlers.NewPublicResumeLinkHandler(publicResumeLinkQueryHandler)
 	contactViewQueryHandler := queries.NewContactViewQueryHandler(resumeReader)
 	downloadContactsQueryHandler := queries.NewDownloadContactsQueryHandler(resumeReader)
-	recordPublicInteractionEventHandler := commands3.NewRecordPublicInteractionEventHandler(resumeLinkRepository, resumeLinkRepository, unitOfWork)
+	recordPublicInteractionEventHandler := commands4.NewRecordPublicInteractionEventHandler(analyticsRepository, analyticsRepository, unitOfWork)
 	contactViewAnalyticsErrorReporter := newContactViewAnalyticsErrorReporter(logger)
-	contactViewThroughLinkQueryHandler := queries3.NewContactViewThroughLinkQueryHandlerWithAnalytics(resumeLinkReader, contactViewQueryHandler, downloadContactsQueryHandler, recordPublicInteractionEventHandler, contactViewAnalyticsErrorReporter)
+	contactViewThroughLinkQueryHandler := queries3.NewContactViewThroughLinkQueryHandlerWithAnalytics(activePublicResumeLinkResolver, contactViewQueryHandler, downloadContactsQueryHandler, recordPublicInteractionEventHandler, contactViewAnalyticsErrorReporter)
 	tokenVerifier, err := newTurnstileVerifier(configConfig)
 	if err != nil {
 		cleanup3()
 		return nil, nil, err
 	}
 	publicContactViewHandler := handlers.NewPublicContactViewHandler(contactViewThroughLinkQueryHandler, tokenVerifier)
-	ingestAnalyticsBatchHandler := newIngestAnalyticsBatchHandler(resumeLinkRepository, unitOfWork, metrics)
-	resumeLinkAnalyticsEventsHandler := handlers.NewResumeLinkAnalyticsEventsHandler(ingestAnalyticsBatchHandler)
-	linkStatisticsHandler := queries3.NewLinkStatisticsHandler(resumeLinkReader, resumeReader, resumeLinkReader)
-	dailyStatisticsHandler := queries3.NewDailyStatisticsHandler(resumeLinkReader, resumeReader, resumeLinkReader)
-	visitsHandler := queries3.NewVisitsHandler(resumeLinkReader, resumeReader, resumeLinkReader)
-	sectionsHandler := queries3.NewSectionsHandler(resumeLinkReader, resumeReader, resumeLinkReader)
-	technologiesHandler := queries3.NewTechnologiesHandler(resumeLinkReader, resumeReader, resumeLinkReader)
-	resumeStatisticsHandler := queries3.NewResumeStatisticsHandler(resumeReader, resumeLinkReader)
-	analyticsClickQueryHandler := queries3.NewAnalyticsClickQueryHandler(resumeLinkReader, resumeReader, publicResumeQueryHandler, layoutSnapshotBuilder, resumeLinkReader)
 	replaceStatusResumeLinkHandler := commands3.NewReplaceStatusResumeLinkHandler(resumeLinkRepository, resumeReader, unitOfWork)
 	handlerDependencies2 := http3.HandlerDependencies{
-		Create:                    createResumeLinkHandler,
-		List:                      listResumeLinksQueryHandler,
-		Delete:                    deleteResumeLinkHandler,
-		Public:                    publicResumeLinkHandler,
-		ContactView:               publicContactViewHandler,
-		AnalyticsEvents:           resumeLinkAnalyticsEventsHandler,
-		AnalyticsStatistics:       linkStatisticsHandler,
-		AnalyticsDaily:            dailyStatisticsHandler,
-		AnalyticsVisits:           visitsHandler,
-		AnalyticsSections:         sectionsHandler,
-		AnalyticsTechnologies:     technologiesHandler,
-		AnalyticsResumeStatistics: resumeStatisticsHandler,
-		AnalyticsClicks:           analyticsClickQueryHandler,
-		Lifecycle:                 replaceStatusResumeLinkHandler,
+		Create:      createResumeLinkHandler,
+		List:        listResumeLinksQueryHandler,
+		Delete:      deleteResumeLinkHandler,
+		Public:      publicResumeLinkHandler,
+		ContactView: publicContactViewHandler,
+		Lifecycle:   replaceStatusResumeLinkHandler,
 	}
 	handler2 := http3.NewHandler(handlerDependencies2)
-	authTransactionRepository := repository4.NewAuthTransactionRepository(db)
+	ingestAnalyticsBatchHandler := newIngestAnalyticsBatchHandler(analyticsRepository, unitOfWork, metrics)
+	analyticsAccessReader := newAnalyticsAccessReader(resumeLinkReader, resumeReader, resumeReader, publicResumeQueryHandler)
+	analyticsReader := readers3.NewAnalyticsReader(db)
+	linkStatisticsHandler := queries4.NewLinkStatisticsHandler(analyticsAccessReader, analyticsReader)
+	dailyStatisticsHandler := queries4.NewDailyStatisticsHandler(analyticsAccessReader, analyticsReader)
+	visitsHandler := queries4.NewVisitsHandler(analyticsAccessReader, analyticsReader)
+	sectionsHandler := queries4.NewSectionsHandler(analyticsAccessReader, analyticsReader)
+	technologiesHandler := queries4.NewTechnologiesHandler(analyticsAccessReader, analyticsReader)
+	resumeStatisticsHandler := queries4.NewResumeStatisticsHandler(analyticsAccessReader, analyticsReader)
+	analyticsClickQueryHandler := queries4.NewAnalyticsClickQueryHandler(analyticsAccessReader, layoutSnapshotBuilder, analyticsReader)
+	handlerDependencies3 := http4.HandlerDependencies{
+		Ingest:           ingestAnalyticsBatchHandler,
+		Statistics:       linkStatisticsHandler,
+		Daily:            dailyStatisticsHandler,
+		Visits:           visitsHandler,
+		Sections:         sectionsHandler,
+		Technologies:     technologiesHandler,
+		ResumeStatistics: resumeStatisticsHandler,
+		Clicks:           analyticsClickQueryHandler,
+	}
+	handler3 := http4.NewHandler(handlerDependencies3)
+	authTransactionRepository := repository5.NewAuthTransactionRepository(db)
 	authConfig := configConfig.Auth
 	client := newTelegramHTTPClient()
 	telegramOIDC, err := newTelegramOIDC(authConfig, client, metrics)
@@ -172,16 +183,16 @@ func initialize() (*Application, func(), error) {
 	}
 	generator := token.NewGenerator()
 	startTelegramLoginHandler := newStartTelegramLoginHandler(authTransactionRepository, telegramOIDC, generator, unitOfWork, authConfig)
-	identityRepository := repository4.NewIdentityRepository(db)
-	sessionRepository := repository4.NewSessionRepository(db)
+	identityRepository := repository5.NewIdentityRepository(db)
+	sessionRepository := repository5.NewSessionRepository(db)
 	userRepository := repository2.NewUserRepository(db)
 	createUserHandler := commands2.NewCreateUserHandler(userRepository)
 	authObserver := newAuthObserver(logger, metrics, configConfig)
 	completeTelegramLoginHandler := newCompleteTelegramLoginHandler(authTransactionRepository, identityRepository, sessionRepository, telegramOIDC, createUserHandler, generator, unitOfWork, authConfig, authObserver)
-	logoutHandler := commands4.NewLogoutHandler(sessionRepository, unitOfWork)
-	handler3 := newAuthHandler(startTelegramLoginHandler, completeTelegramLoginHandler, logoutHandler, authObserver, generator, authConfig)
+	logoutHandler := commands5.NewLogoutHandler(sessionRepository, unitOfWork)
+	handler4 := newAuthHandler(startTelegramLoginHandler, completeTelegramLoginHandler, logoutHandler, authObserver, generator, authConfig)
 	currentSessionHandler := newCurrentSessionHandler(sessionRepository, unitOfWork, authConfig, logger)
-	userReader := readers3.NewUserReader(db)
+	userReader := readers4.NewUserReader(db)
 	appRuntimeAuthenticator, err := newRuntimeAuthenticator(authConfig, currentSessionHandler, userReader, authObserver)
 	if err != nil {
 		cleanup3()
@@ -189,21 +200,21 @@ func initialize() (*Application, func(), error) {
 	}
 	authenticateFunc := newAuthenticate(appRuntimeAuthenticator)
 	appOptionalAuthenticateFunc := newOptionalAuthenticate(authConfig, appRuntimeAuthenticator)
-	router, err := newRouter(configConfig, logger, service, metrics, handler, httpHandler, handler2, handler3, authenticateFunc, appOptionalAuthenticateFunc)
+	router, err := newRouter(configConfig, logger, service, metrics, handler, httpHandler, handler2, handler3, handler4, authenticateFunc, appOptionalAuthenticateFunc)
 	if err != nil {
 		cleanup3()
 		return nil, nil, err
 	}
-	handler4 := newHTTPHandler(router)
-	server := newHTTPServer(configConfig, handler4, logger, router)
+	handler5 := newHTTPHandler(router)
+	server := newHTTPServer(configConfig, handler5, logger, router)
 	telemetryService, cleanup4, err := newTelemetry(configConfig, logger)
 	if err != nil {
 		cleanup3()
 		return nil, nil, err
 	}
-	cleanupExpiredHandler := commands4.NewCleanupExpiredHandler(authTransactionRepository, sessionRepository, unitOfWork)
+	cleanupExpiredHandler := commands5.NewCleanupExpiredHandler(authTransactionRepository, sessionRepository, unitOfWork)
 	worker := cleanup.NewWorker(cleanupExpiredHandler, logger, metrics)
-	cleanupAnalyticsHandler := newCleanupAnalyticsHandler(resumeLinkRepository, unitOfWork, configConfig)
+	cleanupAnalyticsHandler := newCleanupAnalyticsHandler(analyticsRepository, unitOfWork, configConfig)
 	cleanupWorker := cleanup2.NewWorker(cleanupAnalyticsHandler, logger, metrics)
 	v := newBackgroundWorkers(worker, cleanupWorker)
 	application := newApplication(server, telemetryService, logger, db, configConfig, v)
@@ -221,20 +232,26 @@ var resumeReadSet = wire.NewSet(
 
 var resumeCommandSet = wire.NewSet(commands.NewCreateResumeHandler, commands.NewReplaceResumeTitleHandler, commands.NewChangeResumeStatusHandler, commands.NewReplaceOverviewHandler, commands.NewReplaceProfileHandler, commands.NewDeleteResumeHandler, commands.NewReplaceContactsHandler, commands.NewReplaceSkillsHandler, commands.NewReplaceLanguagesHandler, commands.NewReplaceTechnologiesHandler, commands.NewReplaceEducationsHandler, commands.NewReplaceCoursesHandler, commands.NewReplaceActivitiesHandler, commands.NewReplaceProjectsHandler, commands.NewReplaceExperiencesHandler)
 
-var resumeLinkReadSet = wire.NewSet(readers2.NewResumeLinkReader, queries3.NewListResumeLinksQueryHandler, queries3.NewPublicResumeLinkQueryHandlerWithVisit, queries3.NewLinkStatisticsHandler, queries3.NewDailyStatisticsHandler, queries3.NewVisitsHandler, queries3.NewSectionsHandler, queries3.NewTechnologiesHandler, queries3.NewResumeStatisticsHandler, queries3.NewContactViewThroughLinkQueryHandlerWithAnalytics, wire.Bind(new(queries3.ResumeLinkReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.ResumeLinkPublicReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.LinkStatisticsReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.DailyStatisticsReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.VisitsReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.SectionsReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.TechnologiesReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.ResumeStatisticsReader), new(*readers2.ResumeLinkReader)))
+var resumeLinkReadSet = wire.NewSet(readers2.NewResumeLinkReader, queries3.NewListResumeLinksQueryHandler, queries3.NewActivePublicResumeLinkResolver, queries3.NewPublicResumeLinkQueryHandlerWithVisit, queries3.NewContactViewThroughLinkQueryHandlerWithAnalytics, wire.Bind(new(queries3.PublicResumeLinkResolver), new(*queries3.ActivePublicResumeLinkResolver)), wire.Bind(new(queries3.ResumeLinkReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.ResumeLinkPublicReader), new(*readers2.ResumeLinkReader)))
 
-var resumeLinkCommandSet = wire.NewSet(commands3.NewCreatePublicVisitHandler, commands3.NewRecordPublicInteractionEventHandler, newIngestAnalyticsBatchHandler,
-	newCleanupAnalyticsHandler, cleanup2.NewWorker, queries3.NewAnalyticsClickQueryHandler, handlers.NewResumeLinkAnalyticsEventsHandler, analytics.NewLayoutSnapshotBuilder, commands3.NewCreateResumeLinkHandler, commands3.NewDeleteResumeLinkHandler, commands3.NewReplaceStatusResumeLinkHandler, wire.Bind(new(ports.PublicVisitCreator), new(*commands3.CreatePublicVisitHandler)), wire.Bind(new(ports.PublicInteractionEventRecorder), new(*commands3.RecordPublicInteractionEventHandler)),
+var analyticsReadSet = wire.NewSet(
+	newAnalyticsAccessReader, readers3.NewAnalyticsReader, wire.Bind(new(queries4.LinkStatisticsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.DailyStatisticsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.VisitsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.SectionsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.TechnologiesReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.ResumeStatisticsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.AnalyticsClickReader), new(*readers3.AnalyticsReader)), queries4.NewLinkStatisticsHandler, queries4.NewDailyStatisticsHandler, queries4.NewVisitsHandler, queries4.NewSectionsHandler, queries4.NewTechnologiesHandler, queries4.NewResumeStatisticsHandler, queries4.NewAnalyticsClickQueryHandler,
+)
+
+var resumeLinkCommandSet = wire.NewSet(commands4.NewCreatePublicVisitHandler, commands4.NewRecordPublicInteractionEventHandler, newIngestAnalyticsBatchHandler,
+	newCleanupAnalyticsHandler, cleanup2.NewWorker, analytics.NewLayoutSnapshotBuilder, commands3.NewCreateResumeLinkHandler, commands3.NewDeleteResumeLinkHandler, commands3.NewReplaceStatusResumeLinkHandler, wire.Bind(new(ports.PublicVisitCreator), new(*commands4.CreatePublicVisitHandler)), wire.Bind(new(ports.PublicInteractionEventRecorder), new(*commands4.RecordPublicInteractionEventHandler)),
 )
 
 var resumeHTTPSet = wire.NewSet(http.NewHandler, wire.Struct(new(http.HandlerDependencies), "*"))
 
 var resumeLinkHTTPSet = wire.NewSet(handlers.NewPublicResumeLinkHandler, handlers.NewPublicContactViewHandler, http3.NewHandler, wire.Struct(new(http3.HandlerDependencies), "*"))
 
-var authRepositorySet = wire.NewSet(repository4.NewAuthTransactionRepository, repository4.NewIdentityRepository, repository4.NewSessionRepository, wire.Bind(new(ports2.AuthTransactionRepository), new(*repository4.AuthTransactionRepository)), wire.Bind(new(ports2.IdentityRepository), new(*repository4.IdentityRepository)), wire.Bind(new(ports2.SessionRepository), new(*repository4.SessionRepository)))
+var analyticsHTTPSet = wire.NewSet(http4.NewHandler, wire.Struct(new(http4.HandlerDependencies), "*"))
+
+var authRepositorySet = wire.NewSet(repository5.NewAuthTransactionRepository, repository5.NewIdentityRepository, repository5.NewSessionRepository, wire.Bind(new(ports2.AuthTransactionRepository), new(*repository5.AuthTransactionRepository)), wire.Bind(new(ports2.IdentityRepository), new(*repository5.IdentityRepository)), wire.Bind(new(ports2.SessionRepository), new(*repository5.SessionRepository)))
 
 var authSet = wire.NewSet(
 	authRepositorySet, token.NewGenerator, wire.Bind(new(ports2.TokenGenerator), new(*token.Generator)), commands2.NewCreateUserHandler, wire.Bind(new(ports2.UserProvisioner), new(*commands2.CreateUserHandler)), newCurrentSessionHandler,
 	newStartTelegramLoginHandler,
-	newCompleteTelegramLoginHandler, commands4.NewLogoutHandler, commands4.NewCleanupExpiredHandler, newAuthHandler,
+	newCompleteTelegramLoginHandler, commands5.NewLogoutHandler, commands5.NewCleanupExpiredHandler, newAuthHandler,
 )

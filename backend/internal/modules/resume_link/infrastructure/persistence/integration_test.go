@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 
+	analyticsreaders "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
+	analyticsrepository "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
@@ -28,13 +30,29 @@ import (
 	"developers-cv/backend/internal/testutil/pgtest"
 )
 
-func newDatabase(t *testing.T) (context.Context, string, *gorm.DB, *repository.ResumeLinkRepository, *readers.ResumeLinkReader) {
+type testRepository struct {
+	*repository.ResumeLinkRepository
+	*analyticsrepository.AnalyticsRepository
+}
+
+type testReader struct {
+	*readers.ResumeLinkReader
+	*analyticsreaders.AnalyticsReader
+}
+
+func newDatabase(t *testing.T) (context.Context, string, *gorm.DB, *testRepository, *testReader) {
 	t.Helper()
 	ctx, dsn := pgtest.NewDatabase(t)
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
-	return ctx, dsn, gormDB, repository.NewResumeLinkRepository(gormDB), readers.NewResumeLinkReader(gormDB)
+	return ctx, dsn, gormDB, &testRepository{
+		ResumeLinkRepository: repository.NewResumeLinkRepository(gormDB),
+		AnalyticsRepository:  analyticsrepository.NewAnalyticsRepository(gormDB),
+	}, &testReader{
+		ResumeLinkReader: readers.NewResumeLinkReader(gormDB),
+		AnalyticsReader:  analyticsreaders.NewAnalyticsReader(gormDB),
+	}
 }
 
 func insertUserAndResume(t *testing.T, ctx context.Context, dsn string, userID sharedvalueobjects.ID, resumeID sharedvalueobjects.ID) {

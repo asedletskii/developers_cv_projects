@@ -35,7 +35,6 @@ func persistOverview(tx *gorm.DB, resume *domain.Resume) error {
 			"availability_status": p.AvailabilityStatus,
 			"availability_from":   p.AvailabilityFrom,
 			"availability_note":   p.AvailabilityNote,
-			"resume_link":         p.ResumeLink,
 			"theme_primary":       p.ThemePrimary,
 			"theme_secondary":     p.ThemeSecondary,
 		})

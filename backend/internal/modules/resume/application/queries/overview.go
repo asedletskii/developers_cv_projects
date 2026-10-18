@@ -4,7 +4,6 @@ type ResumeOverviewView struct {
 	Theme        *OverviewThemeSettings    `json:"theme,omitempty"`
 	Greeting     OverviewGreeting          `json:"greeting"`
 	Availability *OverviewAvailability     `json:"availability,omitempty"`
-	ResumeLink   *string                   `json:"resumeLink,omitempty"`
 	Sections     []OverviewSectionSettings `json:"sections"`
 }
 

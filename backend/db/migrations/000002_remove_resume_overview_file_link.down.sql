@@ -1,0 +1,56 @@
+ALTER TABLE resume_overviews
+    ADD COLUMN resume_link text;
+
+ALTER TABLE resume_overviews
+    ADD CONSTRAINT resume_overviews_resume_link_check
+    CHECK (resume_link IS NULL OR (octet_length(resume_link) <= 2048 AND resume_link ~ '^https://[^/@?#[:space:]]+([/?#].*)?$'));
+
+ALTER INDEX idx_analytics_visitors_link_first_seen RENAME TO idx_resume_link_visitors_link_first_seen;
+ALTER TABLE analytics_visitors RENAME CONSTRAINT analytics_visitors_link_ordinal_unique TO resume_link_visitors_link_ordinal_unique;
+ALTER TABLE analytics_visitors RENAME CONSTRAINT analytics_visitors_link_visitor_unique TO resume_link_visitors_link_visitor_unique;
+ALTER TABLE analytics_visitors RENAME CONSTRAINT analytics_visitors_ordinal_check TO resume_link_visitors_ordinal_check;
+ALTER TABLE analytics_visitors RENAME CONSTRAINT analytics_visitors_link_id_fkey TO resume_link_visitors_link_id_fkey;
+ALTER TABLE analytics_visitors RENAME TO resume_link_visitors;
+
+ALTER INDEX idx_analytics_clicks_occurred_at_retention RENAME TO idx_resume_link_clicks_occurred_at_retention;
+ALTER INDEX idx_analytics_clicks_view_id RENAME TO idx_resume_link_clicks_view_id;
+ALTER INDEX idx_analytics_clicks_link_section RENAME TO idx_resume_link_clicks_link_section;
+ALTER TABLE analytics_clicks RENAME CONSTRAINT analytics_clicks_target_check TO resume_link_clicks_target_check;
+ALTER TABLE analytics_clicks RENAME CONSTRAINT analytics_clicks_layout_hash_check TO resume_link_clicks_layout_hash_check;
+ALTER TABLE analytics_clicks RENAME CONSTRAINT analytics_clicks_viewport_w_check TO resume_link_clicks_viewport_w_check;
+ALTER TABLE analytics_clicks RENAME CONSTRAINT analytics_clicks_y_pct_check TO resume_link_clicks_y_pct_check;
+ALTER TABLE analytics_clicks RENAME CONSTRAINT analytics_clicks_x_pct_check TO resume_link_clicks_x_pct_check;
+ALTER TABLE analytics_clicks RENAME CONSTRAINT analytics_clicks_link_id_fkey TO resume_link_clicks_link_id_fkey;
+ALTER TABLE analytics_clicks RENAME CONSTRAINT analytics_clicks_view_id_fkey TO resume_link_clicks_view_id_fkey;
+ALTER TABLE analytics_clicks RENAME CONSTRAINT analytics_clicks_pkey TO resume_link_clicks_pkey;
+ALTER TABLE analytics_clicks RENAME TO resume_link_clicks;
+
+ALTER INDEX idx_analytics_events_link_occurred_at RENAME TO idx_resume_link_events_link_occurred_at;
+ALTER INDEX idx_analytics_events_view_id RENAME TO idx_resume_link_events_view_id;
+ALTER INDEX ux_analytics_events_section_view RENAME TO ux_resume_link_events_section_view;
+ALTER INDEX ux_analytics_events_client_id RENAME TO ux_resume_link_events_client_id;
+ALTER TABLE analytics_events RENAME CONSTRAINT analytics_events_payload_check TO resume_link_events_payload_check;
+ALTER TABLE analytics_events RENAME CONSTRAINT analytics_events_type_check TO resume_link_events_type_check;
+ALTER TABLE analytics_events RENAME CONSTRAINT analytics_events_link_id_fkey TO resume_link_events_link_id_fkey;
+ALTER TABLE analytics_events RENAME CONSTRAINT analytics_events_view_id_fkey TO resume_link_events_view_id_fkey;
+ALTER TABLE analytics_events RENAME CONSTRAINT analytics_events_pkey TO resume_link_events_pkey;
+ALTER TABLE analytics_events RENAME TO resume_link_events;
+
+ALTER INDEX idx_analytics_views_started_at_retention RENAME TO idx_resume_link_views_started_at_retention;
+ALTER INDEX idx_analytics_views_ip_started RENAME TO idx_resume_link_views_ip_started;
+ALTER INDEX idx_analytics_views_link_traffic_started RENAME TO idx_resume_link_views_link_traffic_started;
+ALTER INDEX idx_analytics_views_link_visitor_started RENAME TO idx_resume_link_views_link_visitor_started;
+ALTER INDEX idx_analytics_views_link_started RENAME TO idx_resume_link_views_link_started;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_layout_check TO resume_link_views_layout_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_exit_section_check TO resume_link_views_exit_section_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_max_section_check TO resume_link_views_max_section_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_active_check TO resume_link_views_active_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_traffic_reason_length_check TO resume_link_views_traffic_reason_length_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_referrer_host_length_check TO resume_link_views_referrer_host_length_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_traffic_check TO resume_link_views_traffic_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_os_check TO resume_link_views_os_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_browser_check TO resume_link_views_browser_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_device_check TO resume_link_views_device_check;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_link_id_fkey TO resume_link_views_link_id_fkey;
+ALTER TABLE analytics_views RENAME CONSTRAINT analytics_views_pkey TO resume_link_views_pkey;
+ALTER TABLE analytics_views RENAME TO resume_link_views;

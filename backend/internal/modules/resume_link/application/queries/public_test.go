@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -20,7 +20,7 @@ func TestPublicResumeLinkQueryResolvesActiveLinkToResume(t *testing.T) {
 	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive)}}
 	resume := &publicResumeQueryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
 
-	view, err := NewPublicResumeLinkQueryHandler(links, resume).Handle(context.Background(), PublicResumeLinkQuery{LinkID: linkID})
+	view, err := NewPublicResumeLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(context.Background(), PublicResumeLinkQuery{LinkID: linkID})
 
 	require.NoError(t, err)
 	require.Equal(t, "CV", view.Title)
@@ -35,7 +35,7 @@ func TestPublicResumeLinkQueryRejectsInactiveLink(t *testing.T) {
 	}}
 	resume := &publicResumeQueryStub{}
 
-	_, err := NewPublicResumeLinkQueryHandler(links, resume).Handle(context.Background(), PublicResumeLinkQuery{LinkID: linkID})
+	_, err := NewPublicResumeLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(context.Background(), PublicResumeLinkQuery{LinkID: linkID})
 
 	require.ErrorIs(t, err, domain.ErrResumeLinkInactive)
 	require.True(t, resume.query.ID.IsZero(), "inactive links must not trigger a public resume read")
@@ -45,7 +45,7 @@ func TestPublicResumeLinkQueryDoesNotRecordFailedLookup(t *testing.T) {
 	links := &resumeLinkReaderStub{err: ErrResumeLinkNotFound}
 	resume := &publicResumeQueryStub{}
 
-	_, err := NewPublicResumeLinkQueryHandler(links, resume).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
+	_, err := NewPublicResumeLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 
 	require.ErrorIs(t, err, ErrResumeLinkNotFound)
 	require.True(t, resume.query.ID.IsZero(), "failed link lookups must not trigger a public resume read")
@@ -58,7 +58,7 @@ func TestPublicResumeLinkQueryRejectsInvalidResolvedResumeID(t *testing.T) {
 	}}
 	resume := &publicResumeQueryStub{}
 
-	_, err := NewPublicResumeLinkQueryHandler(links, resume).Handle(
+	_, err := NewPublicResumeLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(
 		context.Background(),
 		PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()},
 	)
@@ -69,7 +69,7 @@ func TestPublicResumeLinkQueryRejectsInvalidResolvedResumeID(t *testing.T) {
 
 func TestPublicResumeLinkQueryTranslatesDomainNotFound(t *testing.T) {
 	links := &resumeLinkReaderStub{err: domain.ErrEntityNotFound}
-	handler := NewPublicResumeLinkQueryHandler(links, &publicResumeQueryStub{})
+	handler := NewPublicResumeLinkQueryHandler(NewActivePublicResumeLinkResolver(links), &publicResumeQueryStub{})
 	_, err := handler.Handle(context.Background(), PublicResumeLinkQuery{LinkID: sharedvalueobjects.NewID()})
 	require.ErrorIs(t, err, ErrResumeLinkNotFound)
 }
@@ -94,11 +94,11 @@ func TestPublicResumeLinkWithoutAnalyticsStillServesPublicResume(t *testing.T) {
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 	resume := &publicResumeQueryStub{view: resumequeries.PublicResumeView{Title: "Public CV"}}
-	handler := NewPublicResumeLinkQueryHandler(links, resume)
+	handler := NewPublicResumeLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume)
 
 	view, identity, err := handler.HandleWithVisit(context.Background(), PublicResumeLinkQuery{
 		LinkID: linkID,
-		Visit:  &ports.CreatePublicVisitInput{LinkID: linkID},
+		Visit:  &analyticsports.CreatePublicVisitInput{LinkID: linkID},
 	})
 
 	require.NoError(t, err)
@@ -114,8 +114,8 @@ func TestPublicResumeLinkRejectsMissingRequiredDependenciesWithoutPanic(t *testi
 		handler *PublicResumeLinkQueryHandler
 	}{
 		{name: "nil handler", handler: nil},
-		{name: "nil link reader", handler: NewPublicResumeLinkQueryHandler(nil, &publicResumeQueryStub{})},
-		{name: "nil resume query", handler: NewPublicResumeLinkQueryHandler(&resumeLinkReaderStub{}, nil)},
+		{name: "nil link resolver", handler: NewPublicResumeLinkQueryHandler(nil, &publicResumeQueryStub{})},
+		{name: "nil resume query", handler: NewPublicResumeLinkQueryHandler(NewActivePublicResumeLinkResolver(&resumeLinkReaderStub{}), nil)},
 	}
 
 	for _, tt := range tests {
@@ -132,7 +132,7 @@ func TestPublicResumeLinkRejectsMissingRequiredDependenciesWithoutPanic(t *testi
 func TestPublicResumeLinkReportsUnexpectedOwnerResolutionFailureAndContinues(t *testing.T) {
 	ownerErr := errors.New("owner storage unavailable")
 	owner := &ownershipReaderStub{err: ownerErr}
-	identity := ports.VisitorIdentityResult{ViewID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(), SetCookie: true}
+	identity := analyticsports.VisitorIdentityResult{ViewID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(), SetCookie: true}
 	visit := &publicVisitCreatorStub{identity: identity}
 	var reported []PublicAnalyticsFailure
 	handler, query, _ := newPublicAnalyticsTestHandler(owner, visit, func(failure PublicAnalyticsFailure) {
@@ -145,6 +145,18 @@ func TestPublicResumeLinkReportsUnexpectedOwnerResolutionFailureAndContinues(t *
 
 	require.NoError(t, err)
 	require.Equal(t, "Public CV", view.Title)
+	expectedLayout, layoutErr := resumequeries.ToResumeAnalyticsLayout(view)
+	require.NoError(t, layoutErr)
+	expectedAnalyticsLayout := analyticsports.ResumeAnalyticsLayout{
+		Sections:     make([]analyticsports.ResumeAnalyticsSection, 0, len(expectedLayout.Sections)),
+		Technologies: append([]string{}, expectedLayout.Technologies...),
+	}
+	for _, section := range expectedLayout.Sections {
+		expectedAnalyticsLayout.Sections = append(expectedAnalyticsLayout.Sections, analyticsports.ResumeAnalyticsSection{
+			ID: section.ID, Hash: section.Hash,
+		})
+	}
+	require.Equal(t, expectedAnalyticsLayout, visit.input.ResumeLayout)
 	require.Equal(t, identity, actualIdentity)
 	require.Equal(t, 1, owner.calls)
 	require.Equal(t, 1, visit.calls)
@@ -188,7 +200,7 @@ func TestPublicResumeLinkDoesNotReportMissingOwnerAsAnalyticsFailure(t *testing.
 
 func TestPublicResumeLinkVisitFailureIsReportedWithoutFailingResumeResponse(t *testing.T) {
 	visitErr := errors.New("analytics database unavailable")
-	visit := &publicVisitCreatorStub{err: visitErr, identity: ports.VisitorIdentityResult{ViewID: sharedvalueobjects.NewID()}}
+	visit := &publicVisitCreatorStub{err: visitErr, identity: analyticsports.VisitorIdentityResult{ViewID: sharedvalueobjects.NewID()}}
 	var reported []PublicAnalyticsFailure
 	handler, query, _ := newPublicAnalyticsTestHandler(nil, visit, func(failure PublicAnalyticsFailure) {
 		reported = append(reported, failure)
@@ -209,7 +221,7 @@ func TestPublicResumeLinkVisitFailureIsReportedWithoutFailingResumeResponse(t *t
 }
 
 func TestPublicResumeLinkSuccessfulVisitPreservesIdentity(t *testing.T) {
-	identity := ports.VisitorIdentityResult{ViewID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(), SetCookie: true}
+	identity := analyticsports.VisitorIdentityResult{ViewID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(), SetCookie: true}
 	visit := &publicVisitCreatorStub{identity: identity}
 	var reportCount int
 	handler, query, _ := newPublicAnalyticsTestHandler(nil, visit, func(PublicAnalyticsFailure) { reportCount++ })

@@ -12,55 +12,65 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
+	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type statisticsHTTPReader struct {
-	result queries.LinkStatistics
+	result analyticsqueries.LinkStatistics
 	err    error
 }
 
-func (s statisticsHTTPReader) GetLinkStatistics(context.Context, queries.LinkAnalyticsQuery) (queries.LinkStatistics, error) {
+func (s statisticsHTTPReader) GetLinkStatistics(context.Context, analyticsqueries.LinkAnalyticsQuery) (analyticsqueries.LinkStatistics, error) {
 	return s.result, s.err
 }
 
-func (s statisticsHTTPReader) GetDaily(context.Context, queries.LinkAnalyticsQuery) (queries.LinkDaily, error) {
-	return queries.LinkDaily{}, s.err
+func (s statisticsHTTPReader) GetDaily(context.Context, analyticsqueries.LinkAnalyticsQuery) (analyticsqueries.LinkDaily, error) {
+	return analyticsqueries.LinkDaily{}, s.err
 }
-func (s statisticsHTTPReader) GetVisits(context.Context, queries.VisitsReadQuery) (queries.LinkVisitsPage, error) {
-	return queries.LinkVisitsPage{}, s.err
+func (s statisticsHTTPReader) GetVisits(context.Context, analyticsqueries.VisitsReadQuery) (analyticsqueries.LinkVisitsPage, error) {
+	return analyticsqueries.LinkVisitsPage{}, s.err
 }
-func (s statisticsHTTPReader) GetSections(context.Context, queries.LinkSectionsQuery) (queries.SectionsStatistics, error) {
-	return queries.SectionsStatistics{}, s.err
+func (s statisticsHTTPReader) GetSections(context.Context, analyticsqueries.LinkSectionsQuery) (analyticsqueries.SectionsStatistics, error) {
+	return analyticsqueries.SectionsStatistics{}, s.err
 }
-func (s statisticsHTTPReader) GetTechnologies(context.Context, queries.LinkAnalyticsQuery) (queries.TechnologiesStatistics, error) {
-	return queries.TechnologiesStatistics{}, s.err
+func (s statisticsHTTPReader) GetTechnologies(context.Context, analyticsqueries.LinkAnalyticsQuery) (analyticsqueries.TechnologiesStatistics, error) {
+	return analyticsqueries.TechnologiesStatistics{}, s.err
 }
-func (s statisticsHTTPReader) GetResumeStatistics(context.Context, queries.ResumeAnalyticsQuery) (queries.ResumeStatistics, error) {
-	return queries.ResumeStatistics{}, s.err
+func (s statisticsHTTPReader) GetResumeStatistics(context.Context, analyticsqueries.ResumeAnalyticsQuery) (analyticsqueries.ResumeStatistics, error) {
+	return analyticsqueries.ResumeStatistics{}, s.err
 }
 
 func newStatisticsHTTPHandler(
 	linkReader queries.ResumeLinkPublicReader,
 	ownership ports.ResumeOwnershipReader,
-	resumeOverview queries.ResumeOverviewReader,
+	resumeOverview queries.AnalyticsResumeOverviewReader,
 	reader statisticsHTTPReader,
-) *Handler {
-	return NewHandler(HandlerDependencies{
-		AnalyticsStatistics:       queries.NewLinkStatisticsHandler(linkReader, ownership, reader),
-		AnalyticsDaily:            queries.NewDailyStatisticsHandler(linkReader, ownership, reader),
-		AnalyticsVisits:           queries.NewVisitsHandler(linkReader, ownership, reader),
-		AnalyticsSections:         queries.NewSectionsHandler(linkReader, resumeOverview, reader),
-		AnalyticsTechnologies:     queries.NewTechnologiesHandler(linkReader, ownership, reader),
-		AnalyticsResumeStatistics: queries.NewResumeStatisticsHandler(ownership, reader),
+) *analyticshttp.Handler {
+	access := queries.NewAnalyticsAccessReader(linkReader, ownership, resumeOverview, nil)
+	return analyticshttp.NewHandler(analyticshttp.HandlerDependencies{
+		Statistics:       analyticsqueries.NewLinkStatisticsHandler(access, reader),
+		Daily:            analyticsqueries.NewDailyStatisticsHandler(access, reader),
+		Visits:           analyticsqueries.NewVisitsHandler(access, reader),
+		Sections:         analyticsqueries.NewSectionsHandler(access, reader),
+		Technologies:     analyticsqueries.NewTechnologiesHandler(access, reader),
+		ResumeStatistics: analyticsqueries.NewResumeStatisticsHandler(access, reader),
 	})
 }
 
-func newStatisticsHTTPServer(handler *Handler, userID uuid.UUID) *gin.Engine {
-	return newAuthenticatedEngine(handler, userID)
+func newStatisticsHTTPServer(handler *analyticshttp.Handler, userID uuid.UUID) *gin.Engine {
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	api := engine.Group("/api/v1")
+	analyticshttp.RegisterRoutes(handler, api, api.Group("/lk"), nil)
+	return engine
 }
 
 func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
@@ -71,7 +81,7 @@ func TestStatisticsHandlerReturnsStatistics(t *testing.T) {
 		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: resumeID.String()}},
 		resumeOwnershipReaderStub{},
 		resumeOwnershipReaderStub{},
-		statisticsHTTPReader{result: queries.LinkStatistics{Views: 125, ContactViews: 17}},
+		statisticsHTTPReader{result: analyticsqueries.LinkStatistics{Views: 125, ContactViews: 17}},
 	), userID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+linkID.String()+"/statistics", nil)
@@ -87,7 +97,7 @@ func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
 		resumeOwnershipReaderStub{},
 		resumeOwnershipReaderStub{},
-		statisticsHTTPReader{result: queries.LinkStatistics{}},
+		statisticsHTTPReader{result: analyticsqueries.LinkStatistics{}},
 	), uuid.New())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/statistics", nil)

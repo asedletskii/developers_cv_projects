@@ -1,11 +1,11 @@
 package app
 
 import (
+	analyticscleanup "developers-cv/backend/internal/modules/analytics/infrastructure/cleanup"
 	authcleanup "developers-cv/backend/internal/modules/auth/infrastructure/cleanup"
-	resumelinkcleanup "developers-cv/backend/internal/modules/resume_link/infrastructure/cleanup"
 )
 
-func newBackgroundWorkers(authWorker *authcleanup.Worker, analyticsWorker *resumelinkcleanup.Worker) []backgroundWorker {
+func newBackgroundWorkers(authWorker *authcleanup.Worker, analyticsWorker *analyticscleanup.Worker) []backgroundWorker {
 	workers := make([]backgroundWorker, 0, 2)
 	if authWorker != nil {
 		workers = append(workers, authWorker)

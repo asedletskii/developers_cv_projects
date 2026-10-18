@@ -21,7 +21,7 @@ func TestContactViewThroughLinkResolvesActiveLink(t *testing.T) {
 	}}
 	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"}}
 
-	view, err := NewContactViewThroughLinkQueryHandler(links, resume).Handle(context.Background(), ContactViewThroughLinkQuery{
+	view, err := NewContactViewThroughLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID:  linkID,
 		Contact: resumedomain.ContactKeyEmail,
 	})
@@ -47,7 +47,7 @@ func TestContactViewThroughLinkReturnsAllContactsForDownload(t *testing.T) {
 	}
 	analytics := &contactViewAnalyticsRecorderStub{}
 	handler := NewContactViewThroughLinkQueryHandlerWithAnalytics(
-		links,
+		NewActivePublicResumeLinkResolver(links),
 		&contactViewResumeQueryStub{},
 		contacts,
 		analytics,
@@ -79,7 +79,7 @@ func TestContactViewThroughLinkWithoutAnalyticsReturnsContact(t *testing.T) {
 	resume := &contactViewResumeQueryStub{view: resumequeries.ContactView{
 		Contact: resumedomain.ContactKeyEmail, Value: "person@example.com",
 	}}
-	handler := NewContactViewThroughLinkQueryHandler(links, resume)
+	handler := NewContactViewThroughLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume)
 
 	view, err := handler.Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID: linkID, Contact: resumedomain.ContactKeyEmail, ViewID: sharedvalueobjects.NewID(),
@@ -97,8 +97,8 @@ func TestContactViewThroughLinkRejectsMissingRequiredDependenciesWithoutPanic(t 
 		handler *ContactViewThroughLinkQueryHandler
 	}{
 		{name: "nil handler", handler: nil},
-		{name: "nil link reader", handler: NewContactViewThroughLinkQueryHandler(nil, &contactViewResumeQueryStub{})},
-		{name: "nil resume query", handler: NewContactViewThroughLinkQueryHandler(&resumeLinkReaderStub{}, nil)},
+		{name: "nil link resolver", handler: NewContactViewThroughLinkQueryHandler(nil, &contactViewResumeQueryStub{})},
+		{name: "nil resume query", handler: NewContactViewThroughLinkQueryHandler(NewActivePublicResumeLinkResolver(&resumeLinkReaderStub{}), nil)},
 	}
 
 	for _, tt := range tests {
@@ -125,7 +125,7 @@ func TestContactViewThroughLinkReportsAnalyticsFailureWithoutFailingContactView(
 	var reportedErr error
 
 	handler := NewContactViewThroughLinkQueryHandlerWithAnalytics(
-		links,
+		NewActivePublicResumeLinkResolver(links),
 		resume,
 		nil,
 		analytics,
@@ -147,7 +147,7 @@ func TestContactViewThroughLinkRejectsInactiveLink(t *testing.T) {
 		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusInactive),
 	}}
 
-	_, err := NewContactViewThroughLinkQueryHandler(links, resume).Handle(context.Background(), ContactViewThroughLinkQuery{
+	_, err := NewContactViewThroughLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID: sharedvalueobjects.NewID(), Contact: resumedomain.ContactKeyEmail,
 	})
 
@@ -159,7 +159,7 @@ func TestContactViewThroughLinkPropagatesMissingLink(t *testing.T) {
 	resume := &contactViewResumeQueryStub{}
 	links := &resumeLinkReaderStub{err: ErrResumeLinkNotFound}
 
-	_, err := NewContactViewThroughLinkQueryHandler(links, resume).Handle(context.Background(), ContactViewThroughLinkQuery{
+	_, err := NewContactViewThroughLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID: sharedvalueobjects.NewID(), Contact: resumedomain.ContactKeyEmail,
 	})
 
@@ -174,7 +174,7 @@ func TestContactViewThroughLinkDoesNotRecordFailedContact(t *testing.T) {
 	}}
 	resume := &contactViewResumeQueryStub{err: resumequeries.ErrContactNotHidden}
 
-	_, err := NewContactViewThroughLinkQueryHandler(links, resume).Handle(context.Background(), ContactViewThroughLinkQuery{
+	_, err := NewContactViewThroughLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID: linkID, Contact: resumedomain.ContactKeyEmail,
 	})
 
@@ -188,7 +188,7 @@ func TestContactViewThroughLinkPropagatesResumeContactRules(t *testing.T) {
 		ResumeID: sharedvalueobjects.NewID().String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
 
-	_, err := NewContactViewThroughLinkQueryHandler(links, resume).Handle(context.Background(), ContactViewThroughLinkQuery{
+	_, err := NewContactViewThroughLinkQueryHandler(NewActivePublicResumeLinkResolver(links), resume).Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID: sharedvalueobjects.NewID(), Contact: resumedomain.ContactKeyEmail,
 	})
 
@@ -197,7 +197,7 @@ func TestContactViewThroughLinkPropagatesResumeContactRules(t *testing.T) {
 
 func TestContactViewThroughLinkTranslatesDomainNotFound(t *testing.T) {
 	links := &resumeLinkReaderStub{err: domain.ErrEntityNotFound}
-	handler := NewContactViewThroughLinkQueryHandler(links, &contactViewResumeQueryStub{})
+	handler := NewContactViewThroughLinkQueryHandler(NewActivePublicResumeLinkResolver(links), &contactViewResumeQueryStub{})
 	_, err := handler.Handle(context.Background(), ContactViewThroughLinkQuery{
 		LinkID:  sharedvalueobjects.NewID(),
 		Contact: resumedomain.ContactKeyEmail,
