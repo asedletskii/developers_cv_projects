@@ -24,7 +24,7 @@ const runtimeConfigDev = (env: Record<string, string>): Plugin => ({
 export default defineConfig(({ mode }) => {
   // Vite не кладёт `.env` в `process.env` конфига, поэтому читаем его сами: переменные работают и из `.env`,
   // и из окружения (`VITE_PROXY_TARGET=… yarn start`)
-  const env = loadEnv(mode, process.cwd(), ['VITE_', 'RESPECT_'])
+  const env = loadEnv(mode, process.cwd(), ['VITE_', 'RESPECT_', 'PROXY_'])
 
   return {
     plugins: [react(), tsconfigPaths(), runtimeConfigDev(env)],
@@ -33,7 +33,14 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: env.VITE_PROXY_TARGET || process.env.VITE_PROXY_TARGET || 'http://localhost:8080',
           changeOrigin: true,
-          configure: (proxy) => proxy.on('proxyReq', (req) => req.removeHeader('origin')),
+          configure: (proxy) =>
+            proxy.on('proxyReq', (req) => {
+              req.removeHeader('origin')
+              // Сессия удалённого бэкенда (стейджа): войти там в браузере и вставить значение cookie
+              // `__Host-session` в `PROXY_SESSION`. Без префикса `VITE_`, поэтому в бандл не попадает
+              const session = env.PROXY_SESSION || process.env.PROXY_SESSION
+              if (session) req.setHeader('cookie', `__Host-session=${session}`)
+            }),
         },
       },
     },
