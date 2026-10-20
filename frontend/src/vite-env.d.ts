@@ -7,9 +7,6 @@ interface ImportMetaEnv {
   /** uuid существующего пользователя — для бэка с AUTH_MODE=mock вместо входа через Telegram. */
   readonly VITE_MOCK_USER_ID?: string
 
-  /** `true` — в dev подменяет ручки аналитики моками (бэкенд их ещё не реализовал). */
-  readonly VITE_MOCK_ANALYTICS?: string
-
   /** Публичный site key Cloudflare Turnstile для раскрытия контактов. Без него защита выключена. */
   readonly VITE_TURNSTILE_SITE_KEY?: string
 }
