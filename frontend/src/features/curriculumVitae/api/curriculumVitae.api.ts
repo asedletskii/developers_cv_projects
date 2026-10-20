@@ -28,6 +28,16 @@ import { generatePath } from 'react-router'
 
 type AnalyticsParams = { from: string; to: string; tz: string }
 
+// Referer у запроса резюме — адрес самого SPA, поэтому реальный источник визита передаём отдельно
+const getReferrerHost = (): string | undefined => {
+  try {
+    const host = document.referrer ? new URL(document.referrer).hostname : ''
+    return host && host !== window.location.hostname ? host : undefined
+  } catch {
+    return undefined
+  }
+}
+
 class CurriculumVitaeApi {
   async getPublicResume(
     resumeId: string,
@@ -35,6 +45,7 @@ class CurriculumVitaeApi {
   ): Promise<{ resume: Resume; viewId: string | null }> {
     const response = await api.get<Resume>(generatePath(API_ROUTES.publicResume, { resumeId }), {
       signal,
+      headers: { 'X-Referrer-Host': getReferrerHost() },
     })
     return { resume: response.data, viewId: response.headers['x-view-id'] ?? null }
   }
