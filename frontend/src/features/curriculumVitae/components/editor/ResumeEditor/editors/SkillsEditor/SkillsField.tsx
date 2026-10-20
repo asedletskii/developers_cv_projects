@@ -6,23 +6,28 @@ import { useSkillsField } from './hooks'
 type Props = {
   name: Extract<FieldPath<Resume>, 'skills.hardSkills' | 'skills.softSkills'>
   label: string
-  options: { value: string; label: string }[]
+  helperText: string
+  options: string[]
+  getOptionLabel: (skill: string) => string
 }
 
-/** Выпадающий список с поиском; только значения из справочника — бэк отклоняет остальные. */
-export const SkillsField = ({ name, label, options }: Props) => {
-  const { selected, onChange, onBlur } = useSkillsField(name, options)
+export const SkillsField = ({ name, label, helperText, options, getOptionLabel }: Props) => {
+  const { selected, onChange, onBlur } = useSkillsField(name)
 
   return (
     <Autocomplete
       multiple
+      freeSolo
+      autoSelect
       filterSelectedOptions
       options={options}
       value={selected}
+      getOptionLabel={getOptionLabel}
       onChange={(_, next) => onChange(next)}
       onBlur={onBlur}
-      isOptionEqualToValue={(option, value) => option.value === value.value}
-      renderInput={(params) => <TextField {...params} variant="standard" label={label} />}
+      renderInput={(params) => (
+        <TextField {...params} variant="standard" label={label} helperText={helperText} />
+      )}
     />
   )
 }

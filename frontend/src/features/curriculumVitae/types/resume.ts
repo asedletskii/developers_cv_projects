@@ -12,7 +12,7 @@ import {
   Technology,
   ThemeSettings,
 } from './curriculumVitae'
-import { ContactKey, HardSkill, LanguageGrade, LanguageType, SoftSkill, WorkFormat } from './enums'
+import { ContactKey, LanguageGrade, LanguageType, WorkFormat } from './enums'
 import { LkResumeSummary, ResumeStatus } from './lk'
 
 type Item<T> = T & { id?: string }
@@ -41,7 +41,7 @@ export type ResumeContacts = Contacts & {
   contactsText?: ContactsText
 }
 
-export type ResumeSkills = { hardSkills: HardSkill[]; softSkills: SoftSkill[] }
+export type ResumeSkills = { hardSkills: string[]; softSkills: string[] }
 
 export type ResumeLanguageItem = Item<{ language: LanguageType; grade?: LanguageGrade }>
 
@@ -65,5 +65,4 @@ export type Resume = Omit<LkResumeSummary, 'version' | 'status'> & {
   projects: Item<Project>[]
 }
 
-/** Значение скрытого контакта, которое вернул бэкенд */
 export type RevealedContact = { contact: ContactKey; value: string }
