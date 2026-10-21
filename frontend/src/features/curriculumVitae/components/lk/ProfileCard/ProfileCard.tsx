@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Portrait } from '@features/curriculumVitae/components/cv/AboutSection/Portrait'
 import { EditProfileDialog } from '@features/curriculumVitae/components/lk/EditProfileDialog'
-import { glassCard } from '@features/curriculumVitae/styles'
+import { glassCard, textAccent } from '@features/curriculumVitae/styles'
 import { LkProfile } from '@features/curriculumVitae/types'
 import { EditRounded } from '@mui/icons-material'
 import { Chip, IconButton, Stack, Typography } from '@mui/material'
@@ -41,9 +41,7 @@ export const ProfileCard = ({ userId, profile }: Props) => {
           {fio}
         </Typography>
 
-        {localized.position && (
-          <Typography sx={{ color: 'primary.main' }}>{localized.position}</Typography>
-        )}
+        {localized.position && <Typography sx={textAccent}>{localized.position}</Typography>}
 
         {localized.location && <Chip size="small" label={localized.location} />}
       </Stack>

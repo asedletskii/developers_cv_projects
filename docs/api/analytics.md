@@ -12,6 +12,7 @@
 | `GET /cv/:linkId` | `getPublicResume` | есть; **нужно добавить** заголовок `X-View-Id` и cookie посетителя |
 | `POST /cv/:linkId/contact-views` | `revealContact`, `revealContactsForDownload` | есть только одиночный `contact`; **нужно принять** `viewId` и `initiator` (два случая, см. ниже) |
 | `POST /cv/:linkId/events` | `sendAnalyticsBatch` (трекер шлёт через `sendBeacon`) | нет |
+| `PUT /lk/link/:linkId` | `renameResumeLink` | **нет** (роут не зарегистрирован, фронтенд получает `404 Route not found`) |
 | `GET /lk/link/:linkId/statistics` | `getLinkStatistics` | есть, но отдаёт только `views` и `contactViews` |
 | `GET /lk/link/:linkId/statistics/daily` | `getLinkDaily` | нет |
 | `GET /lk/link/:linkId/views` | `getLinkVisits` | нет |
@@ -175,6 +176,10 @@
 **Идемпотентность и порядок.** Повтор батча безопасен: события — по `(viewId, id)`, `state` — монотонно (`activeMs` не убывает, `maxSection` не возвращается назад, `exitSection` — по большему `seq`). Батчи могут прийти не по порядку.
 
 Фронтенд: `createAnalyticsTracker` собирает батчи и шлёт через `sendBeacon` (с запасным вариантом `fetch` + `keepalive`); `sendAnalyticsBatch` — тот же контракт через axios.
+
+## `PUT /lk/link/:linkId` — переименовать ссылку
+
+Тело: `{ "name": string }`. Те же правила имени, что у `POST /lk/link` (обрезка пробелов, не пустое, не длиннее 128 символов). **Ответ `204`.** Ошибки: `400` — невалидное имя или `linkId` не UUID; `404` — ссылки нет или она чужая; версия (`version`) не нужна.
 
 ## `GET /lk/link/:linkId/statistics` — сводка по ссылке
 

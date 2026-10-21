@@ -5,7 +5,7 @@ import { glassCard, secondaryButton } from '@features/curriculumVitae/styles'
 import { ErrorOutlineRounded } from '@mui/icons-material'
 import { Box, Button, Stack, Typography } from '@mui/material'
 import { ROUTES } from '@shared/constants'
-import { useTranslate } from '@shared/hooks'
+import { useNoIndex, useTranslate } from '@shared/hooks'
 import { Link as RouterLink, useSearchParams } from 'react-router'
 
 const REASON_TEXT_KEY = {
@@ -15,6 +15,7 @@ const REASON_TEXT_KEY = {
 
 const AuthErrorScreen = () => {
   const translate = useTranslate('Auth')
+  useNoIndex()
   const [searchParams] = useSearchParams()
   const reason = searchParams.get('reason') ?? ''
   const textKey = REASON_TEXT_KEY[reason as keyof typeof REASON_TEXT_KEY] ?? 'errorText'

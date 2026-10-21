@@ -41,7 +41,7 @@ export const SectionNav = ({ items }: Props) => {
         position: 'fixed',
         top: 12,
         left: { xs: 0, md: 200 },
-        right: 200,
+        right: { xs: 118, md: 200 },
         zIndex: 1200,
         display: 'flex',
         justifyContent: 'center',
