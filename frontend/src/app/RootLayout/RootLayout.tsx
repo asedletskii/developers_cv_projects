@@ -35,7 +35,7 @@ export const RootLayout = ({ children }: PropsWithChildren) => {
         backgroundColor: 'surface.main',
       }}
     >
-      {!isChromeHidden && <Header />}
+      {!isChromeHidden && <Header isOverlay={pathname === ROUTES.home} />}
 
       <Box
         sx={{

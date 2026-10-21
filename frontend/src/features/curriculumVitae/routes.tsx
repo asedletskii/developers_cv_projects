@@ -7,6 +7,7 @@ const AuthErrorScreen = lazy(() => import('@features/auth/screens/AuthErrorScree
 const CurriculumVitaeScreen = lazy(
   () => import('./screens/CurriculumVitaeScreen/CurriculumVitaeScreen'),
 )
+const NotFoundScreen = lazy(() => import('./screens/NotFoundScreen/NotFoundScreen'))
 const LkProfileScreen = lazy(() => import('./screens/LkProfileScreen/LkProfileScreen'))
 const LkResumesScreen = lazy(() => import('./screens/LkResumesScreen/LkResumesScreen'))
 const LkResumeEditScreen = lazy(() => import('./screens/LkResumeEditScreen/LkResumeEditScreen'))
@@ -21,7 +22,9 @@ const LegacyLkRedirect = () => {
 export const curriculumVitaeRoutes = {
   pages: (
     <>
-      <Route path={ROUTES.about} element={<AboutScreen />} />
+      <Route path={ROUTES.home} element={<AboutScreen />} />
+      <Route path={ROUTES.about} element={<Navigate to={ROUTES.home} replace />} />
+      <Route path={ROUTES.main} element={<Navigate to={ROUTES.home} replace />} />
 
       <Route path={ROUTES.cv} element={<Navigate to={ROUTES.home} replace />} />
       <Route path={ROUTES.cvResume} element={<CurriculumVitaeScreen />} />
@@ -36,6 +39,8 @@ export const curriculumVitaeRoutes = {
       </Route>
 
       <Route path={ROUTES.lkResumePreview} element={<LkResumeScreen />} />
+
+      <Route path="*" element={<NotFoundScreen />} />
     </>
   ),
 }

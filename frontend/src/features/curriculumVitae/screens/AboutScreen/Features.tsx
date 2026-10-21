@@ -1,4 +1,5 @@
-import { glassCard } from '@features/curriculumVitae/styles'
+import { TiltCard } from '@features/curriculumVitae/components/cv/TiltCard'
+import { glassCard, iconTile } from '@features/curriculumVitae/styles'
 import { Box, Container, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { FEATURES } from './constants'
@@ -18,6 +19,7 @@ export const Features = () => {
         <Typography variant="h3" sx={{ fontSize: 'clamp(1.75rem, 4vw, 2.5rem)' }}>
           {translate('title')}
         </Typography>
+
         <Typography sx={{ color: 'text.secondary' }}>{translate('subtitle')}</Typography>
       </Stack>
 
@@ -30,35 +32,38 @@ export const Features = () => {
         }}
       >
         {FEATURES.map(({ key, Icon }) => (
-          <Stack
-            key={key}
-            className="reveal-item"
-            spacing={1.5}
-            sx={{
-              p: 3,
-              ...glassCard,
-              transition: 'transform .25s ease, border-color .25s ease',
-              '&:hover': { transform: 'translateY(-4px)', borderColor: 'primary.main' },
-              '@media (prefers-reduced-motion: reduce)': { '&:hover': { transform: 'none' } },
-            }}
-          >
-            <Stack
-              alignItems="center"
-              justifyContent="center"
+          <Box key={key} className="reveal-item">
+            <TiltCard
               sx={{
-                width: 48,
-                height: 48,
-                borderRadius: 2,
-                bgcolor: 'action.hover',
-                color: 'primary.main',
+                ...glassCard,
+                height: '100%',
+                p: 3,
+                transition: 'border-color .25s ease',
+                '&:hover': { borderColor: 'primary.main' },
               }}
             >
-              <Icon />
-            </Stack>
+              <Stack spacing={1.5}>
+                <Stack
+                  alignItems="center"
+                  justifyContent="center"
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 2,
+                    ...iconTile,
+                    transition: 'transform .3s ease',
+                    '&:hover': { transform: 'rotate(-8deg) scale(1.1)' },
+                  }}
+                >
+                  <Icon />
+                </Stack>
 
-            <Typography variant="h6">{translate(`${key}.title`)}</Typography>
-            <Typography sx={{ color: 'text.secondary' }}>{translate(`${key}.text`)}</Typography>
-          </Stack>
+                <Typography variant="h6">{translate(`${key}.title`)}</Typography>
+
+                <Typography sx={{ color: 'text.secondary' }}>{translate(`${key}.text`)}</Typography>
+              </Stack>
+            </TiltCard>
+          </Box>
         ))}
       </Box>
     </Container>

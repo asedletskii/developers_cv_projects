@@ -169,7 +169,33 @@ describe('buildResumeHtml', () => {
   })
 })
 
+describe('buildResumeHtml: защита файла', () => {
+  it('в документе запрещены скрипты, соединения и внешние ресурсы', () => {
+    expect(build()).toContain(
+      `content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"`,
+    )
+  })
+
+  it('значение контакта не расширяет mailto параметрами', () => {
+    const html = build({ contacts: { [ContactKey.Email]: 'me@example.ru?cc=x@y.z&body=hi' } })
+
+    expect(html).not.toContain('mailto:me@example.ru?cc')
+    expect(html).toContain('href="mailto:me@example.ru%3Fcc%3Dx@y.z%26body%3Dhi"')
+  })
+})
+
 describe('sanitizeFileName', () => {
+  it('не оставляет точку и пробел в конце и режет длину', () => {
+    expect(sanitizeFileName('Антон...  ')).toBe('Антон')
+    expect(sanitizeFileName('a'.repeat(300))).toHaveLength(120)
+  })
+
+  it('зарезервированные имена Windows заменяются запасным', () => {
+    expect(sanitizeFileName('CON')).toBe('resume')
+    expect(sanitizeFileName('nul.txt')).toBe('resume')
+    expect(sanitizeFileName('console')).toBe('console')
+  })
+
   it('убирает символы, недопустимые в именах файлов', () => {
     expect(sanitizeFileName('Седлецкий Антон: резюме/CV?')).toBe('Седлецкий Антон резюме CV')
   })

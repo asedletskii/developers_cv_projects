@@ -114,6 +114,9 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Audit prod dependencies
+        run: yarn audit --groups dependencies --level moderate
+
       - name: Lint
         run: yarn lint
 
@@ -125,6 +128,10 @@ jobs:
 
       - name: Build
         run: yarn build
+
+      # Dev-заголовок входа без Telegram и dev-хелперы не должны попадать в прод-бандл
+      - name: Check dev-only code is not bundled
+        run: "! grep -rq 'X-Mock-User-ID' build/"
 
   frontend-docker:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
