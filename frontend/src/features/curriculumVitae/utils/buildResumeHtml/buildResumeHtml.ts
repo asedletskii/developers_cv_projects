@@ -1,9 +1,8 @@
 import { ContactKey, Resume } from '@features/curriculumVitae/types'
+import { getContactHref } from '@features/curriculumVitae/utils/getContactLinks'
+import { safeExternalUrl } from '@features/curriculumVitae/utils/safeExternalUrl'
 
-/** Подписи документа на языке резюме. Собирает хук (там есть переводы), сюда приходят готовые строки —
- *  поэтому функция чистая и проверяется тестами без локализации. */
 export type ResumeHtmlLabels = {
-  /** Язык документа (`<html lang>`), он же язык подписей */
   lang: string
   sections: {
     technologies: string
@@ -22,9 +21,7 @@ export type ResumeHtmlLabels = {
   hardSkills: string
   softSkills: string
   hoursSuffix: string
-  /** Вместо значений, если скрытые контакты получить не удалось */
   contactsHidden: string
-  /** «Сформировано 5 октября 2026» — дата уже подставлена */
   generated: string
   actualVersion: string
   skillNames: Record<string, string>
@@ -34,12 +31,9 @@ export type ResumeHtmlLabels = {
 export type BuildResumeHtmlInput = {
   resume: Resume
   fullName: string
-  /** Значения контактов, которые удалось получить (открытые и раскрытые) */
   contacts: Partial<Record<ContactKey, string>>
-  /** Контакты, скрытые автором, значения которых получить не удалось */
   unresolvedContacts?: ContactKey[]
   labels: ResumeHtmlLabels
-  /** Адрес актуальной версии резюме */
   sourceUrl?: string
 }
 
@@ -51,20 +45,9 @@ const ESCAPES: Record<string, string> = {
   "'": '&#39;',
 }
 
-/** Весь текст резюме — пользовательский, а файл открывают локально: ничего не вставляем «как есть» */
 export const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ESCAPES[char])
 
-/** Ссылки автора пускаем в файл только с протоколом http(s): `javascript:` и подобное отбрасываем */
-const safeHref = (value?: string) => {
-  if (!value) return ''
-
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : ''
-  } catch {
-    return ''
-  }
-}
+const safeHref = (value?: string) => safeExternalUrl(value) ?? ''
 
 const link = (href: string, text: string) =>
   href
@@ -85,14 +68,6 @@ const section = (title: string, body: string) =>
 const meta = (parts: (string | undefined | false)[]) => {
   const text = parts.filter(Boolean).join(' · ')
   return text ? `<p class="meta">${escapeHtml(text)}</p>` : ''
-}
-
-const contactHref = (key: ContactKey, value: string) => {
-  if (key === ContactKey.Telegram) {
-    return `https://t.me/${encodeURIComponent(value.replace(/^@/, ''))}`
-  }
-
-  return key === ContactKey.Email ? `mailto:${value}` : `tel:${value}`
 }
 
 const contactText = (key: ContactKey, value: string) =>
@@ -131,7 +106,7 @@ export const buildResumeHtml = ({
     .filter((key) => contacts[key])
     .map((key) => {
       const value = contacts[key] as string
-      return `<li>${link(contactHref(key, value), contactText(key, value))}</li>`
+      return `<li>${link(getContactHref(key, value), contactText(key, value))}</li>`
     })
   const contactsBody = contactItems.length
     ? `<ul>${contactItems.join('')}</ul>`
@@ -229,6 +204,7 @@ export const buildResumeHtml = ({
 <html lang="${escapeHtml(labels.lang)}">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(fullName)}</title>
 <style>${STYLES}</style>
@@ -256,14 +232,16 @@ ${section(sections.languages, languages)}
 `
 }
 
-/** Имя файла без символов, которые ломают сохранение в Windows/macOS */
+const RESERVED_FILE_NAMES = /^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i
+
 export const sanitizeFileName = (name: string, fallback = 'resume') => {
   const cleaned = [...name]
-    // управляющие символы (код < 32) и запрещённые в именах файлов знаки — в пробел
     .map((char) => (char.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(char) ? ' ' : char))
     .join('')
     .replace(/\s+/g, ' ')
+    .replace(/[. ]+$/, '')
+    .slice(0, 120)
     .trim()
 
-  return cleaned || fallback
+  return !cleaned || RESERVED_FILE_NAMES.test(cleaned) ? fallback : cleaned
 }

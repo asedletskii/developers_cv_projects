@@ -1,6 +1,7 @@
 import { PropsWithChildren } from 'react'
 import { useAnalytics } from '@features/curriculumVitae/hooks'
 import { AnalyticsEventType } from '@features/curriculumVitae/types'
+import { safeExternalUrl } from '@features/curriculumVitae/utils'
 import { OpenInNewOutlined } from '@mui/icons-material'
 import { Button } from '@mui/material'
 
@@ -19,15 +20,18 @@ const getHostname = (href: string) => {
 
 export const ExternalLink = ({ href, kind = 'other', children }: Props) => {
   const { track } = useAnalytics()
+  const safeHref = safeExternalUrl(href)
+
+  if (!safeHref) return null
 
   return (
     <Button
-      href={href}
+      href={safeHref}
       target="_blank"
       rel="noopener noreferrer"
       data-analytics-id={`external-${kind}`}
       onClick={() =>
-        track({ type: AnalyticsEventType.ExternalClick, kind, target: getHostname(href) })
+        track({ type: AnalyticsEventType.ExternalClick, kind, target: getHostname(safeHref) })
       }
       endIcon={<OpenInNewOutlined />}
       sx={{

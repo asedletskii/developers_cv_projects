@@ -6,15 +6,13 @@ import { ROUTES } from '@shared/constants'
 import { useTranslate } from '@shared/hooks'
 import { Link as RouterLink, useLocation } from 'react-router'
 
-/** Та же пилюля, что и в навигации по секциям резюме, только пункты — разделы сайта. */
 export const Navigation = () => {
   const { pathname } = useLocation()
   const translate = useTranslate('Header')
 
   const routes = useMemo(
     () => [
-      { label: translate('Tabs.main'), to: ROUTES.main },
-      { label: translate('Tabs.about'), to: ROUTES.about },
+      { label: translate('Tabs.about'), to: ROUTES.home },
       { label: translate('Tabs.lk'), to: ROUTES.lk },
     ],
     [translate],
@@ -27,7 +25,7 @@ export const Navigation = () => {
       sx={{ display: 'inline-flex', gap: 0.5, p: 0.5, ...glassCard, borderRadius: 999 }}
     >
       {routes.map((r) => {
-        const isActive = pathname.startsWith(r.to)
+        const isActive = r.to === ROUTES.home ? pathname === r.to : pathname.startsWith(r.to)
 
         return (
           <Box

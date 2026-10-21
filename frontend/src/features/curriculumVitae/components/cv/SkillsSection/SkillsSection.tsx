@@ -1,12 +1,13 @@
 import { Section } from '@features/curriculumVitae/components/cv/Section'
-import { HardSkill, SectionId, SoftSkill } from '@features/curriculumVitae/types'
+import { SectionId } from '@features/curriculumVitae/types'
+import { isHardSkill, isSoftSkill } from '@features/curriculumVitae/utils'
 import { Stack } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { Group } from './Group'
 
 type Props = {
-  hardSkills: HardSkill[]
-  softSkills: SoftSkill[]
+  hardSkills: string[]
+  softSkills: string[]
 }
 
 export const SkillsSection = ({ hardSkills, softSkills }: Props) => {
@@ -17,13 +18,19 @@ export const SkillsSection = ({ hardSkills, softSkills }: Props) => {
       key: 'hard',
       title: translate('hard'),
       color: 'primary' as const,
-      skills: hardSkills.map((skill) => ({ id: skill, label: translate(`HardSkills.${skill}`) })),
+      skills: hardSkills.map((skill) => ({
+        id: skill,
+        label: isHardSkill(skill) ? translate(`HardSkills.${skill}`) : skill,
+      })),
     },
     {
       key: 'soft',
       title: translate('soft'),
       color: 'secondary' as const,
-      skills: softSkills.map((skill) => ({ id: skill, label: translate(`SoftSkills.${skill}`) })),
+      skills: softSkills.map((skill) => ({
+        id: skill,
+        label: isSoftSkill(skill) ? translate(`SoftSkills.${skill}`) : skill,
+      })),
     },
   ].filter(({ skills }) => skills.length)
 

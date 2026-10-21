@@ -1,3 +1,4 @@
+import { safeExternalUrl } from '@features/curriculumVitae/utils'
 import { Avatar, Box } from '@mui/material'
 import { FLOAT, SPIN } from './constants'
 
@@ -32,7 +33,7 @@ export const Portrait = ({ src, alt, initials, size = 144 }: Props) => (
     />
 
     <Avatar
-      src={src}
+      src={safeExternalUrl(src, true)}
       alt={alt}
       sx={{
         width: size,

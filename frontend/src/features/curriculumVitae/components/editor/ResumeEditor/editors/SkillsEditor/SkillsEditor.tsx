@@ -5,13 +5,26 @@ import { SkillsField } from './SkillsField'
 
 export const SkillsEditor = () => {
   const translate = useTranslate('Lk.Edit.Skills')
-  const { hardSkillOptions, softSkillOptions } = useSkillOptions()
+  const { hardSkillOptions, softSkillOptions, getHardSkillLabel, getSoftSkillLabel } =
+    useSkillOptions()
 
   return (
     <Stack spacing={2}>
-      <SkillsField name="skills.hardSkills" label={translate('hard')} options={hardSkillOptions} />
+      <SkillsField
+        name="skills.hardSkills"
+        label={translate('hard')}
+        helperText={translate('hint')}
+        options={hardSkillOptions}
+        getOptionLabel={getHardSkillLabel}
+      />
 
-      <SkillsField name="skills.softSkills" label={translate('soft')} options={softSkillOptions} />
+      <SkillsField
+        name="skills.softSkills"
+        label={translate('soft')}
+        helperText={translate('hint')}
+        options={softSkillOptions}
+        getOptionLabel={getSoftSkillLabel}
+      />
     </Stack>
   )
 }

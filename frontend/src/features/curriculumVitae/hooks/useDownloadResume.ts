@@ -6,6 +6,8 @@ import { AnalyticsEventType, ContactKey } from '@features/curriculumVitae/types'
 import {
   buildResumeHtml,
   getContactLinks,
+  isHardSkill,
+  isSoftSkill,
   ResumeHtmlLabels,
   sanitizeFileName,
 } from '@features/curriculumVitae/utils'
@@ -85,12 +87,12 @@ export const useDownloadResume = () => {
         }),
         actualVersion: t('HtmlExport.actualVersion'),
         skillNames: Object.fromEntries([
-          ...(resume.skills?.hardSkills ?? []).map(
-            (code) => [code, translate(`Skills.HardSkills.${code}`, { lng })] as const,
-          ),
-          ...(resume.skills?.softSkills ?? []).map(
-            (code) => [code, translate(`Skills.SoftSkills.${code}`, { lng })] as const,
-          ),
+          ...(resume.skills?.hardSkills ?? [])
+            .filter(isHardSkill)
+            .map((code) => [code, translate(`Skills.HardSkills.${code}`, { lng })] as const),
+          ...(resume.skills?.softSkills ?? [])
+            .filter(isSoftSkill)
+            .map((code) => [code, translate(`Skills.SoftSkills.${code}`, { lng })] as const),
         ]),
         languageNames: Object.fromEntries(
           resume.languages.map(
