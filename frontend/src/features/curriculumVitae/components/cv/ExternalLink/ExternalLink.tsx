@@ -1,6 +1,5 @@
 import { PropsWithChildren } from 'react'
 import { useAnalytics } from '@features/curriculumVitae/hooks'
-import { textAccent } from '@features/curriculumVitae/styles'
 import { AnalyticsEventType } from '@features/curriculumVitae/types'
 import { safeExternalUrl } from '@features/curriculumVitae/utils'
 import { OpenInNewOutlined } from '@mui/icons-material'
@@ -42,7 +41,6 @@ export const ExternalLink = ({ href, kind = 'other', children }: Props) => {
         px: 1.5,
         py: 0.75,
         textTransform: 'none',
-        ...textAccent,
       }}
     >
       {children}

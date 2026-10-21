@@ -1,5 +1,4 @@
 import { useLogout, useSession } from '@features/auth/hooks'
-import { textAccent } from '@features/curriculumVitae/styles'
 import { LogoutRounded } from '@mui/icons-material'
 import { AppBar, Box, Button, Container, IconButton, useMediaQuery } from '@mui/material'
 import { ROUTES } from '@shared/constants'
@@ -63,7 +62,6 @@ export const Header = ({ isOverlay = false }: Props) => {
                   bgcolor: 'transparent',
                   '&:hover': { bgcolor: 'transparent' },
                   typography: 'caption',
-                  ...textAccent,
                 }}
                 endIcon={<LogoutRounded />}
               >
