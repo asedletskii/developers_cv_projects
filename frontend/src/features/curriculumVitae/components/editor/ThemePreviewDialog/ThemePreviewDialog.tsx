@@ -1,4 +1,4 @@
-import { glassCard } from '@features/curriculumVitae/styles'
+import { dialogPaper, glassCard } from '@features/curriculumVitae/styles'
 import { Brightness4Rounded, Brightness7Rounded } from '@mui/icons-material'
 import {
   Button,
@@ -32,7 +32,7 @@ export const ThemePreviewDialog = ({ onClose }: Props) => {
       onClose={onClose}
       fullWidth
       maxWidth="xs"
-      slotProps={{ paper: { sx: { ...glassCard, backgroundImage: 'none' } } }}
+      slotProps={{ paper: { sx: dialogPaper } }}
     >
       <DialogTitle
         sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}

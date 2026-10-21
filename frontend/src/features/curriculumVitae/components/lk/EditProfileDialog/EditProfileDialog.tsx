@@ -1,4 +1,4 @@
-import { glassCard } from '@features/curriculumVitae/styles'
+import { dialogPaper } from '@features/curriculumVitae/styles'
 import { LkProfile } from '@features/curriculumVitae/types'
 import {
   Button,
@@ -33,7 +33,7 @@ export const EditProfileDialog = ({ userId, profile, onClose, intro }: Props) =>
       onClose={onClose}
       fullWidth
       maxWidth="xs"
-      slotProps={{ paper: { sx: { ...glassCard, backgroundImage: 'none' } } }}
+      slotProps={{ paper: { sx: dialogPaper } }}
     >
       <DialogTitle>{translate('editProfile')}</DialogTitle>
 

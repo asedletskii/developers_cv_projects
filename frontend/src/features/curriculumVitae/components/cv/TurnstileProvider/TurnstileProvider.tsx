@@ -1,6 +1,6 @@
 import { createContext, PropsWithChildren, useMemo } from 'react'
 import { useTurnstile } from '@features/curriculumVitae/hooks/useTurnstile'
-import { glassCard } from '@features/curriculumVitae/styles'
+import { dialogPaper } from '@features/curriculumVitae/styles'
 import { Box, Dialog, DialogContent, DialogTitle } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 
@@ -30,7 +30,7 @@ export const TurnstileProvider = ({ children }: PropsWithChildren) => {
         keepMounted
         fullWidth
         maxWidth="xs"
-        slotProps={{ paper: { sx: { ...glassCard, backgroundImage: 'none' } } }}
+        slotProps={{ paper: { sx: dialogPaper } }}
       >
         <DialogTitle>{translate('Challenge.title')}</DialogTitle>
 

@@ -117,6 +117,22 @@ export const components: ThemeOptions['components'] = {
           'scale 120ms ease-out',
         ].join(', '),
       }),
+
+      // Жёлтый текст и контур на светлом фоне не читаются: в светлой теме такие кнопки тёмные,
+      // жёлтыми остаются только залитые (`contained`)
+      textPrimary: ({ theme }) =>
+        theme.palette.mode === 'light' ? { color: theme.palette.text.primary } : {},
+      outlinedPrimary: ({ theme }) =>
+        theme.palette.mode === 'light'
+          ? {
+              color: theme.palette.text.primary,
+              borderColor: theme.palette.divider,
+              '&:hover': {
+                borderColor: theme.palette.text.secondary,
+                backgroundColor: theme.palette.action.hover,
+              },
+            }
+          : {},
     },
   },
 
@@ -142,18 +158,6 @@ export const components: ThemeOptions['components'] = {
       variant: 'standard',
       size: 'small',
       slotProps: { inputLabel: { shrink: true } },
-    },
-  },
-
-  // Диалог поверх страницы стоит «стеклянным» (glassCard), а сама подложка модалки у MUI по
-  // умолчанию затемняет фон только на 50% — недостаточно, если за диалогом что-то яркое (например,
-  // акцентный цвет темы): цвет просвечивает сквозь подложку и полупрозрачную панель как паразитное
-  // свечение. Подложку делаем темнее, а не саму панель диалога непрозрачной — стеклянный вид остаётся.
-  MuiBackdrop: {
-    styleOverrides: {
-      root: {
-        backgroundColor: 'rgba(0, 0, 0, 0.72)',
-      },
     },
   },
 

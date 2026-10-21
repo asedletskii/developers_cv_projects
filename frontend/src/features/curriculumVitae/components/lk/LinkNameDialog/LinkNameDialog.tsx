@@ -1,4 +1,4 @@
-import { glassCard } from '@features/curriculumVitae/styles'
+import { dialogPaper } from '@features/curriculumVitae/styles'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useLinkNameDialog } from './hooks'
@@ -24,7 +24,7 @@ export const LinkNameDialog = ({ title, initialName, onSave, onClose }: Props) =
       onClose={onClose}
       fullWidth
       maxWidth="xs"
-      slotProps={{ paper: { sx: { ...glassCard, backgroundImage: 'none' } } }}
+      slotProps={{ paper: { sx: dialogPaper } }}
     >
       <DialogTitle>{title}</DialogTitle>
 
