@@ -1,4 +1,4 @@
-import { glassCard } from '@features/curriculumVitae/styles'
+import { dialogPaper } from '@features/curriculumVitae/styles'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { useEditResumeTitle } from './hooks'
@@ -21,7 +21,7 @@ export const EditResumeTitleDialog = ({ resume, onClose }: Props) => {
       onClose={onClose}
       fullWidth
       maxWidth="xs"
-      slotProps={{ paper: { sx: { ...glassCard, backgroundImage: 'none' } } }}
+      slotProps={{ paper: { sx: dialogPaper } }}
     >
       <DialogTitle>{translate('editTitle')}</DialogTitle>
 
