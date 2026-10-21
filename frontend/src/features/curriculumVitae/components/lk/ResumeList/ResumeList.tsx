@@ -1,9 +1,11 @@
 import { CreateResumeDialog } from '@features/curriculumVitae/components/lk/CreateResumeDialog'
 import { EditResumeTitleDialog } from '@features/curriculumVitae/components/lk/EditResumeTitleDialog'
+import { textAccent } from '@features/curriculumVitae/styles'
 import { LkResumeSummary } from '@features/curriculumVitae/types'
 import { AddRounded } from '@mui/icons-material'
 import { Button, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
+import { EmptyResumes } from './EmptyResumes'
 import { useResumeList } from './hooks'
 import { ResumeActionsMenu } from './ResumeActionsMenu'
 import { ResumeListItem } from './ResumeListItem'
@@ -25,14 +27,14 @@ export const ResumeList = ({ resumes }: Props) => {
           onClick={list.openCreating}
           startIcon={<AddRounded />}
           size="small"
-          sx={{ textTransform: 'none' }}
+          sx={{ textTransform: 'none', ...textAccent }}
         >
           {translate('addResume')}
         </Button>
       </Stack>
 
       {resumes.length === 0 ? (
-        <Typography sx={{ color: 'text.secondary' }}>{translate('empty')}</Typography>
+        <EmptyResumes onCreate={list.openCreating} />
       ) : (
         <Stack spacing={1.5}>
           {resumes.map((resume) => (

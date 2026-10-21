@@ -9,6 +9,13 @@ export const sharedDict = {
       },
     },
 
+    ErrorBoundary: {
+      title: 'Что-то пошло не так',
+      text: 'Страница сломалась из-за неожиданной ошибки. Обновите её — обычно этого достаточно.',
+      reload: 'Обновить страницу',
+      home: 'На главную',
+    },
+
     NotFound: {
       title: 'Страница потерялась',
       text: 'Такого адреса нет: возможно, ссылка устарела или в ней опечатка.',
@@ -65,6 +72,13 @@ export const sharedDict = {
         about: 'About',
         lk: 'Personal account',
       },
+    },
+
+    ErrorBoundary: {
+      title: 'Something went wrong',
+      text: 'The page hit an unexpected error. Reload it — that usually helps.',
+      reload: 'Reload page',
+      home: 'Go home',
     },
 
     NotFound: {

@@ -167,6 +167,10 @@ Frontend вызывает `revealContact` для `initiator: contact` и `reveal
 
 Фронтенд: `createAnalyticsTracker` собирает батчи и шлёт через `sendBeacon` (с запасным вариантом `fetch` + `keepalive`); `sendAnalyticsBatch` — тот же контракт через axios.
 
+## `PUT /lk/link/:linkId` — переименовать ссылку
+
+Тело: `{ "name": string }`. Те же правила имени, что у `POST /lk/link` (обрезка пробелов, не пустое, не длиннее 128 символов). **Ответ `204`.** Ошибки: `400` — невалидное имя или `linkId` не UUID; `404` — ссылки нет или она чужая; версия (`version`) не нужна.
+
 ## `GET /lk/link/:linkId/statistics` — сводка по ссылке
 
 Параметры — период (`from`, `to`, `tz`). Тела нет.

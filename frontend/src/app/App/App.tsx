@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { RouteBoundary } from '../ErrorBoundary'
 import { PageLoader } from '../PageLoader'
 import { PageRouter } from '../PageRouter'
 import { Providers } from '../providers'
@@ -8,9 +9,11 @@ export const App = () => {
   return (
     <Providers>
       <RootLayout>
-        <Suspense fallback={<PageLoader />}>
-          <PageRouter />
-        </Suspense>
+        <RouteBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <PageRouter />
+          </Suspense>
+        </RouteBoundary>
       </RootLayout>
     </Providers>
   )

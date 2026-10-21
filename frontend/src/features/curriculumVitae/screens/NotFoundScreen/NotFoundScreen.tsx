@@ -3,7 +3,7 @@ import { secondaryButton } from '@features/curriculumVitae/styles'
 import { ArrowBackRounded, HomeRounded, LinkOffRounded } from '@mui/icons-material'
 import { Box, Button, Chip, Stack, Typography } from '@mui/material'
 import { ROUTES } from '@shared/constants'
-import { useDocumentTitle, useTranslate } from '@shared/hooks'
+import { useDocumentTitle, useNoIndex, useTranslate } from '@shared/hooks'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router'
 import { BREATHE, ORBIT, POP, RISE, STILL, WOBBLE } from './constants'
 
@@ -19,6 +19,7 @@ const NotFoundScreen = () => {
   const translate = useTranslate('NotFound')
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  useNoIndex()
   useDocumentTitle(translate('title'))
 
   const canGoBack = Boolean(window.history.state?.idx)

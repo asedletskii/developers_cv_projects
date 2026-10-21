@@ -233,7 +233,13 @@ export const lkDict = {
 
       Resumes: {
         title: 'Резюме',
-        empty: 'У этого пользователя пока нет резюме',
+        emptyTitle: 'Начните с первого резюме',
+        emptyText:
+          'Резюме собирается из независимых разделов, а адресату уходит персональная ссылка со своей аналитикой.',
+        emptyStep1: 'Создайте резюме и выберите язык',
+        emptyStep2: 'Заполните нужные разделы и выберите цвета',
+        emptyStep3: 'Опубликуйте и создайте ссылку для рекрутера',
+        createFirst: 'Создать первое резюме',
         addResume: 'Добавить резюме',
         actions: 'Действия',
         delete: 'Удалить',
@@ -662,7 +668,13 @@ export const lkDict = {
 
       Resumes: {
         title: 'Résumés',
-        empty: 'This user has no résumés yet',
+        emptyTitle: 'Start with your first résumé',
+        emptyText:
+          'A résumé is built from independent sections, and every recipient gets a personal link with its own analytics.',
+        emptyStep1: 'Create a résumé and pick its language',
+        emptyStep2: 'Fill in the sections you need and pick your colors',
+        emptyStep3: 'Publish it and create a link for the recruiter',
+        createFirst: 'Create your first résumé',
         addResume: 'Add résumé',
         actions: 'Actions',
         delete: 'Delete',

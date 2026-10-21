@@ -7,6 +7,7 @@ class LocaleManager {
 
   constructor() {
     dayjs.locale(this.i18n.language)
+    document.documentElement.lang = this.i18n.language
   }
 
   getLocale(): Languages {
@@ -27,6 +28,7 @@ class LocaleManager {
     await this.i18n.changeLanguage(nextLang)
 
     dayjs.locale(nextLang)
+    document.documentElement.lang = nextLang
     localStorage.setItem('language', nextLang)
   }
 

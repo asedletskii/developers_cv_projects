@@ -26,3 +26,10 @@ export const secondaryButton = {
   borderColor: 'divider',
   '&:hover': { borderColor: 'text.secondary', bgcolor: 'action.hover' },
 }
+
+/** Текстовая кнопка или акцентная подпись: в светлой теме тёмный текст (жёлтый на светлом не читается),
+ *  в тёмной — жёлтый */
+export const textAccent = {
+  color: (theme: Theme) =>
+    isLight(theme) ? theme.palette.text.primary : theme.palette.primary.main,
+}
