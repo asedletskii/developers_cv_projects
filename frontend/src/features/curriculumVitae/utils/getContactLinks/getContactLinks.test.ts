@@ -71,6 +71,25 @@ describe('getContactLinks', () => {
   })
 })
 
+describe('getContactHref: значение от автора не меняет ссылку', () => {
+  it('email: параметры mailto кодируются, @ остаётся', () => {
+    expect(getContactHref(ContactKey.Email, 'me@example.ru')).toBe('mailto:me@example.ru')
+    expect(getContactHref(ContactKey.Email, 'a@b.ru?cc=x&body=y')).toBe(
+      'mailto:a@b.ru%3Fcc%3Dx%26body%3Dy',
+    )
+  })
+
+  it('телефон: только цифры и + * #', () => {
+    expect(getContactHref(ContactKey.Phone, '+7 (999) 888-22-33')).toBe('tel:+79998882233')
+    expect(getContactHref(ContactKey.Phone, '+7999;phone-context=evil')).toBe('tel:+7999')
+  })
+
+  it('telegram: @ срезается, путь кодируется', () => {
+    expect(getContactHref(ContactKey.Telegram, '@a_b')).toBe('https://t.me/a_b')
+    expect(getContactHref(ContactKey.Telegram, 'a/../b?x')).toBe('https://t.me/a%2F..%2Fb%3Fx')
+  })
+})
+
 describe('getContactHref', () => {
   it('собирает адрес по ключу контакта', () => {
     expect(getContactHref(ContactKey.Telegram, 'a_sedletskii')).toBe('https://t.me/a_sedletskii')

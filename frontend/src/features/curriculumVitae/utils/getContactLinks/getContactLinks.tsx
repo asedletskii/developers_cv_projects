@@ -20,24 +20,20 @@ const ICONS: Record<ContactKey, ReactNode> = {
   [ContactKey.Phone]: <PhoneOutlined />,
 }
 
-/** Как показываем значение контакта: у телеграма — с `@`, остальные как есть. */
 export const getContactDisplayValue = (key: ContactKey, value: string) =>
   key === ContactKey.Telegram ? `@${value}` : value
 
-/** Href по значению контакта — годится и для открытого значения, и для раскрытого по клику. */
 export const getContactHref = (key: ContactKey, value: string) => {
   switch (key) {
     case ContactKey.Telegram:
-      return `https://t.me/${value}`
+      return `https://t.me/${encodeURIComponent(value.replace(/^@/, ''))}`
     case ContactKey.Email:
-      return `mailto:${value}`
+      return `mailto:${encodeURIComponent(value.trim()).replace(/%40/g, '@')}`
     case ContactKey.Phone:
-      return `tel:${value}`
+      return `tel:${value.replace(/[^\d+*#]/g, '')}`
   }
 }
 
-/** Ссылки на те способы связи, которые заполнены или скрыты. У скрытых `value` не приходит —
- *  бэк прячет его в публичном ответе, пока не запросили через `POST /cv/:id/contact-views`. */
 export const getContactLinks = (contacts: Contacts, hidden: ContactKey[] = []): ContactLink[] =>
   ([ContactKey.Telegram, ContactKey.Email, ContactKey.Phone] as const)
     .map((key) => {

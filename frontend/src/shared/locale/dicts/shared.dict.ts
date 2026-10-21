@@ -4,10 +4,16 @@ export const sharedDict = {
       logout: 'Выход',
 
       Tabs: {
-        main: 'Главная',
         about: 'О проекте',
         lk: 'Личный кабинет',
       },
+    },
+
+    NotFound: {
+      title: 'Страница потерялась',
+      text: 'Такого адреса нет: возможно, ссылка устарела или в ней опечатка.',
+      home: 'На главную',
+      back: 'Назад',
     },
 
     Footer: {
@@ -56,10 +62,16 @@ export const sharedDict = {
       logout: 'Log out',
 
       Tabs: {
-        main: 'Main',
         about: 'About',
         lk: 'Personal account',
       },
+    },
+
+    NotFound: {
+      title: 'Page not found',
+      text: 'There is no such address: the link may be outdated or contain a typo.',
+      home: 'Go home',
+      back: 'Go back',
     },
 
     Footer: {

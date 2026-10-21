@@ -9,6 +9,9 @@ export const curriculumVitaeDict = {
         errorCode: 'Код ошибки: {{status}}',
         requestId: 'ID запроса: {{requestId}}',
         home: 'На главную',
+        retry: 'Попробовать снова',
+        copyDetails: 'Скопировать детали',
+        copied: 'Скопировано',
       },
 
       Availability: {
@@ -192,6 +195,9 @@ export const curriculumVitaeDict = {
         errorCode: 'Error code: {{status}}',
         requestId: 'Request ID: {{requestId}}',
         home: 'Go home',
+        retry: 'Try again',
+        copyDetails: 'Copy details',
+        copied: 'Copied',
       },
 
       Availability: {

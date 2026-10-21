@@ -374,6 +374,7 @@ export const lkDict = {
         Skills: {
           hard: 'Профессиональные навыки',
           soft: 'Личные качества',
+          hint: 'Выберите из списка или введите свой и нажмите Enter',
         },
 
         Education: {
@@ -802,6 +803,7 @@ export const lkDict = {
         Skills: {
           hard: 'Professional skills',
           soft: 'Personal qualities',
+          hint: 'Pick from the list or type your own and press Enter',
         },
 
         Education: {

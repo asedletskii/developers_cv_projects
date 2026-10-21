@@ -47,7 +47,7 @@
 
 | Поле | Тип | Обяз. | Ограничения | Дефолт при создании |
 |---|---|---|---|---|
-| `hardSkills` | string[] | нет | только значения справочника (`architecture testing cicd performance accessibility codeReview uiDesign api`), без повторов; порядок сохраняется | `[]` |
-| `softSkills` | string[] | нет | только `communication teamwork problemSolving timeManagement mentoring adaptability ownership`, без повторов | `[]` |
+| `hardSkills` | string[] | нет | значение справочника (`architecture testing cicd performance accessibility codeReview uiDesign api`) **или свободный текст**; до 50 символов, без пробелов по краям, без пустых; повторы без учёта регистра отклоняются; порядок сохраняется | `[]` |
+| `softSkills` | string[] | нет | то же; справочник — `communication teamwork problemSolving timeManagement mentoring adaptability ownership` | `[]` |
 
-Собственные значения бэкенд отклоняет (`400`): список закрытый. Оба массива могут быть пустыми.
+Справочник — это только подсказки и перевод: фронтенд показывает значение из справочника переводом на язык интерфейса, любое другое — как есть. На бэкенде элементы одинаковые строки, хранятся и отдаются без изменений; справочник бэкенду для проверки не нужен. Максимум элементов в массиве — как у технологий. Оба массива могут быть пустыми.

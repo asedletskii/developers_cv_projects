@@ -1,3 +1,4 @@
+import { iconTile } from '@features/curriculumVitae/styles'
 import { Box, Container, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { ROAD_NODES, ROAD_PATH_D, ROAD_VIEWBOX, STEPS } from './constants'
@@ -36,6 +37,7 @@ export const RoadStory = () => {
                   stroke="currentColor"
                   sx={{ color: 'divider' }}
                 />
+
                 <Box
                   component="path"
                   className="road-path"
@@ -73,12 +75,12 @@ export const RoadStory = () => {
                         width: 72,
                         height: 72,
                         borderRadius: '50%',
-                        bgcolor: 'action.hover',
-                        color: 'primary.main',
+                        ...iconTile,
                       }}
                     >
                       <Icon sx={{ fontSize: 36 }} />
                     </Stack>
+
                     <Typography sx={{ color: 'gray.light', fontWeight: 600 }}>
                       {translate('step', { number: index + 1 })}
                     </Typography>
@@ -87,6 +89,7 @@ export const RoadStory = () => {
                   <Typography variant="h2" sx={{ fontSize: 'clamp(1.75rem, 3.5vw, 3rem)' }}>
                     {translate(`${key}.title`)}
                   </Typography>
+
                   <Typography sx={{ color: 'text.secondary', fontSize: '1.1rem', maxWidth: 480 }}>
                     {translate(`${key}.text`)}
                   </Typography>

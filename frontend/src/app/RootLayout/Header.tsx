@@ -6,7 +6,11 @@ import { useTranslate } from '@shared/hooks'
 import { useNavigate } from 'react-router'
 import { Navigation } from './Navigation'
 
-export const Header = () => {
+type Props = {
+  isOverlay?: boolean
+}
+
+export const Header = ({ isOverlay = false }: Props) => {
   const translate = useTranslate('Header')
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down('sm'))
   const { isAuthenticated } = useSession()
@@ -20,41 +24,51 @@ export const Header = () => {
   }
 
   return (
-    <AppBar position="static" color="transparent">
-      <Container maxWidth="xl" sx={{ display: 'flex', alignItems: 'center', py: 1.5 }}>
+    <AppBar
+      position={isOverlay ? 'absolute' : 'static'}
+      color="transparent"
+      elevation={0}
+      sx={{ zIndex: 2 }}
+    >
+      <Container
+        maxWidth="xl"
+        sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', py: 1.5 }}
+      >
+        <Box />
+
         <Navigation />
 
-        <Box sx={{ flexGrow: 1 }} />
-
-        {isAuthenticated &&
-          (isMobile ? (
-            <IconButton
-              aria-label={translate('logout')}
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              sx={{
-                bgcolor: 'transparent',
-                '&:hover': { bgcolor: 'transparent' },
-                typography: 'caption',
-                color: 'secondary.main',
-              }}
-            >
-              <LogoutRounded />
-            </IconButton>
-          ) : (
-            <Button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              sx={{
-                bgcolor: 'transparent',
-                '&:hover': { bgcolor: 'transparent' },
-                typography: 'caption',
-              }}
-              endIcon={<LogoutRounded />}
-            >
-              {translate('logout')}
-            </Button>
-          ))}
+        <Box sx={{ justifySelf: 'end' }}>
+          {isAuthenticated &&
+            (isMobile ? (
+              <IconButton
+                aria-label={translate('logout')}
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                sx={{
+                  bgcolor: 'transparent',
+                  '&:hover': { bgcolor: 'transparent' },
+                  typography: 'caption',
+                  color: 'secondary.main',
+                }}
+              >
+                <LogoutRounded />
+              </IconButton>
+            ) : (
+              <Button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                sx={{
+                  bgcolor: 'transparent',
+                  '&:hover': { bgcolor: 'transparent' },
+                  typography: 'caption',
+                }}
+                endIcon={<LogoutRounded />}
+              >
+                {translate('logout')}
+              </Button>
+            ))}
+        </Box>
       </Container>
     </AppBar>
   )

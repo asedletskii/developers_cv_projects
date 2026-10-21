@@ -1,5 +1,5 @@
 import { MouseEvent } from 'react'
-import { glassCard } from '@features/curriculumVitae/styles'
+import { glassCard, iconTile } from '@features/curriculumVitae/styles'
 import { Box, Stack, Typography } from '@mui/material'
 import { useTranslate } from '@shared/hooks'
 import { STEP_DURATION_MS, STEP_FILL, STEPS } from './constants'
@@ -69,8 +69,7 @@ export const StoryCarousel = () => {
             width: 64,
             height: 64,
             borderRadius: '50%',
-            bgcolor: 'action.hover',
-            color: 'primary.main',
+            ...iconTile,
           }}
         >
           <Icon fontSize="large" />
@@ -80,7 +79,9 @@ export const StoryCarousel = () => {
           <Typography sx={{ color: 'gray.light', fontWeight: 600 }}>
             {translate('step', { number: index + 1 })}
           </Typography>
+
           <Typography variant="h6">{translate(`${key}.title`)}</Typography>
+
           <Typography sx={{ color: 'text.secondary' }}>{translate(`${key}.text`)}</Typography>
         </Stack>
       </Stack>
