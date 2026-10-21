@@ -104,6 +104,15 @@ body {
   .reveal-item {
     break-inside: avoid;
   }
+
+  /* Жёлтый акцентный текст и градиентные заголовки на белой бумаге не читаются */
+  .MuiTypography-root,
+  .MuiButton-root,
+  .MuiLink-root {
+    color: #1f1f1d !important;
+    -webkit-text-fill-color: #1f1f1d !important;
+    background-image: none !important;
+  }
 }
 
 /* На бумаге все секции-аккордеоны развёрнуты */

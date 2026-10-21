@@ -18,14 +18,14 @@ export const AnalyticsNotice = () => {
         data-print-hidden
         role="dialog"
         aria-label={translate('title')}
-        spacing={1.5}
+        spacing={{ xs: 1, sm: 1.5 }}
         sx={{
           position: 'fixed',
           right: { xs: 12, sm: 24 },
           bottom: { xs: 12, sm: 24 },
           left: { xs: 12, sm: 'auto' },
           maxWidth: { sm: 380 },
-          p: 2.5,
+          p: { xs: 2, sm: 2.5 },
           zIndex: 1200,
           ...glassCard,
           backgroundImage: 'none',
@@ -38,9 +38,14 @@ export const AnalyticsNotice = () => {
           </Typography>
         </Stack>
 
-        <Typography variant="body2">{translate('text')}</Typography>
+        <Typography variant="body2" sx={{ fontSize: { xs: '0.8125rem', sm: '0.875rem' } }}>
+          {translate('text')}
+        </Typography>
 
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+        <Typography
+          variant="caption"
+          sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}
+        >
           {translate('dnt')}
         </Typography>
 

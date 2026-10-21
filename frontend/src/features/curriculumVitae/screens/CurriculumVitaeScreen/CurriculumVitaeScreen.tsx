@@ -5,6 +5,7 @@ import { AnalyticsProvider } from '@features/curriculumVitae/components/analytic
 import { usePublicResume } from '@features/curriculumVitae/hooks'
 import { getVisibleSections } from '@features/curriculumVitae/sections'
 import { selectResume, selectViewId } from '@features/curriculumVitae/store/curriculumVitae'
+import { useDocumentTitle, useNoIndex } from '@shared/hooks'
 import { useAppSelector } from '@shared/store'
 import { useParams } from 'react-router'
 
@@ -13,6 +14,13 @@ const CurriculumVitaeScreen = () => {
   const { isLoading, error } = usePublicResume(cvId)
   const resume = useAppSelector(selectResume)
   const viewId = useAppSelector(selectViewId)
+  const profile = resume.profile
+  useNoIndex()
+  useDocumentTitle(
+    profile?.name
+      ? `${profile.name} ${profile.surname}${profile.position ? ` — ${profile.position}` : ''}`
+      : undefined,
+  )
   const sectionOrder = useMemo(() => getVisibleSections(resume).map(({ id }) => id), [resume])
 
   if (isLoading) return <LoadPlaceholder />

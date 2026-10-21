@@ -5,12 +5,13 @@ import { EditProfileDialog } from '@features/curriculumVitae/components/lk/EditP
 import { useLkProfile } from '@features/curriculumVitae/hooks'
 import { Container, Stack } from '@mui/material'
 import { ROUTES } from '@shared/constants'
-import { useTranslate } from '@shared/hooks'
+import { useNoIndex, useTranslate } from '@shared/hooks'
 import { Outlet, useNavigate } from 'react-router'
 
 const LkProfileScreen = () => {
   const translate = useTranslate('Lk.Profile')
   const navigate = useNavigate()
+  useNoIndex()
   const { userId, isLoading: isSessionLoading, isAuthenticated } = useSession()
   const {
     profile,
