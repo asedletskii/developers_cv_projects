@@ -118,18 +118,21 @@ export const components: ThemeOptions['components'] = {
         ].join(', '),
       }),
 
-      // Жёлтый текст и контур на светлом фоне не читаются: в светлой теме такие кнопки тёмные,
-      // жёлтыми остаются только залитые (`contained`)
       textPrimary: ({ theme }) =>
-        theme.palette.mode === 'light' ? { color: theme.palette.text.primary } : {},
+        theme.palette.mode === 'light'
+          ? {
+              color: theme.palette.link.dark,
+              '&:hover': { backgroundColor: alpha(theme.palette.link.main, 0.1) },
+            }
+          : {},
       outlinedPrimary: ({ theme }) =>
         theme.palette.mode === 'light'
           ? {
-              color: theme.palette.text.primary,
-              borderColor: theme.palette.divider,
+              color: theme.palette.link.dark,
+              borderColor: alpha(theme.palette.link.main, 0.5),
               '&:hover': {
-                borderColor: theme.palette.text.secondary,
-                backgroundColor: theme.palette.action.hover,
+                borderColor: theme.palette.link.main,
+                backgroundColor: alpha(theme.palette.link.main, 0.1),
               },
             }
           : {},
@@ -147,12 +150,6 @@ export const components: ThemeOptions['components'] = {
     },
   },
 
-  // Стандартный вариант (подчёркивание, без рамки-«коробки») — компактнее и ближе по духу к
-  // тексту резюме, чем outlined по умолчанию. Единственное место в приложении с TextField —
-  // редактор резюме в ЛК, поэтому дефолт меняем глобально, а не в каждом поле по отдельности.
-  // `inputLabel.shrink: true` всегда — поля заполняются значениями резюме через RHF `reset()`
-  // (значение проставляется в DOM напрямую, а не через onChange), из-за чего MUI не всегда
-  // успевает сам заметить, что поле не пустое, и подпись наезжает на текст.
   MuiTextField: {
     defaultProps: {
       variant: 'standard',
