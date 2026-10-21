@@ -1,6 +1,5 @@
 import { CreateResumeDialog } from '@features/curriculumVitae/components/lk/CreateResumeDialog'
 import { EditResumeTitleDialog } from '@features/curriculumVitae/components/lk/EditResumeTitleDialog'
-import { textAccent } from '@features/curriculumVitae/styles'
 import { LkResumeSummary } from '@features/curriculumVitae/types'
 import { AddRounded } from '@mui/icons-material'
 import { Button, Stack, Typography } from '@mui/material'
@@ -27,7 +26,7 @@ export const ResumeList = ({ resumes }: Props) => {
           onClick={list.openCreating}
           startIcon={<AddRounded />}
           size="small"
-          sx={{ textTransform: 'none', ...textAccent }}
+          sx={{ textTransform: 'none' }}
         >
           {translate('addResume')}
         </Button>

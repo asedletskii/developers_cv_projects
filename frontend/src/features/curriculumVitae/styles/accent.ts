@@ -1,9 +1,8 @@
 import { alpha, Theme } from '@mui/material/styles'
+import { glassCard } from './glassCard'
 
 const isLight = ({ palette }: Theme) => palette.mode === 'light'
 
-/** Плитка под значок. Жёлтый значок на светлом фоне не читается, поэтому в светлой теме плитка
- *  жёлтая, а значок тёмный; в тёмной — серая плитка с жёлтым значком */
 export const iconTile = {
   bgcolor: (theme: Theme) =>
     isLight(theme) ? theme.palette.primary.main : theme.palette.action.hover,
@@ -11,7 +10,6 @@ export const iconTile = {
     isLight(theme) ? theme.palette.primary.contrastText : theme.palette.primary.main,
 }
 
-/** Бейдж: в светлой теме жёлтая заливка с тёмным текстом, в тёмной — жёлтый контур */
 export const badge = {
   bgcolor: (theme: Theme) => (isLight(theme) ? theme.palette.primary.main : 'transparent'),
   color: (theme: Theme) =>
@@ -20,16 +18,21 @@ export const badge = {
     isLight(theme) ? 'transparent' : alpha(theme.palette.primary.main, 0.5),
 }
 
-/** Вторичная контурная кнопка: жёлтый контур и текст на светлом фоне не читаются, поэтому нейтральные */
 export const secondaryButton = {
   color: 'text.primary',
   borderColor: 'divider',
   '&:hover': { borderColor: 'text.secondary', bgcolor: 'action.hover' },
 }
 
-/** Текстовая кнопка или акцентная подпись: в светлой теме тёмный текст (жёлтый на светлом не читается),
- *  в тёмной — жёлтый */
 export const textAccent = {
   color: (theme: Theme) =>
     isLight(theme) ? theme.palette.text.primary : theme.palette.primary.main,
+}
+
+export const dialogPaper = {
+  ...glassCard,
+  bgcolor: 'surface.light',
+  backdropFilter: 'none',
+  WebkitBackdropFilter: 'none',
+  backgroundImage: 'none',
 }

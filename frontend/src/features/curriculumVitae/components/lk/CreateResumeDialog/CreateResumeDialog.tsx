@@ -1,4 +1,4 @@
-import { glassCard } from '@features/curriculumVitae/styles'
+import { dialogPaper } from '@features/curriculumVitae/styles'
 import { RESUME_LANGUAGES, ResumeLanguage } from '@features/curriculumVitae/types'
 import {
   Button,
@@ -29,7 +29,7 @@ export const CreateResumeDialog = ({ onClose }: Props) => {
       onClose={onClose}
       fullWidth
       maxWidth="xs"
-      slotProps={{ paper: { sx: { ...glassCard, backgroundImage: 'none' } } }}
+      slotProps={{ paper: { sx: dialogPaper } }}
     >
       <DialogTitle>{translate('addResume')}</DialogTitle>
 
