@@ -6,7 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -39,10 +40,12 @@ func TestReplaceStatusResumeLinkChecksOwnership(t *testing.T) {
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: sharedvalueobjects.NewID(), Name: "HH"})
 	require.NoError(t, err)
 	repo := &resumeLinkRepositoryStub{link: link}
-	err = NewReplaceStatusResumeLinkHandler(repo, &resumeOwnershipReaderStub{err: resumequeries.ErrResumeNotFound}, &unitOfWorkStub{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+	ownership := &resumeOwnershipReaderStub{err: resumecontracts.ErrResumeNotFound}
+	err = NewReplaceStatusResumeLinkHandler(repo, ownership, &unitOfWorkStub{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
 		UserID: sharedvalueobjects.NewID(), LinkID: link.ID(), Active: false, Version: 1,
 	})
-	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
+	require.ErrorIs(t, err, application.ErrResumeNotFound)
+	require.True(t, ownership.lockCalled)
 	require.False(t, repo.replaced)
 }
 
@@ -61,6 +64,19 @@ func TestReplaceStatusResumeLinkRejectsMissingLink(t *testing.T) {
 	err := NewReplaceStatusResumeLinkHandler(repo, &resumeOwnershipReaderStub{}, &unitOfWorkStub{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
 		UserID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), Active: false, Version: 1,
 	})
+	require.ErrorIs(t, err, application.ErrResumeLinkNotFound)
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+func TestReplaceStatusResumeLinkNormalizesReplaceRaceNotFound(t *testing.T) {
+	link := restoreCommandTestLink(t, domain.ResumeLinkStatusActive, 1)
+	repo := &resumeLinkRepositoryStub{link: link, replaceErr: domain.ErrEntityNotFound}
+
+	err := NewReplaceStatusResumeLinkHandler(repo, &resumeOwnershipReaderStub{}, &unitOfWorkStub{}).Handle(context.Background(), ReplaceStatusResumeLinkCommand{
+		UserID: sharedvalueobjects.NewID(), LinkID: link.ID(), Active: false, Version: 1,
+	})
+
+	require.ErrorIs(t, err, application.ErrResumeLinkNotFound)
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 }
 

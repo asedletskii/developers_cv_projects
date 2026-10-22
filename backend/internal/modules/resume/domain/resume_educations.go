@@ -23,7 +23,6 @@ func (v EducationLevel) isValid() bool {
 	return v >= EducationLevelSecondary && v <= EducationLevelDoctor
 }
 
-// EducationParams describes requested state. A zero ID creates a new item; a non-zero ID selects an existing item owned by the aggregate.
 type EducationParams struct {
 	ID          sharedvalueobjects.ID
 	Location    string

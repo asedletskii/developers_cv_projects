@@ -7,7 +7,6 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-// ProjectParams describes requested state. A zero ID creates a new item; a non-zero ID selects an existing item owned by the aggregate.
 type ProjectParams struct {
 	ID           sharedvalueobjects.ID
 	Name         string

@@ -28,8 +28,8 @@ SELECT
     v.traffic,
     visitor.ordinal,
     v.started_at > visitor.first_seen_at AS is_returning
-FROM analytics_views AS v
-JOIN analytics_visitors AS visitor
+FROM analytics.analytics_views AS v
+JOIN analytics.analytics_visitors AS visitor
   ON visitor.link_id = v.link_id
  AND visitor.visitor_id = v.visitor_id
 WHERE v.link_id = ?
@@ -157,7 +157,7 @@ func (r *AnalyticsReader) attachVisitEvents(
 	}
 
 	var events []visitEventRow
-	if err := db.Table("analytics_events").
+	if err := db.Table("analytics.analytics_events").
 		Select("view_id, event_type, occurred_at, payload").
 		Where("view_id IN ?", ids).
 		Where("event_type <> ?", "section_view").

@@ -21,11 +21,12 @@ type HandlerDependencies struct {
 	Public      *handlers.PublicResumeLinkHandler
 	ContactView *handlers.PublicContactViewHandler
 	Lifecycle   *commands.ReplaceStatusResumeLinkHandler
+	Rename      *commands.RenameResumeLinkHandler
 }
 
 func NewHandler(deps HandlerDependencies) *Handler {
 	return &Handler{
-		management:  handlers.NewResumeLinkManagementHandler(deps.Create, deps.List, deps.Delete, deps.Lifecycle),
+		management:  handlers.NewResumeLinkManagementHandler(deps.Create, deps.List, deps.Delete, deps.Lifecycle, deps.Rename),
 		public:      deps.Public,
 		contactView: deps.ContactView,
 	}
@@ -58,4 +59,5 @@ func registerManagementRoutes(handler *Handler, lk *gin.RouterGroup) {
 	lk.POST("/link", management.Create)
 	lk.DELETE("/link/:linkId", management.Delete)
 	lk.PUT("/link/:linkId/status", management.ReplaceStatus)
+	lk.PUT("/link/:linkId", management.Rename)
 }

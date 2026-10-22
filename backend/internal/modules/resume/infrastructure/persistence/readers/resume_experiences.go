@@ -21,7 +21,7 @@ type experienceRow struct {
 
 func (r *ResumeReader) loadExperiences(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, view *queries.ResumeView) error {
 	var rows []experienceRow
-	if err := db.WithContext(ctx).Table("resume_experiences AS e").Select("e.id::text AS id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Where("e.resume_id = ?", resumeID).Order("e.sort_order").Scan(&rows).Error; err != nil {
+	if err := db.WithContext(ctx).Table("resume.resume_experiences AS e").Select("e.id::text AS id, e.company, e.position, e.location, to_char(e.start_date, 'YYYY-MM') AS start_date, CASE WHEN e.end_date IS NULL THEN NULL ELSE to_char(e.end_date, 'YYYY-MM') END AS end_date, e.description").Where("e.resume_id = ?", resumeID).Order("e.sort_order").Scan(&rows).Error; err != nil {
 		return fmt.Errorf("list experiences: %w", err)
 	}
 	result := make([]queries.ExperienceView, 0, len(rows))

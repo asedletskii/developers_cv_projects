@@ -19,7 +19,7 @@ type ResumeOverview struct {
 	ThemeSecondary     *string
 }
 
-func (ResumeOverview) TableName() string { return "resume_overviews" }
+func (ResumeOverview) TableName() string { return schema + ".resume_overviews" }
 
 type ResumeOverviewSection struct {
 	ResumeID  uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -29,4 +29,4 @@ type ResumeOverviewSection struct {
 	Collapsed bool      `gorm:"not null"`
 }
 
-func (ResumeOverviewSection) TableName() string { return "resume_overview_sections" }
+func (ResumeOverviewSection) TableName() string { return schema + ".resume_overview_sections" }

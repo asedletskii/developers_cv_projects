@@ -35,6 +35,30 @@ func TestCORSDoesNotAllowPATCH(t *testing.T) {
 	require.NotContains(t, w.Header().Get("Access-Control-Allow-Methods"), http.MethodPatch)
 }
 
+func TestCORSAllowsRequestedWithHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	engine.Use(CORS(config.CORSConfig{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowCredentials: true,
+	}))
+	engine.DELETE("/test", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodOptions, "/test", nil)
+	req.Header.Set("Origin", "http://localhost:5173")
+	req.Header.Set("Access-Control-Request-Method", http.MethodDelete)
+	req.Header.Set("Access-Control-Request-Headers", "X-Requested-With")
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Contains(t, strings.ToLower(w.Header().Get("Access-Control-Allow-Headers")), strings.ToLower("X-Requested-With"))
+}
+
 func TestCORSAllowsMockAuthHeaderOnlyWhenMockAuthEnabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tc := range []struct {

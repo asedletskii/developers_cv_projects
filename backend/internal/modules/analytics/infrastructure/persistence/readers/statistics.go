@@ -24,7 +24,7 @@ SELECT
         WHERE v.traffic = 'human'
           AND EXISTS (
               SELECT 1
-              FROM analytics_views AS previous
+              FROM analytics.analytics_views AS previous
               WHERE previous.link_id = v.link_id
                 AND previous.visitor_id = v.visitor_id
                 AND previous.traffic = 'human'
@@ -38,7 +38,7 @@ SELECT
         WHERE v.traffic = 'human'
           AND EXISTS (
               SELECT 1
-              FROM analytics_events AS event
+              FROM analytics.analytics_events AS event
               WHERE event.view_id = v.id
                 AND event.event_type = 'contact_view'
                 AND event.occurred_at >= @periodFrom
@@ -49,7 +49,7 @@ SELECT
         WHERE v.traffic = 'human'
           AND EXISTS (
               SELECT 1
-              FROM analytics_events AS event
+              FROM analytics.analytics_events AS event
               WHERE event.view_id = v.id
                 AND event.event_type = 'download'
                 AND event.occurred_at >= @periodFrom
@@ -58,14 +58,14 @@ SELECT
     ) AS downloads,
     COALESCE((
         SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY median_view.active_ms)
-        FROM analytics_views AS median_view
+        FROM analytics.analytics_views AS median_view
         WHERE median_view.link_id = @linkID
           AND median_view.traffic = 'human'
           AND median_view.confirmed_at IS NOT NULL
           AND median_view.started_at >= @periodFrom
           AND median_view.started_at < @periodTo
     ), 0) AS median
-FROM analytics_views AS v
+FROM analytics.analytics_views AS v
 WHERE v.link_id = @linkID
   AND v.started_at >= @periodFrom
   AND v.started_at < @periodTo`

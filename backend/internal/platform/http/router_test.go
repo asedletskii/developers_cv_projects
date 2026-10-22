@@ -276,6 +276,74 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
 }
 
+func TestRouterAppliesCSRFProtectionToOwnerRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{},
+	}
+	router, err := NewRouter(
+		cfg,
+		zaptest.NewLogger(t),
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		nil,
+		fakeAuthenticate,
+		nil,
+	)
+	require.NoError(t, err)
+
+	request := func(site string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/link/10000000-0000-0000-0000-000000000001", nil)
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		req.Header.Set("Sec-Fetch-Site", site)
+		w := httptest.NewRecorder()
+		router.Handler().ServeHTTP(w, req)
+		return w
+	}
+
+	require.Equal(t, http.StatusForbidden, request("cross-site").Code)
+	require.NotEqual(t, http.StatusForbidden, request("same-origin").Code)
+}
+
+func TestRouterAppliesCSRFProtectionToLogout(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{},
+	}
+	router, err := NewRouter(
+		cfg,
+		zaptest.NewLogger(t),
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		authhttp.NewHandler(authhttp.HandlerDependencies{}),
+		fakeAuthenticate,
+		nil,
+	)
+	require.NoError(t, err)
+
+	request := func(site string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		req.Header.Set("Sec-Fetch-Site", site)
+		w := httptest.NewRecorder()
+		router.Handler().ServeHTTP(w, req)
+		return w
+	}
+
+	require.Equal(t, http.StatusForbidden, request("cross-site").Code)
+	require.NotEqual(t, http.StatusForbidden, request("same-origin").Code)
+}
+
 func testAnalyticsHandler() *analyticshttp.Handler {
 	return analyticshttp.NewHandler(analyticshttp.HandlerDependencies{})
 }
@@ -377,6 +445,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		"POST /api/v1/lk/link":                                {},
 		"DELETE /api/v1/lk/link/:linkId":                      {},
 		"PUT /api/v1/lk/link/:linkId/status":                  {},
+		"PUT /api/v1/lk/link/:linkId":                         {},
 		"GET /api/v1/lk/link/:linkId/statistics":              {},
 		"GET /api/v1/lk/link/:linkId/statistics/daily":        {},
 		"GET /api/v1/lk/link/:linkId/views":                   {},
@@ -434,6 +503,8 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		{method: http.MethodPost, path: "/api/v1/cv/10000000-0000-0000-0000-000000000001"},
 	} {
 		req := httptest.NewRequest(methodPath.method, methodPath.path, strings.NewReader(""))
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
 		w := httptest.NewRecorder()
 		router.Handler().ServeHTTP(w, req)
 		require.Equal(t, http.StatusNotFound, w.Code, methodPath.method+" "+methodPath.path)
@@ -536,8 +607,11 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 			)
 			require.NoError(t, err)
 
+			req := httptest.NewRequest(route.method, route.path, nil)
+			req.Header.Set("X-Requested-With", "XMLHttpRequest")
+			req.Header.Set("Sec-Fetch-Site", "same-origin")
 			w := httptest.NewRecorder()
-			router.Handler().ServeHTTP(w, httptest.NewRequest(route.method, route.path, nil))
+			router.Handler().ServeHTTP(w, req)
 			require.Equal(t, http.StatusBadRequest, w.Code)
 			require.Contains(t, w.Body.String(), "BAD_REQUEST")
 		})
@@ -682,6 +756,8 @@ func TestRouterRegistersAuthPublicAndProtectedRoutes(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, protectedResponse.Code)
 
 	logoutRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	logoutRequest.Header.Set("X-Requested-With", "XMLHttpRequest")
+	logoutRequest.Header.Set("Sec-Fetch-Site", "same-origin")
 	logoutResponse := httptest.NewRecorder()
 	router.Handler().ServeHTTP(logoutResponse, logoutRequest)
 	require.NotEqual(t, http.StatusUnauthorized, logoutResponse.Code)

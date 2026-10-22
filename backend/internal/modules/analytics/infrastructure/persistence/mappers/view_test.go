@@ -22,7 +22,7 @@ func TestViewMappingPreservesStateAndExistingTable(t *testing.T) {
 	require.NoError(t, err)
 
 	view, err := domain.RestoreView(domain.ViewSnapshot{
-		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
+		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
 		IPHash: make([]byte, 32), Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSLinux,
 		Traffic: domain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
 		State: domain.ViewStateSnapshot{
@@ -35,11 +35,12 @@ func TestViewMappingPreservesStateAndExistingTable(t *testing.T) {
 
 	model, err := ViewToDB(view)
 	require.NoError(t, err)
-	require.Equal(t, "analytics_views", model.TableName())
+	require.Equal(t, "analytics.analytics_views", model.TableName())
 
 	restored, err := ViewToDomain(model)
 	require.NoError(t, err)
 	require.Equal(t, view.ID(), restored.ID())
 	require.Equal(t, view.LinkID(), restored.LinkID())
+	require.Equal(t, view.ResumeID(), restored.ResumeID())
 	require.Equal(t, view.State().Snapshot(), restored.State().Snapshot())
 }

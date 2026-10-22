@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	application "developers-cv/backend/internal/modules/resume_link/application"
+	"developers-cv/backend/internal/modules/resume_link/application/ownership"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -30,10 +31,10 @@ type ResumeLinkReader interface {
 
 type ListResumeLinksQueryHandler struct {
 	reader  ResumeLinkReader
-	resumes ports.ResumeOwnershipReader
+	resumes resumecontracts.ResumeOwnershipChecker
 }
 
-func NewListResumeLinksQueryHandler(reader ResumeLinkReader, resumes ports.ResumeOwnershipReader) *ListResumeLinksQueryHandler {
+func NewListResumeLinksQueryHandler(reader ResumeLinkReader, resumes resumecontracts.ResumeOwnershipChecker) *ListResumeLinksQueryHandler {
 	return &ListResumeLinksQueryHandler{reader: reader, resumes: resumes}
 }
 
@@ -44,8 +45,12 @@ func (h *ListResumeLinksQueryHandler) Handle(ctx context.Context, query ListResu
 	if query.UserID.IsZero() || query.ResumeID.IsZero() {
 		return nil, fmt.Errorf("invalid list resume links query")
 	}
-	if err := EnsureResumeOwned(ctx, h.resumes, resumequeries.GetResumeQuery{ResumeID: query.ResumeID, UserID: query.UserID}); err != nil {
+	if err := ownership.EnsureResumeOwned(ctx, h.resumes, resumecontracts.ResumeOwnershipQuery{ResumeID: query.ResumeID, UserID: query.UserID}); err != nil {
 		return nil, err
 	}
-	return h.reader.ListByResumeID(ctx, query)
+	items, err := h.reader.ListByResumeID(ctx, query)
+	if err != nil {
+		return nil, application.NormalizeLinkNotFoundError(err)
+	}
+	return items, nil
 }

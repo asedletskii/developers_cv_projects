@@ -26,6 +26,7 @@ func TestRegisterRoutesPreservesResumeLinkRouteContract(t *testing.T) {
 		http.MethodPost + " /api/v1/lk/link",
 		http.MethodDelete + " /api/v1/lk/link/:linkId",
 		http.MethodPut + " /api/v1/lk/link/:linkId/status",
+		http.MethodPut + " /api/v1/lk/link/:linkId",
 	}
 	for _, route := range expected {
 		_, ok := registered[route]

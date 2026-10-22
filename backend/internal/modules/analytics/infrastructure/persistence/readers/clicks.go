@@ -97,8 +97,8 @@ func clickQuery(
 	breakpoint string,
 ) *gorm.DB {
 	return db.
-		Table("analytics_clicks AS c").
-		Joins("JOIN analytics_views AS v ON v.id = c.view_id").
+		Table("analytics.analytics_clicks AS c").
+		Joins("JOIN analytics.analytics_views AS v ON v.id = c.view_id").
 		Where("c.link_id = ?", query.LinkID.UUID()).
 		Where("c.section = ?", query.Section).
 		Where("v.traffic = ?", "human").

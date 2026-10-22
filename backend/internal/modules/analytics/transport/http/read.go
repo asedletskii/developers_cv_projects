@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 )
@@ -63,7 +64,7 @@ func writeAnalyticsReadError(c *gin.Context, err error) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid analytics query"))
 		return
 	}
-	if errors.Is(err, domain.ErrAnalyticsSubjectNotFound) {
+	if errors.Is(err, analyticscontracts.ErrAnalyticsSubjectNotFound) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume link not found"))
 		return
 	}

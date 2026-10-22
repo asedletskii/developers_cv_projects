@@ -10,9 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	analyticsreaders "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
 	analyticsrepository "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
+	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	resumelinkdomain "developers-cv/backend/internal/modules/resume_link/domain"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
+	resumelinkreaders "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
 	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -22,6 +26,7 @@ import (
 type analyticsTestRepository struct {
 	*resumelinkrepository.ResumeLinkRepository
 	*analyticsrepository.AnalyticsRepository
+	Subjects analyticscontracts.AnalyticsSubjectReader
 }
 
 type analyticsTestReader struct {
@@ -34,11 +39,15 @@ func newDatabase(t *testing.T) (context.Context, string, *gorm.DB, *analyticsTes
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	resumeReader := resumereaders.NewResumeReader(gormDB)
+	subjects := analyticsaccess.NewReader(linkReader, resumeReader, resumeReader, nil, nil)
 	return ctx, dsn, gormDB, &analyticsTestRepository{
 		ResumeLinkRepository: resumelinkrepository.NewResumeLinkRepository(gormDB),
 		AnalyticsRepository:  analyticsrepository.NewAnalyticsRepository(gormDB),
+		Subjects:             subjects,
 	}, &analyticsTestReader{
-		AnalyticsReader: analyticsreaders.NewAnalyticsReader(gormDB),
+		AnalyticsReader: analyticsreaders.NewAnalyticsReader(gormDB, subjects),
 	}
 }
 
@@ -47,13 +56,13 @@ func insertUserAndResume(t *testing.T, ctx context.Context, dsn string, userID, 
 	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, userID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, userID.UUID())
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, now(), now())`,
 		resumeID.UUID(), userID.UUID(), "Test Resume", "ru", "draft", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews
 		(resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third)
 		VALUES ($1, 'Test', 'Resume', '', '')`, resumeID.UUID())
 	require.NoError(t, err)

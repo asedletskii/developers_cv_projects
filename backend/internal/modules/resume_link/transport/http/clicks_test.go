@@ -10,27 +10,28 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	analyticsdomain "developers-cv/backend/internal/modules/analytics/domain"
 	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type clickHTTPPublicStub struct{}
 
-func (clickHTTPPublicStub) Handle(context.Context, resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error) {
-	return resumequeries.PublicResumeView{}, nil
+func (clickHTTPPublicStub) Handle(context.Context, resumecontracts.PublicResumeQuery) (resumecontracts.PublicResumeView, error) {
+	return resumecontracts.PublicResumeView{}, nil
 }
 
 type clickHTTPLayoutStub struct {
 	snapshot analyticsdomain.LayoutSnapshot
 }
 
-func (s clickHTTPLayoutStub) Build(analyticsports.ResumeAnalyticsLayout) (analyticsdomain.LayoutSnapshot, error) {
+func (s clickHTTPLayoutStub) Build(analyticscontracts.ResumeAnalyticsLayout) (analyticsdomain.LayoutSnapshot, error) {
 	return s.snapshot, nil
 }
 
@@ -47,9 +48,10 @@ func newClickHTTPHandler(t *testing.T) *analyticshttp.Handler {
 		map[analyticsdomain.AnalyticsSectionID]string{analyticsdomain.AnalyticsSectionAbout: "0123456789abcdef"},
 	)
 	require.NoError(t, err)
-	access := queries.NewAnalyticsAccessReader(
+	access := analyticsaccess.NewReader(
 		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
 		resumeOwnershipReaderStub{},
+		nil,
 		nil,
 		clickHTTPPublicStub{},
 	)

@@ -11,7 +11,6 @@ type ExperienceStackParams struct {
 	Name string
 }
 
-// ExperienceParams describes requested state. A zero ID creates a new item; a non-zero ID selects an existing item owned by the aggregate.
 type ExperienceParams struct {
 	ID                sharedvalueobjects.ID
 	Company, Position string

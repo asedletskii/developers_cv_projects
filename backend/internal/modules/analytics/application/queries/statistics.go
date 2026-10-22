@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -103,12 +103,12 @@ type LinkStatisticsReader interface {
 }
 
 type LinkStatisticsHandler struct {
-	access ports.AnalyticsAccessReader
+	access analyticscontracts.AnalyticsAccessReader
 	reader LinkStatisticsReader
 }
 
 func NewLinkStatisticsHandler(
-	access ports.AnalyticsAccessReader,
+	access analyticscontracts.AnalyticsAccessReader,
 	reader LinkStatisticsReader,
 ) *LinkStatisticsHandler {
 	return &LinkStatisticsHandler{access: access, reader: reader}

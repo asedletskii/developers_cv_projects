@@ -8,13 +8,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/domain"
+	usercontracts "developers-cv/backend/internal/modules/user/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestDeleteResumeHandlerDeletesExpectedVersion(t *testing.T) {
 	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 7)
 	repository := &commandRepositoryStub{}
-	handler := NewDeleteResumeHandler(repository, &unitOfWorkStub{})
+	cleanup := &resumeLinkCleanupStub{}
+	handler := NewDeleteResumeHandler(repository, cleanup, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), DeleteResumeCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 7,
@@ -24,12 +26,28 @@ func TestDeleteResumeHandlerDeletesExpectedVersion(t *testing.T) {
 	require.Equal(t, resume.ID(), repository.deleted.ResumeID)
 	require.Equal(t, resume.UserID(), repository.deleted.UserID)
 	require.Equal(t, int64(7), repository.deleted.Version)
+	require.True(t, cleanup.called)
+	require.Equal(t, []sharedvalueobjects.ID{resume.ID()}, cleanup.resumeIDs)
+}
+
+func TestDeleteResumeHandlerStopsWhenLinkCleanupFails(t *testing.T) {
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 7)
+	repository := &commandRepositoryStub{}
+	cleanupErr := errors.New("links cleanup failed")
+	handler := NewDeleteResumeHandler(repository, &resumeLinkCleanupStub{err: cleanupErr}, &unitOfWorkStub{})
+
+	err := handler.Handle(context.Background(), DeleteResumeCommand{
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 7,
+	})
+
+	require.ErrorIs(t, err, cleanupErr)
+	require.False(t, repository.deleteCalled)
 }
 
 func TestDeleteResumeHandlerRejectsInvalidVersion(t *testing.T) {
 	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 7)
 	repository := &commandRepositoryStub{}
-	handler := NewDeleteResumeHandler(repository, &unitOfWorkStub{})
+	handler := NewDeleteResumeHandler(repository, &resumeLinkCleanupStub{}, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), DeleteResumeCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 0,
@@ -42,7 +60,7 @@ func TestDeleteResumeHandlerRejectsInvalidVersion(t *testing.T) {
 func TestDeleteResumeHandlerPropagatesConcurrencyConflict(t *testing.T) {
 	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 7)
 	repository := &commandRepositoryStub{err: domain.ErrConcurrencyConflict}
-	handler := NewDeleteResumeHandler(repository, &unitOfWorkStub{})
+	handler := NewDeleteResumeHandler(repository, &resumeLinkCleanupStub{}, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), DeleteResumeCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 6,
@@ -54,8 +72,9 @@ func TestDeleteResumeHandlerPropagatesConcurrencyConflict(t *testing.T) {
 
 func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
 	repository := &commandRepositoryStub{}
+	users := &userExistenceCheckerStub{}
 	uow := &unitOfWorkStub{}
-	handler := NewCreateResumeHandler(repository, uow)
+	handler := NewCreateResumeHandler(repository, users, uow)
 	userID := sharedvalueobjects.NewID()
 
 	resumeID, err := handler.Handle(context.Background(), CreateResumeCommand{UserID: userID, Title: "  Senior Go Developer  ", Language: domain.ResumeLanguage("en")})
@@ -63,11 +82,23 @@ func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
 	require.False(t, resumeID.IsZero())
 	require.True(t, uow.called)
 	require.True(t, repository.called)
+	require.Equal(t, []sharedvalueobjects.ID{userID}, users.userIDs)
 	require.Equal(t, resumeID, repository.resume.ID())
 	require.Equal(t, userID, repository.resume.UserID())
 	require.Equal(t, "Senior Go Developer", repository.resume.Title())
 	require.Equal(t, "en", string(repository.resume.Language()))
 	require.NotNil(t, repository.resume.Overview())
+}
+
+func TestCreateResumeHandlerRejectsMissingUser(t *testing.T) {
+	repository := &commandRepositoryStub{}
+	users := &userExistenceCheckerStub{err: usercontracts.ErrUserNotFound}
+	handler := NewCreateResumeHandler(repository, users, &unitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), CreateResumeCommand{UserID: sharedvalueobjects.NewID(), Title: "CV", Language: domain.ResumeLanguageEN})
+
+	require.ErrorIs(t, err, usercontracts.ErrUserNotFound)
+	require.False(t, repository.called)
 }
 
 func TestReplaceResumeTitleHandlerUpdatesOnlyResumeRoot(t *testing.T) {

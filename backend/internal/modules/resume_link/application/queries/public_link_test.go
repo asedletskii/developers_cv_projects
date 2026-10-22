@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -35,7 +36,7 @@ func TestActivePublicResumeLinkResolverRejectsUnavailableLinksBeforeResumeRead(t
 			reader: &resumeLinkReaderStub{
 				err: domain.ErrEntityNotFound,
 			},
-			want: ErrResumeLinkNotFound,
+			want: application.ErrResumeLinkNotFound,
 		},
 		{
 			name: "inactive",
@@ -49,7 +50,7 @@ func TestActivePublicResumeLinkResolverRejectsUnavailableLinksBeforeResumeRead(t
 			reader: &resumeLinkReaderStub{
 				view: ResumeLinkPublicView{Status: "unknown"},
 			},
-			want: ErrResumeLinkNotFound,
+			want: application.ErrResumeLinkNotFound,
 		},
 	}
 

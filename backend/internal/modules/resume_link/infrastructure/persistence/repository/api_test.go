@@ -8,7 +8,7 @@ import (
 func TestResumeLinkRepositoryWriteSideAPI(t *testing.T) {
 	typ := reflect.TypeOf(&ResumeLinkRepository{})
 	methods := []string{
-		"Create", "GetByID", "Delete", "ReplaceStatus",
+		"Create", "GetByID", "Delete", "Rename", "ReplaceStatus",
 	}
 	for _, method := range methods {
 		if _, ok := typ.MethodByName(method); !ok {

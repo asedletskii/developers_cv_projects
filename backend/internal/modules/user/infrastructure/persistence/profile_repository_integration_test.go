@@ -46,11 +46,11 @@ func TestPostgresProfileRepositoryReplacesLocalizedProfile(t *testing.T) {
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return repo.ReplaceProfile(tx, profile) }))
 
 	var count int64
-	require.NoError(t, db.Table("user_profile_localizations").Where("user_id = ?", userID).Count(&count).Error)
+	require.NoError(t, db.Table("users.user_profile_localizations").Where("user_id = ?", userID).Count(&count).Error)
 	require.Equal(t, int64(2), count)
 
 	var storedPhotoURL string
-	require.NoError(t, db.Table("user_profiles").Select("photo_path").Where("user_id = ?", userID).Scan(&storedPhotoURL).Error)
+	require.NoError(t, db.Table("users.user_profiles").Select("photo_path").Where("user_id = ?", userID).Scan(&storedPhotoURL).Error)
 	require.Equal(t, photoURL, storedPhotoURL)
 
 	emptyRU, err := domain.NewLocalizedProfile(nil, nil, nil, nil, nil)
@@ -62,7 +62,7 @@ func TestPostgresProfileRepositoryReplacesLocalizedProfile(t *testing.T) {
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return repo.ReplaceProfile(tx, emptyProfile)
 	}))
-	require.NoError(t, db.Table("user_profile_localizations").Where("user_id = ?", userID).Count(&count).Error)
+	require.NoError(t, db.Table("users.user_profile_localizations").Where("user_id = ?", userID).Count(&count).Error)
 	require.Equal(t, int64(0), count)
 }
 
@@ -73,7 +73,7 @@ func insertProfileRepositoryUser(t *testing.T, ctx context.Context, dsn string, 
 	conn, err := pgx.ConnectConfig(ctx, config)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
 }
 
@@ -108,10 +108,10 @@ func TestPostgresProfileRepositoryRollsBackReplacementAsOneUnit(t *testing.T) {
 	require.ErrorIs(t, err, expectedErr)
 
 	var profileCount int64
-	require.NoError(t, db.Table("user_profiles").Where("user_id = ?", userID).Count(&profileCount).Error)
+	require.NoError(t, db.Table("users.user_profiles").Where("user_id = ?", userID).Count(&profileCount).Error)
 	require.Equal(t, int64(0), profileCount)
 	var localizationCount int64
-	require.NoError(t, db.Table("user_profile_localizations").Where("user_id = ?", userID).Count(&localizationCount).Error)
+	require.NoError(t, db.Table("users.user_profile_localizations").Where("user_id = ?", userID).Count(&localizationCount).Error)
 	require.Equal(t, int64(0), localizationCount)
 }
 
@@ -155,10 +155,10 @@ func TestPostgresProfileRepositoryRollbackPreservesExistingProfile(t *testing.T)
 	require.ErrorIs(t, err, expectedErr)
 
 	var storedPhoto string
-	require.NoError(t, db.Table("user_profiles").Select("photo_path").Where("user_id = ?", userID).Scan(&storedPhoto).Error)
+	require.NoError(t, db.Table("users.user_profiles").Select("photo_path").Where("user_id = ?", userID).Scan(&storedPhoto).Error)
 	require.Equal(t, oldPhoto, storedPhoto)
 	var storedName string
-	require.NoError(t, db.Table("user_profile_localizations").Select("name").Where("user_id = ? AND language = 'ru'", userID).Scan(&storedName).Error)
+	require.NoError(t, db.Table("users.user_profile_localizations").Select("name").Where("user_id = ? AND language = 'ru'", userID).Scan(&storedName).Error)
 	require.Equal(t, oldName, storedName)
 }
 
@@ -207,8 +207,8 @@ func TestPostgresProfileRepositorySerializesConcurrentReplacements(t *testing.T)
 	}
 
 	var profileCount, localizationCount int64
-	require.NoError(t, db.Table("user_profiles").Where("user_id = ?", userID).Count(&profileCount).Error)
-	require.NoError(t, db.Table("user_profile_localizations").Where("user_id = ?", userID).Count(&localizationCount).Error)
+	require.NoError(t, db.Table("users.user_profiles").Where("user_id = ?", userID).Count(&profileCount).Error)
+	require.NoError(t, db.Table("users.user_profile_localizations").Where("user_id = ?", userID).Count(&localizationCount).Error)
 	require.Equal(t, int64(1), profileCount)
 	require.Equal(t, int64(1), localizationCount)
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -26,12 +26,12 @@ func TestListResumeLinksQueryHandlerChecksOwnershipBeforeReading(t *testing.T) {
 
 func TestListResumeLinksQueryHandlerRejectsForeignResume(t *testing.T) {
 	reader := &listReaderStub{}
-	ownership := &ownershipReaderStub{err: resumequeries.ErrResumeNotFound}
+	ownership := &ownershipReaderStub{viewID: sharedvalueobjects.NewID().String()}
 
 	_, err := NewListResumeLinksQueryHandler(reader, ownership).Handle(context.Background(), ListResumeLinksQuery{
 		UserID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(),
 	})
-	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
+	require.ErrorIs(t, err, application.ErrResumeNotFound)
 	require.True(t, reader.query.ResumeID.IsZero())
 }
 

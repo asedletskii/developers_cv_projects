@@ -20,4 +20,4 @@ type ResumeEducation struct {
 	EndDate     *time.Time `gorm:"type:date"`
 }
 
-func (ResumeEducation) TableName() string { return "resume_educations" }
+func (ResumeEducation) TableName() string { return schema + ".resume_educations" }

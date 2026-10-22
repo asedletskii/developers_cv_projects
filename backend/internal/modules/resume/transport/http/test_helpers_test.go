@@ -54,8 +54,18 @@ func (r *stubResumeRepository) SaveSection(ctx context.Context, resume *domain.R
 
 func (r *stubResumeRepository) Create(context.Context, *domain.Resume) error { return nil }
 
+func (r *stubResumeRepository) LockForDelete(context.Context, ports.DeleteResumeParams) error {
+	return r.deleteErr
+}
+
 func (r *stubResumeRepository) Delete(context.Context, ports.DeleteResumeParams) error {
 	return r.deleteErr
+}
+
+type stubResumeLinkCleanup struct{}
+
+func (stubResumeLinkCleanup) DeleteByResumeIDs(context.Context, []sharedvalueobjects.ID) error {
+	return nil
 }
 
 type stubResumeUnitOfWork struct{}

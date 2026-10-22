@@ -8,6 +8,8 @@ import (
 	analyticscommands "developers-cv/backend/internal/modules/analytics/application/commands"
 	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
+	analyticsadapters "developers-cv/backend/internal/modules/analytics/infrastructure/analytics"
 	analyticscleanup "developers-cv/backend/internal/modules/analytics/infrastructure/cleanup"
 	analyticsreaders "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
 	analyticsrepository "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
@@ -20,13 +22,15 @@ import (
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumeports "developers-cv/backend/internal/modules/resume/application/ports"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	resumerepository "developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	resumelinkcommands "developers-cv/backend/internal/modules/resume_link/application/commands"
 	resumelinkports "developers-cv/backend/internal/modules/resume_link/application/ports"
 	resumelinkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
-	resumelinkanalytics "developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
+	resumelinkcontracts "developers-cv/backend/internal/modules/resume_link/contracts"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
 	resumelinkreaders "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
 	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
@@ -34,6 +38,7 @@ import (
 	usercommands "developers-cv/backend/internal/modules/user/application/commands"
 	userports "developers-cv/backend/internal/modules/user/application/ports"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
+	usercontracts "developers-cv/backend/internal/modules/user/contracts"
 	userreaders "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
 	userrepository "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
@@ -49,6 +54,7 @@ var resumeReadSet = wire.NewSet(
 	wire.Bind(new(resumequeries.PublicResumeReader), new(*resumereaders.ResumeReader)),
 	wire.Bind(new(resumequeries.ContactViewReader), new(*resumereaders.ResumeReader)),
 	wire.Bind(new(resumequeries.DownloadContactsReader), new(*resumereaders.ResumeReader)),
+	wire.Bind(new(resumequeries.OwnedResumeSectionsReader), new(*resumereaders.ResumeReader)),
 )
 
 var resumeCommandSet = wire.NewSet(
@@ -78,11 +84,14 @@ var resumeLinkReadSet = wire.NewSet(
 	wire.Bind(new(resumelinkqueries.PublicResumeLinkResolver), new(*resumelinkqueries.ActivePublicResumeLinkResolver)),
 	wire.Bind(new(resumelinkqueries.ResumeLinkReader), new(*resumelinkreaders.ResumeLinkReader)),
 	wire.Bind(new(resumelinkqueries.ResumeLinkPublicReader), new(*resumelinkreaders.ResumeLinkReader)),
+	wire.Bind(new(analyticsaccess.LinkLifecycleReader), new(*resumelinkreaders.ResumeLinkReader)),
 )
 
 var analyticsReadSet = wire.NewSet(
 	newAnalyticsAccessReader,
-	analyticsreaders.NewAnalyticsReader,
+	wire.Bind(new(analyticscontracts.AnalyticsAccessReader), new(*analyticsaccess.Reader)),
+	wire.Bind(new(analyticscontracts.AnalyticsSubjectReader), new(*analyticsaccess.Reader)),
+	newAnalyticsReader,
 	wire.Bind(new(analyticsqueries.LinkStatisticsReader), new(*analyticsreaders.AnalyticsReader)),
 	wire.Bind(new(analyticsqueries.DailyStatisticsReader), new(*analyticsreaders.AnalyticsReader)),
 	wire.Bind(new(analyticsqueries.VisitsReader), new(*analyticsreaders.AnalyticsReader)),
@@ -105,12 +114,15 @@ var resumeLinkCommandSet = wire.NewSet(
 	newIngestAnalyticsBatchHandler,
 	newCleanupAnalyticsHandler,
 	analyticscleanup.NewWorker,
-	resumelinkanalytics.NewLayoutSnapshotBuilder,
+	analyticsadapters.NewLayoutSnapshotBuilder,
 	resumelinkcommands.NewCreateResumeLinkHandler,
 	resumelinkcommands.NewDeleteResumeLinkHandler,
+	resumelinkcommands.NewRenameResumeLinkHandler,
 	resumelinkcommands.NewReplaceStatusResumeLinkHandler,
-	wire.Bind(new(analyticsports.PublicVisitCreator), new(*analyticscommands.CreatePublicVisitHandler)),
-	wire.Bind(new(analyticsports.PublicInteractionEventRecorder), new(*analyticscommands.RecordPublicInteractionEventHandler)),
+	resumelinkcommands.NewDeleteResumeLinksHandler,
+	wire.Bind(new(resumelinkcontracts.ResumeLinkCleanup), new(*resumelinkcommands.DeleteResumeLinksHandler)),
+	wire.Bind(new(analyticscontracts.PublicVisitCreator), new(*analyticscommands.CreatePublicVisitHandler)),
+	wire.Bind(new(analyticscontracts.PublicInteractionEventRecorder), new(*analyticscommands.RecordPublicInteractionEventHandler)),
 )
 
 var resumeHTTPSet = wire.NewSet(
@@ -163,15 +175,16 @@ func initialize() (*Application, func(), error) {
 		wire.Bind(new(resumelinkports.UnitOfWork), new(*database.UnitOfWork)),
 		wire.Bind(new(analyticsports.UnitOfWork), new(*database.UnitOfWork)),
 		wire.Bind(new(authports.UnitOfWork), new(*database.UnitOfWork)),
-		wire.Bind(new(resumelinkqueries.ResumePublicQuery), new(*resumequeries.PublicResumeQueryHandler)),
-		wire.Bind(new(resumelinkqueries.ResumeContactViewQuery), new(*resumequeries.ContactViewQueryHandler)),
-		wire.Bind(new(resumelinkqueries.ResumeContactsDownloadQuery), new(*resumequeries.DownloadContactsQueryHandler)),
-		wire.Bind(new(analyticsports.VisitorIdentity), new(*resumelinkanalytics.VisitorIdentifier)),
-		wire.Bind(new(analyticsports.TrafficClassifier), new(*resumelinkanalytics.TrafficClassifier)),
+		wire.Bind(new(resumecontracts.PublicResumeQueryHandler), new(*resumequeries.PublicResumeQueryHandler)),
+		wire.Bind(new(resumecontracts.OwnedResumeSectionsQueryHandler), new(*resumequeries.OwnedResumeSectionsQueryHandler)),
+		wire.Bind(new(resumecontracts.ContactViewQueryHandler), new(*resumequeries.ContactViewQueryHandler)),
+		wire.Bind(new(resumecontracts.DownloadContactsQueryHandler), new(*resumequeries.DownloadContactsQueryHandler)),
+		wire.Bind(new(analyticsports.VisitorIdentity), new(*analyticsadapters.VisitorIdentifier)),
+		wire.Bind(new(analyticsports.TrafficClassifier), new(*analyticsadapters.TrafficClassifier)),
 		wire.Bind(new(resumelinkhandlers.PublicResumeLinkQuery), new(*resumelinkqueries.PublicResumeLinkQueryHandler)),
 		wire.Bind(new(resumelinkhandlers.ContactViewQuery), new(*resumelinkqueries.ContactViewThroughLinkQueryHandler)),
 
-		wire.Bind(new(analyticsports.LayoutSnapshotBuilder), new(*resumelinkanalytics.LayoutSnapshotBuilder)),
+		wire.Bind(new(analyticsports.LayoutSnapshotBuilder), new(*analyticsadapters.LayoutSnapshotBuilder)),
 		resumerepository.NewResumeRepository,
 		wire.Bind(new(resumeports.ResumeRepository), new(*resumerepository.ResumeRepository)),
 		resumelinkrepository.NewResumeLinkRepository,
@@ -179,20 +192,24 @@ func initialize() (*Application, func(), error) {
 		newAnalyticsVisitorIdentifier,
 		newOptionalAuthenticate,
 		wire.Bind(new(resumelinkports.ResumeLinkRepository), new(*resumelinkrepository.ResumeLinkRepository)),
+		wire.Bind(new(resumelinkports.ResumeLinkCleanupRepository), new(*resumelinkrepository.ResumeLinkRepository)),
 		analyticsrepository.NewAnalyticsRepository,
 		wire.Bind(new(analyticsports.ViewRepository), new(*analyticsrepository.AnalyticsRepository)),
 		wire.Bind(new(analyticsports.EventRepository), new(*analyticsrepository.AnalyticsRepository)),
 		wire.Bind(new(analyticsports.AnalyticsBatchRepository), new(*analyticsrepository.AnalyticsRepository)),
 		wire.Bind(new(analyticsports.RetentionRepository), new(*analyticsrepository.AnalyticsRepository)),
-		wire.Bind(new(resumelinkports.ResumeOwnershipReader), new(*resumereaders.ResumeReader)),
-		wire.Bind(new(resumelinkqueries.AnalyticsResumeOverviewReader), new(*resumereaders.ResumeReader)),
+		wire.Bind(new(analyticscontracts.AnalyticsLinkCleanup), new(*analyticsrepository.AnalyticsRepository)),
+		wire.Bind(new(resumecontracts.ResumeOwnershipChecker), new(*resumereaders.ResumeReader)),
+		wire.Bind(new(resumecontracts.OwnedResumeLocker), new(*resumereaders.ResumeReader)),
+		wire.Bind(new(resumecontracts.ResumePublicationLocker), new(*resumereaders.ResumeReader)),
 		resumeReadSet, resumeCommandSet, resumeLinkReadSet, resumeLinkCommandSet, analyticsReadSet,
 		resumeHTTPSet, resumeLinkHTTPSet, analyticsHTTPSet,
-		resumequeries.NewPublicResumeQueryHandler, resumequeries.NewListResumesQueryHandler,
+		resumequeries.NewPublicResumeQueryHandler, resumequeries.NewOwnedResumeSectionsQueryHandler, resumequeries.NewListResumesQueryHandler,
 		resumequeries.NewGetResumeQueryHandler, resumequeries.NewContactViewQueryHandler,
 		resumequeries.NewDownloadContactsQueryHandler,
 		userreaders.NewUserReader,
 		wire.Bind(new(userqueries.UserReader), new(*userreaders.UserReader)),
+		wire.Bind(new(usercontracts.UserExistenceChecker), new(*userreaders.UserReader)),
 		userrepository.NewUserRepository,
 		wire.Bind(new(userports.UserRepository), new(*userrepository.UserRepository)),
 		userrepository.NewProfileRepository,
@@ -208,6 +225,6 @@ func initialize() (*Application, func(), error) {
 		newAuthObserver,
 		newRuntimeAuthenticator,
 		newAuthenticate,
-		newRouter, newHTTPHandler, newHTTPServer, cleanup.NewWorker, newBackgroundWorkers, newApplication,
+		newRouter, newHTTPHandler, newHTTPServer, cleanup.NewWorker, newBackgroundWorkers, newOrphanChecker, newApplication,
 	))
 }

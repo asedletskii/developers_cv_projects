@@ -195,7 +195,38 @@ func TestCompleteTelegramLoginReusesExistingIdentity(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, userID, result.UserID)
 	require.Equal(t, 0, provisioner.calls)
+	require.Equal(t, 1, provisioner.ensureCalls)
 	require.Equal(t, 1, identityRepo.updateCalls)
+}
+
+func TestCompleteTelegramLoginRejectsMissingUserForExistingIdentity(t *testing.T) {
+	at := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
+	identityID := sharedvalueobjects.NewID()
+	userID := sharedvalueobjects.NewID()
+	existingIdentity, err := domain.RestoreIdentity(domain.IdentitySnapshot{ID: identityID, UserID: userID, Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub"), CreatedAt: at, UpdatedAt: at, LastLoginAt: at})
+	require.NoError(t, err)
+	identityRepo := &identityRepositoryStub{identity: existingIdentity}
+	sessions := &sessionRepositoryStub{}
+	userErr := errors.New("user not found")
+	provisioner := &provisionerStub{userID: sharedvalueobjects.NewID(), ensureUserErr: userErr}
+	h := NewCompleteTelegramLoginHandler(
+		&transactionRepositoryStub{transaction: testTransaction(t, at)},
+		identityRepo,
+		sessions,
+		&oidcStub{identity: ports.VerifiedIdentity{Provider: testProvider(t), ProviderSubject: testSubject(t, "telegram-sub")}},
+		provisioner,
+		tokenGeneratorStub{session: []byte("session-token")},
+		&unitOfWorkStub{},
+		time.Hour,
+	)
+	h.now = func() time.Time { return at }
+
+	_, err = h.Handle(context.Background(), "code", "state", "browser-binding")
+
+	require.ErrorIs(t, err, userErr)
+	require.Equal(t, 1, provisioner.ensureCalls)
+	require.Equal(t, 0, identityRepo.updateCalls)
+	require.Nil(t, sessions.session)
 }
 
 func TestCompleteTelegramLoginRetriesIdentityConflict(t *testing.T) {

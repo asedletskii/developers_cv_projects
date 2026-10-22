@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -51,6 +52,7 @@ type AnalyticsBatchInput struct {
 type IngestAnalyticsBatchHandler struct {
 	repository ports.AnalyticsBatchRepository
 	uow        ports.UnitOfWork
+	subjects   analyticscontracts.AnalyticsSubjectReader
 	observer   ports.AnalyticsObserver
 	clock      func() time.Time
 }
@@ -58,11 +60,13 @@ type IngestAnalyticsBatchHandler struct {
 func NewIngestAnalyticsBatchHandler(
 	repository ports.AnalyticsBatchRepository,
 	uow ports.UnitOfWork,
+	subjects analyticscontracts.AnalyticsSubjectReader,
 	observer ports.AnalyticsObserver,
 ) *IngestAnalyticsBatchHandler {
 	return &IngestAnalyticsBatchHandler{
 		repository: repository,
 		uow:        uow,
+		subjects:   subjects,
 		observer:   observer,
 		clock:      func() time.Time { return time.Now().UTC() },
 	}
@@ -72,7 +76,7 @@ func (h *IngestAnalyticsBatchHandler) Handle(ctx context.Context, input Analytic
 	if h == nil {
 		return fmt.Errorf("ingest analytics batch: handler is nil")
 	}
-	if h.repository == nil || h.uow == nil {
+	if h.repository == nil || h.uow == nil || h.subjects == nil {
 		h.observeBatchOutcome("failure", "unknown")
 		return fmt.Errorf("ingest analytics batch: dependencies are nil")
 	}
@@ -104,6 +108,11 @@ func (h *IngestAnalyticsBatchHandler) Handle(ctx context.Context, input Analytic
 	}
 	outcome, reason := "accepted", "success"
 	err := h.uow.Do(ctx, func(txCtx context.Context) error {
+		lifecycle, err := h.subjects.LoadLinkLifecycle(txCtx, input.LinkID)
+		if err != nil {
+			outcome, reason = classifyAnalyticsBatchError(err), classifyAnalyticsBatchReason(err)
+			return err
+		}
 		snapshot, err := h.repository.LoadAnalyticsBatchForUpdate(
 			txCtx, input.ViewID, input.LinkID,
 			len(orderedInput) > 0, len(orderedClicks) > 0, needsPrintHistory,
@@ -114,6 +123,10 @@ func (h *IngestAnalyticsBatchHandler) Handle(ctx context.Context, input Analytic
 				reason = "load_failed"
 			}
 			return err
+		}
+		snapshot.LinkContext = ports.LinkAnalyticsContext{
+			LinkID: lifecycle.LinkID, ResumeID: lifecycle.ResumeID,
+			LinkActive: lifecycle.LinkActive, ResumePublished: lifecycle.ResumePublished,
 		}
 		view := snapshot.View
 		if view == nil || view.ID() != input.ViewID || view.LinkID() != input.LinkID {
@@ -247,7 +260,7 @@ func (h *IngestAnalyticsBatchHandler) Handle(ctx context.Context, input Analytic
 
 func classifyAnalyticsBatchError(err error) string {
 	if errors.Is(err, domain.ErrInvalidAnalyticsEvent) || errors.Is(err, domain.ErrInvalidViewState) ||
-		errors.Is(err, domain.ErrAnalyticsLinkInactive) || errors.Is(err, domain.ErrAnalyticsSubjectNotFound) ||
+		errors.Is(err, domain.ErrAnalyticsLinkInactive) || errors.Is(err, analyticscontracts.ErrAnalyticsSubjectNotFound) ||
 		errors.Is(err, domain.ErrAnalyticsViewExpired) {
 		return "rejected"
 	}
@@ -261,7 +274,7 @@ func classifyAnalyticsBatchReason(err error) string {
 	if errors.Is(err, domain.ErrInvalidViewState) {
 		return "invalid_state"
 	}
-	if errors.Is(err, domain.ErrAnalyticsLinkInactive) || errors.Is(err, domain.ErrAnalyticsSubjectNotFound) || errors.Is(err, domain.ErrAnalyticsViewExpired) {
+	if errors.Is(err, domain.ErrAnalyticsLinkInactive) || errors.Is(err, analyticscontracts.ErrAnalyticsSubjectNotFound) || errors.Is(err, domain.ErrAnalyticsViewExpired) {
 		return "view_rejected"
 	}
 	return "load_failed"

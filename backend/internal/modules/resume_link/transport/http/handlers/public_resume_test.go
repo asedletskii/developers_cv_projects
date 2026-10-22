@@ -2,34 +2,32 @@ package handlers
 
 import (
 	"context"
-	"strings"
-	"testing"
-
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type queryStub struct {
-	view     resumequeries.PublicResumeView
+	view     queries.PublicResumeResult
 	err      error
 	query    queries.PublicResumeLinkQuery
-	identity analyticsports.VisitorIdentityResult
+	identity analyticscontracts.VisitorIdentityResult
 }
 
-func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, error) {
+func (s *queryStub) Handle(_ context.Context, query queries.PublicResumeLinkQuery) (queries.PublicResumeResult, error) {
 	s.query = query
 	return s.view, s.err
 }
-func (s *queryStub) HandleWithVisit(_ context.Context, query queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, analyticsports.VisitorIdentityResult, error) {
+func (s *queryStub) HandleWithVisit(_ context.Context, query queries.PublicResumeLinkQuery) (queries.PublicResumeResult, analyticscontracts.VisitorIdentityResult, error) {
 	s.query = query
 	return s.view, s.identity, s.err
 }
@@ -37,7 +35,7 @@ func (s *queryStub) HandleWithVisit(_ context.Context, query queries.PublicResum
 func TestHandlerReturnsPublicResume(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	linkID := sharedvalueobjects.NewID()
-	query := &queryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
+	query := &queryStub{view: queries.PublicResumeResult{Title: "CV"}}
 
 	engine := gin.New()
 	engine.GET("/api/v1/cv/:linkId", NewPublicResumeLinkHandler(query).Handle)
@@ -86,7 +84,7 @@ func TestHandlerEmitsViewIDAndVisitorCookie(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	viewID := sharedvalueobjects.NewID()
 	cookieID := sharedvalueobjects.NewID()
-	query := &queryStub{view: resumequeries.PublicResumeView{Title: "CV"}, identity: analyticsports.VisitorIdentityResult{ViewID: viewID, SetCookie: true, Cookie: &http.Cookie{Name: "cv_vid", Value: cookieID.String(), Path: "/api/v1/cv", MaxAge: 31536000, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}}}
+	query := &queryStub{view: queries.PublicResumeResult{Title: "CV"}, identity: analyticscontracts.VisitorIdentityResult{ViewID: viewID, SetCookie: true, Cookie: &http.Cookie{Name: "cv_vid", Value: cookieID.String(), Path: "/api/v1/cv", MaxAge: 31536000, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}}}
 	engine := gin.New()
 	engine.GET("/api/v1/cv/:linkId", NewPublicResumeLinkHandler(query).Handle)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -99,7 +97,7 @@ func TestHandlerEmitsViewIDAndVisitorCookie(t *testing.T) {
 
 func TestHandlerDoesNotEmitAnalyticsHeadersWhenVisitIsUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	query := &queryStub{view: resumequeries.PublicResumeView{Title: "CV"}}
+	query := &queryStub{view: queries.PublicResumeResult{Title: "CV"}}
 	engine := gin.New()
 	engine.GET("/api/v1/cv/:linkId", NewPublicResumeLinkHandler(query).Handle)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+sharedvalueobjects.NewID().String(), nil)

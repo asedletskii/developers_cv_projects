@@ -40,5 +40,6 @@ type ResumeRepository interface {
 	Get(context.Context, GetResumeParams) (*domain.Resume, error)
 	SaveSection(context.Context, *domain.Resume, ResumeMutationSection) error
 	Create(context.Context, *domain.Resume) error
+	LockForDelete(context.Context, DeleteResumeParams) error
 	Delete(context.Context, DeleteResumeParams) error
 }

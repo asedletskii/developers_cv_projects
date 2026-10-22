@@ -9,9 +9,11 @@ import (
 	"gorm.io/gorm"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 )
 
 func (r *ResumeReader) loadContacts(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, view *queries.ResumeView) error {
@@ -58,11 +60,11 @@ func (r *ResumeReader) loadContactsText(ctx context.Context, db *gorm.DB, contac
 	return nil
 }
 
-func (r *ResumeReader) GetContactForView(ctx context.Context, query queries.ContactViewQuery) (queries.ContactView, error) {
+func (r *ResumeReader) GetContactForView(ctx context.Context, query resumecontracts.ContactViewQuery) (resumecontracts.ContactView, error) {
 	if r == nil {
-		return queries.ContactView{}, fmt.Errorf("get contact for view: reader is nil")
+		return resumecontracts.ContactView{}, fmt.Errorf("get contact for view: reader is nil")
 	}
-	var result queries.ContactView
+	var result resumecontracts.ContactView
 	err := database.WithReadSnapshot(ctx, r.db, func(snapshotCtx context.Context) error {
 		db, err := resolveDB(snapshotCtx, r.db, "get contact for view")
 		if err != nil {
@@ -71,12 +73,12 @@ func (r *ResumeReader) GetContactForView(ctx context.Context, query queries.Cont
 		var resume gormmodel.Resume
 		if err := db.WithContext(snapshotCtx).Where("id = ?", query.ResumeID.UUID()).First(&resume).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return queries.ErrResumeNotFound
+				return resumecontracts.ErrResumeNotFound
 			}
 			return fmt.Errorf("get resume for contact view: %w", err)
 		}
 		if resume.Status != string(domain.ResumeStatusOpened) {
-			return queries.ErrResumeNotFound
+			return resumecontracts.ErrResumeNotFound
 		}
 
 		var model gormmodel.ResumeContacts
@@ -84,7 +86,7 @@ func (r *ResumeReader) GetContactForView(ctx context.Context, query queries.Cont
 			Where("resume_id = ?", query.ResumeID.UUID()).
 			First(&model).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return queries.ErrContactNotFound
+				return resumecontracts.ErrContactNotFound
 			}
 			return fmt.Errorf("get contact for view: %w", err)
 		}
@@ -94,40 +96,40 @@ func (r *ResumeReader) GetContactForView(ctx context.Context, query queries.Cont
 			Where("contacts_id = ? AND value = ?", model.ID, string(query.Contact)).
 			First(&hidden).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return queries.ErrContactNotHidden
+				return resumecontracts.ErrContactNotHidden
 			}
 			return fmt.Errorf("get hidden contact for view: %w", err)
 		}
 
 		var value *string
 		switch query.Contact {
-		case domain.ContactKeyPhone:
+		case contactkey.Phone:
 			value = model.Phone
-		case domain.ContactKeyTelegram:
+		case contactkey.Telegram:
 			value = model.Telegram
-		case domain.ContactKeyEmail:
+		case contactkey.Email:
 			value = model.Email
 		}
 		if value == nil || *value == "" {
-			return queries.ErrContactNotFound
+			return resumecontracts.ErrContactNotFound
 		}
-		result = queries.ContactView{Contact: query.Contact, Value: *value}
+		result = resumecontracts.ContactView{Contact: query.Contact, Value: *value}
 		return nil
 	})
 	if err != nil {
-		return queries.ContactView{}, err
+		return resumecontracts.ContactView{}, err
 	}
 	return result, nil
 }
 
 func (r *ResumeReader) GetContactsForDownload(
 	ctx context.Context,
-	query queries.DownloadContactsQuery,
-) (queries.DownloadContactsView, error) {
+	query resumecontracts.DownloadContactsQuery,
+) (resumecontracts.DownloadContactsView, error) {
 	if r == nil {
-		return queries.DownloadContactsView{}, fmt.Errorf("get contacts for download: reader is nil")
+		return resumecontracts.DownloadContactsView{}, fmt.Errorf("get contacts for download: reader is nil")
 	}
-	var result queries.DownloadContactsView
+	var result resumecontracts.DownloadContactsView
 	err := database.WithReadSnapshot(ctx, r.db, func(snapshotCtx context.Context) error {
 		db, err := resolveDB(snapshotCtx, r.db, "get contacts for download")
 		if err != nil {
@@ -136,12 +138,12 @@ func (r *ResumeReader) GetContactsForDownload(
 		var resume gormmodel.Resume
 		if err := db.WithContext(snapshotCtx).Where("id = ?", query.ResumeID.UUID()).First(&resume).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return queries.ErrResumeNotFound
+				return resumecontracts.ErrResumeNotFound
 			}
 			return fmt.Errorf("get resume for contact download: %w", err)
 		}
 		if resume.Status != string(domain.ResumeStatusOpened) {
-			return queries.ErrResumeNotFound
+			return resumecontracts.ErrResumeNotFound
 		}
 
 		var contacts gormmodel.ResumeContacts
@@ -154,7 +156,7 @@ func (r *ResumeReader) GetContactsForDownload(
 			}
 			return fmt.Errorf("get resume contacts for download: %w", err)
 		}
-		result = queries.DownloadContactsView{
+		result = resumecontracts.DownloadContactsView{
 			Phone:    contacts.Phone,
 			Telegram: contacts.Telegram,
 			Email:    contacts.Email,
@@ -162,7 +164,7 @@ func (r *ResumeReader) GetContactsForDownload(
 		return nil
 	})
 	if err != nil {
-		return queries.DownloadContactsView{}, err
+		return resumecontracts.DownloadContactsView{}, err
 	}
 	return result, nil
 }

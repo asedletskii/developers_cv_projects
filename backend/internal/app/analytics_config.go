@@ -1,21 +1,30 @@
 package app
 
 import (
+	"gorm.io/gorm"
+
 	analyticscommands "developers-cv/backend/internal/modules/analytics/application/commands"
 	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
-	resumelinkports "developers-cv/backend/internal/modules/resume_link/application/ports"
-	resumelinkqueries "developers-cv/backend/internal/modules/resume_link/application/queries"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
+	analyticsreaders "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/telemetry"
 )
 
 func newAnalyticsAccessReader(
-	links resumelinkqueries.ResumeLinkPublicReader,
-	resumes resumelinkports.ResumeOwnershipReader,
-	overview resumelinkqueries.AnalyticsResumeOverviewReader,
-	publicResume resumelinkqueries.ResumePublicQuery,
-) analyticsports.AnalyticsAccessReader {
-	return resumelinkqueries.NewAnalyticsAccessReader(links, resumes, overview, publicResume)
+	links analyticsaccess.LinkLifecycleReader,
+	resumes resumecontracts.ResumeOwnershipChecker,
+	publication resumecontracts.ResumePublicationLocker,
+	overview resumecontracts.OwnedResumeSectionsQueryHandler,
+	publicResume resumecontracts.PublicResumeQueryHandler,
+) *analyticsaccess.Reader {
+	return analyticsaccess.NewReader(links, resumes, publication, overview, publicResume)
+}
+
+func newAnalyticsReader(db *gorm.DB, subjects analyticscontracts.AnalyticsSubjectReader) *analyticsreaders.AnalyticsReader {
+	return analyticsreaders.NewAnalyticsReader(db, subjects)
 }
 
 func newCleanupAnalyticsHandler(
@@ -32,7 +41,8 @@ func newCleanupAnalyticsHandler(
 func newIngestAnalyticsBatchHandler(
 	repository analyticsports.AnalyticsBatchRepository,
 	uow analyticsports.UnitOfWork,
+	subjects analyticscontracts.AnalyticsSubjectReader,
 	metrics *telemetry.Metrics,
 ) *analyticscommands.IngestAnalyticsBatchHandler {
-	return analyticscommands.NewIngestAnalyticsBatchHandler(repository, uow, metrics)
+	return analyticscommands.NewIngestAnalyticsBatchHandler(repository, uow, subjects, metrics)
 }

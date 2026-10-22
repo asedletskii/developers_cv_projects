@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	"developers-cv/backend/internal/modules/analytics/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/analytics/infrastructure/persistence/mappers"
@@ -30,18 +31,13 @@ func (r *AnalyticsRepository) LoadAnalyticsBatchForUpdate(
 		return ports.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: %w", err)
 	}
 
-	linkContext, err := loadAnalyticsLifecycle(ctx, tx, linkID)
-	if err != nil {
-		return ports.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: %w", err)
-	}
-
 	var model gormmodel.AnalyticsView
 	if err := tx.WithContext(ctx).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("id = ? AND link_id = ?", viewID.UUID(), linkID.UUID()).
 		First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ports.AnalyticsBatchSnapshot{}, domain.ErrAnalyticsSubjectNotFound
+			return ports.AnalyticsBatchSnapshot{}, analyticscontracts.ErrAnalyticsSubjectNotFound
 		}
 		return ports.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: lock view: %w", mapDBError(err))
 	}
@@ -51,9 +47,7 @@ func (r *AnalyticsRepository) LoadAnalyticsBatchForUpdate(
 		return ports.AnalyticsBatchSnapshot{}, fmt.Errorf("load analytics batch: map view: %w", err)
 	}
 
-	snapshot := ports.AnalyticsBatchSnapshot{
-		View: view, LinkContext: linkContext,
-	}
+	snapshot := ports.AnalyticsBatchSnapshot{View: view}
 	if includeEventCount {
 		if err := tx.WithContext(ctx).Model(&gormmodel.AnalyticsEvent{}).
 			Where("view_id = ? AND client_event_id IS NOT NULL", viewID.UUID()).
@@ -169,7 +163,7 @@ func (r *AnalyticsRepository) RecordClicks(ctx context.Context, clicks []*domain
 		Where("id = ? AND link_id = ?", viewID, linkID).
 		First(&matchingView).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrAnalyticsSubjectNotFound
+			return analyticscontracts.ErrAnalyticsSubjectNotFound
 		}
 		return fmt.Errorf("record analytics clicks: verify and lock view: %w", mapDBError(err))
 	}
@@ -236,7 +230,7 @@ func (r *AnalyticsRepository) RecordEvents(ctx context.Context, events []*domain
 		Where("id = ? AND link_id = ?", viewID, linkID).
 		First(&matchingView).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrAnalyticsSubjectNotFound
+			return analyticscontracts.ErrAnalyticsSubjectNotFound
 		}
 		return fmt.Errorf("record analytics events: verify and lock view: %w", mapDBError(err))
 	}

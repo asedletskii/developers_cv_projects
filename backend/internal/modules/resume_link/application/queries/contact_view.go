@@ -4,16 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumedomain "developers-cv/backend/internal/modules/resume/domain"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	application "developers-cv/backend/internal/modules/resume_link/application"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactViewThroughLinkQuery struct {
 	LinkID    sharedvalueobjects.ID
 	Initiator ContactViewInitiator
-	Contact   resumedomain.ContactKey
+	Contact   contactkey.Key
 	ViewID    sharedvalueobjects.ID
 }
 
@@ -25,43 +26,35 @@ const (
 )
 
 type ContactViewThroughLinkResult struct {
-	Contact  *resumedomain.ContactKey         `json:"contact,omitempty"`
-	Value    *string                          `json:"value,omitempty"`
-	Contacts *[]ContactViewThroughLinkContact `json:"contacts,omitempty"`
+	Contact  *contactkey.Key
+	Value    *string
+	Contacts *[]ContactViewThroughLinkContact
 }
 
 type ContactViewThroughLinkContact struct {
-	Contact resumedomain.ContactKey `json:"contact"`
-	Value   string                  `json:"value"`
-}
-
-type ResumeContactViewQuery interface {
-	Handle(context.Context, resumequeries.ContactViewQuery) (resumequeries.ContactView, error)
-}
-
-type ResumeContactsDownloadQuery interface {
-	Handle(context.Context, resumequeries.DownloadContactsQuery) (resumequeries.DownloadContactsView, error)
+	Contact contactkey.Key
+	Value   string
 }
 
 type ContactViewAnalyticsErrorReporter func(error)
 
 type ContactViewThroughLinkQueryHandler struct {
 	linkResolver           PublicResumeLinkResolver
-	resumeContactView      ResumeContactViewQuery
-	resumeContactsDownload ResumeContactsDownloadQuery
-	analytics              analyticsports.PublicInteractionEventRecorder
+	resumeContactView      resumecontracts.ContactViewQueryHandler
+	resumeContactsDownload resumecontracts.DownloadContactsQueryHandler
+	analytics              analyticscontracts.PublicInteractionEventRecorder
 	reportAnalyticsError   ContactViewAnalyticsErrorReporter
 }
 
-func NewContactViewThroughLinkQueryHandler(linkResolver PublicResumeLinkResolver, resume ResumeContactViewQuery) *ContactViewThroughLinkQueryHandler {
+func NewContactViewThroughLinkQueryHandler(linkResolver PublicResumeLinkResolver, resume resumecontracts.ContactViewQueryHandler) *ContactViewThroughLinkQueryHandler {
 	return &ContactViewThroughLinkQueryHandler{linkResolver: linkResolver, resumeContactView: resume}
 }
 
 func NewContactViewThroughLinkQueryHandlerWithAnalytics(
 	linkResolver PublicResumeLinkResolver,
-	resumeContactView ResumeContactViewQuery,
-	resumeContactsDownload ResumeContactsDownloadQuery,
-	analytics analyticsports.PublicInteractionEventRecorder,
+	resumeContactView resumecontracts.ContactViewQueryHandler,
+	resumeContactsDownload resumecontracts.DownloadContactsQueryHandler,
+	analytics analyticscontracts.PublicInteractionEventRecorder,
 	reportAnalyticsError ContactViewAnalyticsErrorReporter,
 ) *ContactViewThroughLinkQueryHandler {
 	return &ContactViewThroughLinkQueryHandler{
@@ -97,7 +90,7 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(
 		return ContactViewThroughLinkResult{}, fmt.Errorf("invalid contact view through link query")
 	}
 	if initiator == ContactViewInitiatorContact {
-		if _, err := resumedomain.ParseContactKey(string(query.Contact)); err != nil {
+		if _, err := contactkey.Parse(string(query.Contact)); err != nil {
 			return ContactViewThroughLinkResult{}, fmt.Errorf("invalid contact view through link query")
 		}
 	} else if query.Contact != "" {
@@ -112,28 +105,31 @@ func (h *ContactViewThroughLinkQueryHandler) Handle(
 	var result ContactViewThroughLinkResult
 	switch initiator {
 	case ContactViewInitiatorContact:
-		view, err := h.resumeContactView.Handle(ctx, resumequeries.ContactViewQuery{
+		view, err := h.resumeContactView.Handle(ctx, resumecontracts.ContactViewQuery{
 			ResumeID: resumeID,
 			Contact:  query.Contact,
 		})
 		if err != nil {
-			return ContactViewThroughLinkResult{}, err
+			return ContactViewThroughLinkResult{}, application.NormalizeProviderError(err)
+		}
+		if _, err := contactkey.Parse(string(view.Contact)); err != nil {
+			return ContactViewThroughLinkResult{}, fmt.Errorf("map resume contact key: %w", err)
 		}
 		result.Contact = &view.Contact
 		result.Value = &view.Value
 	case ContactViewInitiatorDownload:
-		contacts, err := h.resumeContactsDownload.Handle(ctx, resumequeries.DownloadContactsQuery{ResumeID: resumeID})
+		contacts, err := h.resumeContactsDownload.Handle(ctx, resumecontracts.DownloadContactsQuery{ResumeID: resumeID})
 		if err != nil {
-			return ContactViewThroughLinkResult{}, err
+			return ContactViewThroughLinkResult{}, application.NormalizeProviderError(err)
 		}
 		downloadedContacts := make([]ContactViewThroughLinkContact, 0, 3)
 		for _, contact := range []struct {
-			key   resumedomain.ContactKey
+			key   contactkey.Key
 			value *string
 		}{
-			{key: resumedomain.ContactKeyTelegram, value: contacts.Telegram},
-			{key: resumedomain.ContactKeyEmail, value: contacts.Email},
-			{key: resumedomain.ContactKeyPhone, value: contacts.Phone},
+			{key: contactkey.Telegram, value: contacts.Telegram},
+			{key: contactkey.Email, value: contacts.Email},
+			{key: contactkey.Phone, value: contacts.Phone},
 		} {
 			if contact.value != nil && *contact.value != "" {
 				downloadedContacts = append(downloadedContacts, ContactViewThroughLinkContact{

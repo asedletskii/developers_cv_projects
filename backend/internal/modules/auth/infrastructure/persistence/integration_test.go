@@ -22,13 +22,13 @@ import (
 	"developers-cv/backend/internal/testutil/pgtest"
 )
 
-func newAuthDatabase(t *testing.T) (context.Context, string, *database.UnitOfWork, *repository.IdentityRepository, *repository.SessionRepository, *repository.AuthTransactionRepository) {
+func newAuthDatabase(t *testing.T) (context.Context, string, *database.UnitOfWork, *repository.IdentityRepository, *repository.SessionRepository, *repository.AuthTransactionRepository, *repository.UserDataCleanupRepository) {
 	t.Helper()
 	ctx, dsn := pgtest.NewDatabase(t)
 	db, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(db)) })
-	return ctx, dsn, database.NewUnitOfWork(db), repository.NewIdentityRepository(db), repository.NewSessionRepository(db), repository.NewAuthTransactionRepository(db)
+	return ctx, dsn, database.NewUnitOfWork(db), repository.NewIdentityRepository(db), repository.NewSessionRepository(db), repository.NewAuthTransactionRepository(db), repository.NewUserDataCleanupRepository(db)
 }
 
 func insertUser(t *testing.T, ctx context.Context, dsn string, id sharedvalueobjects.ID) {
@@ -37,7 +37,7 @@ func insertUser(t *testing.T, ctx context.Context, dsn string, id sharedvalueobj
 	require.NoError(t, err)
 	conn, err := pgx.ConnectConfig(ctx, cfg)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, "INSERT INTO users (id) VALUES ($1)", id.UUID())
+	_, err = conn.Exec(ctx, "INSERT INTO users.users (id) VALUES ($1)", id.UUID())
 	require.NoError(t, err)
 }
 
@@ -53,6 +53,19 @@ func testIdentity(t *testing.T, userID sharedvalueobjects.ID, subject string, at
 func testSession(t *testing.T, userID sharedvalueobjects.ID, at time.Time) *domain.Session {
 	t.Helper()
 	hash, err := valueobjects.NewSessionTokenHash(make([]byte, valueobjects.HashSize))
+	require.NoError(t, err)
+	session, err := domain.NewSession(domain.SessionParams{UserID: userID, TokenHash: hash, CreatedAt: at, LastSeenAt: at, ExpiresAt: at.Add(time.Hour)})
+	require.NoError(t, err)
+	return session
+}
+
+func testSessionWithTokenByte(t *testing.T, userID sharedvalueobjects.ID, at time.Time, fill byte) *domain.Session {
+	t.Helper()
+	raw := make([]byte, valueobjects.HashSize)
+	for i := range raw {
+		raw[i] = fill
+	}
+	hash, err := valueobjects.NewSessionTokenHash(raw)
 	require.NoError(t, err)
 	session, err := domain.NewSession(domain.SessionParams{UserID: userID, TokenHash: hash, CreatedAt: at, LastSeenAt: at, ExpiresAt: at.Add(time.Hour)})
 	require.NoError(t, err)
@@ -75,21 +88,27 @@ func testTransaction(t *testing.T, at time.Time) *domain.AuthTransaction {
 	return tx
 }
 
-func TestAuthRepositoriesPersistAndCascade(t *testing.T) {
+func TestAuthRepositoriesPersistAndCleanupUserData(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
-	ctx, dsn, uow, identities, sessions, transactions := newAuthDatabase(t)
+	ctx, dsn, uow, identities, sessions, transactions, cleanup := newAuthDatabase(t)
 	userID := sharedvalueobjects.NewID()
+	otherUserID := sharedvalueobjects.NewID()
 	insertUser(t, ctx, dsn, userID)
+	insertUser(t, ctx, dsn, otherUserID)
 	at := time.Now().UTC().Truncate(time.Microsecond)
 
 	identity := testIdentity(t, userID, "telegram-subject", at)
 	session := testSession(t, userID, at)
+	otherIdentity := testIdentity(t, otherUserID, "other-telegram-subject", at)
+	otherSession := testSessionWithTokenByte(t, otherUserID, at, 1)
 	transaction := testTransaction(t, at)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		require.NoError(t, identities.Create(tx, identity))
 		require.NoError(t, sessions.Create(tx, session))
+		require.NoError(t, identities.Create(tx, otherIdentity))
+		require.NoError(t, sessions.Create(tx, otherSession))
 		return transactions.Create(tx, transaction)
 	}))
 
@@ -124,32 +143,30 @@ func TestAuthRepositoriesPersistAndCascade(t *testing.T) {
 	err = uow.Do(ctx, func(tx context.Context) error { return transactions.Create(tx, duplicateTx) })
 	require.ErrorIs(t, err, domain.ErrDuplicateEntity)
 
-	var count int64
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return sessions.Revoke(tx, session.ID(), at.Add(time.Minute)) }))
 	_, err = sessions.FindActiveByTokenHash(ctx, session.TokenHash())
 	require.ErrorIs(t, err, domain.ErrEntityNotFound)
 
-	cfg, err := pgx.ParseConfig(dsn)
-	require.NoError(t, err)
-	conn, err := pgx.ConnectConfig(ctx, cfg)
-	require.NoError(t, err)
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return cleanup.DeleteByUserID(tx, userID) }))
+	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return cleanup.DeleteByUserID(tx, userID) }), "cleanup must be idempotent")
 
-	_, err = conn.Exec(ctx, "DELETE FROM users WHERE id = $1", userID.UUID())
-	require.NoError(t, err)
 	db, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	defer database.Close(db)
-	require.NoError(t, db.Table("user_identities").Where("user_id = ?", userID.UUID()).Count(&count).Error)
-	require.Zero(t, count)
-	require.NoError(t, db.Table("auth_sessions").Where("user_id = ?", userID.UUID()).Count(&count).Error)
-	require.Zero(t, count)
+	for _, table := range []string{"auth.user_identities", "auth.auth_sessions"} {
+		var count int64
+		require.NoError(t, db.Table(table).Where("user_id = ?", userID.UUID()).Count(&count).Error)
+		require.Zero(t, count, table)
+		require.NoError(t, db.Table(table).Where("user_id = ?", otherUserID.UUID()).Count(&count).Error)
+		require.Equal(t, int64(1), count, table)
+	}
 }
 
 func TestAuthTransactionForUpdateBlocksConcurrentReader(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
-	ctx, _, uow, _, _, transactions := newAuthDatabase(t)
+	ctx, _, uow, _, _, transactions, _ := newAuthDatabase(t)
 	at := time.Now().UTC().Truncate(time.Microsecond)
 	transaction := testTransaction(t, at)
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error { return transactions.Create(tx, transaction) }))
@@ -192,7 +209,7 @@ func TestAuthRepositoriesDeleteExpiredBatch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
-	ctx, _, uow, _, _, transactions := newAuthDatabase(t)
+	ctx, _, uow, _, _, transactions, _ := newAuthDatabase(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	tx := testTransaction(t, now.Add(-10*time.Minute))
 	require.NoError(t, uow.Do(ctx, func(c context.Context) error { return transactions.Create(c, tx) }))

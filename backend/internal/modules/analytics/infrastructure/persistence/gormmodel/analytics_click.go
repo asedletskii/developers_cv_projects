@@ -19,4 +19,4 @@ type AnalyticsClick struct {
 	OccurredAt time.Time `gorm:"not null"`
 }
 
-func (AnalyticsClick) TableName() string { return "analytics_clicks" }
+func (AnalyticsClick) TableName() string { return schema + ".analytics_clicks" }

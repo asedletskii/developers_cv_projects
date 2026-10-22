@@ -14,10 +14,12 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 	"developers-cv/backend/internal/testutil/pgtest"
 )
@@ -79,7 +81,7 @@ func TestPostgresResumeAggregateOverviewReplacement(t *testing.T) {
 	require.NoError(t, fixture.gorm.Raw(`
 		SELECT count(*)
 		FROM information_schema.columns
-		WHERE table_schema = current_schema()
+		WHERE table_schema = 'resume'
 		  AND table_name = 'resume_overviews'
 		  AND column_name = 'resume_link'
 	`).Scan(&removedFieldCount).Error)
@@ -185,8 +187,8 @@ func TestPostgresResumeAggregateContactsReplacement(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, fixture.resume.ReplaceContacts(domain.ContactsParams{
 		Contacts:       contactEntity,
-		HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
-		Text:           &contactsText,
+		HiddenContacts: []contactkey.Key{contactkey.Email},
+		Text:           contactsText,
 	}))
 	firstID := fixture.resume.Contacts().ID()
 
@@ -200,7 +202,7 @@ func TestPostgresResumeAggregateContactsReplacement(t *testing.T) {
 	require.NotNil(t, loaded.Contacts())
 	require.Equal(t, firstID, loaded.Contacts().ID())
 	require.Equal(t, "+33123456789", *loaded.Contacts().Contacts().Phone())
-	require.Equal(t, []domain.ContactKey{domain.ContactKeyEmail}, loaded.Contacts().HiddenContacts())
+	require.Equal(t, []contactkey.Key{contactkey.Email}, loaded.Contacts().HiddenContacts())
 	require.Equal(t, "Contacts", *loaded.Contacts().Text().Title())
 
 	stale, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
@@ -231,6 +233,58 @@ func TestPostgresResumeAggregateContactsReplacement(t *testing.T) {
 	}), domain.ErrConcurrencyConflict)
 }
 
+func TestPostgresResumeContactsTextEmptyValuesRemoveRow(t *testing.T) {
+	fixture := newPhase6PostgresFixture(t)
+	ctx := fixture.ctx
+	resumeRepo := repository.NewResumeRepository(fixture.gorm)
+
+	email, err := domain.NewEmail("first@example.com")
+	require.NoError(t, err)
+	contactEntity, err := domain.NewContactMethods(domain.ContactMethodsParams{Email: &email})
+	require.NoError(t, err)
+	title := "Contacts"
+	contactsText, err := domain.NewContactsText(domain.ContactsTextParams{Title: &title})
+	require.NoError(t, err)
+	require.NoError(t, fixture.resume.ReplaceContacts(domain.ContactsParams{
+		Contacts: contactEntity,
+		Text:     contactsText,
+	}))
+	contactsID := fixture.resume.Contacts().ID()
+
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.Save(tx, fixture.resume)
+	}))
+
+	var count int64
+	require.NoError(t, fixture.gorm.Table("resume.resume_contacts_text").Where("contacts_id = ?", contactsID.UUID()).Count(&count).Error)
+	require.Equal(t, int64(1), count)
+
+	loaded, err := resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+
+	empty := ""
+	whitespace := "   "
+	emptyText, err := domain.NewContactsText(domain.ContactsTextParams{Title: &empty, Subtitle: &whitespace})
+	require.NoError(t, err)
+	require.Nil(t, emptyText)
+	require.NoError(t, loaded.ReplaceContacts(domain.ContactsParams{
+		Contacts: contactEntity,
+		Text:     emptyText,
+	}))
+
+	require.NoError(t, fixture.uow.Do(ctx, func(tx context.Context) error {
+		return resumeRepo.Save(tx, loaded)
+	}))
+
+	require.NoError(t, fixture.gorm.Table("resume.resume_contacts_text").Where("contacts_id = ?", contactsID.UUID()).Count(&count).Error)
+	require.Zero(t, count)
+
+	loaded, err = resumeRepo.Get(ctx, ports.GetResumeParams{ResumeID: fixture.resume.ID(), UserID: fixture.owner})
+	require.NoError(t, err)
+	require.NotNil(t, loaded.Contacts())
+	require.Nil(t, loaded.Contacts().Text())
+}
+
 func TestPostgresResumeTechnologyNamesMustBeUniquePerCollection(t *testing.T) {
 	fixture := newPhase6PostgresFixture(t)
 	conn, err := pgx.Connect(fixture.ctx, fixture.dsn)
@@ -240,46 +294,46 @@ func TestPostgresResumeTechnologyNamesMustBeUniquePerCollection(t *testing.T) {
 	resumeID := fixture.resume.ID().UUID()
 	technologyID := sharedvalueobjects.NewID().UUID()
 	_, err = conn.Exec(fixture.ctx,
-		`INSERT INTO resume_technologies (id, resume_id, name, position) VALUES ($1, $2, 'Go', 0)`,
+		`INSERT INTO resume.resume_technologies (id, resume_id, name, position) VALUES ($1, $2, 'Go', 0)`,
 		technologyID, resumeID,
 	)
 	require.NoError(t, err)
 	_, err = conn.Exec(fixture.ctx,
-		`INSERT INTO resume_technologies (id, resume_id, name, position) VALUES ($1, $2, 'Go', 1)`,
+		`INSERT INTO resume.resume_technologies (id, resume_id, name, position) VALUES ($1, $2, 'Go', 1)`,
 		sharedvalueobjects.NewID().UUID(), resumeID,
 	)
 	require.Error(t, err, "resume technologies must reject duplicate names")
 
 	experienceID := sharedvalueobjects.NewID().UUID()
 	_, err = conn.Exec(fixture.ctx,
-		`INSERT INTO resume_experiences (id, resume_id, sort_order, company, position, start_date) VALUES ($1, $2, 0, 'Acme', 'Developer', '2024-01-01')`,
+		`INSERT INTO resume.resume_experiences (id, resume_id, sort_order, company, position, start_date) VALUES ($1, $2, 0, 'Acme', 'Developer', '2024-01-01')`,
 		experienceID, resumeID,
 	)
 	require.NoError(t, err)
 	_, err = conn.Exec(fixture.ctx,
-		`INSERT INTO resume_experience_stack (experience_id, position, name) VALUES ($1, 0, 'Go')`,
+		`INSERT INTO resume.resume_experience_stack (experience_id, position, name) VALUES ($1, 0, 'Go')`,
 		experienceID,
 	)
 	require.NoError(t, err)
 	_, err = conn.Exec(fixture.ctx,
-		`INSERT INTO resume_experience_stack (experience_id, position, name) VALUES ($1, 1, 'Go')`,
+		`INSERT INTO resume.resume_experience_stack (experience_id, position, name) VALUES ($1, 1, 'Go')`,
 		experienceID,
 	)
 	require.Error(t, err, "experience stack must reject duplicate technology names")
 
 	projectID := sharedvalueobjects.NewID().UUID()
 	_, err = conn.Exec(fixture.ctx,
-		`INSERT INTO resume_projects (id, resume_id, sort_order, name) VALUES ($1, $2, 0, 'Project')`,
+		`INSERT INTO resume.resume_projects (id, resume_id, sort_order, name) VALUES ($1, $2, 0, 'Project')`,
 		projectID, resumeID,
 	)
 	require.NoError(t, err)
 	_, err = conn.Exec(fixture.ctx,
-		`INSERT INTO resume_project_technologies (project_id, position, name) VALUES ($1, 0, 'Go')`,
+		`INSERT INTO resume.resume_project_technologies (project_id, position, name) VALUES ($1, 0, 'Go')`,
 		projectID,
 	)
 	require.NoError(t, err)
 	_, err = conn.Exec(fixture.ctx,
-		`INSERT INTO resume_project_technologies (project_id, position, name) VALUES ($1, 1, 'Go')`,
+		`INSERT INTO resume.resume_project_technologies (project_id, position, name) VALUES ($1, 1, 'Go')`,
 		projectID,
 	)
 	require.Error(t, err, "project stack must reject duplicate technology names")
@@ -310,28 +364,28 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 		query string
 		args  []any
 	}{
-		{`INSERT INTO resume_profiles (id,resume_id,name,surname,position,photo_url,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','https://example.com/photo','1998-01-01','Paris',false)`, []any{profileID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_profile_work_formats (profile_id,value,position) VALUES ($1,'remote',0)`, []any{profileID.UUID()}},
-		{`INSERT INTO resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, []any{contactsID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_contact_hidden (contacts_id,value,position) VALUES ($1,'email',0)`, []any{contactsID.UUID()}},
-		{`INSERT INTO resume_contacts_text (contacts_id,title) VALUES ($1,'Contact')`, []any{contactsID.UUID()}},
-		{`INSERT INTO resume_skills (id,resume_id) VALUES ($1,$2)`, []any{skillsID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_skill_hard (skills_id,value,position) VALUES ($1,'architecture',0)`, []any{skillsID.UUID()}},
-		{`INSERT INTO resume_skill_soft (skills_id,value,position) VALUES ($1,'communication',0)`, []any{skillsID.UUID()}},
-		{`INSERT INTO resume_spoken_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, []any{languageID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_technologies (id,resume_id,name,position) VALUES ($1,$2,'Go',0)`, []any{technologyID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2024-01-01')`, []any{experienceID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, []any{experienceID.UUID()}},
-		{`INSERT INTO resume_experience_tasks (experience_id,position,value) VALUES ($1,0,'Implement backend')`, []any{experienceID.UUID()}},
-		{`INSERT INTO resume_experience_stack (experience_id,position,name) VALUES ($1,0,'Go')`, []any{experienceID.UUID()}},
-		{`INSERT INTO resume_educations (id,resume_id,sort_order,location,university,grade,program_name,faculty) VALUES ($1,$2,0,'Paris','University',5,'Computer Science','Engineering')`, []any{educationID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_courses (id,resume_id,sort_order,name,organization,end_date) VALUES ($1,$2,0,'Go Course','Academy','2025-01-01')`, []any{courseID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_activities (id,resume_id,sort_order,type,title) VALUES ($1,$2,0,'openSource','Contributor')`, []any{activityID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_projects (id,resume_id,sort_order,name) VALUES ($1,$2,0,'CV')`, []any{projectID.UUID(), resumeID.UUID()}},
-		{`INSERT INTO resume_project_screenshots (project_id,position,path) VALUES ($1,0,'https://example.com/shot.png')`, []any{projectID.UUID()}},
-		{`INSERT INTO resume_project_technologies (project_id,position,name) VALUES ($1,0,'Go')`, []any{projectID.UUID()}},
-		{`INSERT INTO resume_project_contributors (project_id,position,name,surname,role,email) VALUES ($1,0,'Jane','Doe','Developer','jane@example.com')`, []any{projectID.UUID()}},
-		{`UPDATE resumes SET updated_at = $1 WHERE id = $2`, []any{now, resumeID.UUID()}},
+		{`INSERT INTO resume.resume_profiles (id,resume_id,name,surname,position,photo_url,date_of_birth,location,relocation) VALUES ($1,$2,'A','B','Developer','https://example.com/photo','1998-01-01','Paris',false)`, []any{profileID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_profile_work_formats (profile_id,value,position) VALUES ($1,'remote',0)`, []any{profileID.UUID()}},
+		{`INSERT INTO resume.resume_contacts (id,resume_id,email) VALUES ($1,$2,'test@example.com')`, []any{contactsID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_contact_hidden (contacts_id,value,position) VALUES ($1,'email',0)`, []any{contactsID.UUID()}},
+		{`INSERT INTO resume.resume_contacts_text (contacts_id,title) VALUES ($1,'Contact')`, []any{contactsID.UUID()}},
+		{`INSERT INTO resume.resume_skills (id,resume_id) VALUES ($1,$2)`, []any{skillsID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_skill_hard (skills_id,value,position) VALUES ($1,'architecture',0)`, []any{skillsID.UUID()}},
+		{`INSERT INTO resume.resume_skill_soft (skills_id,value,position) VALUES ($1,'communication',0)`, []any{skillsID.UUID()}},
+		{`INSERT INTO resume.resume_spoken_languages (id,resume_id,language,position,grade) VALUES ($1,$2,'en',0,'B2')`, []any{languageID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_technologies (id,resume_id,name,position) VALUES ($1,$2,'Go',0)`, []any{technologyID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES ($1,$2,0,'Acme','Developer','2024-01-01')`, []any{experienceID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_experience_achievements (experience_id,position,value) VALUES ($1,0,'Built API')`, []any{experienceID.UUID()}},
+		{`INSERT INTO resume.resume_experience_tasks (experience_id,position,value) VALUES ($1,0,'Implement backend')`, []any{experienceID.UUID()}},
+		{`INSERT INTO resume.resume_experience_stack (experience_id,position,name) VALUES ($1,0,'Go')`, []any{experienceID.UUID()}},
+		{`INSERT INTO resume.resume_educations (id,resume_id,sort_order,location,university,grade,program_name,faculty) VALUES ($1,$2,0,'Paris','University',5,'Computer Science','Engineering')`, []any{educationID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_courses (id,resume_id,sort_order,name,organization,end_date) VALUES ($1,$2,0,'Go Course','Academy','2025-01-01')`, []any{courseID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_activities (id,resume_id,sort_order,type,title) VALUES ($1,$2,0,'openSource','Contributor')`, []any{activityID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_projects (id,resume_id,sort_order,name) VALUES ($1,$2,0,'CV')`, []any{projectID.UUID(), resumeID.UUID()}},
+		{`INSERT INTO resume.resume_project_screenshots (project_id,position,path) VALUES ($1,0,'https://example.com/shot.png')`, []any{projectID.UUID()}},
+		{`INSERT INTO resume.resume_project_technologies (project_id,position,name) VALUES ($1,0,'Go')`, []any{projectID.UUID()}},
+		{`INSERT INTO resume.resume_project_contributors (project_id,position,name,surname,role,email) VALUES ($1,0,'Jane','Doe','Developer','jane@example.com')`, []any{projectID.UUID()}},
+		{`UPDATE resume.resumes SET updated_at = $1 WHERE id = $2`, []any{now, resumeID.UUID()}},
 	}
 	for _, statement := range statements {
 		_, err = conn.Exec(ctx, statement.query, statement.args...)
@@ -352,7 +406,7 @@ func TestPostgresResumeDeleteCascadesAcrossAggregateTables(t *testing.T) {
 	}
 	for _, table := range tables {
 		var count int
-		require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM "+table).Scan(&count))
+		require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume."+table).Scan(&count))
 		require.Zero(t, count, table)
 	}
 }
@@ -373,7 +427,7 @@ func TestPostgresResumeDeleteRejectsStaleVersion(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrConcurrencyConflict)
 
 	var count int64
-	require.NoError(t, fixture.gorm.WithContext(ctx).Table("resumes").Where("id = ?", fixture.resume.ID().UUID()).Count(&count).Error)
+	require.NoError(t, fixture.gorm.WithContext(ctx).Table("resume.resumes").Where("id = ?", fixture.resume.ID().UUID()).Count(&count).Error)
 	require.Equal(t, int64(1), count)
 }
 
@@ -400,9 +454,9 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO resume_spoken_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',0,'B2')`, resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_spoken_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',0,'B2')`, resumeID.UUID())
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_spoken_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',1,'C1')`, resumeID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_spoken_languages (id,resume_id,language,position,grade) VALUES (gen_random_uuid(),$1,'en',1,'C1')`, resumeID.UUID())
 	require.Error(t, err, "duplicate author language must violate UNIQUE(resume_id, language)")
 
 	checks := []struct {
@@ -412,12 +466,12 @@ func TestPostgresPersistenceEnforcesUniquenessAndDatabaseChecks(t *testing.T) {
 	}{
 		{
 			name:  "negative experience order",
-			query: `INSERT INTO resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES (gen_random_uuid(),$1,-1,'Acme','Developer','2024-01-01')`,
+			query: `INSERT INTO resume.resume_experiences (id,resume_id,sort_order,company,position,start_date) VALUES (gen_random_uuid(),$1,-1,'Acme','Developer','2024-01-01')`,
 			args:  []any{resumeID.UUID()},
 		},
 		{
 			name:  "invalid activity enum",
-			query: `INSERT INTO resume_activities (id,resume_id,sort_order,type,title) VALUES (gen_random_uuid(),$1,0,'unknown','Activity')`,
+			query: `INSERT INTO resume.resume_activities (id,resume_id,sort_order,type,title) VALUES (gen_random_uuid(),$1,0,'unknown','Activity')`,
 			args:  []any{resumeID.UUID()},
 		},
 	}
@@ -674,13 +728,13 @@ func TestPostgresResumeSaveAllowsAbsentOptionalOverview(t *testing.T) {
 	require.NotNil(t, view.Overview.Sections)
 	require.Empty(t, view.Overview.Sections)
 
-	overviewView, err := reader.GetOwnedOverview(fixture.ctx, queries.GetResumeQuery{
+	sections, err := reader.GetOwnedSections(fixture.ctx, resumecontracts.OwnedResumeSectionsQuery{
 		ResumeID: fixture.resume.ID(),
 		UserID:   fixture.owner,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, overviewView.Sections)
-	require.Empty(t, overviewView.Sections)
+	require.NotNil(t, sections)
+	require.Empty(t, sections)
 }
 
 func TestPostgresResumeSaveSectionOnlyUpdatesRequestedSection(t *testing.T) {
@@ -822,11 +876,11 @@ $$`).Error
 	require.NoError(t, err)
 	err = fixture.gorm.Exec(`
 CREATE TRIGGER fail_resume_project_screenshot_insert_trigger
-BEFORE INSERT ON resume_project_screenshots
+BEFORE INSERT ON resume.resume_project_screenshots
 FOR EACH ROW EXECUTE FUNCTION fail_resume_project_screenshot_insert()`).Error
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupErr := fixture.gorm.Exec("DROP TRIGGER IF EXISTS fail_resume_project_screenshot_insert_trigger ON resume_project_screenshots").Error
+		cleanupErr := fixture.gorm.Exec("DROP TRIGGER IF EXISTS fail_resume_project_screenshot_insert_trigger ON resume.resume_project_screenshots").Error
 		require.NoError(t, cleanupErr)
 		cleanupErr = fixture.gorm.Exec("DROP FUNCTION IF EXISTS fail_resume_project_screenshot_insert()").Error
 		require.NoError(t, cleanupErr)
@@ -913,7 +967,7 @@ func TestPostgresConcurrentSectionMutationsWithSameVersionHaveSingleWinner(t *te
 func TestPostgresResumeOverviewRejectsAvailabilityFieldsWithoutStatus(t *testing.T) {
 	fixture := newPhase6PostgresFixture(t)
 	err := fixture.gorm.Exec(
-		"UPDATE resume_overviews SET availability_note = ? WHERE resume_id = ?",
+		"UPDATE resume.resume_overviews SET availability_note = ? WHERE resume_id = ?",
 		"orphaned note",
 		fixture.resume.ID().UUID(),
 	).Error

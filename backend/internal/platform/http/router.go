@@ -20,10 +20,11 @@ import (
 )
 
 type Router struct {
-	engine   *gin.Engine
-	internal *gin.Engine
-	health   *health.Service
-	metrics  *telemetry.Metrics
+	engine             *gin.Engine
+	internal           *gin.Engine
+	health             *health.Service
+	metrics            *telemetry.Metrics
+	corsAllowedOrigins []string
 }
 
 func NewRouter(
@@ -102,7 +103,10 @@ func NewRouter(
 	if metrics != nil {
 		internal.Use(metrics.Middleware())
 	}
-	router := &Router{engine: engine, internal: internal, health: healthService, metrics: metrics}
+	router := &Router{
+		engine: engine, internal: internal, health: healthService, metrics: metrics,
+		corsAllowedOrigins: append([]string(nil), cfg.CORS.AllowedOrigins...),
+	}
 	router.registerRoutes(
 		resumeHandler,
 		userHandler,
@@ -140,7 +144,9 @@ func (r *Router) registerRoutes(
 	engine.GET("/health", r.healthHandler)
 
 	api := engine.Group("/api/v1")
+	csrf := middleware.CSRFProtection(r.corsAllowedOrigins)
 	auth := api.Group("/auth")
+	auth.Use(csrf)
 	if authHandler != nil {
 		authhttp.RegisterPublicRoutes(authHandler, auth, authStartRateLimiter, authCallbackRateLimiter)
 		authhttp.RegisterLogoutRoute(authHandler, auth)
@@ -150,6 +156,7 @@ func (r *Router) registerRoutes(
 	}
 	lk := api.Group("/lk")
 	lk.Use(middleware.Authentication(authenticate))
+	lk.Use(csrf)
 	userhttp.RegisterRoutes(userHandler, lk)
 	resumehttp.RegisterRoutes(resumeHandler, lk)
 	public := api.Group("")

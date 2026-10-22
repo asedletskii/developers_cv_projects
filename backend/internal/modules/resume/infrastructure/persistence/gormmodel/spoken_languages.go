@@ -12,4 +12,4 @@ type ResumeSpokenLanguage struct {
 	Grade    *string
 }
 
-func (ResumeSpokenLanguage) TableName() string { return "resume_spoken_languages" }
+func (ResumeSpokenLanguage) TableName() string { return schema + ".resume_spoken_languages" }

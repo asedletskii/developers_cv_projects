@@ -6,21 +6,26 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestCreatePublicVisitPersistsCompleteView(t *testing.T) {
 	views := &viewRepositoryStub{}
-	handler := NewCreatePublicVisitHandler(views, &unitOfWorkStub{}, visitorIdentityStub{}, trafficClassifierStub{}, layoutSnapshotBuilderStub{})
 	linkID := sharedvalueobjects.NewID()
-	view, identity, err := handler.Handle(context.Background(), CreatePublicVisitInput{LinkID: linkID})
+	resumeID := sharedvalueobjects.NewID()
+	subjects := &analyticsSubjectReaderStub{lifecycle: &analyticscontracts.LinkLifecycle{
+		LinkID: linkID, ResumeID: resumeID, LinkActive: true, ResumePublished: true,
+	}}
+	handler := NewCreatePublicVisitHandler(views, &unitOfWorkStub{}, visitorIdentityStub{}, trafficClassifierStub{}, layoutSnapshotBuilderStub{}, subjects)
+	identity, err := handler.Handle(context.Background(), analyticscontracts.CreatePublicVisitInput{LinkID: linkID, ResumeID: resumeID})
 	require.NoError(t, err)
-	require.NotNil(t, view)
-	require.Same(t, view, views.created)
-	require.Equal(t, view.ID(), identity.ViewID)
-	require.Equal(t, linkID, view.LinkID())
-	require.Equal(t, domain.TrafficHuman, view.Traffic())
-	require.Equal(t, domain.DeviceDesktop, view.Device())
-	require.Equal(t, []domain.AnalyticsSectionID{domain.AnalyticsSectionAbout}, view.Layout().Order())
+	require.NotNil(t, views.created)
+	require.Equal(t, views.created.ID(), identity.ViewID)
+	require.Equal(t, linkID, views.created.LinkID())
+	require.Equal(t, resumeID, views.created.ResumeID())
+	require.Equal(t, domain.TrafficHuman, views.created.Traffic())
+	require.Equal(t, domain.DeviceDesktop, views.created.Device())
+	require.Equal(t, []domain.AnalyticsSectionID{domain.AnalyticsSectionAbout}, views.created.Layout().Order())
 }

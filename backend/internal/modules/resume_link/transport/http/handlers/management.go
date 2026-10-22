@@ -19,6 +19,7 @@ type ResumeLinkManagementHandler struct {
 	list      *queries.ListResumeLinksQueryHandler
 	delete    *commands.DeleteResumeLinkHandler
 	lifecycle *commands.ReplaceStatusResumeLinkHandler
+	rename    *commands.RenameResumeLinkHandler
 }
 
 func NewResumeLinkManagementHandler(
@@ -26,8 +27,11 @@ func NewResumeLinkManagementHandler(
 	list *queries.ListResumeLinksQueryHandler,
 	delete *commands.DeleteResumeLinkHandler,
 	lifecycle *commands.ReplaceStatusResumeLinkHandler,
+	rename *commands.RenameResumeLinkHandler,
 ) *ResumeLinkManagementHandler {
-	return &ResumeLinkManagementHandler{create: create, list: list, delete: delete, lifecycle: lifecycle}
+	return &ResumeLinkManagementHandler{
+		create: create, list: list, delete: delete, lifecycle: lifecycle, rename: rename,
+	}
 }
 
 func (h *ResumeLinkManagementHandler) Create(c *gin.Context) {
@@ -75,6 +79,39 @@ func (h *ResumeLinkManagementHandler) List(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, items)
+}
+
+func (h *ResumeLinkManagementHandler) Rename(c *gin.Context) {
+	if h == nil || h.rename == nil {
+		apperrors.WriteError(c, apperrors.Internal(errors.New("rename resume link handler is not configured")))
+		return
+	}
+	userID, ok := common.RequireUserID(c)
+	if !ok {
+		return
+	}
+	linkID, ok := common.ParseLinkID(c)
+	if !ok {
+		return
+	}
+	var body requests.RenameResumeLinkRequest
+	if err := common.BindJSON(c, &body); err != nil {
+		common.WriteBindError(c, err)
+		return
+	}
+	if !common.RequirePositiveVersion(c, body.Version) {
+		return
+	}
+	if err := h.rename.Handle(
+		c.Request.Context(),
+		commands.RenameResumeLinkCommand{
+			UserID: userID, LinkID: linkID, Name: body.Name, Version: body.Version,
+		},
+	); err != nil {
+		common.WriteCommandError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *ResumeLinkManagementHandler) ReplaceStatus(c *gin.Context) {

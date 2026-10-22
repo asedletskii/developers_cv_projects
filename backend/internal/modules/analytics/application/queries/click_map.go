@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -39,13 +40,13 @@ type AnalyticsClickReader interface {
 }
 
 type AnalyticsClickQueryHandler struct {
-	access ports.AnalyticsAccessReader
+	access analyticscontracts.AnalyticsAccessReader
 	layout ports.LayoutSnapshotBuilder
 	reader AnalyticsClickReader
 }
 
 func NewAnalyticsClickQueryHandler(
-	access ports.AnalyticsAccessReader,
+	access analyticscontracts.AnalyticsAccessReader,
 	layout ports.LayoutSnapshotBuilder,
 	reader AnalyticsClickReader,
 ) *AnalyticsClickQueryHandler {

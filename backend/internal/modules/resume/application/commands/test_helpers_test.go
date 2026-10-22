@@ -24,6 +24,28 @@ func (u *unitOfWorkStub) Do(ctx context.Context, fn func(context.Context) error)
 	return fn(ctx)
 }
 
+type resumeLinkCleanupStub struct {
+	called    bool
+	resumeIDs []sharedvalueobjects.ID
+	err       error
+}
+
+func (s *resumeLinkCleanupStub) DeleteByResumeIDs(_ context.Context, resumeIDs []sharedvalueobjects.ID) error {
+	s.called = true
+	s.resumeIDs = append([]sharedvalueobjects.ID(nil), resumeIDs...)
+	return s.err
+}
+
+type userExistenceCheckerStub struct {
+	userIDs []sharedvalueobjects.ID
+	err     error
+}
+
+func (s *userExistenceCheckerStub) EnsureUserExists(_ context.Context, userID sharedvalueobjects.ID) error {
+	s.userIDs = append(s.userIDs, userID)
+	return s.err
+}
+
 type commandRepositoryStub struct {
 	resume *domain.Resume
 
@@ -92,6 +114,11 @@ func (r *commandRepositoryStub) Create(_ context.Context, resume *domain.Resume)
 	}
 	r.resume = resume
 	return nil
+}
+
+func (r *commandRepositoryStub) LockForDelete(_ context.Context, _ ports.DeleteResumeParams) error {
+	r.called = true
+	return r.err
 }
 
 func (r *commandRepositoryStub) Delete(_ context.Context, params ports.DeleteResumeParams) error {

@@ -15,48 +15,6 @@ import (
 
 const modulePath = "developers-cv/backend"
 
-var crossModuleImportAllowlist = map[string]map[string]map[string]struct{}{
-	"auth": {
-		"application": {
-			modulePath + "/internal/modules/user/application/queries": {},
-		},
-		"infrastructure": {
-			modulePath + "/internal/modules/user/application/queries": {},
-		},
-	},
-	"resume_link": {
-		"application": {
-			modulePath + "/internal/modules/resume/application/queries":     {},
-			modulePath + "/internal/modules/resume/domain":                  {},
-			modulePath + "/internal/modules/analytics/domain":               {},
-			modulePath + "/internal/modules/analytics/application/ports":    {},
-			modulePath + "/internal/modules/analytics/application/commands": {},
-			modulePath + "/internal/modules/analytics/application/queries":  {},
-		},
-		"infrastructure": {
-			modulePath + "/internal/modules/resume/domain":                                   {},
-			modulePath + "/internal/modules/analytics/domain":                                {},
-			modulePath + "/internal/modules/analytics/application/ports":                     {},
-			modulePath + "/internal/modules/analytics/infrastructure/persistence/gormmodel":  {},
-			modulePath + "/internal/modules/analytics/infrastructure/persistence/readers":    {},
-			modulePath + "/internal/modules/analytics/infrastructure/persistence/repository": {},
-		},
-		"transport": {
-			modulePath + "/internal/modules/resume/application/queries":     {},
-			modulePath + "/internal/modules/resume/domain":                  {},
-			modulePath + "/internal/modules/analytics/application/ports":    {},
-			modulePath + "/internal/modules/analytics/application/commands": {},
-			modulePath + "/internal/modules/analytics/transport/http":       {},
-		},
-	},
-	"analytics": {
-		"infrastructure": {
-			modulePath + "/internal/modules/resume/domain":      {},
-			modulePath + "/internal/modules/resume_link/domain": {},
-		},
-	},
-}
-
 var applicationForbiddenImports = []string{
 	"go.uber.org/zap",
 	"gorm.io/gorm",
@@ -108,11 +66,68 @@ func TestDomainDoesNotDependOnPlatformOrTestUtilities(t *testing.T) {
 	}
 }
 
-func TestResumeLinkAnalyticsDomainDoesNotDependOnResumeDomain(t *testing.T) {
+func TestResumeLinkDoesNotDependOnResumeDomain(t *testing.T) {
 	root := internalRoot(t)
 	resumeDomain := moduleImport("resume", "domain")
-	checkImports(t, filepath.Join(root, "modules", "resume_link", "domain"), []string{resumeDomain})
-	checkImports(t, filepath.Join(root, "modules", "resume_link", "infrastructure", "analytics"), []string{resumeDomain})
+	for _, layer := range []string{"application", "infrastructure", "transport"} {
+		t.Run(layer, func(t *testing.T) {
+			checkImports(t, filepath.Join(root, "modules", "resume_link", layer), []string{resumeDomain})
+		})
+	}
+}
+
+func TestResumeLinkDoesNotDependOnResumeApplicationQueries(t *testing.T) {
+	root := internalRoot(t)
+	resumeQueries := moduleImport("resume", "application/queries")
+	for _, layer := range []string{"application", "infrastructure", "transport"} {
+		t.Run(layer, func(t *testing.T) {
+			checkImports(t, filepath.Join(root, "modules", "resume_link", layer), []string{resumeQueries})
+		})
+	}
+}
+
+func TestAnalyticsAdaptersDoNotDependOnResumeDomains(t *testing.T) {
+	root := internalRoot(t)
+	checkImports(t, filepath.Join(root, "modules", "resume_link", "domain"), []string{moduleImport("resume", "domain")})
+	checkImports(t, filepath.Join(root, "modules", "analytics", "infrastructure", "analytics"), []string{
+		moduleImport("resume", "domain"),
+		moduleImport("resume_link", "domain"),
+	})
+}
+
+func TestResumeLinkDoesNotImportForeignInternals(t *testing.T) {
+	root := internalRoot(t)
+	checkImports(t, filepath.Join(root, "modules", "resume_link"), []string{
+		moduleImport("resume", "domain"),
+		moduleImport("resume", "application"),
+		moduleImport("resume", "infrastructure"),
+		moduleImport("resume", "transport"),
+		moduleImport("analytics", "application"),
+		moduleImport("analytics", "domain"),
+		moduleImport("analytics", "infrastructure"),
+		moduleImport("analytics", "transport"),
+	})
+}
+
+func TestAnalyticsDoesNotImportForeignDomains(t *testing.T) {
+	root := internalRoot(t)
+	checkImports(t, filepath.Join(root, "modules", "analytics"), []string{
+		moduleImport("resume", "domain"),
+		moduleImport("resume", "application"),
+		moduleImport("resume", "infrastructure"),
+		moduleImport("resume", "transport"),
+		moduleImport("resume_link", "domain"),
+		moduleImport("resume_link", "application"),
+		moduleImport("resume_link", "infrastructure"),
+		moduleImport("resume_link", "transport"),
+	})
+}
+
+func TestResumeLinkTransportDoesNotImportResumeContracts(t *testing.T) {
+	root := internalRoot(t)
+	checkImports(t, filepath.Join(root, "modules", "resume_link", "transport"), []string{
+		moduleImport("resume", "contracts"),
+	})
 }
 
 func TestCommandsAndQueriesAreIndependent(t *testing.T) {
@@ -136,7 +151,7 @@ func TestCommandsAndQueriesAreIndependent(t *testing.T) {
 	}
 }
 
-func TestCrossModuleImportsFollowAllowlist(t *testing.T) {
+func TestCrossModuleImportsUseContractsOnly(t *testing.T) {
 	root := internalRoot(t)
 	modules := discoverModules(t, filepath.Join(root, "modules"))
 	moduleSet := make(map[string]struct{}, len(modules))
@@ -158,14 +173,35 @@ func TestCrossModuleImportsFollowAllowlist(t *testing.T) {
 						t.Errorf("module %s: %s imports %s from module %s: %s", sourceModule, path, importPath, targetModule, reason)
 						continue
 					}
-					if _, allowed := crossModuleImportAllowlist[sourceModule][sourceLayer][importPath]; !allowed {
-						t.Errorf("module %s layer %s: %s imports cross-module package %s; add this exact package to the layer allowlist only after architectural review", sourceModule, sourceLayer, path, importPath)
+					targetPackage, ok := importedModulePackagePath(importPath, moduleSet)
+					if !ok || targetPackage == "contracts" {
+						continue
 					}
+					t.Errorf("module %s layer %s: %s imports cross-module package %s; only contracts imports are allowed", sourceModule, sourceLayer, path, importPath)
 				}
 			})
 			if err != nil {
 				t.Fatalf("scan module %s: %v", sourceModule, err)
 			}
+		})
+	}
+}
+
+func TestContractsAreLeafPackages(t *testing.T) {
+	root := internalRoot(t)
+	for _, module := range discoverModules(t, filepath.Join(root, "modules")) {
+		contractsDir := filepath.Join(root, "modules", module, "contracts")
+		if !directoryExists(t, contractsDir) {
+			continue
+		}
+		t.Run(module, func(t *testing.T) {
+			checkImports(t, contractsDir, []string{
+				modulePath + "/internal/modules",
+				modulePath + "/internal/platform",
+				"github.com/gin-gonic/gin",
+				"gorm.io/gorm",
+				"go.uber.org/zap",
+			})
 		})
 	}
 }
@@ -365,6 +401,20 @@ func crossModuleLayerViolation(sourceLayer, targetLayer string) string {
 		}
 	}
 	return ""
+}
+
+func importedModulePackagePath(importPath string, modules map[string]struct{}) (string, bool) {
+	const prefix = modulePath + "/internal/modules/"
+	if !strings.HasPrefix(importPath, prefix) {
+		return "", false
+	}
+	remainder := strings.TrimPrefix(importPath, prefix)
+	module, packagePath, _ := strings.Cut(remainder, "/")
+	_, exists := modules[module]
+	if !exists {
+		return "", false
+	}
+	return packagePath, true
 }
 
 func importedModuleLayer(importPath string, modules map[string]struct{}) (string, string, bool) {

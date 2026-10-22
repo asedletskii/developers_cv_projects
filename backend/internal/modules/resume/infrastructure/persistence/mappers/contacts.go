@@ -3,6 +3,7 @@ package mappers
 import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -66,9 +67,9 @@ func ContactsToDomain(
 	contactMethods := domain.RestoreContactMethods(domain.ContactMethodsParams{
 		Phone: PointerStringValue(m.Phone), Telegram: telegram, Email: email,
 	})
-	hidden := make([]domain.ContactKey, len(h))
+	hidden := make([]contactkey.Key, len(h))
 	for i, value := range h {
-		hidden[i] = domain.ContactKey(value.Value)
+		hidden[i] = contactkey.Key(value.Value)
 	}
 	var text *domain.ContactsText
 	if t != nil {

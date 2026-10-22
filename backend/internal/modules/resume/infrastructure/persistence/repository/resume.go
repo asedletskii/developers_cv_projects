@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -173,6 +174,31 @@ func mutationSectionPersister(section ports.ResumeMutationSection) (func(*gorm.D
 		}
 	}
 	return nil, false
+}
+
+func (r *ResumeRepository) LockForDelete(ctx context.Context, params ports.DeleteResumeParams) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("lock resume for delete: repository dependencies are nil")
+	}
+	tx, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return fmt.Errorf("lock resume for delete: %w", err)
+	}
+	var model gormmodel.Resume
+	if err := tx.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Select("id", "version").
+		Where("id = ? AND user_id = ?", params.ResumeID.UUID(), params.UserID.UUID()).
+		First(&model).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrConcurrencyConflict
+		}
+		return fmt.Errorf("lock resume for delete: %w", mapDBError(err))
+	}
+	if model.Version != params.Version {
+		return domain.ErrConcurrencyConflict
+	}
+	return nil
 }
 
 func (r *ResumeRepository) Delete(ctx context.Context, params ports.DeleteResumeParams) error {

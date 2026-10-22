@@ -5,11 +5,13 @@ import (
 	"strings"
 	"time"
 
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ViewParams struct {
 	LinkID        sharedvalueobjects.ID
+	ResumeID      sharedvalueobjects.ID
 	VisitorID     sharedvalueobjects.ID
 	IPHash        []byte
 	Device        DeviceType
@@ -26,6 +28,7 @@ type ViewParams struct {
 type View struct {
 	id            sharedvalueobjects.ID
 	linkID        sharedvalueobjects.ID
+	resumeID      sharedvalueobjects.ID
 	visitorID     sharedvalueobjects.ID
 	ipHash        []byte
 	device        DeviceType
@@ -43,6 +46,7 @@ type View struct {
 type ViewSnapshot struct {
 	ID            sharedvalueobjects.ID
 	LinkID        sharedvalueobjects.ID
+	ResumeID      sharedvalueobjects.ID
 	VisitorID     sharedvalueobjects.ID
 	IPHash        []byte
 	Device        DeviceType
@@ -73,6 +77,7 @@ func NewView(params ViewParams) (*View, error) {
 	return &View{
 		id:            id,
 		linkID:        params.LinkID,
+		resumeID:      params.ResumeID,
 		visitorID:     params.VisitorID,
 		ipHash:        append([]byte(nil), params.IPHash...),
 		device:        params.Device,
@@ -89,7 +94,7 @@ func NewView(params ViewParams) (*View, error) {
 
 func RestoreView(snapshot ViewSnapshot) (*View, error) {
 	params := ViewParams{
-		LinkID: snapshot.LinkID, VisitorID: snapshot.VisitorID,
+		LinkID: snapshot.LinkID, ResumeID: snapshot.ResumeID, VisitorID: snapshot.VisitorID,
 		IPHash: snapshot.IPHash, Device: snapshot.Device, Browser: snapshot.Browser, OS: snapshot.OS,
 		ReferrerHost: snapshot.ReferrerHost, Traffic: snapshot.Traffic, TrafficReason: snapshot.TrafficReason,
 		Layout: snapshot.Layout, StartedAt: snapshot.StartedAt, CreatedAt: snapshot.CreatedAt,
@@ -98,7 +103,7 @@ func RestoreView(snapshot ViewSnapshot) (*View, error) {
 		return nil, err
 	}
 	view := &View{
-		id: snapshot.ID, linkID: snapshot.LinkID, visitorID: snapshot.VisitorID,
+		id: snapshot.ID, linkID: snapshot.LinkID, resumeID: snapshot.ResumeID, visitorID: snapshot.VisitorID,
 		ipHash: append([]byte(nil), snapshot.IPHash...), device: snapshot.Device,
 		browser: snapshot.Browser, os: snapshot.OS, referrerHost: snapshot.ReferrerHost,
 		traffic: snapshot.Traffic, trafficReason: snapshot.TrafficReason, layout: snapshot.Layout,
@@ -118,7 +123,7 @@ func RestoreView(snapshot ViewSnapshot) (*View, error) {
 
 func validateView(id sharedvalueobjects.ID, params ViewParams) error {
 	switch {
-	case id.IsZero(), params.LinkID.IsZero(), params.VisitorID.IsZero():
+	case id.IsZero(), params.LinkID.IsZero(), params.ResumeID.IsZero(), params.VisitorID.IsZero():
 		return fmt.Errorf("%w: identity is empty", ErrInvalidView)
 	case len(params.IPHash) != 32:
 		return fmt.Errorf("%w: ip hash must be 32 bytes", ErrInvalidView)
@@ -145,6 +150,7 @@ func validateView(id sharedvalueobjects.ID, params ViewParams) error {
 
 func (v *View) ID() sharedvalueobjects.ID        { return v.id }
 func (v *View) LinkID() sharedvalueobjects.ID    { return v.linkID }
+func (v *View) ResumeID() sharedvalueobjects.ID  { return v.resumeID }
 func (v *View) VisitorID() sharedvalueobjects.ID { return v.visitorID }
 func (v *View) IPHash() []byte                   { return append([]byte(nil), v.ipHash...) }
 func (v *View) Device() DeviceType               { return v.device }
@@ -195,7 +201,7 @@ func (v *View) EvaluateAnalyticsBatch(
 		return AnalyticsBatchDecision{}, ErrAnalyticsLinkInactive
 	}
 	if !resumePublished {
-		return AnalyticsBatchDecision{}, ErrAnalyticsSubjectNotFound
+		return AnalyticsBatchDecision{}, analyticscontracts.ErrAnalyticsSubjectNotFound
 	}
 	if now.IsZero() {
 		return AnalyticsBatchDecision{}, fmt.Errorf("%w: current time is empty", ErrInvalidViewState)

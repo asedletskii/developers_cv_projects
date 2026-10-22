@@ -8,33 +8,35 @@ package app
 
 import (
 	commands4 "developers-cv/backend/internal/modules/analytics/application/commands"
-	"developers-cv/backend/internal/modules/analytics/application/ports"
 	queries4 "developers-cv/backend/internal/modules/analytics/application/queries"
+	"developers-cv/backend/internal/modules/analytics/contracts"
+	"developers-cv/backend/internal/modules/analytics/infrastructure/analytics"
 	cleanup2 "developers-cv/backend/internal/modules/analytics/infrastructure/cleanup"
-	readers3 "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
-	repository4 "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
+	readers4 "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
+	repository3 "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
 	http4 "developers-cv/backend/internal/modules/analytics/transport/http"
 	commands5 "developers-cv/backend/internal/modules/auth/application/commands"
-	ports2 "developers-cv/backend/internal/modules/auth/application/ports"
+	"developers-cv/backend/internal/modules/auth/application/ports"
 	"developers-cv/backend/internal/modules/auth/infrastructure/cleanup"
 	repository5 "developers-cv/backend/internal/modules/auth/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/auth/infrastructure/token"
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
+	readers2 "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume/transport/http"
-	commands3 "developers-cv/backend/internal/modules/resume_link/application/commands"
+	commands2 "developers-cv/backend/internal/modules/resume_link/application/commands"
 	queries3 "developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
-	readers2 "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
-	repository3 "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
+	contracts2 "developers-cv/backend/internal/modules/resume_link/contracts"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
+	readers3 "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
+	repository2 "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	http3 "developers-cv/backend/internal/modules/resume_link/transport/http"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
-	commands2 "developers-cv/backend/internal/modules/user/application/commands"
+	commands3 "developers-cv/backend/internal/modules/user/application/commands"
 	queries2 "developers-cv/backend/internal/modules/user/application/queries"
-	readers4 "developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
-	repository2 "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
+	"developers-cv/backend/internal/modules/user/infrastructure/persistence/readers"
+	repository4 "developers-cv/backend/internal/modules/user/infrastructure/persistence/repository"
 	http2 "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/database"
@@ -65,12 +67,16 @@ func initialize() (*Application, func(), error) {
 	listResumesReader := newListResumesReader(db)
 	listResumesQueryHandler := queries.NewListResumesQueryHandler(listResumesReader)
 	resumeRepository := repository.NewResumeRepository(db)
+	userReader := readers.NewUserReader(db)
 	unitOfWork := database.NewUnitOfWork(db)
-	createResumeHandler := commands.NewCreateResumeHandler(resumeRepository, unitOfWork)
-	resumeReader := readers.NewResumeReader(db)
+	createResumeHandler := commands.NewCreateResumeHandler(resumeRepository, userReader, unitOfWork)
+	resumeReader := readers2.NewResumeReader(db)
 	getResumeQueryHandler := queries.NewGetResumeQueryHandler(resumeReader)
 	replaceResumeTitleHandler := commands.NewReplaceResumeTitleHandler(resumeRepository, unitOfWork)
-	deleteResumeHandler := commands.NewDeleteResumeHandler(resumeRepository, unitOfWork)
+	resumeLinkRepository := repository2.NewResumeLinkRepository(db)
+	analyticsRepository := repository3.NewAnalyticsRepository(db)
+	deleteResumeLinksHandler := commands2.NewDeleteResumeLinksHandler(resumeLinkRepository, analyticsRepository)
+	deleteResumeHandler := commands.NewDeleteResumeHandler(resumeRepository, deleteResumeLinksHandler, unitOfWork)
 	changeResumeStatusHandler := commands.NewChangeResumeStatusHandler(resumeRepository, unitOfWork)
 	replaceOverviewHandler := commands.NewReplaceOverviewHandler(resumeRepository, unitOfWork)
 	replaceProfileHandler := commands.NewReplaceProfileHandler(resumeRepository, unitOfWork)
@@ -105,21 +111,19 @@ func initialize() (*Application, func(), error) {
 	handler := http.NewHandler(handlerDependencies)
 	getProfileReader := newGetProfileReader(db)
 	getProfileHandler := queries2.NewGetProfileHandler(getProfileReader)
-	profileRepository := repository2.NewProfileRepository(db)
-	commandsReplaceProfileHandler := commands2.NewReplaceProfileHandler(profileRepository, unitOfWork)
+	profileRepository := repository4.NewProfileRepository(db)
+	commandsReplaceProfileHandler := commands3.NewReplaceProfileHandler(profileRepository, unitOfWork)
 	httpHandlerDependencies := http2.HandlerDependencies{
 		GetProfile:     getProfileHandler,
 		ReplaceProfile: commandsReplaceProfileHandler,
 	}
 	httpHandler := http2.NewHandler(httpHandlerDependencies)
-	resumeLinkRepository := repository3.NewResumeLinkRepository(db)
-	createResumeLinkHandler := commands3.NewCreateResumeLinkHandler(resumeLinkRepository, resumeReader, unitOfWork)
-	resumeLinkReader := readers2.NewResumeLinkReader(db)
+	createResumeLinkHandler := commands2.NewCreateResumeLinkHandler(resumeLinkRepository, resumeReader, unitOfWork)
+	resumeLinkReader := readers3.NewResumeLinkReader(db)
 	listResumeLinksQueryHandler := queries3.NewListResumeLinksQueryHandler(resumeLinkReader, resumeReader)
-	deleteResumeLinkHandler := commands3.NewDeleteResumeLinkHandler(resumeLinkRepository, resumeReader, unitOfWork)
+	deleteResumeLinkHandler := commands2.NewDeleteResumeLinkHandler(resumeLinkRepository, resumeReader, analyticsRepository, unitOfWork)
 	activePublicResumeLinkResolver := queries3.NewActivePublicResumeLinkResolver(resumeLinkReader)
 	publicResumeQueryHandler := queries.NewPublicResumeQueryHandler(resumeReader)
-	analyticsRepository := repository4.NewAnalyticsRepository(db)
 	visitorIdentifier, err := newAnalyticsVisitorIdentifier(configConfig)
 	if err != nil {
 		cleanup3()
@@ -127,7 +131,9 @@ func initialize() (*Application, func(), error) {
 	}
 	trafficClassifier := newAnalyticsTrafficClassifier(configConfig)
 	layoutSnapshotBuilder := analytics.NewLayoutSnapshotBuilder()
-	createPublicVisitHandler := commands4.NewCreatePublicVisitHandler(analyticsRepository, unitOfWork, visitorIdentifier, trafficClassifier, layoutSnapshotBuilder)
+	ownedResumeSectionsQueryHandler := queries.NewOwnedResumeSectionsQueryHandler(resumeReader)
+	reader := newAnalyticsAccessReader(resumeLinkReader, resumeReader, resumeReader, ownedResumeSectionsQueryHandler, publicResumeQueryHandler)
+	createPublicVisitHandler := commands4.NewCreatePublicVisitHandler(analyticsRepository, unitOfWork, visitorIdentifier, trafficClassifier, layoutSnapshotBuilder, reader)
 	publicAnalyticsErrorReporter := newPublicAnalyticsErrorReporter(logger)
 	publicResumeLinkQueryHandler := queries3.NewPublicResumeLinkQueryHandlerWithVisit(activePublicResumeLinkResolver, publicResumeQueryHandler, resumeReader, createPublicVisitHandler, publicAnalyticsErrorReporter)
 	publicResumeLinkHandler := handlers.NewPublicResumeLinkHandler(publicResumeLinkQueryHandler)
@@ -142,7 +148,8 @@ func initialize() (*Application, func(), error) {
 		return nil, nil, err
 	}
 	publicContactViewHandler := handlers.NewPublicContactViewHandler(contactViewThroughLinkQueryHandler, tokenVerifier)
-	replaceStatusResumeLinkHandler := commands3.NewReplaceStatusResumeLinkHandler(resumeLinkRepository, resumeReader, unitOfWork)
+	replaceStatusResumeLinkHandler := commands2.NewReplaceStatusResumeLinkHandler(resumeLinkRepository, resumeReader, unitOfWork)
+	renameResumeLinkHandler := commands2.NewRenameResumeLinkHandler(resumeLinkRepository, resumeReader, unitOfWork)
 	handlerDependencies2 := http3.HandlerDependencies{
 		Create:      createResumeLinkHandler,
 		List:        listResumeLinksQueryHandler,
@@ -150,18 +157,18 @@ func initialize() (*Application, func(), error) {
 		Public:      publicResumeLinkHandler,
 		ContactView: publicContactViewHandler,
 		Lifecycle:   replaceStatusResumeLinkHandler,
+		Rename:      renameResumeLinkHandler,
 	}
 	handler2 := http3.NewHandler(handlerDependencies2)
-	ingestAnalyticsBatchHandler := newIngestAnalyticsBatchHandler(analyticsRepository, unitOfWork, metrics)
-	analyticsAccessReader := newAnalyticsAccessReader(resumeLinkReader, resumeReader, resumeReader, publicResumeQueryHandler)
-	analyticsReader := readers3.NewAnalyticsReader(db)
-	linkStatisticsHandler := queries4.NewLinkStatisticsHandler(analyticsAccessReader, analyticsReader)
-	dailyStatisticsHandler := queries4.NewDailyStatisticsHandler(analyticsAccessReader, analyticsReader)
-	visitsHandler := queries4.NewVisitsHandler(analyticsAccessReader, analyticsReader)
-	sectionsHandler := queries4.NewSectionsHandler(analyticsAccessReader, analyticsReader)
-	technologiesHandler := queries4.NewTechnologiesHandler(analyticsAccessReader, analyticsReader)
-	resumeStatisticsHandler := queries4.NewResumeStatisticsHandler(analyticsAccessReader, analyticsReader)
-	analyticsClickQueryHandler := queries4.NewAnalyticsClickQueryHandler(analyticsAccessReader, layoutSnapshotBuilder, analyticsReader)
+	ingestAnalyticsBatchHandler := newIngestAnalyticsBatchHandler(analyticsRepository, unitOfWork, reader, metrics)
+	analyticsReader := newAnalyticsReader(db, reader)
+	linkStatisticsHandler := queries4.NewLinkStatisticsHandler(reader, analyticsReader)
+	dailyStatisticsHandler := queries4.NewDailyStatisticsHandler(reader, analyticsReader)
+	visitsHandler := queries4.NewVisitsHandler(reader, analyticsReader)
+	sectionsHandler := queries4.NewSectionsHandler(reader, analyticsReader)
+	technologiesHandler := queries4.NewTechnologiesHandler(reader, analyticsReader)
+	resumeStatisticsHandler := queries4.NewResumeStatisticsHandler(reader, analyticsReader)
+	analyticsClickQueryHandler := queries4.NewAnalyticsClickQueryHandler(reader, layoutSnapshotBuilder, analyticsReader)
 	handlerDependencies3 := http4.HandlerDependencies{
 		Ingest:           ingestAnalyticsBatchHandler,
 		Statistics:       linkStatisticsHandler,
@@ -185,14 +192,13 @@ func initialize() (*Application, func(), error) {
 	startTelegramLoginHandler := newStartTelegramLoginHandler(authTransactionRepository, telegramOIDC, generator, unitOfWork, authConfig)
 	identityRepository := repository5.NewIdentityRepository(db)
 	sessionRepository := repository5.NewSessionRepository(db)
-	userRepository := repository2.NewUserRepository(db)
-	createUserHandler := commands2.NewCreateUserHandler(userRepository)
+	userRepository := repository4.NewUserRepository(db)
+	createUserHandler := commands3.NewCreateUserHandler(userRepository)
 	authObserver := newAuthObserver(logger, metrics, configConfig)
 	completeTelegramLoginHandler := newCompleteTelegramLoginHandler(authTransactionRepository, identityRepository, sessionRepository, telegramOIDC, createUserHandler, generator, unitOfWork, authConfig, authObserver)
 	logoutHandler := commands5.NewLogoutHandler(sessionRepository, unitOfWork)
 	handler4 := newAuthHandler(startTelegramLoginHandler, completeTelegramLoginHandler, logoutHandler, authObserver, generator, authConfig)
 	currentSessionHandler := newCurrentSessionHandler(sessionRepository, unitOfWork, authConfig, logger)
-	userReader := readers4.NewUserReader(db)
 	appRuntimeAuthenticator, err := newRuntimeAuthenticator(authConfig, currentSessionHandler, userReader, authObserver)
 	if err != nil {
 		cleanup3()
@@ -216,7 +222,8 @@ func initialize() (*Application, func(), error) {
 	worker := cleanup.NewWorker(cleanupExpiredHandler, logger, metrics)
 	cleanupAnalyticsHandler := newCleanupAnalyticsHandler(analyticsRepository, unitOfWork, configConfig)
 	cleanupWorker := cleanup2.NewWorker(cleanupAnalyticsHandler, logger, metrics)
-	v := newBackgroundWorkers(worker, cleanupWorker)
+	appOrphanChecker := newOrphanChecker(db, logger, metrics)
+	v := newBackgroundWorkers(worker, cleanupWorker, appOrphanChecker)
 	application := newApplication(server, telemetryService, logger, db, configConfig, v)
 	return application, func() {
 		cleanup4()
@@ -227,19 +234,19 @@ func initialize() (*Application, func(), error) {
 // wire.go:
 
 var resumeReadSet = wire.NewSet(
-	newListResumesReader, readers.NewResumeReader, newGetProfileReader, wire.Bind(new(queries.ResumeReader), new(*readers.ResumeReader)), wire.Bind(new(queries.PublicResumeReader), new(*readers.ResumeReader)), wire.Bind(new(queries.ContactViewReader), new(*readers.ResumeReader)), wire.Bind(new(queries.DownloadContactsReader), new(*readers.ResumeReader)),
+	newListResumesReader, readers2.NewResumeReader, newGetProfileReader, wire.Bind(new(queries.ResumeReader), new(*readers2.ResumeReader)), wire.Bind(new(queries.PublicResumeReader), new(*readers2.ResumeReader)), wire.Bind(new(queries.ContactViewReader), new(*readers2.ResumeReader)), wire.Bind(new(queries.DownloadContactsReader), new(*readers2.ResumeReader)), wire.Bind(new(queries.OwnedResumeSectionsReader), new(*readers2.ResumeReader)),
 )
 
 var resumeCommandSet = wire.NewSet(commands.NewCreateResumeHandler, commands.NewReplaceResumeTitleHandler, commands.NewChangeResumeStatusHandler, commands.NewReplaceOverviewHandler, commands.NewReplaceProfileHandler, commands.NewDeleteResumeHandler, commands.NewReplaceContactsHandler, commands.NewReplaceSkillsHandler, commands.NewReplaceLanguagesHandler, commands.NewReplaceTechnologiesHandler, commands.NewReplaceEducationsHandler, commands.NewReplaceCoursesHandler, commands.NewReplaceActivitiesHandler, commands.NewReplaceProjectsHandler, commands.NewReplaceExperiencesHandler)
 
-var resumeLinkReadSet = wire.NewSet(readers2.NewResumeLinkReader, queries3.NewListResumeLinksQueryHandler, queries3.NewActivePublicResumeLinkResolver, queries3.NewPublicResumeLinkQueryHandlerWithVisit, queries3.NewContactViewThroughLinkQueryHandlerWithAnalytics, wire.Bind(new(queries3.PublicResumeLinkResolver), new(*queries3.ActivePublicResumeLinkResolver)), wire.Bind(new(queries3.ResumeLinkReader), new(*readers2.ResumeLinkReader)), wire.Bind(new(queries3.ResumeLinkPublicReader), new(*readers2.ResumeLinkReader)))
+var resumeLinkReadSet = wire.NewSet(readers3.NewResumeLinkReader, queries3.NewListResumeLinksQueryHandler, queries3.NewActivePublicResumeLinkResolver, queries3.NewPublicResumeLinkQueryHandlerWithVisit, queries3.NewContactViewThroughLinkQueryHandlerWithAnalytics, wire.Bind(new(queries3.PublicResumeLinkResolver), new(*queries3.ActivePublicResumeLinkResolver)), wire.Bind(new(queries3.ResumeLinkReader), new(*readers3.ResumeLinkReader)), wire.Bind(new(queries3.ResumeLinkPublicReader), new(*readers3.ResumeLinkReader)), wire.Bind(new(analyticsaccess.LinkLifecycleReader), new(*readers3.ResumeLinkReader)))
 
 var analyticsReadSet = wire.NewSet(
-	newAnalyticsAccessReader, readers3.NewAnalyticsReader, wire.Bind(new(queries4.LinkStatisticsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.DailyStatisticsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.VisitsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.SectionsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.TechnologiesReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.ResumeStatisticsReader), new(*readers3.AnalyticsReader)), wire.Bind(new(queries4.AnalyticsClickReader), new(*readers3.AnalyticsReader)), queries4.NewLinkStatisticsHandler, queries4.NewDailyStatisticsHandler, queries4.NewVisitsHandler, queries4.NewSectionsHandler, queries4.NewTechnologiesHandler, queries4.NewResumeStatisticsHandler, queries4.NewAnalyticsClickQueryHandler,
+	newAnalyticsAccessReader, wire.Bind(new(contracts.AnalyticsAccessReader), new(*analyticsaccess.Reader)), wire.Bind(new(contracts.AnalyticsSubjectReader), new(*analyticsaccess.Reader)), newAnalyticsReader, wire.Bind(new(queries4.LinkStatisticsReader), new(*readers4.AnalyticsReader)), wire.Bind(new(queries4.DailyStatisticsReader), new(*readers4.AnalyticsReader)), wire.Bind(new(queries4.VisitsReader), new(*readers4.AnalyticsReader)), wire.Bind(new(queries4.SectionsReader), new(*readers4.AnalyticsReader)), wire.Bind(new(queries4.TechnologiesReader), new(*readers4.AnalyticsReader)), wire.Bind(new(queries4.ResumeStatisticsReader), new(*readers4.AnalyticsReader)), wire.Bind(new(queries4.AnalyticsClickReader), new(*readers4.AnalyticsReader)), queries4.NewLinkStatisticsHandler, queries4.NewDailyStatisticsHandler, queries4.NewVisitsHandler, queries4.NewSectionsHandler, queries4.NewTechnologiesHandler, queries4.NewResumeStatisticsHandler, queries4.NewAnalyticsClickQueryHandler,
 )
 
 var resumeLinkCommandSet = wire.NewSet(commands4.NewCreatePublicVisitHandler, commands4.NewRecordPublicInteractionEventHandler, newIngestAnalyticsBatchHandler,
-	newCleanupAnalyticsHandler, cleanup2.NewWorker, analytics.NewLayoutSnapshotBuilder, commands3.NewCreateResumeLinkHandler, commands3.NewDeleteResumeLinkHandler, commands3.NewReplaceStatusResumeLinkHandler, wire.Bind(new(ports.PublicVisitCreator), new(*commands4.CreatePublicVisitHandler)), wire.Bind(new(ports.PublicInteractionEventRecorder), new(*commands4.RecordPublicInteractionEventHandler)),
+	newCleanupAnalyticsHandler, cleanup2.NewWorker, analytics.NewLayoutSnapshotBuilder, commands2.NewCreateResumeLinkHandler, commands2.NewDeleteResumeLinkHandler, commands2.NewRenameResumeLinkHandler, commands2.NewReplaceStatusResumeLinkHandler, commands2.NewDeleteResumeLinksHandler, wire.Bind(new(contracts2.ResumeLinkCleanup), new(*commands2.DeleteResumeLinksHandler)), wire.Bind(new(contracts.PublicVisitCreator), new(*commands4.CreatePublicVisitHandler)), wire.Bind(new(contracts.PublicInteractionEventRecorder), new(*commands4.RecordPublicInteractionEventHandler)),
 )
 
 var resumeHTTPSet = wire.NewSet(http.NewHandler, wire.Struct(new(http.HandlerDependencies), "*"))
@@ -248,10 +255,10 @@ var resumeLinkHTTPSet = wire.NewSet(handlers.NewPublicResumeLinkHandler, handler
 
 var analyticsHTTPSet = wire.NewSet(http4.NewHandler, wire.Struct(new(http4.HandlerDependencies), "*"))
 
-var authRepositorySet = wire.NewSet(repository5.NewAuthTransactionRepository, repository5.NewIdentityRepository, repository5.NewSessionRepository, wire.Bind(new(ports2.AuthTransactionRepository), new(*repository5.AuthTransactionRepository)), wire.Bind(new(ports2.IdentityRepository), new(*repository5.IdentityRepository)), wire.Bind(new(ports2.SessionRepository), new(*repository5.SessionRepository)))
+var authRepositorySet = wire.NewSet(repository5.NewAuthTransactionRepository, repository5.NewIdentityRepository, repository5.NewSessionRepository, wire.Bind(new(ports.AuthTransactionRepository), new(*repository5.AuthTransactionRepository)), wire.Bind(new(ports.IdentityRepository), new(*repository5.IdentityRepository)), wire.Bind(new(ports.SessionRepository), new(*repository5.SessionRepository)))
 
 var authSet = wire.NewSet(
-	authRepositorySet, token.NewGenerator, wire.Bind(new(ports2.TokenGenerator), new(*token.Generator)), commands2.NewCreateUserHandler, wire.Bind(new(ports2.UserProvisioner), new(*commands2.CreateUserHandler)), newCurrentSessionHandler,
+	authRepositorySet, token.NewGenerator, wire.Bind(new(ports.TokenGenerator), new(*token.Generator)), commands3.NewCreateUserHandler, wire.Bind(new(ports.UserProvisioner), new(*commands3.CreateUserHandler)), newCurrentSessionHandler,
 	newStartTelegramLoginHandler,
 	newCompleteTelegramLoginHandler, commands5.NewLogoutHandler, commands5.NewCleanupExpiredHandler, newAuthHandler,
 )

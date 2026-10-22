@@ -2,11 +2,10 @@ package queries
 
 import (
 	"context"
+	"errors"
 
-	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
-	analyticsdomain "developers-cv/backend/internal/modules/analytics/domain"
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -14,38 +13,27 @@ import (
 type ownershipReaderStub struct {
 	err            error
 	viewID         string
-	query          resumequeries.GetResumeQuery
+	query          resumecontracts.ResumeOwnershipQuery
 	calls          int
-	getCalls       int
 	ownershipCalls int
 }
 
-func (s *ownershipReaderStub) GetOwned(_ context.Context, query resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
+func (s *ownershipReaderStub) Handle(_ context.Context, query resumecontracts.OwnedResumeSectionsQuery) ([]resumecontracts.ResumeSectionSettings, error) {
 	s.calls++
-	s.getCalls++
-	s.query = query
+	s.query = resumecontracts.ResumeOwnershipQuery(query)
 	if s.err != nil {
-		return resumequeries.ResumeView{}, s.err
+		return nil, s.err
 	}
-	viewID := s.viewID
-	if viewID == "" {
-		viewID = query.ResumeID.String()
-	}
-	return resumequeries.ResumeView{ID: viewID}, nil
+	return nil, nil
 }
-func (s *ownershipReaderStub) GetOwnedOverview(_ context.Context, query resumequeries.GetResumeQuery) (resumequeries.ResumeOverviewView, error) {
-	s.calls++
-	s.getCalls++
-	s.query = query
-	if s.err != nil {
-		return resumequeries.ResumeOverviewView{}, s.err
-	}
-	return resumequeries.ResumeOverviewView{}, nil
-}
-func (s *ownershipReaderStub) OwnsResume(_ context.Context, query resumequeries.GetResumeQuery) (bool, error) {
+
+func (s *ownershipReaderStub) OwnsResume(_ context.Context, query resumecontracts.ResumeOwnershipQuery) (bool, error) {
 	s.calls++
 	s.ownershipCalls++
 	s.query = query
+	if errors.Is(s.err, resumecontracts.ErrResumeNotFound) {
+		return false, nil
+	}
 	if s.err != nil {
 		return false, s.err
 	}
@@ -75,47 +63,47 @@ func (s *listReaderStub) ListByResumeID(_ context.Context, query ListResumeLinks
 }
 
 type publicResumeQueryStub struct {
-	view  resumequeries.PublicResumeView
+	view  resumecontracts.PublicResumeView
 	err   error
-	query resumequeries.PublicResumeQuery
+	query resumecontracts.PublicResumeQuery
 }
 
-func (s *publicResumeQueryStub) Handle(_ context.Context, query resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error) {
+func (s *publicResumeQueryStub) Handle(_ context.Context, query resumecontracts.PublicResumeQuery) (resumecontracts.PublicResumeView, error) {
 	s.query = query
 	return s.view, s.err
 }
 
 type publicVisitCreatorStub struct {
-	identity analyticsports.VisitorIdentityResult
+	identity analyticscontracts.VisitorIdentityResult
 	err      error
-	input    analyticsports.CreatePublicVisitInput
+	input    analyticscontracts.CreatePublicVisitInput
 	calls    int
 }
 
-func (s *publicVisitCreatorStub) Handle(_ context.Context, input analyticsports.CreatePublicVisitInput) (*analyticsdomain.View, analyticsports.VisitorIdentityResult, error) {
+func (s *publicVisitCreatorStub) Handle(_ context.Context, input analyticscontracts.CreatePublicVisitInput) (analyticscontracts.VisitorIdentityResult, error) {
 	s.calls++
 	s.input = input
-	return nil, s.identity, s.err
+	return s.identity, s.err
 }
 
 type contactViewResumeQueryStub struct {
-	view  resumequeries.ContactView
+	view  resumecontracts.ContactView
 	err   error
-	query resumequeries.ContactViewQuery
+	query resumecontracts.ContactViewQuery
 }
 
-func (s *contactViewResumeQueryStub) Handle(_ context.Context, query resumequeries.ContactViewQuery) (resumequeries.ContactView, error) {
+func (s *contactViewResumeQueryStub) Handle(_ context.Context, query resumecontracts.ContactViewQuery) (resumecontracts.ContactView, error) {
 	s.query = query
 	return s.view, s.err
 }
 
 type contactViewResumeDownloadQueryStub struct {
-	view  resumequeries.DownloadContactsView
+	view  resumecontracts.DownloadContactsView
 	err   error
-	query resumequeries.DownloadContactsQuery
+	query resumecontracts.DownloadContactsQuery
 }
 
-func (s *contactViewResumeDownloadQueryStub) Handle(_ context.Context, query resumequeries.DownloadContactsQuery) (resumequeries.DownloadContactsView, error) {
+func (s *contactViewResumeDownloadQueryStub) Handle(_ context.Context, query resumecontracts.DownloadContactsQuery) (resumecontracts.DownloadContactsView, error) {
 	s.query = query
 	return s.view, s.err
 }
@@ -144,8 +132,8 @@ func (s *contactViewAnalyticsRecorderStub) RecordDownload(_ context.Context, vie
 }
 
 func newPublicAnalyticsTestHandler(
-	owner ports.ResumeOwnershipReader,
-	visit analyticsports.PublicVisitCreator,
+	owner resumecontracts.ResumeOwnershipChecker,
+	visit analyticscontracts.PublicVisitCreator,
 	reporter PublicAnalyticsErrorReporter,
 ) (*PublicResumeLinkQueryHandler, PublicResumeLinkQuery, *publicResumeQueryStub) {
 	linkID := sharedvalueobjects.NewID()
@@ -153,13 +141,16 @@ func newPublicAnalyticsTestHandler(
 	links := &resumeLinkReaderStub{view: ResumeLinkPublicView{
 		ID: linkID.String(), ResumeID: resumeID.String(), Status: string(domain.ResumeLinkStatusActive),
 	}}
-	resume := &publicResumeQueryStub{view: resumequeries.PublicResumeView{Title: "Public CV"}}
+	resume := &publicResumeQueryStub{view: resumecontracts.PublicResumeView{
+		Title:        "Public CV",
+		Technologies: []resumecontracts.PublicTechnologyView{{Name: "Go"}},
+	}}
 	handler := NewPublicResumeLinkQueryHandlerWithVisit(NewActivePublicResumeLinkResolver(links), resume, owner, visit, reporter)
 	query := PublicResumeLinkQuery{
 		LinkID: linkID,
-		Visit: &analyticsports.CreatePublicVisitInput{
+		Visit: &analyticscontracts.CreatePublicVisitInput{
 			LinkID:  linkID,
-			Visitor: analyticsports.PublicVisitInput{OwnerID: sharedvalueobjects.NewID()},
+			Visitor: analyticscontracts.PublicVisitInput{OwnerID: sharedvalueobjects.NewID()},
 		},
 	}
 	return handler, query, resume

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -141,6 +142,39 @@ func TestReconstructResumeLinkRejectsInvalidSnapshot(t *testing.T) {
 		Version:  1,
 	})
 	require.ErrorIs(t, err, ErrInvalidResumeLink)
+}
+
+func TestResumeLinkRenameTrimsAndUpdatesName(t *testing.T) {
+	link, err := NewResumeLink(validResumeLinkParams())
+	require.NoError(t, err)
+
+	require.NoError(t, link.Rename("  New Name  "))
+	require.Equal(t, "New Name", link.Name())
+	require.Equal(t, int64(1), link.Version())
+}
+
+func TestResumeLinkRenameRejectsEmptyName(t *testing.T) {
+	link, err := NewResumeLink(validResumeLinkParams())
+	require.NoError(t, err)
+
+	for _, name := range []string{"", "   ", "\t\n"} {
+		require.ErrorIs(t, link.Rename(name), ErrInvalidResumeLinkName)
+	}
+	require.Equal(t, "HH", link.Name())
+}
+
+func TestResumeLinkRenameRejectsTooLongName(t *testing.T) {
+	link, err := NewResumeLink(validResumeLinkParams())
+	require.NoError(t, err)
+
+	err = link.Rename(strings.Repeat("ж", MaxResumeLinkNameLength+1))
+	require.ErrorIs(t, err, ErrInvalidResumeLinkName)
+	require.Equal(t, "HH", link.Name())
+}
+
+func TestResumeLinkRenameRejectsNilLink(t *testing.T) {
+	var link *ResumeLink
+	require.ErrorIs(t, link.Rename("Name"), ErrInvalidResumeLink)
 }
 
 func TestResumeLinkStateTransitions(t *testing.T) {

@@ -3,6 +3,7 @@ package requests
 import (
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/domain"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -38,9 +39,9 @@ func (r ContactsRequest) ToInput() (commands.ContactsInput, error) {
 		}
 		email = &value
 	}
-	hidden := make([]domain.ContactKey, len(r.HiddenContacts))
+	hidden := make([]contactkey.Key, len(r.HiddenContacts))
 	for i, value := range r.HiddenContacts {
-		hidden[i] = domain.ContactKey(value)
+		hidden[i] = contactkey.Key(value)
 	}
 	var text *commands.ContactsTextInput
 	if r.ContactsText != nil {

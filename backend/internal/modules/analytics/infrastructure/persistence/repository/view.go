@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	"developers-cv/backend/internal/modules/analytics/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/analytics/infrastructure/persistence/mappers"
@@ -52,7 +53,7 @@ func (r *AnalyticsRepository) GetView(
 	var model gormmodel.AnalyticsView
 	if err := db.Where("id = ?", id.UUID()).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrAnalyticsSubjectNotFound
+			return nil, analyticscontracts.ErrAnalyticsSubjectNotFound
 		}
 		return nil, fmt.Errorf("get analytics view: %w", mapDBError(err))
 	}
@@ -79,7 +80,7 @@ func (r *AnalyticsRepository) UpdateViewState(
 	var model gormmodel.AnalyticsView
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id.UUID()).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrAnalyticsSubjectNotFound
+			return analyticscontracts.ErrAnalyticsSubjectNotFound
 		}
 		return fmt.Errorf("update analytics view state: load view: %w", mapDBError(err))
 	}
@@ -108,11 +109,11 @@ func registerVisitorFirstView(tx *gorm.DB, view *domain.View) error {
 	viewID := view.ID().UUID()
 
 	result := tx.Exec(`
-		INSERT INTO analytics_visitors (
+		INSERT INTO analytics.analytics_visitors (
 			link_id, visitor_id, first_seen_at, first_view_id, ordinal
 		)
 		SELECT link_id, visitor_id, started_at, id, NULL
-		FROM analytics_views
+		FROM analytics.analytics_views
 		WHERE id = ?
 		ON CONFLICT (link_id, visitor_id) DO NOTHING
 	`, viewID)
@@ -126,8 +127,8 @@ func registerVisitorFirstView(tx *gorm.DB, view *domain.View) error {
 		var preceding int64
 		if err := tx.Raw(`
 			SELECT COUNT(*)
-			FROM analytics_visitors AS visitor
-			JOIN analytics_views AS candidate ON candidate.id = ?
+			FROM analytics.analytics_visitors AS visitor
+			JOIN analytics.analytics_views AS candidate ON candidate.id = ?
 			WHERE visitor.link_id = ?
 			  AND visitor.ordinal IS NOT NULL
 			  AND (visitor.first_seen_at, visitor.first_view_id)
@@ -137,14 +138,14 @@ func registerVisitorFirstView(tx *gorm.DB, view *domain.View) error {
 		}
 		newOrdinal := preceding + 1
 		if err := tx.Exec(`
-			UPDATE analytics_visitors
+			UPDATE analytics.analytics_visitors
 			SET ordinal = ordinal + 1
 			WHERE link_id = ? AND ordinal >= ?
 		`, linkID, newOrdinal).Error; err != nil {
 			return err
 		}
 		if err := tx.Exec(`
-			UPDATE analytics_visitors
+			UPDATE analytics.analytics_visitors
 			SET ordinal = ?
 			WHERE link_id = ? AND visitor_id = ? AND ordinal IS NULL
 		`, newOrdinal, linkID, visitorID).Error; err != nil {
@@ -158,8 +159,8 @@ func registerVisitorFirstView(tx *gorm.DB, view *domain.View) error {
 		err := tx.Raw(`
 			SELECT (candidate.started_at, candidate.id)
 			       < (visitor.first_seen_at, visitor.first_view_id)
-			FROM analytics_views AS candidate
-			JOIN analytics_visitors AS visitor
+			FROM analytics.analytics_views AS candidate
+			JOIN analytics.analytics_visitors AS visitor
 			  ON visitor.link_id = candidate.link_id
 			 AND visitor.visitor_id = candidate.visitor_id
 			WHERE candidate.id = ?
@@ -179,10 +180,10 @@ func registerVisitorFirstView(tx *gorm.DB, view *domain.View) error {
 		return err
 	}
 	if err := tx.Exec(`
-		UPDATE analytics_visitors AS visitor
+		UPDATE analytics.analytics_visitors AS visitor
 		SET first_seen_at = candidate.started_at,
 		    first_view_id = candidate.id
-		FROM analytics_views AS candidate
+		FROM analytics.analytics_views AS candidate
 		WHERE candidate.id = ?
 		  AND visitor.link_id = candidate.link_id
 		  AND visitor.visitor_id = candidate.visitor_id
@@ -193,10 +194,10 @@ func registerVisitorFirstView(tx *gorm.DB, view *domain.View) error {
 		WITH ranked AS (
 			SELECT visitor_id,
 			       ROW_NUMBER() OVER (ORDER BY first_seen_at, first_view_id) AS new_ordinal
-			FROM analytics_visitors
+			FROM analytics.analytics_visitors
 			WHERE link_id = ?
 		)
-		UPDATE analytics_visitors AS visitor
+		UPDATE analytics.analytics_visitors AS visitor
 		SET ordinal = ranked.new_ordinal
 		FROM ranked
 		WHERE visitor.link_id = ? AND visitor.visitor_id = ranked.visitor_id
@@ -204,8 +205,8 @@ func registerVisitorFirstView(tx *gorm.DB, view *domain.View) error {
 }
 
 func lockVisitorOrdinalScope(tx *gorm.DB, linkID uuid.UUID) error {
-	var locked struct {
-		ID uuid.UUID `gorm:"column:id"`
-	}
-	return tx.Raw(`SELECT id FROM resume_links WHERE id = ? FOR NO KEY UPDATE`, linkID).Scan(&locked).Error
+	return tx.Exec(
+		`SELECT pg_advisory_xact_lock(hashtextextended('analytics.visitor_ordinal:' || ?::text, 0))`,
+		linkID,
+	).Error
 }

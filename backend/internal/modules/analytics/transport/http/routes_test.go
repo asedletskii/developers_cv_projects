@@ -16,7 +16,7 @@ func TestRegisterRoutesPreservesAnalyticsRouteContract(t *testing.T) {
 	engine := gin.New()
 	api := engine.Group("/api/v1")
 	handler := NewHandler(HandlerDependencies{
-		Ingest: commands.NewIngestAnalyticsBatchHandler(nil, nil, nil),
+		Ingest: commands.NewIngestAnalyticsBatchHandler(nil, nil, nil, nil),
 		Clicks: queries.NewAnalyticsClickQueryHandler(nil, nil, nil),
 	})
 	RegisterRoutes(handler, api, api.Group("/lk"), nil)

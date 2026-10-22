@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -14,7 +14,7 @@ type analyticsAccessReaderStub struct {
 	resumeID     sharedvalueobjects.ID
 	err          error
 	sectionOrder []string
-	layout       ports.ResumeAnalyticsLayout
+	layout       analyticscontracts.ResumeAnalyticsLayout
 }
 
 func (s *analyticsAccessReaderStub) ResolveLink(context.Context, sharedvalueobjects.ID) (sharedvalueobjects.ID, error) {
@@ -29,7 +29,7 @@ func (s *analyticsAccessReaderStub) ResumeSectionOrder(context.Context, sharedva
 	return s.sectionOrder, s.err
 }
 
-func (s *analyticsAccessReaderStub) ResumeAnalyticsLayout(context.Context, sharedvalueobjects.ID, sharedvalueobjects.ID) (ports.ResumeAnalyticsLayout, error) {
+func (s *analyticsAccessReaderStub) ResumeAnalyticsLayout(context.Context, sharedvalueobjects.ID, sharedvalueobjects.ID) (analyticscontracts.ResumeAnalyticsLayout, error) {
 	return s.layout, s.err
 }
 
@@ -93,7 +93,7 @@ type layoutSnapshotBuilderStub struct {
 	err      error
 }
 
-func (s layoutSnapshotBuilderStub) Build(ports.ResumeAnalyticsLayout) (domain.LayoutSnapshot, error) {
+func (s layoutSnapshotBuilderStub) Build(analyticscontracts.ResumeAnalyticsLayout) (domain.LayoutSnapshot, error) {
 	return s.snapshot, s.err
 }
 

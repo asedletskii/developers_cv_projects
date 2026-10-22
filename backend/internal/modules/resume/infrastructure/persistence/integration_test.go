@@ -39,7 +39,7 @@ func insertResumeTestUser(t *testing.T, ctx context.Context, dsn string, userID 
 		require.NoError(t, conn.Close(ctx))
 	})
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID.UUID())
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID.UUID())
 	require.NoError(t, err)
 }
 
@@ -85,8 +85,8 @@ func TestPostgresSkillsLanguagesAggregateVerticalSlice(t *testing.T) {
 	require.Equal(t, hard, loadedResume.Skills().HardSkills())
 	require.Equal(t, soft, loadedResume.Skills().SoftSkills())
 	var hardCount, softCount int
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&hardCount))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&softCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_skill_hard").Scan(&hardCount))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_skill_soft").Scan(&softCount))
 	require.Equal(t, 2, hardCount)
 	require.Equal(t, 2, softCount)
 

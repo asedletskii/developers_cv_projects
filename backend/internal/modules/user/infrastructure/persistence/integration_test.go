@@ -37,7 +37,7 @@ func TestPostgresUserReaderGetUser(t *testing.T) {
 	userID := uuid.New()
 	createdAt := time.Date(2026, 9, 23, 8, 0, 0, 0, time.UTC)
 	_, err = conn.Exec(ctx,
-		`INSERT INTO users (id, created_at, updated_at) VALUES ($1, $2, $2)`,
+		`INSERT INTO users.users (id, created_at, updated_at) VALUES ($1, $2, $2)`,
 		userID, createdAt,
 	)
 	require.NoError(t, err)
