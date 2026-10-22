@@ -99,6 +99,7 @@ networks:
     ipam:
       config:
         - subnet: ${PROXY_NETWORK_SUBNET:-172.30.240.0/24}
+          ip_range: 172.30.240.128/25
   data:
     internal: true
   edge:
