@@ -23,6 +23,7 @@ import {
   SingletonSection,
   TechnologyInterest,
 } from '@features/curriculumVitae/types'
+import { normalizeResume } from '@features/curriculumVitae/utils/normalizeResume'
 import { api } from '@shared/api'
 import { generatePath } from 'react-router'
 
@@ -47,7 +48,7 @@ class CurriculumVitaeApi {
       signal,
       headers: { 'X-Referrer-Host': getReferrerHost() },
     })
-    return { resume: response.data, viewId: response.headers['x-view-id'] ?? null }
+    return { resume: normalizeResume(response.data), viewId: response.headers['x-view-id'] ?? null }
   }
 
   async getProfile(signal?: AbortSignal): Promise<LkProfile> {
@@ -72,7 +73,7 @@ class CurriculumVitaeApi {
     const response = await api.get<Resume>(generatePath(API_ROUTES.lkResume, { resumeId }), {
       signal,
     })
-    return response.data
+    return normalizeResume(response.data)
   }
 
   async createResume(title: string, language: ResumeLanguage): Promise<string> {
