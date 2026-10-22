@@ -20,6 +20,7 @@ export type SectionSettings = {
   id: SectionId
   enabled: boolean
   collapsed?: boolean
+  style?: string
 }
 
 export type Greeting = {

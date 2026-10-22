@@ -89,6 +89,10 @@ export const curriculumVitaeDict = {
         achievements: 'Достижения',
       },
 
+      TechStack: {
+        title: 'Стек технологий',
+      },
+
       Skills: {
         title: 'Навыки',
         hard: 'Профессиональные',
@@ -155,6 +159,7 @@ export const curriculumVitaeDict = {
       Projects: {
         title: 'Проекты',
         open: 'Открыть',
+        code: 'Код',
       },
 
       AnalyticsNotice: {
@@ -275,6 +280,10 @@ export const curriculumVitaeDict = {
         achievements: 'Achievements',
       },
 
+      TechStack: {
+        title: 'Tech stack',
+      },
+
       Skills: {
         title: 'Skills',
         hard: 'Professional',
@@ -341,6 +350,7 @@ export const curriculumVitaeDict = {
       Projects: {
         title: 'Projects',
         open: 'Open',
+        code: 'Code',
       },
 
       AnalyticsNotice: {

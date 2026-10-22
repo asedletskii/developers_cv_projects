@@ -1,4 +1,5 @@
 import { Section } from '@features/curriculumVitae/components/cv/Section'
+import { SectionStyle } from '@features/curriculumVitae/sections/sectionStyles'
 import { SectionId } from '@features/curriculumVitae/types'
 import { isHardSkill, isSoftSkill } from '@features/curriculumVitae/utils'
 import { Stack } from '@mui/material'
@@ -8,9 +9,10 @@ import { Group } from './Group'
 type Props = {
   hardSkills: string[]
   softSkills: string[]
+  variant?: SectionStyle
 }
 
-export const SkillsSection = ({ hardSkills, softSkills }: Props) => {
+export const SkillsSection = ({ hardSkills, softSkills, variant = 'first' }: Props) => {
   const translate = useTranslate('CurriculumVitae.Skills')
 
   const groups = [
@@ -40,12 +42,12 @@ export const SkillsSection = ({ hardSkills, softSkills }: Props) => {
     <Section id={SectionId.Skills} title={translate('title')}>
       <Stack
         className="reveal-group"
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2.5}
+        direction={{ xs: 'column', md: variant === 'third' ? 'column' : 'row' }}
+        spacing={variant === 'third' ? 1 : 2.5}
         useFlexGap
       >
         {groups.map(({ key, ...group }) => (
-          <Group key={key} {...group} />
+          <Group key={key} variant={variant} {...group} />
         ))}
       </Stack>
     </Section>

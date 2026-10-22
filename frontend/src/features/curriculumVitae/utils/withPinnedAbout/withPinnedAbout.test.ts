@@ -17,4 +17,10 @@ describe('withPinnedAbout', () => {
   it('добавляет «Обо мне», если её не было', () => {
     expect(withPinnedAbout([])).toEqual([{ id: SectionId.About, enabled: true }])
   })
+
+  it('вид, выбранный для «Обо мне», сохраняется', () => {
+    expect(withPinnedAbout([{ id: SectionId.About, enabled: false, style: 'third' }])).toEqual([
+      { id: SectionId.About, enabled: true, style: 'third' },
+    ])
+  })
 })

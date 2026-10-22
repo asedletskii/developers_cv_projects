@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { SectionStylePicker } from '@features/curriculumVitae/components/editor/form/SectionStylePicker'
 import { SectionPreview } from '@features/curriculumVitae/components/editor/SectionPreview'
 import { glassCard } from '@features/curriculumVitae/styles'
 import { Resume, ResumeEditorTab, SectionId } from '@features/curriculumVitae/types'
@@ -13,6 +14,7 @@ type Props = {
   section: ResumeEditorTab
   previewSection?: SectionId
   previewHighlight?: string
+  hasStylePicker?: boolean
   onSaved: () => Promise<void>
   onDirtyChange: (isDirty: boolean) => void
   children: ReactNode
@@ -24,6 +26,7 @@ export const SectionForm = ({
   section,
   previewSection,
   previewHighlight,
+  hasStylePicker = true,
   onSaved,
   onDirtyChange,
   children,
@@ -46,6 +49,15 @@ export const SectionForm = ({
         sx={{ p: { xs: 2, sm: 3 }, ...glassCard }}
       >
         {previewSection && <SectionPreview section={previewSection} highlight={previewHighlight} />}
+
+        {previewSection && hasStylePicker && (
+          <SectionStylePicker
+            view={view}
+            section={previewSection}
+            isDirty={isDirty}
+            onSaved={onSaved}
+          />
+        )}
 
         {children}
 

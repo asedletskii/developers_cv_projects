@@ -273,6 +273,16 @@ export const lkDict = {
         saving: 'Сохранение…',
         saveError: 'Не удалось сохранить резюме',
         previewEmpty: 'Пока нечего показывать — заполните поля ниже',
+
+        Style: {
+          title: 'Вид блока',
+          first: 'Вид 1',
+          second: 'Вид 2',
+          third: 'Вид 3',
+          saveFirst: 'Сначала сохраните изменения, затем можно сменить вид',
+          error: 'Не удалось сохранить вид',
+        },
+
         saved: 'Сохранено',
         unsaved: 'Есть несохранённые изменения',
         discardConfirm: 'Несохранённые изменения на этой вкладке пропадут. Перейти?',
@@ -708,6 +718,16 @@ export const lkDict = {
         saving: 'Saving…',
         saveError: "Couldn't save the résumé",
         previewEmpty: 'Nothing to show yet — fill in the fields below',
+
+        Style: {
+          title: 'Block layout',
+          first: 'Layout 1',
+          second: 'Layout 2',
+          third: 'Layout 3',
+          saveFirst: 'Save your changes first, then you can change the layout',
+          error: 'Could not save the layout',
+        },
+
         saved: 'Saved',
         unsaved: 'You have unsaved changes',
         discardConfirm: 'Unsaved changes on this tab will be lost. Continue?',

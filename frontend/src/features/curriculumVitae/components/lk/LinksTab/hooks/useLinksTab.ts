@@ -20,7 +20,7 @@ export const useLinksTab = (linksState: ReturnType<typeof useResumeLinks>) => {
 
   const saveName = (name: string) => {
     if (dialog?.mode === 'create') create(name)
-    if (dialog?.mode === 'rename') rename(dialog.link.id, name)
+    if (dialog?.mode === 'rename') rename(dialog.link.id, dialog.link.version, name)
   }
 
   const openMenu = (link: ResumeLink) => (e: MouseEvent<HTMLElement>) =>

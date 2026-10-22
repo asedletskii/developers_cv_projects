@@ -1,4 +1,5 @@
 import { EMPTY_CONTACTS, EMPTY_PROFILE, EMPTY_SKILLS } from '@features/curriculumVitae/constants'
+import { DEFAULT_SECTION_STYLE } from '@features/curriculumVitae/sections/sectionStyles'
 import {
   ListSection,
   Resume,
@@ -50,10 +51,11 @@ export const buildSectionRequest = (
                 note: toOptionalString(overview.availability.note),
               }
             : undefined,
-          sections: withPinnedAbout(overview.sections).map(({ id, enabled, collapsed }) => ({
+          sections: withPinnedAbout(overview.sections).map(({ id, enabled, collapsed, style }) => ({
             id,
             enabled,
             collapsed: !!collapsed,
+            ...(style && style !== DEFAULT_SECTION_STYLE ? { style } : {}),
           })),
         },
       }
@@ -84,7 +86,6 @@ export const buildSectionRequest = (
           telegram: toOptionalString(contacts.telegram),
           email: toOptionalString(contacts.email),
           hiddenContacts: contacts.hiddenContacts,
-          // Пустая строка в contactsText значима («элемент скрыт»), поэтому передаём как есть
           contactsText: contacts.contactsText,
         },
       }

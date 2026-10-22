@@ -35,6 +35,7 @@ export const ResumeEditor = ({ view, onSaved, isDirtyRef }: Props) => {
         section={activeTab.id}
         previewSection={activeTab.preview}
         previewHighlight={activeTab.highlight}
+        hasStylePicker={activeTab.hasStylePicker}
         onSaved={onSaved}
         onDirtyChange={setDirty}
       >

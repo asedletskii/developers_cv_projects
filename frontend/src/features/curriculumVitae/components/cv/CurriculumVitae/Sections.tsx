@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { SECTION_DEFINITIONS } from '@features/curriculumVitae/sections'
+import { getSectionStyle, SECTION_DEFINITIONS } from '@features/curriculumVitae/sections'
 import { Resume, SectionSettings } from '@features/curriculumVitae/types'
 import { Container } from '@mui/material'
 
@@ -14,10 +14,10 @@ export const Sections = ({ resume, sections }: Props) => (
       const definition = SECTION_DEFINITIONS[id]
 
       return definition.isFullWidth ? (
-        <Fragment key={id}>{definition.render(resume)}</Fragment>
+        <Fragment key={id}>{definition.render(resume, getSectionStyle(resume, id))}</Fragment>
       ) : (
         <Container key={id} maxWidth="lg" sx={{ position: 'relative' }}>
-          {definition.render(resume)}
+          {definition.render(resume, getSectionStyle(resume, id))}
         </Container>
       )
     })}

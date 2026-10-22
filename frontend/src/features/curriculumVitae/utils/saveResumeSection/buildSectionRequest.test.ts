@@ -22,6 +22,29 @@ describe('buildSectionRequest', () => {
     expect((body as { version: number }).version).toBe(4)
   })
 
+  it('overview: вид секции уходит только если он не основной', () => {
+    const values = {
+      ...baseView,
+      overview: {
+        ...baseView.overview,
+        sections: [
+          { id: 'about', enabled: true, style: 'third' },
+          { id: 'experience', enabled: true, style: 'second' },
+          { id: 'projects', enabled: true, style: 'first' },
+          { id: 'skills', enabled: true },
+        ],
+      },
+    } as unknown as Resume
+
+    const { body } = buildSectionRequest(baseView, 'overview', values)
+    const sections = (body as { sections: Record<string, unknown>[] }).sections
+
+    expect(sections.find((s) => s.id === 'about')).toHaveProperty('style', 'third')
+    expect(sections.find((s) => s.id === 'experience')).toHaveProperty('style', 'second')
+    expect(sections.find((s) => s.id === 'projects')).not.toHaveProperty('style')
+    expect(sections.find((s) => s.id === 'skills')).not.toHaveProperty('style')
+  })
+
   it('overview: пустая тема не отправляется, доступность — только при заданном статусе', () => {
     const values = {
       ...baseView,

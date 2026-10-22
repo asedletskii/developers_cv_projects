@@ -57,11 +57,11 @@ export const useResumeLinks = (userId?: string, resumeId?: string) => {
     }
   }
 
-  const rename = async (id: string, name: string) => {
+  const rename = async (id: string, version: number, name: string) => {
     if (!userId) return
 
     try {
-      await curriculumVitaeApi.renameResumeLink(id, name)
+      await curriculumVitaeApi.renameResumeLink(id, version, name)
       await refresh()
     } catch {
       showToast({ messageKey: 'linkActionFailed', type: ToastType.Error })

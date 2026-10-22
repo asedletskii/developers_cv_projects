@@ -147,8 +147,8 @@ class CurriculumVitaeApi {
     return response.data.id
   }
 
-  async renameResumeLink(linkId: string, name: string): Promise<void> {
-    await api.put(generatePath(API_ROUTES.lkLink, { linkId }), { name })
+  async renameResumeLink(linkId: string, version: number, name: string): Promise<void> {
+    await api.put(generatePath(API_ROUTES.lkLink, { linkId }), { version, name })
   }
 
   async deleteResumeLink(linkId: string): Promise<void> {

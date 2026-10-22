@@ -16,13 +16,20 @@ export type EditorTab = {
   id: ResumeEditorTab
   Editor: ComponentType
   preview?: SectionId
+  hasStylePicker?: boolean
   highlight?: string
 }
 
 export const EDITOR_TABS: EditorTab[] = [
   { id: 'overview', Editor: OverviewEditor },
   { id: 'profile', Editor: AboutEditor, preview: SectionId.About, highlight: 'profile' },
-  { id: 'languages', Editor: LanguagesEditor, preview: SectionId.About, highlight: 'languages' },
+  {
+    id: 'languages',
+    Editor: LanguagesEditor,
+    preview: SectionId.About,
+    highlight: 'languages',
+    hasStylePicker: false,
+  },
   { id: 'technologies', Editor: TechStackEditor, preview: SectionId.TechStack },
   { id: 'experience', Editor: ExperienceEditor, preview: SectionId.Experience },
   { id: 'skills', Editor: SkillsEditor, preview: SectionId.Skills },

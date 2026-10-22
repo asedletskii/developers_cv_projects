@@ -14,7 +14,7 @@ type Props = {
 
 export const SectionPreview = ({ section, highlight }: Props) => {
   const translate = useTranslate('Lk.Edit')
-  const { resume, definition, hasContent } = useSectionPreview(section)
+  const { resume, definition, hasContent, style } = useSectionPreview(section)
 
   return (
     <AccentTheme colors={resume.overview.theme}>
@@ -39,7 +39,9 @@ export const SectionPreview = ({ section, highlight }: Props) => {
               }}
             >
               {hasContent ? (
-                <Box sx={{ zoom: 0.6, pointerEvents: 'none' }}>{definition.render(resume)}</Box>
+                <Box sx={{ zoom: 0.6, pointerEvents: 'none' }}>
+                  {definition.render(resume, style)}
+                </Box>
               ) : (
                 <Typography sx={{ color: 'text.secondary' }}>
                   {translate('previewEmpty')}
