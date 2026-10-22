@@ -1,38 +1,38 @@
 package queries
 
 type ResumeOverviewView struct {
-	Theme        *OverviewThemeSettings
-	Greeting     OverviewGreeting
-	Availability *OverviewAvailability
-	Sections     []OverviewSectionSettings
+	Theme        *OverviewThemeSettings    `json:"theme,omitempty"`
+	Greeting     OverviewGreeting          `json:"greeting"`
+	Availability *OverviewAvailability     `json:"availability,omitempty"`
+	Sections     []OverviewSectionSettings `json:"sections"`
 }
 
 type OverviewGreeting struct {
-	First           string
-	Second          string
-	SecondHighlight string
-	Third           string
+	First           string `json:"first"`
+	Second          string `json:"second"`
+	SecondHighlight string `json:"secondHighlight"`
+	Third           string `json:"third"`
 }
 
 type OverviewAvailability struct {
-	Status string
-	From   *string
-	Note   *string
+	Status string  `json:"status"`
+	From   *string `json:"from,omitempty"`
+	Note   *string `json:"note,omitempty"`
 }
 
 type OverviewThemeSettings struct {
-	Primary   string
-	Secondary string
+	Primary   string `json:"primary,omitempty"`
+	Secondary string `json:"secondary,omitempty"`
 }
 
 type OverviewSectionSettings struct {
-	ID        string
-	Enabled   bool
-	Collapsed bool
+	ID        string `json:"id"`
+	Enabled   bool   `json:"enabled"`
+	Collapsed bool   `json:"collapsed"`
 }
 
 type ResumeSectionSettings struct {
-	ID        string
-	Enabled   bool
-	Collapsed bool
+	ID        string `json:"id"`
+	Enabled   bool   `json:"enabled"`
+	Collapsed bool   `json:"collapsed"`
 }
