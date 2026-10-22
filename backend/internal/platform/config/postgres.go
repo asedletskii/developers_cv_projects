@@ -29,7 +29,7 @@ func (c PostgresConfig) ConnectionString() string {
 		User:     url.UserPassword(c.User, c.Password),
 		Host:     net.JoinHostPort(c.Host, strconv.Itoa(c.Port)),
 		Path:     "/" + c.Database,
-		RawQuery: values.Encode(),
+		RawQuery: strings.ReplaceAll(values.Encode(), "+", "%20"),
 	}).String()
 }
 
