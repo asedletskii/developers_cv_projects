@@ -1,6 +1,6 @@
 import { AnalyticsClick, AnalyticsEvent, AnalyticsEventType } from '@features/curriculumVitae/types'
 
-/** Лимиты из docs/analytics/frontend.md: бэкенд всё равно отсекает лишнее, но не шлём заведомо отклоняемое */
+/** Лимиты приёма пачек (см. docs/api.md, раздел «Аналитика»): бэкенд всё равно отсекает лишнее, но не шлём заведомо отклоняемое */
 export const FLUSH_INTERVAL_MS = 15_000
 export const MAX_EVENTS_PER_BATCH = 100
 export const MAX_CLICKS_PER_VISIT = 200

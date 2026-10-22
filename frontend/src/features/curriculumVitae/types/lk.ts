@@ -1,4 +1,4 @@
-/** Личный кабинет (`/lk/*`, контракт — docs/api). */
+/** Личный кабинет (`/lk/*`, контракт — docs/api.md). */
 
 /** Языки самого резюме (поле `language`), не путать с LanguageType — языками, которыми владеет человек */
 export const RESUME_LANGUAGES = ['ru', 'en', 'fr', 'de', 'kz', 'zh', 'es'] as const

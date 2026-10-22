@@ -1,0 +1,759 @@
+openapi: 3.0.3
+info:
+  title: developers-cv API
+  version: 1.0.0
+  description: |
+    Контракт собран по коду бэкенда (`backend/internal/modules/*/transport/http`). Правила, форматы и справочники — в `docs/api.md`.
+    Любое неизвестное поле в теле запроса даёт 400. Каждый PUT/DELETE резюме и ссылки несёт положительный `version`.
+servers:
+  - url: /api/v1
+tags:
+  - name: auth
+  - name: lk-profile
+  - name: lk-resume
+  - name: lk-sections
+  - name: lk-links
+  - name: public
+  - name: analytics
+security:
+  - session: []
+
+paths:
+  /auth/telegram:
+    get:
+      tags: [auth]
+      summary: Начало входа через Telegram (редирект)
+      security: []
+      responses: { '302': { description: Редирект в Telegram }, '429': { $ref: '#/components/responses/Error' } }
+  /auth/telegram/callback:
+    get:
+      tags: [auth]
+      summary: Завершение входа, ставит cookie сессии
+      security: []
+      responses: { '302': { description: Редирект в кабинет или на страницу ошибки }, '429': { $ref: '#/components/responses/Error' } }
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Текущая сессия
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: object, properties: { userId: { type: string, format: uuid }, authenticated: { type: boolean } } } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Выход
+      responses: { '204': { description: Сессия закрыта } }
+
+  /lk/profile:
+    get:
+      tags: [lk-profile]
+      summary: Профиль владельца кабинета
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UserProfile' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+    put:
+      tags: [lk-profile]
+      summary: Заменить профиль владельца
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UserProfileRequest' } } } }
+      responses: { '204': { description: Сохранено }, '400': { $ref: '#/components/responses/Error' } }
+
+  /lk/resumes:
+    get:
+      tags: [lk-resume]
+      summary: Список резюме
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ResumeSummary' } } } } }
+  /lk/resume:
+    post:
+      tags: [lk-resume]
+      summary: Создать резюме
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, language]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                language: { $ref: '#/components/schemas/Language' }
+      responses: { '201': { $ref: '#/components/responses/Created' }, '400': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    get:
+      tags: [lk-resume]
+      summary: Резюме целиком (для редактора)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Resume' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      tags: [lk-resume]
+      summary: Переименовать резюме
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [version, title], properties: { version: { $ref: '#/components/schemas/Version' }, title: { type: string, minLength: 1, maxLength: 200 } } } } }
+      responses: { '204': { description: Сохранено }, '412': { $ref: '#/components/responses/Error' } }
+    delete:
+      tags: [lk-resume]
+      summary: Удалить резюме
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [version], properties: { version: { $ref: '#/components/schemas/Version' } } } } }
+      responses: { '204': { description: Удалено }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/status:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-resume]
+      summary: Сменить статус (draft → opened ⇄ closed)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [version, status], properties: { version: { $ref: '#/components/schemas/Version' }, status: { $ref: '#/components/schemas/ResumeStatus' } } } } }
+      responses: { '204': { description: Сохранено }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+
+  /lk/resume/{resumeId}/overview:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить оформление
+      description: Поле `sections[].style` бэкенд пока не принимает (400); фронтенд шлёт его только для значений, отличных от `first`.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OverviewRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/profile:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить профиль («Обо мне»)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ProfileRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/contacts:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить контакты
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ContactsRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/skills:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить навыки
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SkillsRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/languages:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить языки
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LanguagesRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/technologies:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить стек технологий
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TechnologiesRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/experiences:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить опыт работы
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExperiencesRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/educations:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить образование
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EducationsRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/courses:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить курсы
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CoursesRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/activities:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить дополнительную активность
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ActivitiesRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+  /lk/resume/{resumeId}/projects:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }]
+    put:
+      tags: [lk-sections]
+      summary: Заменить проекты
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ProjectsRequest' } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+
+  /lk/links:
+    get:
+      tags: [lk-links]
+      summary: Ссылки резюме
+      parameters: [{ name: resumeId, in: query, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ResumeLink' } } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /lk/link:
+    post:
+      tags: [lk-links]
+      summary: Создать ссылку
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [resumeId, name], properties: { resumeId: { type: string, format: uuid }, name: { type: string } } } } }
+      responses: { '201': { $ref: '#/components/responses/Created' }, '400': { $ref: '#/components/responses/Error' } }
+  /lk/link/{linkId}:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }]
+    put:
+      tags: [lk-links]
+      summary: Переименовать ссылку
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [version, name], properties: { version: { $ref: '#/components/schemas/Version' }, name: { type: string } } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' } }
+    delete:
+      tags: [lk-links]
+      summary: Удалить ссылку
+      responses: { '204': { description: Удалено }, '404': { $ref: '#/components/responses/Error' } }
+  /lk/link/{linkId}/status:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }]
+    put:
+      tags: [lk-links]
+      summary: Включить или отключить ссылку
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [version, status], properties: { version: { $ref: '#/components/schemas/Version' }, status: { $ref: '#/components/schemas/LinkStatus' } } } } }
+      responses: { '204': { $ref: '#/components/responses/Saved' }, '412': { $ref: '#/components/responses/Error' } }
+
+  /cv/{linkId}:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }]
+    get:
+      tags: [public]
+      summary: Публичная проекция резюме
+      description: Только опубликованное резюме по активной ссылке. Скрытые контакты не приходят.
+      security: []
+      parameters:
+        - { name: X-Referrer-Host, in: header, required: false, schema: { type: string }, description: Хост страницы-источника визита }
+      responses:
+        '200':
+          description: OK
+          headers:
+            Cache-Control: { schema: { type: string, example: no-store } }
+            X-View-Id: { schema: { type: string, format: uuid }, description: 'Идентификатор визита, если удалось создать' }
+          content: { application/json: { schema: { $ref: '#/components/schemas/PublicResume' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '410': { $ref: '#/components/responses/Error' }
+  /cv/{linkId}/contact-views:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }]
+    post:
+      tags: [public]
+      summary: Раскрыть скрытый контакт или получить все для файла
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [initiator]
+              properties:
+                initiator: { type: string, enum: [contact, download] }
+                contact: { $ref: '#/components/schemas/ContactKey' }
+                viewId: { type: string, format: uuid }
+                turnstileToken: { type: string, description: Одноразовый токен Cloudflare Turnstile }
+      responses:
+        '200':
+          description: 'Для contact — объект {contact, value}, для download — объект {contacts: [...]}'
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { type: object, properties: { contact: { $ref: '#/components/schemas/ContactKey' }, value: { type: string } } }
+                  - { type: object, properties: { contacts: { type: array, items: { type: object, properties: { contact: { $ref: '#/components/schemas/ContactKey' }, value: { type: string } } } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '410': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /cv/{linkId}/events:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }]
+    post:
+      tags: [analytics]
+      summary: Пачка событий посетителя
+      security: []
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AnalyticsBatch' } } } }
+      responses: { '204': { description: Принято }, '400': { $ref: '#/components/responses/Error' }, '429': { $ref: '#/components/responses/Error' } }
+
+  /lk/link/{linkId}/statistics:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }, { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' }, { $ref: '#/components/parameters/Tz' }]
+    get:
+      tags: [analytics]
+      summary: Сводка по ссылке
+      responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/LinkStatistics' } } } } }
+  /lk/link/{linkId}/statistics/daily:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }, { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' }, { $ref: '#/components/parameters/Tz' }]
+    get:
+      tags: [analytics]
+      summary: Просмотры по дням
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days:
+                    type: array
+                    items: { type: object, properties: { date: { type: string, format: date }, views: { type: integer }, reads: { type: integer }, uniqueVisitors: { type: integer } } }
+  /lk/link/{linkId}/statistics/sections:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }, { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' }, { $ref: '#/components/parameters/Tz' }]
+    get:
+      tags: [analytics]
+      summary: Дочитывание по секциям
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reads: { type: integer }
+                  sections: { type: array, items: { type: object, properties: { section: { type: string }, reached: { type: integer }, exits: { type: integer } } } }
+  /lk/link/{linkId}/statistics/technologies:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }, { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' }, { $ref: '#/components/parameters/Tz' }]
+    get:
+      tags: [analytics]
+      summary: Интерес к технологиям
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  technologies: { type: array, items: { type: object, properties: { name: { type: string }, selections: { type: integer }, visitors: { type: integer } } } }
+  /lk/link/{linkId}/views:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }]
+    get:
+      tags: [analytics]
+      summary: Лента визитов
+      parameters:
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer } }
+        - { name: includeFiltered, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/LinkVisit' } }
+                  nextCursor: { type: string, nullable: true }
+  /lk/link/{linkId}/clicks:
+    parameters: [{ $ref: '#/components/parameters/LinkId' }]
+    get:
+      tags: [analytics]
+      summary: Тепловая карта кликов
+      parameters:
+        - { name: section, in: query, required: true, schema: { type: string } }
+        - { name: breakpoint, in: query, required: true, schema: { type: string, enum: [xs, md, lg] } }
+        - { name: includeStale, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  section: { type: string }
+                  grid: { type: integer }
+                  total: { type: integer }
+                  cells: { type: array, items: { type: object, properties: { x: { type: integer }, y: { type: integer }, count: { type: integer } } } }
+  /lk/resume/{resumeId}/statistics:
+    parameters: [{ $ref: '#/components/parameters/ResumeId' }, { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' }, { $ref: '#/components/parameters/Tz' }]
+    get:
+      tags: [analytics]
+      summary: Сводка по резюме со списком ссылок
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/LinkStatistics'
+                  - type: object
+                    properties:
+                      links:
+                        type: array
+                        items: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string }, views: { type: integer }, reads: { type: integer }, lastViewAt: { type: string, format: date-time, nullable: true } } }
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-session
+
+  parameters:
+    ResumeId: { name: resumeId, in: path, required: true, schema: { type: string, format: uuid } }
+    LinkId: { name: linkId, in: path, required: true, schema: { type: string, format: uuid } }
+    From: { name: from, in: query, schema: { type: string, format: date } }
+    To: { name: to, in: query, schema: { type: string, format: date } }
+    Tz: { name: tz, in: query, schema: { type: string, example: Europe/Moscow } }
+
+  responses:
+    Created:
+      description: Создано
+      content: { application/json: { schema: { type: object, properties: { id: { type: string, format: uuid } } } } }
+    Saved:
+      description: Сохранено, тела нет
+    Error:
+      description: |
+        Ошибка. Коды: 400 BAD_REQUEST, 401 UNAUTHORIZED, 403 FORBIDDEN (CSRF), 404 NOT_FOUND, 409 CONFLICT,
+        410 GONE, 412 PRECONDITION_FAILED (устарела version), 413 REQUEST_TOO_LARGE, 429 TOO_MANY_REQUESTS,
+        500 INTERNAL_ERROR, 503 SERVICE_UNAVAILABLE.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: string }
+    Version: { type: integer, format: int64, minimum: 1, description: Оптимистическая блокировка; берётся из последнего GET }
+    Language: { type: string, enum: [ru, en, fr, de, kz, zh, es] }
+    LanguageGrade: { type: string, enum: [A1, A2, B1, B2, C1, C2] }
+    ResumeStatus: { type: string, enum: [draft, opened, closed] }
+    LinkStatus: { type: string, enum: [active, inactive] }
+    ContactKey: { type: string, enum: [telegram, email, phone] }
+    WorkFormat: { type: string, enum: [fullTime, partTime, office, remote, hybrid] }
+    SectionId: { type: string, enum: [about, techStack, experience, skills, education, courses, projects, activities, contacts] }
+    SectionStyle: { type: string, pattern: '^[a-z]{1,16}$', description: 'Вид блока: first (по умолчанию), second, third' }
+    ActivityType: { type: string, enum: [openSource, hackathon, speaker, volunteering, mentoring, community] }
+    YearMonth: { type: string, pattern: '^\d{4}-\d{2}$', example: 2020-01 }
+    Url: { type: string, format: uri, description: Только http/https }
+
+    LocalizedProfile:
+      type: object
+      properties: { name: { type: string }, surname: { type: string }, patronymic: { type: string }, position: { type: string }, location: { type: string } }
+    UserProfile:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        ru: { $ref: '#/components/schemas/LocalizedProfile' }
+        en: { $ref: '#/components/schemas/LocalizedProfile' }
+        photoPath: { type: string }
+    UserProfileRequest:
+      type: object
+      properties:
+        ru: { $ref: '#/components/schemas/LocalizedProfile' }
+        en: { $ref: '#/components/schemas/LocalizedProfile' }
+        photoPath: { type: string }
+
+    ResumeSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        language: { $ref: '#/components/schemas/Language' }
+        status: { $ref: '#/components/schemas/ResumeStatus' }
+        version: { $ref: '#/components/schemas/Version' }
+    ResumeLink:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status: { $ref: '#/components/schemas/LinkStatus' }
+        version: { $ref: '#/components/schemas/Version' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SectionSettings:
+      type: object
+      required: [id, enabled]
+      properties:
+        id: { $ref: '#/components/schemas/SectionId' }
+        enabled: { type: boolean }
+        collapsed: { type: boolean }
+        style: { $ref: '#/components/schemas/SectionStyle' }
+    Overview:
+      type: object
+      properties:
+        theme: { type: object, properties: { primary: { type: string }, secondary: { type: string } } }
+        greeting: { $ref: '#/components/schemas/Greeting' }
+        availability: { $ref: '#/components/schemas/Availability' }
+        sections: { type: array, items: { $ref: '#/components/schemas/SectionSettings' } }
+    Greeting:
+      type: object
+      properties: { first: { type: string }, second: { type: string }, secondHighlight: { type: string }, third: { type: string } }
+    Availability:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [open, considering, busy] }
+        from: { type: string, format: date }
+        note: { type: string }
+    OverviewRequest:
+      allOf:
+        - $ref: '#/components/schemas/Overview'
+        - type: object
+          required: [version, greeting, sections]
+          properties: { version: { $ref: '#/components/schemas/Version' } }
+
+    Profile:
+      type: object
+      properties:
+        name: { type: string }
+        surname: { type: string }
+        patronymic: { type: string }
+        position: { type: string }
+        photoPath: { type: string }
+        dateOfBirth: { type: string, format: date }
+        location: { type: string }
+        relocation: { type: boolean }
+        workFormat: { type: array, items: { $ref: '#/components/schemas/WorkFormat' } }
+    ProfileRequest:
+      allOf:
+        - $ref: '#/components/schemas/Profile'
+        - type: object
+          required: [version]
+          properties: { version: { $ref: '#/components/schemas/Version' }, id: { type: string, format: uuid } }
+    ContactsText:
+      type: object
+      properties: { title: { type: string }, subtitle: { type: string } }
+    Contacts:
+      type: object
+      properties:
+        phone: { type: string }
+        telegram: { type: string }
+        email: { type: string }
+        hiddenContacts: { type: array, items: { $ref: '#/components/schemas/ContactKey' } }
+        contactsText: { $ref: '#/components/schemas/ContactsText' }
+    ContactsRequest:
+      allOf:
+        - $ref: '#/components/schemas/Contacts'
+        - type: object
+          required: [version]
+          properties: { version: { $ref: '#/components/schemas/Version' }, id: { type: string, format: uuid } }
+    Skills:
+      type: object
+      properties:
+        hardSkills: { type: array, items: { type: string } }
+        softSkills: { type: array, items: { type: string } }
+    SkillsRequest:
+      allOf:
+        - $ref: '#/components/schemas/Skills'
+        - type: object
+          required: [version]
+          properties: { version: { $ref: '#/components/schemas/Version' }, id: { type: string, format: uuid } }
+
+    SpokenLanguage:
+      type: object
+      required: [language]
+      properties:
+        id: { type: string, format: uuid }
+        language: { $ref: '#/components/schemas/Language' }
+        grade: { $ref: '#/components/schemas/LanguageGrade' }
+        position: { type: integer }
+    Technology:
+      type: object
+      required: [name]
+      properties: { id: { type: string, format: uuid }, name: { type: string }, position: { type: integer } }
+    StackItem:
+      type: object
+      properties: { name: { type: string } }
+    Experience:
+      type: object
+      required: [company, position, startDate]
+      properties:
+        id: { type: string, format: uuid }
+        company: { type: string }
+        position: { type: string }
+        location: { type: string }
+        startDate: { $ref: '#/components/schemas/YearMonth' }
+        endDate: { $ref: '#/components/schemas/YearMonth' }
+        description: { type: string }
+        achievements: { type: array, items: { type: string } }
+        tasks: { type: array, items: { type: string } }
+        stack: { type: array, items: { $ref: '#/components/schemas/StackItem' } }
+    Education:
+      type: object
+      required: [location, university, grade, programName, faculty]
+      properties:
+        id: { type: string, format: uuid }
+        location: { type: string }
+        university: { type: string }
+        grade: { type: integer, minimum: 0, maximum: 6, description: '0 среднее … 6 доктор наук' }
+        programName: { type: string }
+        profileName: { type: string }
+        faculty: { type: string }
+        course: { type: integer }
+        endDate: { type: string, pattern: '^\d{4}$' }
+    Course:
+      type: object
+      required: [name, organization, endDate]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        organization: { type: string }
+        endDate: { $ref: '#/components/schemas/YearMonth' }
+        hours: { type: integer }
+        certificateLink: { $ref: '#/components/schemas/Url' }
+    Activity:
+      type: object
+      required: [type, title]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/ActivityType' }
+        title: { type: string }
+        description: { type: string }
+        date: { $ref: '#/components/schemas/YearMonth' }
+        link: { $ref: '#/components/schemas/Url' }
+    Contributor:
+      type: object
+      properties:
+        name: { type: string }
+        surname: { type: string }
+        role: { type: string }
+        contacts: { type: object, properties: { phone: { type: string }, telegram: { type: string }, email: { type: string } } }
+    Project:
+      type: object
+      required: [name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        role: { type: string }
+        screenshots: { type: array, items: { $ref: '#/components/schemas/Url' } }
+        link: { $ref: '#/components/schemas/Url' }
+        gitLink: { $ref: '#/components/schemas/Url' }
+        stack: { type: array, items: { $ref: '#/components/schemas/StackItem' } }
+        contributors: { type: array, items: { $ref: '#/components/schemas/Contributor' } }
+
+    LanguagesRequest: { type: object, required: [version, items], properties: { version: { $ref: '#/components/schemas/Version' }, items: { type: array, items: { $ref: '#/components/schemas/SpokenLanguage' } } } }
+    TechnologiesRequest: { type: object, required: [version, items], properties: { version: { $ref: '#/components/schemas/Version' }, items: { type: array, items: { $ref: '#/components/schemas/Technology' } } } }
+    ExperiencesRequest: { type: object, required: [version, items], properties: { version: { $ref: '#/components/schemas/Version' }, items: { type: array, items: { $ref: '#/components/schemas/Experience' } } } }
+    EducationsRequest: { type: object, required: [version, items], properties: { version: { $ref: '#/components/schemas/Version' }, items: { type: array, items: { $ref: '#/components/schemas/Education' } } } }
+    CoursesRequest: { type: object, required: [version, items], properties: { version: { $ref: '#/components/schemas/Version' }, items: { type: array, items: { $ref: '#/components/schemas/Course' } } } }
+    ActivitiesRequest: { type: object, required: [version, items], properties: { version: { $ref: '#/components/schemas/Version' }, items: { type: array, items: { $ref: '#/components/schemas/Activity' } } } }
+    ProjectsRequest: { type: object, required: [version, items], properties: { version: { $ref: '#/components/schemas/Version' }, items: { type: array, items: { $ref: '#/components/schemas/Project' } } } }
+
+    Resume:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        language: { $ref: '#/components/schemas/Language' }
+        status: { $ref: '#/components/schemas/ResumeStatus' }
+        version: { $ref: '#/components/schemas/Version' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        overview: { $ref: '#/components/schemas/Overview' }
+        profile: { $ref: '#/components/schemas/Profile' }
+        contacts: { $ref: '#/components/schemas/Contacts' }
+        skills: { $ref: '#/components/schemas/Skills' }
+        languages: { type: array, items: { $ref: '#/components/schemas/SpokenLanguage' } }
+        technologies: { type: array, items: { $ref: '#/components/schemas/Technology' } }
+        experiences: { type: array, items: { $ref: '#/components/schemas/Experience' } }
+        educations: { type: array, items: { $ref: '#/components/schemas/Education' } }
+        courses: { type: array, items: { $ref: '#/components/schemas/Course' } }
+        activities: { type: array, items: { $ref: '#/components/schemas/Activity' } }
+        projects: { type: array, items: { $ref: '#/components/schemas/Project' } }
+    PublicResume:
+      type: object
+      description: Без id, status, version; у проектов нет role, gitLink, contributors; значения скрытых контактов опущены.
+      properties:
+        title: { type: string }
+        language: { $ref: '#/components/schemas/Language' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        overview: { $ref: '#/components/schemas/Overview' }
+        profile: { $ref: '#/components/schemas/Profile' }
+        contacts: { $ref: '#/components/schemas/Contacts' }
+        skills: { $ref: '#/components/schemas/Skills' }
+        languages: { type: array, items: { $ref: '#/components/schemas/SpokenLanguage' } }
+        technologies: { type: array, items: { $ref: '#/components/schemas/Technology' } }
+        experiences: { type: array, items: { $ref: '#/components/schemas/Experience' } }
+        educations: { type: array, items: { $ref: '#/components/schemas/Education' } }
+        courses: { type: array, items: { $ref: '#/components/schemas/Course' } }
+        activities: { type: array, items: { $ref: '#/components/schemas/Activity' } }
+        projects: { type: array, items: { $ref: '#/components/schemas/Project' } }
+
+    AnalyticsBatch:
+      type: object
+      required: [viewId, seq, final, state, events, clicks]
+      properties:
+        viewId: { type: string, format: uuid }
+        seq: { type: integer }
+        final: { type: boolean }
+        state:
+          type: object
+          properties: { activeMs: { type: integer }, maxSection: { type: string }, exitSection: { type: string } }
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              type: { type: string, enum: [section_view, download, tech_filter, external_click, print, contact_copy, contact_click] }
+              at: { type: integer, format: int64 }
+        clicks:
+          type: array
+          items:
+            type: object
+            properties:
+              section: { type: string }
+              x: { type: integer }
+              y: { type: integer }
+              vw: { type: integer }
+              target: { type: string }
+              at: { type: integer, format: int64 }
+    LinkStatistics:
+      type: object
+      properties:
+        views: { type: integer }
+        reads: { type: integer }
+        uniqueVisitors: { type: integer }
+        returningVisitors: { type: integer }
+        contactViews: { type: integer }
+        downloads: { type: integer }
+        firstViewAt: { type: string, format: date-time, nullable: true }
+        lastViewAt: { type: string, format: date-time, nullable: true }
+        medianActiveSeconds: { type: number }
+        devices: { type: object, additionalProperties: { type: integer } }
+        referrers: { type: array, items: { type: object, properties: { host: { type: string, nullable: true }, views: { type: integer } } } }
+        filtered: { type: object, properties: { bot: { type: integer }, owner: { type: integer }, suspect: { type: integer } } }
+    LinkVisit:
+      type: object
+      properties:
+        id: { type: string }
+        startedAt: { type: string, format: date-time }
+        visitor: { type: object, properties: { ordinal: { type: integer }, isReturning: { type: boolean } } }
+        device: { type: string }
+        browser: { type: string }
+        os: { type: string }
+        referrerHost: { type: string, nullable: true }
+        isRead: { type: boolean }
+        activeSeconds: { type: number }
+        maxSection: { type: string, nullable: true }
+        exitSection: { type: string, nullable: true }
+        traffic: { type: string }
+        events:
+          type: array
+          items: { type: object, properties: { type: { type: string }, at: { type: string, format: date-time }, contact: { type: string }, technology: { type: string }, kind: { type: string }, target: { type: string } } }
