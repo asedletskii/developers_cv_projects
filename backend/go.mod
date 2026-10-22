@@ -18,7 +18,7 @@ require (
 	go.uber.org/zap v1.28.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/time v0.16.0
-	google.golang.org/grpc v1.83.1
+	google.golang.org/grpc v1.83.2
 	gorm.io/driver/postgres v1.6.3
 	gorm.io/gorm v1.31.2
 )
