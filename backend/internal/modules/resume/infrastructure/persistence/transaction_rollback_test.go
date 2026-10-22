@@ -10,14 +10,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/testutil/pgtest"
 )
 
 func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
@@ -25,14 +25,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		t.Skip("integration test")
 	}
 
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
@@ -45,7 +38,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 
 	resume := newTestResume(t, owner)
 	require.NoError(t, resume.ReplaceOverview(domain.ResumeOverviewParams{
-		Greeting: domain.NewGreeting(domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
+		Greeting: mustGreeting(t, domain.GreetingParams{First: "Hello", Second: "I am", SecondHighlight: "Developer", Third: "Welcome"}),
 	}))
 	require.NoError(t, uow.Do(ctx, func(tx context.Context) error {
 		return resumeRepo.Create(tx, resume)
@@ -68,7 +61,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 			Name:        "John",
 			Surname:     "Doe",
 			Position:    "Developer",
-			PhotoPath:   photo,
+			PhotoURL:    photo,
 			DateOfBirth: date,
 			Location:    "Paris",
 			WorkFormats: []domain.WorkFormat{domain.WorkFormatRemote},
@@ -98,7 +91,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		}
 		if err := resume.ReplaceContacts(domain.ContactsParams{
 			Contacts:       contactEntity,
-			HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
+			HiddenContacts: []contactkey.Key{contactkey.Email},
 		}); err != nil {
 			return err
 		}
@@ -122,7 +115,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 			Surname:     updatedProfile.Surname(),
 			Patronymic:  updatedProfile.Patronymic(),
 			Position:    "Senior Developer",
-			PhotoPath:   updatedProfile.PhotoPath(),
+			PhotoURL:    updatedProfile.PhotoURL(),
 			DateOfBirth: updatedProfile.DateOfBirth(),
 			Location:    updatedProfile.Location(),
 			Relocation:  updatedProfile.Relocation(),
@@ -133,7 +126,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		if err := reloaded.ReplaceContacts(domain.ContactsParams{
 			ID:             reloaded.Contacts().ID(),
 			Contacts:       contactEntity,
-			HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
+			HiddenContacts: []contactkey.Key{contactkey.Email},
 		}); err != nil {
 			return err
 		}
@@ -167,7 +160,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
 	var version int64
-	require.NoError(t, conn.QueryRow(ctx, "SELECT version FROM resumes WHERE id = $1", resume.ID().UUID()).Scan(&version))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT version FROM resume.resumes WHERE id = $1", resume.ID().UUID()).Scan(&version))
 	require.Equal(t, int64(1), version, "rollback must restore the aggregate version")
 
 	for _, table := range []string{
@@ -178,21 +171,21 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		"resume_contacts",
 	} {
 		var count int
-		require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM "+table+" WHERE resume_id = $1", resume.ID().UUID()).Scan(&count))
+		require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume."+table+" WHERE resume_id = $1", resume.ID().UUID()).Scan(&count))
 		require.Zero(t, count, table+" must rollback with the surrounding transaction")
 	}
 
 	var childCounts struct{ profile, contacts, contactHidden, contactText, hard, soft, achievements, tasks, stack, screenshots int }
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_profile_work_formats").Scan(&childCounts.profile))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contacts").Scan(&childCounts.contacts))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contact_hidden").Scan(&childCounts.contactHidden))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contacts_text").Scan(&childCounts.contactText))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&childCounts.hard))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&childCounts.soft))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_achievements").Scan(&childCounts.achievements))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_tasks").Scan(&childCounts.tasks))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_stack").Scan(&childCounts.stack))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_project_screenshots").Scan(&childCounts.screenshots))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_profile_work_formats").Scan(&childCounts.profile))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_contacts").Scan(&childCounts.contacts))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_contact_hidden").Scan(&childCounts.contactHidden))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_contacts_text").Scan(&childCounts.contactText))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_skill_hard").Scan(&childCounts.hard))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_skill_soft").Scan(&childCounts.soft))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_experience_achievements").Scan(&childCounts.achievements))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_experience_tasks").Scan(&childCounts.tasks))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_experience_stack").Scan(&childCounts.stack))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_project_screenshots").Scan(&childCounts.screenshots))
 	require.Zero(t, childCounts.profile)
 	require.Zero(t, childCounts.contacts)
 	require.Zero(t, childCounts.contactHidden)

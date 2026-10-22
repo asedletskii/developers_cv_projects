@@ -7,69 +7,47 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
+	usercontracts "developers-cv/backend/internal/modules/user/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type fakeResumeRepository struct {
-	called   bool
-	resume   *domain.Resume
-	saved    *domain.Resume
-	expected int64
-	deleted  ports.DeleteResumeParams
-	err      error
-}
-
-func (r *fakeResumeRepository) Get(_ context.Context, _ ports.GetResumeParams) (*domain.Resume, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-	if r.resume == nil {
-		return nil, errors.New("resume is nil")
-	}
-	return r.resume, nil
-}
-
-func (r *fakeResumeRepository) Save(_ context.Context, resume *domain.Resume) error {
-	r.called = true
-	r.saved = resume
-	r.expected = resume.Version()
-	return r.err
-}
-
-func (r *fakeResumeRepository) Create(_ context.Context, resume *domain.Resume) error {
-	r.called = true
-	r.resume = resume
-	return r.err
-}
-
-func (r *fakeResumeRepository) Delete(_ context.Context, params ports.DeleteResumeParams) error {
-	r.called = true
-	r.deleted = params
-	return r.err
-}
-
 func TestDeleteResumeHandlerDeletesExpectedVersion(t *testing.T) {
-	resume := newTestResume(t, "CV", 7)
-	repository := &fakeResumeRepository{}
-	handler := NewDeleteResumeHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 7)
+	repository := &commandRepositoryStub{}
+	cleanup := &resumeLinkCleanupStub{}
+	handler := NewDeleteResumeHandler(repository, cleanup, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), DeleteResumeCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 7,
 	})
-
 	require.NoError(t, err)
 	require.True(t, repository.called)
 	require.Equal(t, resume.ID(), repository.deleted.ResumeID)
 	require.Equal(t, resume.UserID(), repository.deleted.UserID)
 	require.Equal(t, int64(7), repository.deleted.Version)
+	require.True(t, cleanup.called)
+	require.Equal(t, []sharedvalueobjects.ID{resume.ID()}, cleanup.resumeIDs)
+}
+
+func TestDeleteResumeHandlerStopsWhenLinkCleanupFails(t *testing.T) {
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 7)
+	repository := &commandRepositoryStub{}
+	cleanupErr := errors.New("links cleanup failed")
+	handler := NewDeleteResumeHandler(repository, &resumeLinkCleanupStub{err: cleanupErr}, &unitOfWorkStub{})
+
+	err := handler.Handle(context.Background(), DeleteResumeCommand{
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 7,
+	})
+
+	require.ErrorIs(t, err, cleanupErr)
+	require.False(t, repository.deleteCalled)
 }
 
 func TestDeleteResumeHandlerRejectsInvalidVersion(t *testing.T) {
-	resume := newTestResume(t, "CV", 7)
-	repository := &fakeResumeRepository{}
-	handler := NewDeleteResumeHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 7)
+	repository := &commandRepositoryStub{}
+	handler := NewDeleteResumeHandler(repository, &resumeLinkCleanupStub{}, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), DeleteResumeCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 0,
@@ -80,9 +58,9 @@ func TestDeleteResumeHandlerRejectsInvalidVersion(t *testing.T) {
 }
 
 func TestDeleteResumeHandlerPropagatesConcurrencyConflict(t *testing.T) {
-	resume := newTestResume(t, "CV", 7)
-	repository := &fakeResumeRepository{err: domain.ErrConcurrencyConflict}
-	handler := NewDeleteResumeHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 7)
+	repository := &commandRepositoryStub{err: domain.ErrConcurrencyConflict}
+	handler := NewDeleteResumeHandler(repository, &resumeLinkCleanupStub{}, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), DeleteResumeCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 6,
@@ -93,9 +71,10 @@ func TestDeleteResumeHandlerPropagatesConcurrencyConflict(t *testing.T) {
 }
 
 func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
-	repository := &fakeResumeRepository{}
-	uow := &fakeCommandUnitOfWork{}
-	handler := NewCreateResumeHandler(repository, uow)
+	repository := &commandRepositoryStub{}
+	users := &userExistenceCheckerStub{}
+	uow := &unitOfWorkStub{}
+	handler := NewCreateResumeHandler(repository, users, uow)
 	userID := sharedvalueobjects.NewID()
 
 	resumeID, err := handler.Handle(context.Background(), CreateResumeCommand{UserID: userID, Title: "  Senior Go Developer  ", Language: domain.ResumeLanguage("en")})
@@ -103,6 +82,7 @@ func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
 	require.False(t, resumeID.IsZero())
 	require.True(t, uow.called)
 	require.True(t, repository.called)
+	require.Equal(t, []sharedvalueobjects.ID{userID}, users.userIDs)
 	require.Equal(t, resumeID, repository.resume.ID())
 	require.Equal(t, userID, repository.resume.UserID())
 	require.Equal(t, "Senior Go Developer", repository.resume.Title())
@@ -110,20 +90,21 @@ func TestCreateResumeHandlerCreatesResumeWithOverview(t *testing.T) {
 	require.NotNil(t, repository.resume.Overview())
 }
 
-func newTestResume(t *testing.T, title string, version int64) *domain.Resume {
-	t.Helper()
-	resume, err := domain.NewResume(domain.ResumeParams{
-		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), Title: title,
-		Language: domain.ResumeLanguage("en"), Version: version,
-	})
-	require.NoError(t, err)
-	return resume
+func TestCreateResumeHandlerRejectsMissingUser(t *testing.T) {
+	repository := &commandRepositoryStub{}
+	users := &userExistenceCheckerStub{err: usercontracts.ErrUserNotFound}
+	handler := NewCreateResumeHandler(repository, users, &unitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), CreateResumeCommand{UserID: sharedvalueobjects.NewID(), Title: "CV", Language: domain.ResumeLanguageEN})
+
+	require.ErrorIs(t, err, usercontracts.ErrUserNotFound)
+	require.False(t, repository.called)
 }
 
-func TestReplaceResumeTitleHandlerReplacesTitleThroughAggregate(t *testing.T) {
-	resume := newTestResume(t, "Old title", 4)
-	repository := &fakeResumeRepository{resume: resume}
-	uow := &fakeCommandUnitOfWork{}
+func TestReplaceResumeTitleHandlerUpdatesOnlyResumeRoot(t *testing.T) {
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "Old title", 4)
+	repository := &commandRepositoryStub{resume: resume}
+	uow := &unitOfWorkStub{}
 	handler := NewReplaceResumeTitleHandler(repository, uow)
 
 	err := handler.Handle(context.Background(), ReplaceResumeTitleCommand{
@@ -134,14 +115,14 @@ func TestReplaceResumeTitleHandlerReplacesTitleThroughAggregate(t *testing.T) {
 	require.True(t, uow.called)
 	require.True(t, repository.called)
 	require.Same(t, resume, repository.saved)
-	require.Equal(t, int64(4), repository.expected)
+	require.Equal(t, int64(4), repository.version)
 	require.Equal(t, "Senior Go Developer", resume.Title())
 }
 
 func TestReplaceResumeTitleHandlerRejectsStaleVersion(t *testing.T) {
-	resume := newTestResume(t, "Old title", 5)
-	repository := &fakeResumeRepository{resume: resume}
-	handler := NewReplaceResumeTitleHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "Old title", 5)
+	repository := &commandRepositoryStub{resume: resume}
+	handler := NewReplaceResumeTitleHandler(repository, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), ReplaceResumeTitleCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Title: "New title",
@@ -153,9 +134,9 @@ func TestReplaceResumeTitleHandlerRejectsStaleVersion(t *testing.T) {
 }
 
 func TestReplaceResumeTitleHandlerRejectsInvalidIdentityOrVersion(t *testing.T) {
-	resume := newTestResume(t, "Old title", 1)
-	repository := &fakeResumeRepository{resume: resume}
-	handler := NewReplaceResumeTitleHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "Old title", 1)
+	repository := &commandRepositoryStub{resume: resume}
+	handler := NewReplaceResumeTitleHandler(repository, &unitOfWorkStub{})
 
 	tests := []ReplaceResumeTitleCommand{
 		{UserID: resume.UserID(), Version: 1, Title: "New"},
@@ -171,9 +152,9 @@ func TestReplaceResumeTitleHandlerRejectsInvalidIdentityOrVersion(t *testing.T) 
 }
 
 func TestReplaceResumeTitleHandlerRejectsInvalidTitle(t *testing.T) {
-	resume := newTestResume(t, "Old title", 1)
-	repository := &fakeResumeRepository{resume: resume}
-	handler := NewReplaceResumeTitleHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "Old title", 1)
+	repository := &commandRepositoryStub{resume: resume}
+	handler := NewReplaceResumeTitleHandler(repository, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), ReplaceResumeTitleCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 1, Title: "   ",
@@ -185,9 +166,9 @@ func TestReplaceResumeTitleHandlerRejectsInvalidTitle(t *testing.T) {
 
 func TestReplaceResumeTitleHandlerPropagatesRepositoryError(t *testing.T) {
 	repositoryErr := errors.New("repository failure")
-	resume := newTestResume(t, "Old title", 1)
-	repository := &fakeResumeRepository{resume: resume, err: repositoryErr}
-	handler := NewReplaceResumeTitleHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "Old title", 1)
+	repository := &commandRepositoryStub{resume: resume, err: repositoryErr}
+	handler := NewReplaceResumeTitleHandler(repository, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), ReplaceResumeTitleCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 1, Title: "New title",
@@ -197,9 +178,9 @@ func TestReplaceResumeTitleHandlerPropagatesRepositoryError(t *testing.T) {
 }
 
 func TestChangeResumeStatusHandlerPublishesDraft(t *testing.T) {
-	resume := newTestResume(t, "CV", 4)
-	repository := &fakeResumeRepository{resume: resume}
-	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 4)
+	repository := &commandRepositoryStub{resume: resume, advanceSectionVersion: true}
+	handler := NewChangeResumeStatusHandler(repository, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), ChangeResumeStatusCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Status: domain.ResumeStatusOpened,
@@ -211,33 +192,33 @@ func TestChangeResumeStatusHandlerPublishesDraft(t *testing.T) {
 }
 
 func TestChangeResumeStatusHandlerSupportsCloseAndReopen(t *testing.T) {
-	resume := newTestResume(t, "CV", 4)
-	require.NoError(t, resume.Publish())
-	repository := &fakeResumeRepository{resume: resume}
-	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 4)
+	require.NoError(t, resume.ReplaceStatus(domain.ResumeStatusOpened))
+	repository := &commandRepositoryStub{resume: resume, advanceSectionVersion: true}
+	handler := NewChangeResumeStatusHandler(repository, &unitOfWorkStub{})
 
 	require.NoError(t, handler.Handle(context.Background(), ChangeResumeStatusCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Status: domain.ResumeStatusClosed,
 	}))
 	require.Equal(t, domain.ResumeStatusClosed, resume.Status())
 
-	resume = newTestResume(t, "CV", 5)
-	require.NoError(t, resume.Publish())
-	repository = &fakeResumeRepository{resume: resume}
-	handler = NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+	resume = newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 5)
+	require.NoError(t, resume.ReplaceStatus(domain.ResumeStatusOpened))
+	repository = &commandRepositoryStub{resume: resume, advanceSectionVersion: true}
+	handler = NewChangeResumeStatusHandler(repository, &unitOfWorkStub{})
 	require.NoError(t, handler.Handle(context.Background(), ChangeResumeStatusCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 5, Status: domain.ResumeStatusClosed,
 	}))
 	require.NoError(t, handler.Handle(context.Background(), ChangeResumeStatusCommand{
-		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 5, Status: domain.ResumeStatusOpened,
+		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 6, Status: domain.ResumeStatusOpened,
 	}))
-	require.Equal(t, domain.ResumeStatusOpened, resume.Status())
+	require.Equal(t, domain.ResumeStatusOpened, repository.resume.Status())
 }
 
 func TestChangeResumeStatusHandlerRejectsDraftTarget(t *testing.T) {
-	resume := newTestResume(t, "CV", 1)
-	repository := &fakeResumeRepository{resume: resume}
-	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 1)
+	repository := &commandRepositoryStub{resume: resume}
+	handler := NewChangeResumeStatusHandler(repository, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), ChangeResumeStatusCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 1, Status: domain.ResumeStatusDraft,
@@ -248,9 +229,9 @@ func TestChangeResumeStatusHandlerRejectsDraftTarget(t *testing.T) {
 }
 
 func TestChangeResumeStatusHandlerRejectsStaleVersion(t *testing.T) {
-	resume := newTestResume(t, "CV", 5)
-	repository := &fakeResumeRepository{resume: resume}
-	handler := NewChangeResumeStatusHandler(repository, &fakeCommandUnitOfWork{})
+	resume := newCommandTestResume(t, sharedvalueobjects.NewID(), "CV", 5)
+	repository := &commandRepositoryStub{resume: resume}
+	handler := NewChangeResumeStatusHandler(repository, &unitOfWorkStub{})
 
 	err := handler.Handle(context.Background(), ChangeResumeStatusCommand{
 		ResumeID: resume.ID(), UserID: resume.UserID(), Version: 4, Status: domain.ResumeStatusOpened,

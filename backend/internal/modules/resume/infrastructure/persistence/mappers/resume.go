@@ -1,7 +1,6 @@
 package mappers
 
 import (
-	"fmt"
 	"time"
 
 	"developers-cv/backend/internal/modules/resume/domain"
@@ -9,10 +8,7 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func ResumeToDB(resume *domain.Resume, createdAt, updatedAt time.Time) (gormmodel.Resume, error) {
-	if resume == nil {
-		return gormmodel.Resume{}, fmt.Errorf("resume is nil")
-	}
+func ResumeToDB(resume *domain.Resume, createdAt, updatedAt time.Time) gormmodel.Resume {
 	return gormmodel.Resume{
 		ID:        resume.ID().UUID(),
 		UserID:    resume.UserID().UUID(),
@@ -22,7 +18,7 @@ func ResumeToDB(resume *domain.Resume, createdAt, updatedAt time.Time) (gormmode
 		Version:   resume.Version(),
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
-	}, nil
+	}
 }
 
 func ResumeToDomainSnapshot(
@@ -31,7 +27,7 @@ func ResumeToDomainSnapshot(
 	profile *domain.Profile,
 	contacts *domain.Contacts,
 	skills *domain.Skills,
-	languages *domain.ResumeLanguages,
+	languages *domain.ResumeSpokenLanguages,
 	technologies *domain.ResumeTechnologies,
 	experiences []*domain.Experience,
 	educations []*domain.Education,
@@ -48,22 +44,22 @@ func ResumeToDomainSnapshot(
 		return domain.ResumeSnapshot{}, err
 	}
 	return domain.ResumeSnapshot{
-		ID:           id,
-		UserID:       userID,
-		Title:        model.Title,
-		Language:     domain.ResumeLanguage(model.Language),
-		Status:       domain.ResumeStatus(model.Status),
-		Version:      model.Version,
-		Overview:     overview,
-		Profile:      profile,
-		Contacts:     contacts,
-		Skills:       skills,
-		Languages:    languages,
-		Technologies: technologies,
-		Experiences:  experiences,
-		Educations:   educations,
-		Courses:      courses,
-		Activities:   activities,
-		Projects:     projects,
+		ID:              id,
+		UserID:          userID,
+		Title:           model.Title,
+		Language:        domain.ResumeLanguage(model.Language),
+		Status:          domain.ResumeStatus(model.Status),
+		Version:         model.Version,
+		Overview:        overview,
+		Profile:         profile,
+		Contacts:        contacts,
+		Skills:          skills,
+		SpokenLanguages: languages,
+		Technologies:    technologies,
+		Experiences:     experiences,
+		Educations:      educations,
+		Courses:         courses,
+		Activities:      activities,
+		Projects:        projects,
 	}, nil
 }

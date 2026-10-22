@@ -6,7 +6,7 @@ type ResumeProfileView struct {
 	Surname     string   `json:"surname"`
 	Patronymic  *string  `json:"patronymic,omitempty"`
 	Position    string   `json:"position"`
-	PhotoPath   string   `json:"photoPath"`
+	PhotoURL    string   `json:"photoPath"`
 	DateOfBirth string   `json:"dateOfBirth"`
 	Location    string   `json:"location"`
 	Relocation  bool     `json:"relocation"`

@@ -22,7 +22,14 @@ type CoursesInput struct{ Items []CourseInput }
 func (i CoursesInput) toDomain() []domain.CourseParams {
 	out := make([]domain.CourseParams, 0, len(i.Items))
 	for _, x := range i.Items {
-		out = append(out, domain.CourseParams{ID: x.ID, Name: x.Name, Organization: x.Organization, EndDate: x.EndDate, Hours: x.Hours, CertificateLink: x.CertificateLink})
+		out = append(out, domain.CourseParams{
+			ID:              x.ID,
+			Name:            x.Name,
+			Organization:    x.Organization,
+			EndDate:         x.EndDate,
+			Hours:           x.Hours,
+			CertificateLink: x.CertificateLink,
+		})
 	}
 	return out
 }
@@ -46,7 +53,8 @@ func (h *ReplaceCoursesHandler) Handle(ctx context.Context, c ReplaceCoursesComm
 		return fmt.Errorf("replace courses handler dependencies are nil")
 	}
 
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace courses", func(resume *domain.Resume) error {
-		return resume.ReplaceCourses(c.Input.toDomain())
+	courses := c.Input.toDomain()
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace courses", ports.ResumeMutationCourses, func(resume *domain.Resume) error {
+		return resume.ReplaceCourses(courses)
 	})
 }

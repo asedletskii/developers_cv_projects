@@ -1,4 +1,5 @@
-FROM golang:1.26-bookworm AS builder
+ARG GO_VERSION=1.27.3
+FROM golang:${GO_VERSION}-bookworm AS builder
 
 WORKDIR /src
 ENV GOTOOLCHAIN=local

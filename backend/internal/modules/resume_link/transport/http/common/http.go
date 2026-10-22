@@ -7,16 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumedomain "developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume_link/application/queries"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	jsonhttp "developers-cv/backend/internal/platform/http/json"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
-
-var ErrRequestBodyTooLarge = jsonhttp.ErrRequestBodyTooLarge
 
 func BindJSON(c *gin.Context, target any) error { return jsonhttp.BindJSON(c, target) }
 
@@ -64,7 +60,7 @@ func RequirePositiveVersion(c *gin.Context, version int64) bool {
 }
 
 func WriteBindError(c *gin.Context, err error) {
-	if errors.Is(err, ErrRequestBodyTooLarge) {
+	if errors.Is(err, jsonhttp.ErrRequestBodyTooLarge) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeRequestTooLarge, http.StatusRequestEntityTooLarge, "Request body too large"))
 		return
 	}
@@ -72,7 +68,11 @@ func WriteBindError(c *gin.Context, err error) {
 }
 
 func WriteCommandError(c *gin.Context, err error) {
-	if errors.Is(err, resumequeries.ErrResumeNotFound) || errors.Is(err, resumedomain.ErrEntityNotFound) {
+	if errors.Is(err, application.ErrResumeNotFound) {
+		WriteResumeLinkNotFound(c)
+		return
+	}
+	if errors.Is(err, application.ErrResumeLinkNotFound) {
 		WriteResumeLinkNotFound(c)
 		return
 	}
@@ -88,10 +88,6 @@ func WriteCommandError(c *gin.Context, err error) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Resume link limit exceeded"))
 		return
 	}
-	if errors.Is(err, domain.ErrEntityNotFound) {
-		WriteResumeLinkNotFound(c)
-		return
-	}
 	if errors.Is(err, domain.ErrInvalidResumeLink) || errors.Is(err, domain.ErrInvalidResumeLinkName) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid resume link"))
 		return
@@ -100,7 +96,7 @@ func WriteCommandError(c *gin.Context, err error) {
 }
 
 func WriteCreateError(c *gin.Context, err error) {
-	if errors.Is(err, resumequeries.ErrResumeNotFound) || errors.Is(err, resumedomain.ErrEntityNotFound) {
+	if errors.Is(err, application.ErrResumeNotFound) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
 		return
 	}
@@ -124,20 +120,11 @@ func WriteResumeLinkNotFound(c *gin.Context) {
 }
 
 func WriteListError(c *gin.Context, err error) {
-	if errors.Is(err, resumequeries.ErrResumeNotFound) {
+	if errors.Is(err, application.ErrResumeNotFound) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
 		return
 	}
-	if errors.Is(err, queries.ErrResumeLinkNotFound) || errors.Is(err, domain.ErrEntityNotFound) {
-		WriteResumeLinkNotFound(c)
-		return
-	}
-	apperrors.WriteError(c, err)
-}
-
-func WriteStatisticsError(c *gin.Context, err error) {
-	if errors.Is(err, resumequeries.ErrResumeNotFound) || errors.Is(err, queries.ErrResumeLinkNotFound) || errors.Is(err, domain.ErrEntityNotFound) {
-
+	if errors.Is(err, application.ErrResumeLinkNotFound) {
 		WriteResumeLinkNotFound(c)
 		return
 	}
@@ -149,11 +136,11 @@ func WritePublicError(c *gin.Context, err error) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeGone, http.StatusGone, "Resume link is no longer active"))
 		return
 	}
-	if errors.Is(err, queries.ErrResumeLinkNotFound) {
+	if errors.Is(err, application.ErrResumeLinkNotFound) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
 		return
 	}
-	if errors.Is(err, resumequeries.ErrResumeNotFound) {
+	if errors.Is(err, application.ErrResumeNotFound) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Resume not found"))
 		return
 	}

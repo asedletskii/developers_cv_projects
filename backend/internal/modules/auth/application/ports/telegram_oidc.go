@@ -9,6 +9,7 @@ import (
 )
 
 var (
+	ErrProviderUnavailable = errors.New("auth provider unavailable")
 	ErrTokenExchangeFailed = errors.New("telegram token exchange failed")
 	ErrIDTokenInvalid      = errors.New("telegram id token invalid")
 	ErrNonceMismatch       = errors.New("telegram nonce mismatch")
@@ -27,6 +28,6 @@ type VerifiedIdentity struct {
 }
 
 type TelegramOIDC interface {
-	AuthorizationURL(params TelegramAuthorizationParams) string
+	AuthorizationURL(ctx context.Context, params TelegramAuthorizationParams) (string, error)
 	Exchange(ctx context.Context, code string, redirectURI string, verifier string, expectedNonceHash valueobjects.NonceHash) (VerifiedIdentity, error)
 }

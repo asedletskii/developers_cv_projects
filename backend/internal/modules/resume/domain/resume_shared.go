@@ -6,7 +6,32 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
+
+func resolveSingletonID(requestedID, currentID sharedvalueobjects.ID, entityName string) (sharedvalueobjects.ID, error) {
+	if requestedID.IsZero() {
+		if !currentID.IsZero() {
+			return currentID, nil
+		}
+		return sharedvalueobjects.NewID(), nil
+	}
+	if currentID.IsZero() || requestedID != currentID {
+		return sharedvalueobjects.ID{}, fmt.Errorf("%w: %s does not belong to resume", ErrResumeInvariant, entityName)
+	}
+	return currentID, nil
+}
+
+func resolveCollectionItemID(requestedID sharedvalueobjects.ID, existingIDs map[sharedvalueobjects.ID]struct{}, entityName string) (sharedvalueobjects.ID, error) {
+	if requestedID.IsZero() {
+		return sharedvalueobjects.NewID(), nil
+	}
+	if _, exists := existingIDs[requestedID]; !exists {
+		return sharedvalueobjects.ID{}, fmt.Errorf("%w: %w: %s does not belong to resume", ErrResumeInvariant, ErrEntityNotFound, entityName)
+	}
+	return requestedID, nil
+}
 
 func cloneInt(value *int) *int {
 	if value == nil {
@@ -16,7 +41,7 @@ func cloneInt(value *int) *int {
 	return &copy
 }
 
-func cloneString(value *string) *string {
+func normalizeOptionalString(value *string) *string {
 	if value == nil {
 		return nil
 	}
@@ -25,6 +50,14 @@ func cloneString(value *string) *string {
 		return nil
 	}
 	return &normalized
+}
+
+func copyString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
 }
 
 func cloneYearMonth(value *YearMonth) *YearMonth {
@@ -72,10 +105,25 @@ type Date struct {
 }
 
 func NewDate(value time.Time) (Date, error) {
-	if value.IsZero() {
-		return Date{}, ErrInvalidValue
+	date := RestoreDate(value)
+	if err := date.validate(); err != nil {
+		return Date{}, err
 	}
-	return Date{value: time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.UTC)}, nil
+	return date, nil
+}
+
+func RestoreDate(value time.Time) Date {
+	if value.IsZero() {
+		return Date{}
+	}
+	return Date{value: time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.UTC)}
+}
+
+func (d Date) validate() error {
+	if d.value.IsZero() {
+		return ErrInvalidValue
+	}
+	return nil
 }
 
 func ParseDate(value string) (Date, error) {
@@ -86,22 +134,34 @@ func ParseDate(value string) (Date, error) {
 	return NewDate(parsed)
 }
 
-func (d Date) Time() time.Time        { return d.value }
-func (d Date) IsZero() bool           { return d.value.IsZero() }
-func (d Date) String() string         { return d.value.Format("2006-01-02") }
-func (d Date) Before(other Date) bool { return d.value.Before(other.value) }
-func (d Date) After(other Date) bool  { return d.value.After(other.value) }
-func (d Date) Equal(other Date) bool  { return d.value.Equal(other.value) }
+func (d Date) Time() time.Time { return d.value }
+func (d Date) IsZero() bool    { return d.value.IsZero() }
+func (d Date) String() string  { return d.value.Format("2006-01-02") }
 
 type YearMonth struct {
 	value time.Time
 }
 
 func NewYearMonth(value time.Time) (YearMonth, error) {
-	if value.IsZero() {
-		return YearMonth{}, ErrInvalidValue
+	yearMonth := RestoreYearMonth(value)
+	if err := yearMonth.validate(); err != nil {
+		return YearMonth{}, err
 	}
-	return YearMonth{value: time.Date(value.Year(), value.Month(), 1, 0, 0, 0, 0, time.UTC)}, nil
+	return yearMonth, nil
+}
+
+func RestoreYearMonth(value time.Time) YearMonth {
+	if value.IsZero() {
+		return YearMonth{}
+	}
+	return YearMonth{value: time.Date(value.Year(), value.Month(), 1, 0, 0, 0, 0, time.UTC)}
+}
+
+func (ym YearMonth) validate() error {
+	if ym.value.IsZero() {
+		return ErrInvalidValue
+	}
+	return nil
 }
 
 func ParseYearMonth(value string) (YearMonth, error) {
@@ -115,19 +175,27 @@ func ParseYearMonth(value string) (YearMonth, error) {
 func (ym YearMonth) Time() time.Time             { return ym.value }
 func (ym YearMonth) IsZero() bool                { return ym.value.IsZero() }
 func (ym YearMonth) String() string              { return ym.value.Format("2006-01") }
-func (ym YearMonth) Before(other YearMonth) bool { return ym.value.Before(other.value) }
-func (ym YearMonth) After(other YearMonth) bool  { return ym.value.After(other.value) }
-func (ym YearMonth) Equal(other YearMonth) bool  { return ym.value.Equal(other.value) }
+func (ym YearMonth) before(other YearMonth) bool { return ym.value.Before(other.value) }
 
 type Year struct {
 	value int
 }
 
 func NewYear(value int) (Year, error) {
-	if value < 1 || value > 9999 {
-		return Year{}, ErrInvalidValue
+	year := RestoreYear(value)
+	if err := year.validate(); err != nil {
+		return Year{}, err
 	}
-	return Year{value: value}, nil
+	return year, nil
+}
+
+func RestoreYear(value int) Year { return Year{value: value} }
+
+func (y Year) validate() error {
+	if y.value < 1 || y.value > 9999 {
+		return ErrInvalidValue
+	}
+	return nil
 }
 
 func ParseYear(value string) (Year, error) {
@@ -146,19 +214,36 @@ type ExternalURL struct {
 	value string
 }
 
+const MaxExternalURLLength = 2048
+
 func NewExternalURL(value string) (ExternalURL, error) {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ExternalURL{}, fmt.Errorf("%w: url is empty", ErrInvalidValue)
+	urlValue := ExternalURL{value: strings.TrimSpace(value)}
+	if err := urlValue.validate(); err != nil {
+		return ExternalURL{}, err
 	}
-	parsed, err := url.ParseRequestURI(value)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return ExternalURL{}, fmt.Errorf("%w: invalid external url", ErrInvalidValue)
+	return urlValue, nil
+}
+
+func RestoreExternalURL(value string) ExternalURL { return ExternalURL{value: value} }
+
+func (u ExternalURL) validate() error {
+	if u.value == "" {
+		return fmt.Errorf("%w: url is empty", ErrInvalidValue)
 	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return ExternalURL{}, fmt.Errorf("%w: unsupported url scheme", ErrInvalidValue)
+	if len(u.value) > MaxExternalURLLength {
+		return fmt.Errorf("%w: url exceeds %d bytes", ErrInvalidValue, MaxExternalURLLength)
 	}
-	return ExternalURL{value: value}, nil
+	parsed, err := url.ParseRequestURI(u.value)
+	if err != nil || parsed.Scheme == "" || parsed.Hostname() == "" {
+		return fmt.Errorf("%w: invalid external url", ErrInvalidValue)
+	}
+	if parsed.Scheme != "https" {
+		return fmt.Errorf("%w: external url must use https", ErrInvalidValue)
+	}
+	if parsed.User != nil {
+		return fmt.Errorf("%w: external url must not contain user information", ErrInvalidValue)
+	}
+	return nil
 }
 
 func (u ExternalURL) String() string { return u.value }

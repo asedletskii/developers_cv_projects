@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
 	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
@@ -19,9 +20,11 @@ import (
 )
 
 type Router struct {
-	engine  *gin.Engine
-	health  *health.Service
-	metrics *telemetry.Metrics
+	engine             *gin.Engine
+	internal           *gin.Engine
+	health             *health.Service
+	metrics            *telemetry.Metrics
+	corsAllowedOrigins []string
 }
 
 func NewRouter(
@@ -35,7 +38,15 @@ func NewRouter(
 	authHandler *authhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
 	optionalAuthenticate middleware.AuthenticateFunc,
+	analyticsHandlers ...*analyticshttp.Handler,
 ) (*Router, error) {
+	if len(analyticsHandlers) > 1 {
+		return nil, fmt.Errorf("expected at most one Analytics HTTP handler, got %d", len(analyticsHandlers))
+	}
+	var analyticsHandler *analyticshttp.Handler
+	if len(analyticsHandlers) == 1 {
+		analyticsHandler = analyticsHandlers[0]
+	}
 	if cfg.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -47,12 +58,12 @@ func NewRouter(
 
 	engine.Use(
 		middleware.RequestID(),
+		middleware.Logger(logger),
 		middleware.Recovery(logger),
 		middleware.SecurityHeaders(cfg.HTTP.TLS.Enabled),
 		middleware.CORS(cfg.CORS),
 		middleware.BodyLimit(cfg.HTTP.MaxBodyBytes),
 		telemetry.HTTPMiddleware(cfg.Telemetry.ServiceName),
-		middleware.Logger(logger),
 	)
 	if metrics != nil {
 		engine.Use(metrics.Middleware())
@@ -87,11 +98,20 @@ func NewRouter(
 		).Middleware()
 	}
 
-	router := &Router{engine: engine, health: healthService, metrics: metrics}
+	internal := gin.New()
+	internal.Use(middleware.RequestID(), middleware.Logger(logger), middleware.Recovery(logger))
+	if metrics != nil {
+		internal.Use(metrics.Middleware())
+	}
+	router := &Router{
+		engine: engine, internal: internal, health: healthService, metrics: metrics,
+		corsAllowedOrigins: append([]string(nil), cfg.CORS.AllowedOrigins...),
+	}
 	router.registerRoutes(
 		resumeHandler,
 		userHandler,
 		resumeLinkHandler,
+		analyticsHandler,
 		authHandler,
 		authenticate,
 		authStartRateLimiter,
@@ -111,6 +131,7 @@ func (r *Router) registerRoutes(
 	resumeHandler *resumehttp.Handler,
 	userHandler *userhttp.Handler,
 	resumeLinkHandler *resumelinkhttp.Handler,
+	analyticsHandler *analyticshttp.Handler,
 	authHandler *authhttp.Handler,
 	authenticate middleware.AuthenticateFunc,
 	authStartRateLimiter gin.HandlerFunc,
@@ -121,30 +142,39 @@ func (r *Router) registerRoutes(
 ) {
 	engine := r.engine
 	engine.GET("/health", r.healthHandler)
-	engine.GET("/ready", r.readyHandler)
-	if r.metrics != nil {
-		engine.GET("/metrics", gin.WrapH(r.metrics.Handler()))
-	}
 
 	api := engine.Group("/api/v1")
+	csrf := middleware.CSRFProtection(r.corsAllowedOrigins)
 	auth := api.Group("/auth")
+	auth.Use(csrf)
 	if authHandler != nil {
 		authhttp.RegisterPublicRoutes(authHandler, auth, authStartRateLimiter, authCallbackRateLimiter)
+		authhttp.RegisterLogoutRoute(authHandler, auth)
 		authProtected := auth.Group("")
 		authProtected.Use(middleware.Authentication(authenticate))
 		authhttp.RegisterProtectedRoutes(authHandler, authProtected)
 	}
 	lk := api.Group("/lk")
 	lk.Use(middleware.Authentication(authenticate))
+	lk.Use(csrf)
 	userhttp.RegisterRoutes(userHandler, lk)
 	resumehttp.RegisterRoutes(resumeHandler, lk)
 	public := api.Group("")
 	public.Use(middleware.OptionalAuthentication(optionalAuthenticate))
 	anonymous := api.Group("")
-	resumelinkhttp.RegisterRoutes(resumeLinkHandler, public, anonymous, lk, contactViewRateLimiter, analyticsEventsRateLimiter)
+	resumelinkhttp.RegisterRoutes(resumeLinkHandler, public, anonymous, lk, contactViewRateLimiter)
+	analyticshttp.RegisterRoutes(analyticsHandler, anonymous, lk, analyticsEventsRateLimiter)
 	engine.NoRoute(func(c *gin.Context) {
 		apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Route not found"))
 	})
+	r.internal.GET("/ready", r.readyHandler)
+	if r.metrics != nil {
+		r.internal.GET("/metrics", gin.WrapH(r.metrics.Handler()))
+	}
+}
+
+func (r *Router) InternalHandler() http.Handler {
+	return r.internal
 }
 
 func (r *Router) healthHandler(c *gin.Context) {

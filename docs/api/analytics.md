@@ -3,23 +3,22 @@
 Статистика просмотров резюме по именованным ссылкам (`/cv/:linkId`): публичная часть (выдача `viewId`, приём событий посетителя) и отчёты в кабинете.
 Фронтенд: методы `curriculumVitaeApi` в [curriculumVitae.api.ts](../../frontend/src/features/curriculumVitae/api/curriculumVitae.api.ts), типы в [types/analytics.ts](../../frontend/src/features/curriculumVitae/types/analytics.ts), вкладка «Аналитика» (`AnalyticsTab`) и трекер на публичной странице (`useAnalyticsTracker`).
 
-> **Статус: контракт под фронтенд, бэкенд ещё не написан.** Здесь описано то, чего фронтенд ждёт от каждой ручки, — бэкенд пишется под этот документ. Исключение: `GET /cv/:linkId`, `POST …/contact-views` и `GET /lk/link/:linkId/statistics` уже есть, но в урезанном виде (см. таблицу ниже). Устройство хранилища, классификация трафика и приватность — в [docs/analytics/backend.md](../analytics/backend.md), сквозные правила — в [implementation-contract.md](../analytics/implementation-contract.md). Расхождения между ними и этим файлом — в разделе «Открытые вопросы».
+> **Статус: реализованный API-контракт.** Запросы и ответы описывают текущие backend-ручки и их frontend-клиентов. Устройство хранилища, классификация трафика и приватность — в [docs/analytics/backend.md](../analytics/backend.md), сквозные правила — в [implementation-contract.md](../analytics/implementation-contract.md).
 
 ## Ручки и их статус
 
 | Ручка | Метод на фронтенде | Сейчас на бэкенде |
 |---|---|---|
-| `GET /cv/:linkId` | `getPublicResume` | есть; **нужно добавить** заголовок `X-View-Id` и cookie посетителя |
-| `POST /cv/:linkId/contact-views` | `revealContact`, `revealContactsForDownload` | есть только одиночный `contact`; **нужно принять** `viewId` и `initiator` (два случая, см. ниже) |
-| `POST /cv/:linkId/events` | `sendAnalyticsBatch` (трекер шлёт через `sendBeacon`) | нет |
-| `PUT /lk/link/:linkId` | `renameResumeLink` | **нет** (роут не зарегистрирован, фронтенд получает `404 Route not found`) |
-| `GET /lk/link/:linkId/statistics` | `getLinkStatistics` | есть, но отдаёт только `views` и `contactViews` |
-| `GET /lk/link/:linkId/statistics/daily` | `getLinkDaily` | нет |
-| `GET /lk/link/:linkId/views` | `getLinkVisits` | нет |
-| `GET /lk/link/:linkId/statistics/sections` | `getLinkSections` | нет |
-| `GET /lk/link/:linkId/statistics/technologies` | `getLinkTechnologies` | нет |
-| `GET /lk/resume/:resumeId/statistics` | `getResumeStatistics` | нет |
-| `GET /lk/link/:linkId/clicks` | `getLinkClicks` | нет |
+| `GET /cv/:linkId` | `getPublicResume` | реализована; выдаёт `X-View-Id` и cookie посетителя |
+| `POST /cv/:linkId/contact-views` | `revealContact`, `revealContactsForDownload` | реализована для раскрытия одного контакта и выдачи всех контактов |
+| `POST /cv/:linkId/events` | `sendAnalyticsBatch` (трекер шлёт через `sendBeacon`) | реализована |
+| `GET /lk/link/:linkId/statistics` | `getLinkStatistics` | реализована |
+| `GET /lk/link/:linkId/statistics/daily` | `getLinkDaily` | реализована |
+| `GET /lk/link/:linkId/views` | `getLinkVisits` | реализована |
+| `GET /lk/link/:linkId/statistics/sections` | `getLinkSections` | реализована |
+| `GET /lk/link/:linkId/statistics/technologies` | `getLinkTechnologies` | реализована |
+| `GET /lk/resume/:resumeId/statistics` | `getResumeStatistics` | реализована |
+| `GET /lk/link/:linkId/clicks` | `getLinkClicks` | реализована |
 
 Уведомления о переходах (Telegram-бот, настройки) в этот контракт не входят: фронтенд их пока не использует.
 
@@ -77,41 +76,32 @@
 
 Фронтенд: `getPublicResume` возвращает `{ resume, viewId }`, `viewId` сохраняется в состоянии страницы (`selectViewId`). Предпросмотр в кабинете грузит резюме через `GET /lk/resume/:resumeId` и визитов не создаёт.
 
-## `POST /cv/:linkId/contact-views` — получение скрытых контактов
+## `POST /cv/:linkId/contact-views` — получение контактов
 
-Одна ручка, два случая — их различает `initiator`. От него зависит и ответ, и то, как действие учтёт аналитика: раскрытие контакта на странице и скачивание файла — разные действия посетителя.
+Одна ручка поддерживает раскрытие одного контакта и получение всех контактов для скачивания. `initiator` определяет формат ответа и аналитическое событие.
 
 | Поле | Тип | Обяз. | Ограничения | Дефолт |
 |---|---|---|---|---|
-| `initiator` | string | да | `contact` — посетитель раскрывает один контакт кнопкой на странице; `download` — фронтенд собирает файл по кнопке «Скачать» и ему нужны все скрытые контакты разом | — |
-| `contact` | string | да при `initiator = contact` | `telegram`, `email`, `phone`. При `initiator = download` **не передаётся** (поле запрещено → `400`) | — |
-| `viewId` | uuid | нет | визит этой ссылки (из `X-View-Id`). Неизвестный или чужой `viewId` **игнорируется**: контакты всё равно отдаются, событие пишется без привязки к визиту | отсутствует |
-| `turnstileToken` | string | да, если включена проверка | токен Cloudflare Turnstile, до 2048 символов. В случае `download` один токен на всю пачку | отсутствует |
+| `initiator` | string | нет для старых клиентов | `contact` или `download` | `contact`, если передан `contact` |
+| `contact` | string | при `initiator = contact` | `telegram`, `email`, `phone`; при `download` поле должно отсутствовать | — |
+| `viewId` | uuid | нет | визит этой ссылки. Неизвестный или чужой `viewId` не привязывает событие; контакты всё равно возвращаются | отсутствует |
+| `turnstileToken` | string | да, если включена проверка | токен Cloudflare Turnstile, до 2048 символов | отсутствует |
 
 **Ответ `200` при `initiator = contact`:** `{ "contact": "telegram", "value": "a_sedletskii" }`.
 
-**Ответ `200` при `initiator = download`:**
+**Ответ `200` при `initiator = download`:** массив содержит все сохранённые контакты, в том числе скрытые:
 
 ```json
-{ "contacts": [ { "contact": "telegram", "value": "a_sedletskii" }, { "contact": "email", "value": "me@example.ru" } ] }
+{ "contacts": [{ "contact": "telegram", "value": "a_sedletskii" }, { "contact": "email", "value": "me@example.ru" }] }
 ```
 
-В списке — скрытые автором контакты, у которых есть значение, в порядке `telegram`, `email`, `phone`. Открытые контакты не возвращаются: они и так есть в публичном ответе. Нет скрытых контактов → `{ "contacts": [] }` (не ошибка).
+Контакты без значения не включаются. Если контактов нет, возвращается пустой массив: `{ "contacts": [] }`.
 
-**Что пишет сервер.** Проверка Turnstile проходит до чтения контактов; событие пишется только после успеха.
+**Аналитика.** После успешного раскрытия, если передан подходящий `viewId`, записывается `contact_view`. Получение контактов для файла само по себе событие скачивания не создаёт: после подготовки файла frontend отправляет одно событие `download` через `POST /cv/:linkId/events`. Так выдача скрытых контактов не дублирует метрику скачиваний. Ошибка записи `contact_view` не отменяет выдачу контакта.
 
-| `initiator` | События | В отчёте |
-|---|---|---|
-| `contact` | одно `contact_view` с `contact` | учитывается в `contactViews` («Раскрытия контактов») |
-| `download` | по одному `contact_view` на каждый отданный контакт с признаком `initiator = download` | **не** входит в `contactViews`, иначе одно скачивание даст до трёх «раскрытий»; в ленте визита отдельными строками не показывается |
+Неизвестные поля тела → `400`. Ошибки: `400` (неверная комбинация `initiator`/`contact` или нет токена при включённой проверке), `403` (проверка Turnstile не пройдена), `404` (ссылка или запрашиваемый контакт не найден), `409` (при `contact`, если контакт не скрыт), `410`, `429`.
 
-Факт самого скачивания фиксирует клиентское событие `download` (см. ниже) — оно есть всегда, в том числе когда запроса контактов не было, потому что скрытых контактов нет.
-
-Раскрытие без `viewId` или с визитом бота в отчёты не идёт, но сохраняется. Неизвестные поля тела → `400` (строгий разбор, как везде), поэтому бэкенд должен знать **все** поля из таблицы.
-
-Ошибки: `400` (нет `initiator`, неверный `contact`, `contact` при `download`, нет токена при включённой проверке), `403` (проверка не пройдена), `404` (ссылка не найдена; при `initiator = contact` — нет такого контакта), `409` (только при `initiator = contact`: контакт не скрыт), `410`, `429` (лимит раскрытий — отдельный и жёсткий).
-
-Фронтенд: `revealContact(resumeId, contact, viewId, turnstileToken)` шлёт `initiator: contact`; `revealContactsForDownload(resumeId, viewId, turnstileToken)` — `initiator: download`. В качестве `resumeId` передаётся `linkId` из адреса страницы.
+Frontend вызывает `revealContact` для `initiator: contact` и `revealContactsForDownload` для `initiator: download`. В обоих случаях `resumeId` — это `linkId` из адреса страницы.
 
 ## `POST /cv/:linkId/events` — события посетителя
 

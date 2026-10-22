@@ -14,7 +14,7 @@ func statusOf(link *domain.ResumeLink) string {
 }
 
 func TestStatusOf(t *testing.T) {
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "GitHub"})
+	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: sharedvalueobjects.NewID(), Name: "GitHub"})
 	require.NoError(t, err)
 	require.Equal(t, "active", statusOf(link))
 	require.NoError(t, link.Deactivate())

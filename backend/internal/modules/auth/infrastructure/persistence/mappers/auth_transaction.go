@@ -32,32 +32,22 @@ func AuthTransactionToDomain(model gormmodel.AuthTransaction) (*domain.AuthTrans
 	if err != nil {
 		return nil, fmt.Errorf("map auth transaction id: %w", err)
 	}
-	provider, err := domain.NewProvider(model.Provider)
-	if err != nil {
-		return nil, err
-	}
+	provider := domain.Provider(model.Provider)
 	state, err := valueobjects.NewStateHash(model.StateHash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("map auth transaction state hash: %w", err)
 	}
 	nonce, err := valueobjects.NewNonceHash(model.NonceHash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("map auth transaction nonce hash: %w", err)
 	}
 	browserBinding, err := valueobjects.NewBrowserBindingHash(model.BrowserBindingHash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("map auth transaction browser binding hash: %w", err)
 	}
-	return domain.NewAuthTransaction(domain.AuthTransactionParams{
-		ID:                 id,
-		Provider:           provider,
-		StateHash:          state,
-		NonceHash:          nonce,
-		BrowserBindingHash: browserBinding,
-		CodeVerifier:       model.CodeVerifier,
-		RedirectURI:        model.RedirectURI,
-		CreatedAt:          model.CreatedAt,
-		ExpiresAt:          model.ExpiresAt,
-		ConsumedAt:         model.ConsumedAt,
+	return domain.RestoreAuthTransaction(domain.AuthTransactionSnapshot{
+		ID: id, Provider: provider, StateHash: state, NonceHash: nonce,
+		BrowserBindingHash: browserBinding, CodeVerifier: model.CodeVerifier, RedirectURI: model.RedirectURI,
+		CreatedAt: model.CreatedAt, ExpiresAt: model.ExpiresAt, ConsumedAt: model.ConsumedAt,
 	})
 }

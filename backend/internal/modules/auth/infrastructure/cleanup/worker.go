@@ -13,6 +13,7 @@ import (
 const (
 	transactionCleanupInterval = 5 * time.Minute
 	sessionCleanupInterval     = 6 * time.Hour
+	sessionCleanupMaxDuration  = 30 * time.Second
 	cleanupBatchSize           = 500
 )
 
@@ -32,9 +33,6 @@ func (w *Worker) Run(ctx context.Context) {
 	if w == nil || w.cleanup == nil {
 		return
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	transactionTicker := time.NewTicker(w.interval)
 	sessionTicker := time.NewTicker(sessionCleanupInterval)
@@ -42,6 +40,7 @@ func (w *Worker) Run(ctx context.Context) {
 	defer sessionTicker.Stop()
 
 	w.runTransactions(ctx)
+	w.runSessions(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -76,17 +75,43 @@ func (w *Worker) runTransactions(ctx context.Context) {
 
 func (w *Worker) runSessions(ctx context.Context) {
 	startedAt := time.Now()
-	count, err := w.cleanup.CleanupSessions(ctx, time.Now().UTC(), w.batchSize)
-	if err != nil {
+	cleanupCtx, cancel := context.WithTimeout(ctx, sessionCleanupMaxDuration)
+	defer cancel()
+
+	var totalDeleted int
+	for {
+		if err := cleanupCtx.Err(); err != nil {
+			if ctx.Err() == nil && w.logger != nil {
+				w.logger.Warn("auth session cleanup stopped after reaching its time budget", zap.Int("sessions_deleted", totalDeleted), zap.Duration("duration", time.Since(startedAt)))
+			}
+			break
+		}
+
+		count, err := w.cleanup.CleanupSessions(cleanupCtx, time.Now().UTC(), w.batchSize)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			if w.metrics != nil {
+				w.metrics.RecordAuthCleanupFailure("sessions")
+			}
+			if w.logger != nil {
+				w.logger.Error("auth session cleanup failed", zap.Error(err), zap.Int("sessions_deleted", totalDeleted), zap.Duration("duration", time.Since(startedAt)))
+			}
+			return
+		}
+		totalDeleted += count
+		if count < w.batchSize {
+			break
+		}
+	}
+
+	if totalDeleted > 0 {
 		if w.metrics != nil {
-			w.metrics.RecordAuthCleanupFailure("sessions")
+			w.metrics.RecordAuthSessionCleanup("expired", totalDeleted)
 		}
 		if w.logger != nil {
-			w.logger.Error("auth session cleanup failed", zap.Error(err), zap.Duration("duration", time.Since(startedAt)))
+			w.logger.Info("auth session cleanup completed", zap.Int("sessions_deleted", totalDeleted), zap.Duration("duration", time.Since(startedAt)))
 		}
-		return
-	}
-	if w.logger != nil && count > 0 {
-		w.logger.Info("auth session cleanup completed", zap.Int("sessions_deleted", count), zap.Duration("duration", time.Since(startedAt)))
 	}
 }

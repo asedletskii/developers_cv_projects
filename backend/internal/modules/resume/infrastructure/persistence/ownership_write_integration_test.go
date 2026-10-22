@@ -7,14 +7,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume/domain"
+	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
+	"developers-cv/backend/internal/testutil/pgtest"
 )
 
 func TestPostgresResumeRepositoryEnforcesOwnership(t *testing.T) {
@@ -22,14 +23,7 @@ func TestPostgresResumeRepositoryEnforcesOwnership(t *testing.T) {
 		t.Skip("integration test")
 	}
 
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
@@ -41,6 +35,10 @@ func TestPostgresResumeRepositoryEnforcesOwnership(t *testing.T) {
 	insertResumeTestUser(t, ctx, dsn, foreign)
 
 	resume := newTestResume(t, owner)
+	require.NoError(t, resume.ReplaceOverview(domain.ResumeOverviewParams{
+		Greeting: mustGreeting(t, domain.GreetingParams{}),
+		Sections: []domain.SectionSettings{},
+	}))
 	require.NoError(t, resume.ReplaceProjects([]domain.ProjectParams{{Name: "Resume Platform"}}))
 
 	resumeRepository := repository.NewResumeRepository(gormDB)
@@ -54,4 +52,20 @@ func TestPostgresResumeRepositoryEnforcesOwnership(t *testing.T) {
 
 	_, err = resumeRepository.Get(ctx, ports.GetResumeParams{ResumeID: resume.ID(), UserID: owner})
 	require.NoError(t, err)
+
+	resumeReader := readers.NewResumeReader(gormDB)
+	owned, err := resumeReader.OwnsResume(ctx, resumecontracts.ResumeOwnershipQuery{ResumeID: resume.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.True(t, owned)
+	sections, err := resumeReader.GetOwnedSections(ctx, resumecontracts.OwnedResumeSectionsQuery{ResumeID: resume.ID(), UserID: owner})
+	require.NoError(t, err)
+	require.Empty(t, sections)
+	_, err = resumeReader.GetOwnedSections(ctx, resumecontracts.OwnedResumeSectionsQuery{ResumeID: resume.ID(), UserID: foreign})
+	require.ErrorIs(t, err, resumecontracts.ErrResumeNotFound)
+	owned, err = resumeReader.OwnsResume(ctx, resumecontracts.ResumeOwnershipQuery{ResumeID: resume.ID(), UserID: foreign})
+	require.NoError(t, err)
+	require.False(t, owned)
+	owned, err = resumeReader.OwnsResume(ctx, resumecontracts.ResumeOwnershipQuery{ResumeID: sharedvalueobjects.NewID(), UserID: owner})
+	require.NoError(t, err)
+	require.False(t, owned)
 }

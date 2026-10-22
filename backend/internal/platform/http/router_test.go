@@ -11,18 +11,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
 	authhttp "developers-cv/backend/internal/modules/auth/transport/http"
 
 	"go.uber.org/zap/zaptest"
 
 	resumehttp "developers-cv/backend/internal/modules/resume/transport/http"
 	resumelinkhttp "developers-cv/backend/internal/modules/resume_link/transport/http"
-	resumelinkpublichandler "developers-cv/backend/internal/modules/resume_link/transport/http/public"
+	resumelinkhandlers "developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	userhttp "developers-cv/backend/internal/modules/user/transport/http"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/health"
 	"developers-cv/backend/internal/platform/http/middleware"
+	"developers-cv/backend/internal/platform/telemetry"
 )
 
 func TestRouterHealthAndRequestID(t *testing.T) {
@@ -63,6 +65,91 @@ func TestRouterHealthAndRequestID(t *testing.T) {
 	require.NotEmpty(t, w.Header().Get("X-Request-ID"))
 	require.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
 	require.Equal(t, "max-age=31536000; includeSubDomains", w.Header().Get("Strict-Transport-Security"))
+}
+
+func TestObservabilityRoutesAreInternalOnly(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App: config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+		HTTP: config.HTTPConfig{},
+	}
+	log := zaptest.NewLogger(t)
+	metrics, err := telemetry.NewMetrics(true)
+	require.NoError(t, err)
+
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		metrics,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		nil,
+		fakeAuthenticate,
+		nil,
+	)
+	require.NoError(t, err)
+
+	for _, path := range []string{"/metrics", "/ready"} {
+		t.Run("public "+path, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+			require.Equal(t, http.StatusNotFound, response.Code)
+		})
+	}
+
+	ready := httptest.NewRecorder()
+	router.InternalHandler().ServeHTTP(ready, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	require.Equal(t, http.StatusOK, ready.Code)
+	require.Contains(t, ready.Body.String(), `"status":"ready"`)
+
+	metricsResponse := httptest.NewRecorder()
+	router.InternalHandler().ServeHTTP(metricsResponse, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	require.Equal(t, http.StatusOK, metricsResponse.Code)
+	require.Contains(t, metricsResponse.Body.String(), "developers_cv_http_requests_total")
+}
+
+func TestMetricsRouteIsAbsentWhenPrometheusDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		HTTP: config.HTTPConfig{},
+		CORS: config.CORSConfig{
+			AllowedOrigins:   []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		},
+	}
+	log := zaptest.NewLogger(t)
+	metrics, err := telemetry.NewMetrics(false)
+	require.NoError(t, err)
+	require.Nil(t, metrics)
+
+	router, err := NewRouter(
+		cfg,
+		log,
+		health.NewService(),
+		metrics,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		nil,
+		fakeAuthenticate,
+		nil,
+	)
+	require.NoError(t, err)
+
+	ready := httptest.NewRecorder()
+	router.InternalHandler().ServeHTTP(ready, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	require.Equal(t, http.StatusOK, ready.Code)
+
+	metricsResponse := httptest.NewRecorder()
+	router.InternalHandler().ServeHTTP(metricsResponse, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	require.Equal(t, http.StatusNotFound, metricsResponse.Code)
 }
 
 func TestRouterReturnsNotFoundForUnknownRoute(t *testing.T) {
@@ -150,7 +237,7 @@ func unauthenticatedAuthenticate(context.Context, *http.Request) (uuid.UUID, err
 
 func testResumeLinkHandler() *resumelinkhttp.Handler {
 	return resumelinkhttp.NewHandler(resumelinkhttp.HandlerDependencies{
-		Public: resumelinkpublichandler.NewHandler(nil),
+		Public: resumelinkhandlers.NewPublicResumeLinkHandler(nil),
 	})
 }
 
@@ -187,6 +274,78 @@ func TestRouterRequiresAuthenticationForPrivateResumeRoutes(t *testing.T) {
 
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	require.Contains(t, w.Body.String(), "UNAUTHORIZED")
+}
+
+func TestRouterAppliesCSRFProtectionToOwnerRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{},
+	}
+	router, err := NewRouter(
+		cfg,
+		zaptest.NewLogger(t),
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		nil,
+		fakeAuthenticate,
+		nil,
+	)
+	require.NoError(t, err)
+
+	request := func(site string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/lk/link/10000000-0000-0000-0000-000000000001", nil)
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		req.Header.Set("Sec-Fetch-Site", site)
+		w := httptest.NewRecorder()
+		router.Handler().ServeHTTP(w, req)
+		return w
+	}
+
+	require.Equal(t, http.StatusForbidden, request("cross-site").Code)
+	require.NotEqual(t, http.StatusForbidden, request("same-origin").Code)
+}
+
+func TestRouterAppliesCSRFProtectionToLogout(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		App:  config.AppConfig{Env: "test"},
+		CORS: config.CORSConfig{AllowedOrigins: []string{"http://localhost:5173"}, AllowCredentials: true},
+		HTTP: config.HTTPConfig{},
+	}
+	router, err := NewRouter(
+		cfg,
+		zaptest.NewLogger(t),
+		health.NewService(),
+		nil,
+		resumehttp.NewHandler(resumehttp.HandlerDependencies{}),
+		userhttp.NewHandler(userhttp.HandlerDependencies{}),
+		testResumeLinkHandler(),
+		authhttp.NewHandler(authhttp.HandlerDependencies{}),
+		fakeAuthenticate,
+		nil,
+	)
+	require.NoError(t, err)
+
+	request := func(site string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		req.Header.Set("Sec-Fetch-Site", site)
+		w := httptest.NewRecorder()
+		router.Handler().ServeHTTP(w, req)
+		return w
+	}
+
+	require.Equal(t, http.StatusForbidden, request("cross-site").Code)
+	require.NotEqual(t, http.StatusForbidden, request("same-origin").Code)
+}
+
+func testAnalyticsHandler() *analyticshttp.Handler {
+	return analyticshttp.NewHandler(analyticshttp.HandlerDependencies{})
 }
 
 type routerGetProfileReader struct{}
@@ -258,6 +417,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		nil,
 		fakeAuthenticate,
 		nil,
+		testAnalyticsHandler(),
 	)
 	require.NoError(t, err)
 
@@ -285,6 +445,7 @@ func TestRouterRegistersCanonicalResumeRoutesOnly(t *testing.T) {
 		"POST /api/v1/lk/link":                                {},
 		"DELETE /api/v1/lk/link/:linkId":                      {},
 		"PUT /api/v1/lk/link/:linkId/status":                  {},
+		"PUT /api/v1/lk/link/:linkId":                         {},
 		"GET /api/v1/lk/link/:linkId/statistics":              {},
 		"GET /api/v1/lk/link/:linkId/statistics/daily":        {},
 		"GET /api/v1/lk/link/:linkId/views":                   {},
@@ -342,6 +503,8 @@ func TestRouterDoesNotExposeLegacyResumeAliases(t *testing.T) {
 		{method: http.MethodPost, path: "/api/v1/cv/10000000-0000-0000-0000-000000000001"},
 	} {
 		req := httptest.NewRequest(methodPath.method, methodPath.path, strings.NewReader(""))
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
 		w := httptest.NewRecorder()
 		router.Handler().ServeHTTP(w, req)
 		require.Equal(t, http.StatusNotFound, w.Code, methodPath.method+" "+methodPath.path)
@@ -392,6 +555,7 @@ func TestPrivateResumeRoutesRejectUnauthenticatedRequests(t *testing.T) {
 					return uuid.Nil, middleware.ErrUnauthenticated
 				},
 				nil,
+				testAnalyticsHandler(),
 			)
 			require.NoError(t, err)
 
@@ -443,8 +607,11 @@ func TestPrivateResumeRoutesRejectMalformedResumeID(t *testing.T) {
 			)
 			require.NoError(t, err)
 
+			req := httptest.NewRequest(route.method, route.path, nil)
+			req.Header.Set("X-Requested-With", "XMLHttpRequest")
+			req.Header.Set("Sec-Fetch-Site", "same-origin")
 			w := httptest.NewRecorder()
-			router.Handler().ServeHTTP(w, httptest.NewRequest(route.method, route.path, nil))
+			router.Handler().ServeHTTP(w, req)
 			require.Equal(t, http.StatusBadRequest, w.Code)
 			require.Contains(t, w.Body.String(), "BAD_REQUEST")
 		})
@@ -487,7 +654,7 @@ func TestRouterReadinessReturnsUnavailableWhenDependencyFails(t *testing.T) {
 	require.NoError(t, err)
 
 	response := httptest.NewRecorder()
-	router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	router.InternalHandler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
 
 	require.Equal(t, http.StatusServiceUnavailable, response.Code)
 	require.Contains(t, response.Body.String(), `"status":"not_ready"`)
@@ -517,7 +684,7 @@ func TestRouterReadinessReturnsReadyWhenDependenciesAreHealthy(t *testing.T) {
 	require.NoError(t, err)
 
 	response := httptest.NewRecorder()
-	router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	router.InternalHandler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ready", nil))
 
 	require.Equal(t, http.StatusOK, response.Code)
 	require.Contains(t, response.Body.String(), `"status":"ready"`)
@@ -587,6 +754,14 @@ func TestRouterRegistersAuthPublicAndProtectedRoutes(t *testing.T) {
 	protectedResponse := httptest.NewRecorder()
 	router.Handler().ServeHTTP(protectedResponse, protectedRequest)
 	require.Equal(t, http.StatusUnauthorized, protectedResponse.Code)
+
+	logoutRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	logoutRequest.Header.Set("X-Requested-With", "XMLHttpRequest")
+	logoutRequest.Header.Set("Sec-Fetch-Site", "same-origin")
+	logoutResponse := httptest.NewRecorder()
+	router.Handler().ServeHTTP(logoutResponse, logoutRequest)
+	require.NotEqual(t, http.StatusUnauthorized, logoutResponse.Code)
+	require.NotEqual(t, http.StatusNotFound, logoutResponse.Code)
 }
 
 func TestRouterAppliesDedicatedAuthRateLimitToTelegramStart(t *testing.T) {

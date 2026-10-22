@@ -23,8 +23,8 @@
 
 | Поле | Тип | Обяз. | Ограничения | Дефолт |
 |---|---|---|---|---|
-| `title` | string | да | после `trim` непустое | — |
-| `language` | string | да | одно из `ru en fr de kz zh es` | — |
+| `title` | string | да | после `trim` от 1 до 200 символов | — |
+| `language` | string | да | одно из `ru en` | — |
 
 **Ограничения уровня пользователя:** одно резюме на язык — повторный `language` у того же пользователя → `409`. Язык потом не меняется.
 
@@ -47,7 +47,7 @@
 |---|---|---|
 | `id`, `title`, `language` | | как в списке |
 | `createdAt`, `updatedAt` | datetime | RFC 3339, UTC |
-| `overview` | object | оформление, всегда есть → [overview.md](overview.md) (поля `theme`, `greeting`, `availability`, `sections` лежат прямо в нём, без вложенного `presentation`; `resumeLink` убран) |
+| `overview` | object | оформление, всегда есть → [overview.md](overview.md) (`theme`, `greeting`, `availability`, `sections` лежат прямо в нём, без вложенного `presentation`; editor overview сохраняет `resumeLink`, public projection его не включает) |
 | `profile` | object | есть только после создания → [personal.md](personal.md) |
 | `contacts` | object | есть только после создания → [personal.md](personal.md) |
 | `skills` | object | есть только после создания → [personal.md](personal.md) |
@@ -67,7 +67,7 @@
 
 | Поле | Тип | Обяз. | Ограничения | Дефолт |
 |---|---|---|---|---|
-| `title` | string | да | после `trim` непустое | — |
+| `title` | string | да | после `trim` от 1 до 200 символов | — |
 
 Других полей нет (язык менять нельзя, лишние поля → `400`). Обновляет `updatedAt`.
 

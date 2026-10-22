@@ -33,7 +33,7 @@ func (h *ReplaceProjectsHandler) Handle(ctx context.Context, c ReplaceProjectsCo
 	if err != nil {
 		return err
 	}
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace projects", func(resume *domain.Resume) error {
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace projects", ports.ResumeMutationProjects, func(resume *domain.Resume) error {
 		return resume.ReplaceProjects(params)
 	})
 }

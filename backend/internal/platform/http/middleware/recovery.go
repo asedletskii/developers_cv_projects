@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +23,7 @@ func Recovery(log *zap.Logger) gin.HandlerFunc {
 					zap.Stack("stack"),
 					zap.String("request_id", requestid.Get(c)),
 				)
-				apperrors.WriteError(c, apperrors.Internal(fmt.Errorf("panic recovered: %v", recovered)))
+				apperrors.WriteError(c, apperrors.Internal(errors.New("panic recovered")))
 			}
 		}()
 		c.Next()

@@ -21,6 +21,17 @@ type Session struct {
 }
 
 type SessionParams struct {
+	UserID     sharedvalueobjects.ID
+	TokenHash  valueobjects.SessionTokenHash
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+	UserAgent  *string
+	IPAddress  *string
+}
+
+type SessionSnapshot struct {
 	ID         sharedvalueobjects.ID
 	UserID     sharedvalueobjects.ID
 	TokenHash  valueobjects.SessionTokenHash
@@ -33,27 +44,65 @@ type SessionParams struct {
 }
 
 func NewSession(params SessionParams) (*Session, error) {
-	if params.ID.IsZero() || params.UserID.IsZero() {
-		return nil, fmt.Errorf("%w: invalid session identity", ErrInvalidSession)
-	}
+	id := sharedvalueobjects.NewID()
 	createdAt := params.CreatedAt.UTC()
 	lastSeenAt := params.LastSeenAt.UTC()
 	expiresAt := params.ExpiresAt.UTC()
+	var revokedAtInput *time.Time
+	if params.RevokedAt != nil {
+		value := params.RevokedAt.UTC()
+		revokedAtInput = &value
+	}
+	revokedAt, err := validateSession(id, params.UserID, params.TokenHash, createdAt, lastSeenAt, expiresAt, revokedAtInput)
+	if err != nil {
+		return nil, err
+	}
+	return &Session{
+		id: id, userID: params.UserID, tokenHash: params.TokenHash,
+		createdAt: createdAt, lastSeenAt: lastSeenAt, expiresAt: expiresAt,
+		revokedAt: revokedAt, userAgent: cloneString(params.UserAgent), ipAddress: cloneString(params.IPAddress),
+	}, nil
+}
+
+func RestoreSession(snapshot SessionSnapshot) (*Session, error) {
+	revokedAt, err := validateSession(
+		snapshot.ID, snapshot.UserID, snapshot.TokenHash,
+		snapshot.CreatedAt, snapshot.LastSeenAt, snapshot.ExpiresAt, snapshot.RevokedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &Session{
+		id: snapshot.ID, userID: snapshot.UserID, tokenHash: snapshot.TokenHash,
+		createdAt: snapshot.CreatedAt, lastSeenAt: snapshot.LastSeenAt, expiresAt: snapshot.ExpiresAt,
+		revokedAt: revokedAt, userAgent: cloneString(snapshot.UserAgent), ipAddress: cloneString(snapshot.IPAddress),
+	}, nil
+}
+
+func validateSession(
+	id, userID sharedvalueobjects.ID,
+	tokenHash valueobjects.SessionTokenHash,
+	createdAt, lastSeenAt, expiresAt time.Time,
+	revokedAt *time.Time,
+) (*time.Time, error) {
+	if id.IsZero() || userID.IsZero() {
+		return nil, fmt.Errorf("%w: invalid session identity", ErrInvalidSession)
+	}
 	if createdAt.IsZero() || lastSeenAt.IsZero() || expiresAt.IsZero() {
 		return nil, fmt.Errorf("%w: session timestamps must be set", ErrInvalidSession)
 	}
 	if lastSeenAt.Before(createdAt) || !expiresAt.After(createdAt) {
 		return nil, fmt.Errorf("%w: invalid session timestamp order", ErrInvalidSession)
 	}
-	var revokedAt *time.Time
-	if params.RevokedAt != nil {
-		value := params.RevokedAt.UTC()
+	var restoredRevokedAt *time.Time
+	if revokedAt != nil {
+		value := *revokedAt
 		if value.IsZero() || value.Before(createdAt) {
 			return nil, fmt.Errorf("%w: invalid revoked timestamp", ErrInvalidSession)
 		}
-		revokedAt = &value
+		restoredRevokedAt = &value
 	}
-	return &Session{id: params.ID, userID: params.UserID, tokenHash: params.TokenHash, createdAt: createdAt, lastSeenAt: lastSeenAt, expiresAt: expiresAt, revokedAt: revokedAt, userAgent: cloneString(params.UserAgent), ipAddress: cloneString(params.IPAddress)}, nil
+	return restoredRevokedAt, nil
 }
 
 func (s *Session) ID() sharedvalueobjects.ID                { return s.id }

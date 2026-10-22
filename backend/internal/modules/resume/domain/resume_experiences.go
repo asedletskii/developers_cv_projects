@@ -12,7 +12,20 @@ type ExperienceStackParams struct {
 }
 
 type ExperienceParams struct {
-	ID, ResumeID      sharedvalueobjects.ID
+	ID                sharedvalueobjects.ID
+	Company, Position string
+	Location          *string
+	StartDate         YearMonth
+	EndDate           *YearMonth
+	Description       *string
+	Achievements      []string
+	Tasks             []string
+	Stack             []ExperienceStackParams
+}
+
+type ExperienceSnapshot struct {
+	ID                sharedvalueobjects.ID
+	ResumeID          sharedvalueobjects.ID
 	Company, Position string
 	Location          *string
 	StartDate         YearMonth
@@ -37,61 +50,78 @@ type Experience struct {
 	stack        []Technology
 }
 
-func NewExperience(params ExperienceParams) (*Experience, error) {
-	company := strings.TrimSpace(params.Company)
-	position := strings.TrimSpace(params.Position)
-	if params.ID.IsZero() || params.ResumeID.IsZero() || company == "" || position == "" || params.StartDate.IsZero() {
-		return nil, fmt.Errorf("%w: invalid experience identity or required fields", ErrInvalidEntity)
+func newExperience(id, resumeID sharedvalueobjects.ID, params ExperienceParams) (*Experience, error) {
+	experience := &Experience{
+		id: id, resumeID: resumeID, company: strings.TrimSpace(params.Company),
+		position: strings.TrimSpace(params.Position), location: normalizeOptionalString(params.Location), startDate: params.StartDate,
+		endDate: cloneYearMonth(params.EndDate), description: normalizeOptionalString(params.Description),
+		achievements: make([]string, len(params.Achievements)), tasks: make([]string, len(params.Tasks)),
+		stack: make([]Technology, 0, len(params.Stack)),
 	}
-	if params.EndDate != nil && params.EndDate.Before(params.StartDate) {
-		return nil, fmt.Errorf("%w: experience end date precedes start date", ErrInvalidEntity)
+	for i, value := range params.Achievements {
+		experience.achievements[i] = strings.TrimSpace(value)
 	}
-	stack := make([]Technology, 0, len(params.Stack))
+	for i, value := range params.Tasks {
+		experience.tasks[i] = strings.TrimSpace(value)
+	}
 	for _, item := range params.Stack {
-		technology, err := NewTechnology(TechnologyParams(item))
-		if err != nil {
-			return nil, err
-		}
-		stack = append(stack, technology)
+		experience.stack = append(experience.stack, RestoreTechnology(TechnologyParams{Name: strings.TrimSpace(item.Name)}))
 	}
-	achievements := make([]string, len(params.Achievements))
-	for i, achievement := range params.Achievements {
-		value := strings.TrimSpace(achievement)
-		if value == "" {
-			return nil, fmt.Errorf("%w: experience achievement is empty", ErrInvalidEntity)
-		}
-		achievements[i] = value
+	if err := experience.validate(); err != nil {
+		return nil, err
 	}
-	tasks := make([]string, len(params.Tasks))
-	for i, task := range params.Tasks {
-		value := strings.TrimSpace(task)
-		if value == "" {
-			return nil, fmt.Errorf("%w: experience task is empty", ErrInvalidEntity)
-		}
-		tasks[i] = value
-	}
-	return &Experience{
-		id:           params.ID,
-		resumeID:     params.ResumeID,
-		company:      company,
-		position:     position,
-		location:     cloneString(params.Location),
-		startDate:    params.StartDate,
-		endDate:      cloneYearMonth(params.EndDate),
-		description:  cloneString(params.Description),
-		achievements: achievements,
-		tasks:        tasks,
-		stack:        stack,
-	}, nil
+	return experience, nil
 }
 
-func (e *Experience) Replace(params ExperienceParams) error {
-	params.ID, params.ResumeID = e.id, e.resumeID
-	updated, err := NewExperience(params)
-	if err != nil {
-		return err
+func RestoreExperience(snapshot ExperienceSnapshot) *Experience {
+	achievements := append([]string(nil), snapshot.Achievements...)
+	tasks := append([]string(nil), snapshot.Tasks...)
+	stack := make([]Technology, 0, len(snapshot.Stack))
+	for _, item := range snapshot.Stack {
+		stack = append(stack, Technology{name: item.Name})
 	}
-	*e = *updated
+	return &Experience{
+		id: snapshot.ID, resumeID: snapshot.ResumeID, company: snapshot.Company, position: snapshot.Position,
+		location: copyString(snapshot.Location), startDate: snapshot.StartDate, endDate: cloneYearMonth(snapshot.EndDate),
+		description: copyString(snapshot.Description), achievements: achievements, tasks: tasks,
+		stack: stack,
+	}
+}
+
+func (e *Experience) validate() error {
+	if e == nil || e.id.IsZero() || e.resumeID.IsZero() || e.company == "" || e.position == "" || e.startDate.IsZero() {
+		return fmt.Errorf("%w: invalid experience identity or required fields", ErrInvalidEntity)
+	}
+	if !textLengthWithin(e.company, MaxCompanyLength) || !textLengthWithin(e.position, MaxProfilePositionLength) ||
+		!optionalTextLengthWithin(e.location, MaxLocationLength) || !optionalTextLengthWithin(e.description, MaxDescriptionLength) ||
+		len(e.tasks) > MaxExperienceTasks || len(e.achievements) > MaxExperienceAchievements || len(e.stack) > MaxExperienceStack {
+		return fmt.Errorf("%w: experience exceeds configured limits", ErrInvalidEntity)
+	}
+	if e.endDate != nil {
+		if err := e.endDate.validate(); err != nil || e.endDate.before(e.startDate) {
+			return fmt.Errorf("%w: experience end date precedes start date", ErrInvalidEntity)
+		}
+	}
+	seenTechnologies := make(map[string]struct{}, len(e.stack))
+	for _, technology := range e.stack {
+		if err := technology.validate(); err != nil {
+			return fmt.Errorf("%w: invalid experience technology", ErrInvalidEntity)
+		}
+		if _, exists := seenTechnologies[technology.Name()]; exists {
+			return fmt.Errorf("%w: duplicate experience technology", ErrDuplicateEntity)
+		}
+		seenTechnologies[technology.Name()] = struct{}{}
+	}
+	for _, achievement := range e.achievements {
+		if achievement == "" || !textLengthWithin(achievement, MaxListItemTextLength) {
+			return fmt.Errorf("%w: experience achievement is empty or too long", ErrInvalidEntity)
+		}
+	}
+	for _, task := range e.tasks {
+		if task == "" || !textLengthWithin(task, MaxListItemTextLength) {
+			return fmt.Errorf("%w: experience task is empty or too long", ErrInvalidEntity)
+		}
+	}
 	return nil
 }
 
@@ -99,10 +129,10 @@ func (e *Experience) ID() sharedvalueobjects.ID       { return e.id }
 func (e *Experience) ResumeID() sharedvalueobjects.ID { return e.resumeID }
 func (e *Experience) Company() string                 { return e.company }
 func (e *Experience) Position() string                { return e.position }
-func (e *Experience) Location() *string               { return cloneString(e.location) }
+func (e *Experience) Location() *string               { return copyString(e.location) }
 func (e *Experience) StartDate() YearMonth            { return e.startDate }
 func (e *Experience) EndDate() *YearMonth             { return cloneYearMonth(e.endDate) }
-func (e *Experience) Description() *string            { return cloneString(e.description) }
+func (e *Experience) Description() *string            { return copyString(e.description) }
 func (e *Experience) Achievements() []string          { return append([]string(nil), e.achievements...) }
 func (e *Experience) Tasks() []string                 { return append([]string(nil), e.tasks...) }
 func (e *Experience) Stack() []Technology {
@@ -113,27 +143,28 @@ func (r *Resume) ReplaceExperiences(params []ExperienceParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	existing := make(map[sharedvalueobjects.ID]*Experience, len(r.experiences))
-	for _, item := range r.experiences {
-		if item == nil {
+	if len(params) > MaxExperiencesPerResume {
+		return fmt.Errorf("%w: resume cannot contain more than %d experiences", ErrInvalidEntity, MaxExperiencesPerResume)
+	}
+	existing := make(map[sharedvalueobjects.ID]struct{}, len(r.experiences))
+	for _, current := range r.experiences {
+		if current == nil {
 			return fmt.Errorf("%w: nil experience", ErrResumeInvariant)
 		}
-		existing[item.ID()] = item
+		existing[current.ID()] = struct{}{}
 	}
 	seen := make(map[sharedvalueobjects.ID]struct{}, len(params))
 	replaced := make([]*Experience, 0, len(params))
 	for _, item := range params {
-		if item.ID.IsZero() {
-			item.ID = sharedvalueobjects.NewID()
-		} else if _, ok := existing[item.ID]; !ok {
-			return fmt.Errorf("%w: experience does not belong to resume", ErrResumeInvariant)
+		resolvedID, err := resolveCollectionItemID(item.ID, existing, "experience")
+		if err != nil {
+			return err
 		}
-		if _, ok := seen[item.ID]; ok {
+		if _, ok := seen[resolvedID]; ok {
 			return fmt.Errorf("%w: duplicate experience id", ErrInvalidEntity)
 		}
-		seen[item.ID] = struct{}{}
-		item.ResumeID = r.id
-		experience, err := NewExperience(item)
+		seen[resolvedID] = struct{}{}
+		experience, err := newExperience(resolvedID, r.id, item)
 		if err != nil {
 			return err
 		}
@@ -147,5 +178,26 @@ func (r *Resume) Experiences() []*Experience {
 	if r == nil {
 		return nil
 	}
-	return append([]*Experience(nil), r.experiences...)
+	return cloneExperiences(r.experiences)
+}
+
+func cloneExperiences(values []*Experience) []*Experience {
+	if values == nil {
+		return nil
+	}
+	result := make([]*Experience, len(values))
+	for i, value := range values {
+		if value == nil {
+			continue
+		}
+		copy := *value
+		copy.location = copyString(value.location)
+		copy.endDate = cloneYearMonth(value.endDate)
+		copy.description = copyString(value.description)
+		copy.achievements = append([]string(nil), value.achievements...)
+		copy.tasks = append([]string(nil), value.tasks...)
+		copy.stack = append([]Technology(nil), value.stack...)
+		result[i] = &copy
+	}
+	return result
 }

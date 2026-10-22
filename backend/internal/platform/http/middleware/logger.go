@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,15 +25,27 @@ func Logger(log *zap.Logger) gin.HandlerFunc {
 			zap.String("method", c.Request.Method),
 			zap.String("route", route),
 			zap.Int("status", c.Writer.Status()),
+			zap.String("client_ip", c.ClientIP()),
+			zap.Int("bytes", c.Writer.Size()),
 			zap.Duration("duration", time.Since(start)),
 		}
 		spanContext := trace.SpanContextFromContext(c.Request.Context())
 		if spanContext.IsValid() {
-			fields = append(fields,
-				zap.String("trace_id", spanContext.TraceID().String()),
-				zap.String("span_id", spanContext.SpanID().String()),
-			)
+			fields = append(fields, zap.String("trace_id", spanContext.TraceID().String()), zap.String("span_id", spanContext.SpanID().String()))
 		}
-		log.Info("http request completed", fields...)
+		for _, requestErr := range c.Errors {
+			fields = append(fields, zap.NamedError("error", requestErr.Err))
+		}
+		if c.Request.URL.Path == "/health" || c.Request.URL.Path == "/ready" || c.Request.URL.Path == "/metrics" {
+			return
+		}
+		switch status := c.Writer.Status(); {
+		case status >= http.StatusInternalServerError:
+			log.Error("http request failed", fields...)
+		case status >= http.StatusBadRequest:
+			log.Warn("http request rejected", fields...)
+		default:
+			log.Info("http request completed", fields...)
+		}
 	}
 }

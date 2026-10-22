@@ -22,6 +22,9 @@ type SessionRepository struct{ db *gorm.DB }
 func NewSessionRepository(db *gorm.DB) *SessionRepository { return &SessionRepository{db: db} }
 
 func (r *SessionRepository) Create(ctx context.Context, session *domain.Session) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("create session: repository dependencies are nil")
+	}
 	if session == nil {
 		return fmt.Errorf("create session: session is nil")
 	}
@@ -52,10 +55,17 @@ func (r *SessionRepository) FindActiveByTokenHash(ctx context.Context, tokenHash
 	if err != nil {
 		return nil, fmt.Errorf("find active session: %w", mapDBError(err))
 	}
-	return mappers.SessionToDomain(model)
+	session, err := mappers.SessionToDomain(model)
+	if err != nil {
+		return nil, fmt.Errorf("find active session: map session: %w", err)
+	}
+	return session, nil
 }
 
 func (r *SessionRepository) Revoke(ctx context.Context, sessionID sharedvalueobjects.ID, at time.Time) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("revoke session: repository dependencies are nil")
+	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("revoke session: %w", err)
@@ -66,8 +76,8 @@ func (r *SessionRepository) Revoke(ctx context.Context, sessionID sharedvalueobj
 	}
 	if result.RowsAffected == 0 {
 		var exists int64
-		if err := tx.Model(&gormmodel.AuthSession{}).Where("id = ?", sessionID.UUID()).Count(&exists).Error; err != nil {
-			return fmt.Errorf("revoke session: %w", mapDBError(err))
+		if err := tx.WithContext(ctx).Model(&gormmodel.AuthSession{}).Where("id = ?", sessionID.UUID()).Count(&exists).Error; err != nil {
+			return fmt.Errorf("revoke session: check session: %w", mapDBError(err))
 		}
 		if exists == 0 {
 			return domain.ErrEntityNotFound
@@ -77,6 +87,9 @@ func (r *SessionRepository) Revoke(ctx context.Context, sessionID sharedvalueobj
 }
 
 func (r *SessionRepository) RevokeAllByUserID(ctx context.Context, userID sharedvalueobjects.ID, at time.Time) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("revoke all sessions: repository dependencies are nil")
+	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("revoke all sessions: %w", err)
@@ -88,6 +101,9 @@ func (r *SessionRepository) RevokeAllByUserID(ctx context.Context, userID shared
 }
 
 func (r *SessionRepository) Touch(ctx context.Context, sessionID sharedvalueobjects.ID, at time.Time) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("touch session: repository dependencies are nil")
+	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("touch session: %w", err)
@@ -103,8 +119,8 @@ func (r *SessionRepository) Touch(ctx context.Context, sessionID sharedvalueobje
 }
 
 func (r *SessionRepository) DeleteExpiredBatch(ctx context.Context, now time.Time, limit int) (int, error) {
-	if limit <= 0 {
-		return 0, fmt.Errorf("delete expired sessions: limit must be positive")
+	if r == nil || r.db == nil {
+		return 0, fmt.Errorf("delete expired sessions: repository dependencies are nil")
 	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {

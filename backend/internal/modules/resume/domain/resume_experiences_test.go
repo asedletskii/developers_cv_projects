@@ -16,8 +16,8 @@ func TestNewExperienceRejectsEndBeforeStart(t *testing.T) {
 	end, err := ParseYearMonth("2023-12")
 	require.NoError(t, err)
 
-	_, err = NewExperience(ExperienceParams{
-		ID: id, ResumeID: resumeID, Company: "Acme", Position: "Developer",
+	_, err = newExperience(id, resumeID, ExperienceParams{
+		ID: id, Company: "Acme", Position: "Developer",
 		StartDate: start, EndDate: &end,
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
@@ -28,8 +28,8 @@ func TestNewExperienceTrimsValuesAndBuildsChildren(t *testing.T) {
 	resumeID := sharedvalueobjects.NewID()
 	start, err := ParseYearMonth("2024-01")
 	require.NoError(t, err)
-	item, err := NewExperience(ExperienceParams{
-		ID: id, ResumeID: resumeID, Company: " Acme ", Position: " Developer ",
+	item, err := newExperience(id, resumeID, ExperienceParams{
+		ID: id, Company: " Acme ", Position: " Developer ",
 		StartDate:    start,
 		Achievements: []string{" shipped v2 ", "reduced latency"},
 		Tasks:        []string{" own backend ", "review PRs "},
@@ -45,9 +45,8 @@ func TestNewExperienceTrimsValuesAndBuildsChildren(t *testing.T) {
 }
 
 func TestNewExperienceRejectsZeroStartDate(t *testing.T) {
-	_, err := NewExperience(ExperienceParams{
+	_, err := newExperience(sharedvalueobjects.NewID(), sharedvalueobjects.NewID(), ExperienceParams{
 		ID:        sharedvalueobjects.NewID(),
-		ResumeID:  sharedvalueobjects.NewID(),
 		Company:   "Acme",
 		Position:  "Developer",
 		StartDate: YearMonth{},
@@ -59,8 +58,8 @@ func TestNewExperienceRejectsZeroStartDate(t *testing.T) {
 func TestNewExperienceRejectsEmptyTask(t *testing.T) {
 	start, err := ParseYearMonth("2024-01")
 	require.NoError(t, err)
-	_, err = NewExperience(ExperienceParams{
-		ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Company: "Acme", Position: "Developer", StartDate: start,
+	_, err = newExperience(sharedvalueobjects.NewID(), sharedvalueobjects.NewID(), ExperienceParams{
+		ID: sharedvalueobjects.NewID(), Company: "Acme", Position: "Developer", StartDate: start,
 		Tasks: []string{""},
 	})
 	require.ErrorIs(t, err, ErrInvalidEntity)
@@ -70,20 +69,18 @@ func experienceParamsForTest(t *testing.T, id sharedvalueobjects.ID, company str
 	t.Helper()
 	start, err := ParseYearMonth("2024-01")
 	require.NoError(t, err)
-	return ExperienceParams{ID: id, ResumeID: sharedvalueobjects.NewID(), Company: company, Position: "Developer", StartDate: start, Achievements: []string{"Built API"}}
+	return ExperienceParams{ID: id, Company: company, Position: "Developer", StartDate: start, Achievements: []string{"Built API"}}
 }
 
 func TestResumeReplaceExperiencesGeneratesIDAndReplacesSnapshot(t *testing.T) {
 	resume := newTestResume(t)
 	params := experienceParamsForTest(t, sharedvalueobjects.ID{}, "Acme")
-	params.ResumeID = resume.ID()
 	require.NoError(t, resume.ReplaceExperiences([]ExperienceParams{params}))
 	require.Len(t, resume.Experiences(), 1)
 	firstID := resume.Experiences()[0].ID()
 	require.False(t, firstID.IsZero())
 
 	params = experienceParamsForTest(t, firstID, "Acme Updated")
-	params.ResumeID = sharedvalueobjects.NewID()
 	require.NoError(t, resume.ReplaceExperiences([]ExperienceParams{params}))
 	require.Equal(t, firstID, resume.Experiences()[0].ID())
 	require.Equal(t, "Acme Updated", resume.Experiences()[0].Company())
@@ -93,11 +90,11 @@ func TestResumeReplaceExperiencesGeneratesIDAndReplacesSnapshot(t *testing.T) {
 func TestResumeReplaceExperiencesRejectsUnknownAndDuplicateIDs(t *testing.T) {
 	resume := newTestResume(t)
 	unknown := experienceParamsForTest(t, sharedvalueobjects.NewID(), "Unknown")
-	unknown.ResumeID = resume.ID()
-	require.ErrorIs(t, resume.ReplaceExperiences([]ExperienceParams{unknown}), ErrResumeInvariant)
+	err := resume.ReplaceExperiences([]ExperienceParams{unknown})
+	require.ErrorIs(t, err, ErrResumeInvariant)
+	require.ErrorIs(t, err, ErrEntityNotFound)
 
 	first := experienceParamsForTest(t, sharedvalueobjects.ID{}, "First")
-	first.ResumeID = resume.ID()
 	require.NoError(t, resume.ReplaceExperiences([]ExperienceParams{first}))
 	id := resume.Experiences()[0].ID()
 	one := experienceParamsForTest(t, id, "One")
@@ -109,13 +106,11 @@ func TestResumeReplaceExperiencesRemovesMissingAndPreservesOrder(t *testing.T) {
 	resume := newTestResume(t)
 	first := experienceParamsForTest(t, sharedvalueobjects.ID{}, "First")
 	second := experienceParamsForTest(t, sharedvalueobjects.ID{}, "Second")
-	first.ResumeID, second.ResumeID = resume.ID(), resume.ID()
 	require.NoError(t, resume.ReplaceExperiences([]ExperienceParams{first, second}))
 	secondID := resume.Experiences()[1].ID()
 	firstID := resume.Experiences()[0].ID()
 
 	second = experienceParamsForTest(t, secondID, "Second Updated")
-	second.ResumeID = sharedvalueobjects.NewID()
 	require.NoError(t, resume.ReplaceExperiences([]ExperienceParams{second}))
 	require.Len(t, resume.Experiences(), 1)
 	require.Equal(t, secondID, resume.Experiences()[0].ID())
@@ -126,4 +121,42 @@ func TestResumeExperiencesReturnsNilForNilReceiver(t *testing.T) {
 	var resume *Resume
 
 	require.Nil(t, resume.Experiences())
+}
+
+func TestResumeExperiencesReturnsDetachedEntities(t *testing.T) {
+	resume := newTestResume(t)
+	start, err := ParseYearMonth("2024-01")
+	require.NoError(t, err)
+	require.NoError(t, resume.ReplaceExperiences([]ExperienceParams{{Company: "Original", Position: "Engineer", StartDate: start}}))
+	returned := resume.Experiences()
+	returned[0].company = "Changed"
+	require.Equal(t, "Original", resume.Experiences()[0].Company())
+}
+
+func TestResumeReplaceExperiencesDoesNotPartiallyMutateOnError(t *testing.T) {
+	resume := newTestResume(t)
+	first := experienceParamsForTest(t, sharedvalueobjects.ID{}, "Existing")
+	require.NoError(t, resume.ReplaceExperiences([]ExperienceParams{first}))
+	existing := resume.Experiences()[0]
+
+	invalid := experienceParamsForTest(t, sharedvalueobjects.ID{}, "Valid replacement")
+	invalid.StartDate = YearMonth{}
+	err := resume.ReplaceExperiences([]ExperienceParams{invalid})
+	require.ErrorIs(t, err, ErrInvalidEntity)
+
+	items := resume.Experiences()
+	require.Len(t, items, 1)
+	require.Equal(t, existing.ID(), items[0].ID())
+	require.Equal(t, existing.Company(), items[0].Company())
+}
+
+func TestResumeReplaceExperiencesRejectsDuplicateStackTechnologies(t *testing.T) {
+	resume := newTestResume(t)
+	startDate, parseErr := ParseYearMonth("2024-01")
+	require.NoError(t, parseErr)
+	_, err := newExperience(sharedvalueobjects.NewID(), resume.ID(), ExperienceParams{
+		Company: "Acme", Position: "Developer", StartDate: startDate,
+		Stack: []ExperienceStackParams{{Name: "Go"}, {Name: " Go "}},
+	})
+	require.ErrorIs(t, err, ErrDuplicateEntity)
 }

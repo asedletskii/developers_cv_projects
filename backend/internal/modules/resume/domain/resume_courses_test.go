@@ -14,7 +14,9 @@ func TestCourseValidation(t *testing.T) {
 	certificate, err := NewExternalURL("https://example.com/certificate")
 	require.NoError(t, err)
 	hours := 40
-	item, err := NewCourse(CourseParams{ID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "Go", Organization: "Academy", EndDate: endDate, Hours: &hours, CertificateLink: &certificate})
+	id := sharedvalueobjects.NewID()
+	resumeID := sharedvalueobjects.NewID()
+	item, err := newCourse(id, resumeID, CourseParams{ID: id, Name: "Go", Organization: "Academy", EndDate: endDate, Hours: &hours, CertificateLink: &certificate})
 	require.NoError(t, err)
 	require.Equal(t, "2024-06", item.EndDate().String())
 	require.Equal(t, certificate.String(), item.CertificateLink().String())

@@ -13,13 +13,13 @@ type ResumeProfile struct {
 	Surname     string    `gorm:"not null"`
 	Patronymic  *string
 	Position    string    `gorm:"not null"`
-	PhotoPath   string    `gorm:"not null"`
+	PhotoURL    string    `gorm:"column:photo_url;not null"`
 	DateOfBirth time.Time `gorm:"type:date;not null"`
 	Location    string    `gorm:"not null"`
 	Relocation  bool      `gorm:"not null"`
 }
 
-func (ResumeProfile) TableName() string { return "resume_profiles" }
+func (ResumeProfile) TableName() string { return schema + ".resume_profiles" }
 
 type ResumeProfileWorkFormat struct {
 	ProfileID uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -27,4 +27,4 @@ type ResumeProfileWorkFormat struct {
 	Position  int       `gorm:"not null"`
 }
 
-func (ResumeProfileWorkFormat) TableName() string { return "resume_profile_work_formats" }
+func (ResumeProfileWorkFormat) TableName() string { return schema + ".resume_profile_work_formats" }

@@ -13,44 +13,69 @@ type Skills struct {
 	soft         []string
 }
 type SkillsParams struct {
+	ID   sharedvalueobjects.ID
+	Hard []string
+	Soft []string
+}
+
+type SkillsSnapshot struct {
 	ID, ResumeID sharedvalueobjects.ID
 	Hard         []string
 	Soft         []string
 }
 
-func NewSkills(p SkillsParams) (*Skills, error) {
-	if p.ID.IsZero() || p.ResumeID.IsZero() {
-		return nil, fmt.Errorf("%w: skills ids are required", ErrInvalidEntity)
+func newSkills(params SkillsParams, resumeID sharedvalueobjects.ID) (*Skills, error) {
+	skills := &Skills{id: params.ID, resumeID: resumeID}
+	skills.hard = normalizeSkillValues(params.Hard)
+	skills.soft = normalizeSkillValues(params.Soft)
+	if err := skills.validate(); err != nil {
+		return nil, err
 	}
-	h := make([]string, 0, len(p.Hard))
-	seen := map[string]bool{}
-	for _, v := range p.Hard {
-		s := strings.TrimSpace(v)
-		if s == "" || seen[s] {
-			return nil, fmt.Errorf("%w: invalid or duplicate hard skill", ErrInvalidEntity)
-		}
-		seen[s] = true
-		h = append(h, s)
-	}
-	sft := make([]string, 0, len(p.Soft))
-	seen = map[string]bool{}
-	for _, v := range p.Soft {
-		s := strings.TrimSpace(v)
-		if s == "" || seen[s] {
-			return nil, fmt.Errorf("%w: invalid or duplicate soft skill", ErrInvalidEntity)
-		}
-		seen[s] = true
-		sft = append(sft, s)
-	}
-	return &Skills{id: p.ID, resumeID: p.ResumeID, hard: h, soft: sft}, nil
+	return skills, nil
 }
-func (s *Skills) Replace(params SkillsParams) error {
-	params.ID, params.ResumeID = s.id, s.resumeID
-	updated, err := NewSkills(params)
-	if err != nil {
-		return err
+
+func RestoreSkills(snapshot SkillsSnapshot) *Skills {
+	return &Skills{
+		id: snapshot.ID, resumeID: snapshot.ResumeID,
+		hard: append([]string(nil), snapshot.Hard...), soft: append([]string(nil), snapshot.Soft...),
 	}
-	*s = *updated
+}
+
+func normalizeSkillValues(values []string) []string {
+	result := make([]string, len(values))
+	for i, value := range values {
+		result[i] = strings.TrimSpace(value)
+	}
+	return result
+}
+
+func (s *Skills) validate() error {
+	if s == nil || s.id.IsZero() || s.resumeID.IsZero() {
+		return fmt.Errorf("%w: skills ids are required", ErrInvalidEntity)
+	}
+	if len(s.hard) > MaxSkillsPerResume || len(s.soft) > MaxSkillsPerResume {
+		return fmt.Errorf("%w: skills exceed the per-category limit of %d", ErrInvalidEntity, MaxSkillsPerResume)
+	}
+	if err := validateSkillValues(s.hard); err != nil {
+		return fmt.Errorf("%w: invalid or duplicate hard skill", ErrInvalidEntity)
+	}
+	if err := validateSkillValues(s.soft); err != nil {
+		return fmt.Errorf("%w: invalid or duplicate soft skill", ErrInvalidEntity)
+	}
+	return nil
+}
+
+func validateSkillValues(values []string) error {
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if value == "" || value != strings.TrimSpace(value) || !textLengthWithin(value, MaxSkillLength) {
+			return ErrInvalidEntity
+		}
+		if _, exists := seen[value]; exists {
+			return ErrDuplicateEntity
+		}
+		seen[value] = struct{}{}
+	}
 	return nil
 }
 
@@ -63,17 +88,16 @@ func (r *Resume) ReplaceSkills(params SkillsParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	if params.ID.IsZero() {
-		if r.skills != nil {
-			params.ID = r.skills.ID()
-		} else {
-			params.ID = sharedvalueobjects.NewID()
-		}
-	} else if r.skills == nil || params.ID != r.skills.ID() {
-		return fmt.Errorf("%w: skills do not belong to resume", ErrResumeInvariant)
+	var currentID sharedvalueobjects.ID
+	if r.skills != nil {
+		currentID = r.skills.ID()
 	}
-	params.ResumeID = r.id
-	skills, err := NewSkills(params)
+	resolvedID, err := resolveSingletonID(params.ID, currentID, "skills")
+	if err != nil {
+		return err
+	}
+	params.ID = resolvedID
+	skills, err := newSkills(params, r.id)
 	if err != nil {
 		return err
 	}
@@ -82,9 +106,18 @@ func (r *Resume) ReplaceSkills(params SkillsParams) error {
 }
 
 func (r *Resume) Skills() *Skills {
-	if r == nil || r.skills == nil {
+	if r == nil {
 		return nil
 	}
-	copy := *r.skills
+	return cloneSkills(r.skills)
+}
+
+func cloneSkills(value *Skills) *Skills {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	copy.hard = append([]string(nil), value.hard...)
+	copy.soft = append([]string(nil), value.soft...)
 	return &copy
 }

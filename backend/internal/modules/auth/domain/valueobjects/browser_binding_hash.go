@@ -8,7 +8,7 @@ type BrowserBindingHash struct {
 
 func NewBrowserBindingHash(value []byte) (BrowserBindingHash, error) {
 	if len(value) != HashSize {
-		return BrowserBindingHash{}, fmt.Errorf("browser binding hash must be %d bytes", HashSize)
+		return BrowserBindingHash{}, fmt.Errorf("%w: browser binding hash must be %d bytes", ErrInvalidHash, HashSize)
 	}
 	var hash [HashSize]byte
 	copy(hash[:], value)

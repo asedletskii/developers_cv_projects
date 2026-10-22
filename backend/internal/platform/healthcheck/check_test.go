@@ -3,6 +3,8 @@ package healthcheck
 import (
 	"context"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 
@@ -35,23 +37,28 @@ func TestPortFromEnvRejectsInvalidPort(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCheckSucceedsWhenPortAcceptsTCPConnections(t *testing.T) {
-	listener, err := net.Listen("tcp", net.JoinHostPort(defaultHost, "0"))
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		err := listener.Close()
-		require.NoError(t, err)
-	})
+func TestCheckSucceedsWhenLivenessEndpointReturnsOK(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/health", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	setHealthcheckPort(t, server)
+	require.NoError(t, Check(context.Background()))
+}
 
-	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
-	require.True(t, ok)
+func TestCheckRejectsNonOKLivenessEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
+	defer server.Close()
+	setHealthcheckPort(t, server)
+	require.Error(t, Check(context.Background()))
+}
 
-	port := tcpAddr.Port
-	t.Setenv("HTTP_PORT", strconv.Itoa(port))
-
-	err = Check(context.Background())
-
-	require.NoError(t, err)
+func setHealthcheckPort(t *testing.T, server *httptest.Server) {
+	t.Helper()
+	address, ok := server.Listener.Addr().(*net.TCPAddr)
+	require.True(t, ok, "httptest server listener must use TCP")
+	t.Setenv("HTTP_PORT", strconv.Itoa(address.Port))
 }
 
 func TestCheckReturnsErrorWhenServerIsUnavailable(t *testing.T) {

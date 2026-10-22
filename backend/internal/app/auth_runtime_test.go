@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	authports "developers-cv/backend/internal/modules/auth/application/ports"
 	authqueries "developers-cv/backend/internal/modules/auth/application/queries"
 	"developers-cv/backend/internal/modules/auth/domain"
 	"developers-cv/backend/internal/modules/auth/domain/valueobjects"
@@ -39,13 +38,9 @@ func (runtimeSessionRepositoryStub) DeleteExpiredBatch(context.Context, time.Tim
 	return 0, nil
 }
 
-var _ authports.SessionRepository = runtimeSessionRepositoryStub{}
-
 type runtimeUOWStub struct{}
 
 func (runtimeUOWStub) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
-
-var _ authports.UnitOfWork = runtimeUOWStub{}
 
 func TestNewRuntimeAuthenticatorTelegramModeIgnoresMockHeaderAndURLUserID(t *testing.T) {
 	currentSession := authqueries.NewCurrentSessionHandler(runtimeSessionRepositoryStub{}, runtimeUOWStub{}, time.Hour, time.Minute)

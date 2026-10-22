@@ -1,15 +1,13 @@
 package readers
 
 import (
-	"context"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/gormmodel"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func TestMapView(t *testing.T) {
@@ -30,11 +28,11 @@ func testUUID(value string) uuid.UUID {
 	return uuid.MustParse(value)
 }
 
-func TestGetStatisticsReturnsErrorWhenReaderDatabaseIsUnavailable(t *testing.T) {
-	reader := NewResumeLinkReader(nil)
-
-	_, err := reader.GetLinkStatistics(context.Background(), queries.GetResumeLinkStatisticsQuery{
-		LinkID: sharedvalueobjects.NewID(),
-	})
-	require.Error(t, err)
+func TestResumeLinkReaderDoesNotExposeAnalyticsQueries(t *testing.T) {
+	typ := reflect.TypeOf(&ResumeLinkReader{})
+	for _, method := range []string{"GetLinkStatistics", "GetDaily", "GetVisits", "GetSections", "GetTechnologies", "GetResumeStatistics", "GetClicks"} {
+		if _, ok := typ.MethodByName(method); ok {
+			t.Fatalf("link reader must not expose analytics query %s", method)
+		}
+	}
 }

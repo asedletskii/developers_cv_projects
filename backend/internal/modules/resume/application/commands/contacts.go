@@ -6,6 +6,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -14,7 +15,7 @@ type ContactsInput struct {
 	Phone          *string
 	Telegram       *domain.Telegram
 	Email          *domain.Email
-	HiddenContacts []domain.ContactKey
+	HiddenContacts []contactkey.Key
 	ContactsText   *ContactsTextInput
 }
 
@@ -35,17 +36,19 @@ func (i ContactsInput) toDomain() (domain.ContactsParams, error) {
 
 	var text *domain.ContactsText
 	if i.ContactsText != nil {
-		value, err := domain.NewContactsText(domain.ContactsTextParams{Title: i.ContactsText.Title, Subtitle: i.ContactsText.Subtitle})
+		text, err = domain.NewContactsText(domain.ContactsTextParams{
+			Title:    i.ContactsText.Title,
+			Subtitle: i.ContactsText.Subtitle,
+		})
 		if err != nil {
 			return domain.ContactsParams{}, err
 		}
-		text = &value
 	}
 
 	return domain.ContactsParams{
 		ID:             i.ID,
 		Contacts:       contacts,
-		HiddenContacts: append([]domain.ContactKey(nil), i.HiddenContacts...),
+		HiddenContacts: append([]contactkey.Key(nil), i.HiddenContacts...),
 		Text:           text,
 	}, nil
 }
@@ -74,7 +77,7 @@ func (h *ReplaceContactsHandler) Handle(ctx context.Context, c ReplaceContactsCo
 	if err != nil {
 		return err
 	}
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace contacts", func(resume *domain.Resume) error {
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace contacts", ports.ResumeMutationContacts, func(resume *domain.Resume) error {
 		return resume.ReplaceContacts(input)
 	})
 }

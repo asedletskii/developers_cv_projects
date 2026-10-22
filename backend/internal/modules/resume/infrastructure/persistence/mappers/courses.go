@@ -8,10 +8,19 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-func CourseToDB(item *domain.Course) (gormmodel.ResumeCourse, error) {
-	if item == nil {
-		return gormmodel.ResumeCourse{}, fmt.Errorf("course is nil")
+func CoursesToDomain(rows []gormmodel.ResumeCourse) ([]*domain.Course, error) {
+	courses := make([]*domain.Course, 0, len(rows))
+	for i, row := range rows {
+		course, err := CourseToDomain(row)
+		if err != nil {
+			return nil, fmt.Errorf("map course at index %d: %w", i, err)
+		}
+		courses = append(courses, course)
 	}
+	return courses, nil
+}
+
+func CourseToDB(item *domain.Course) gormmodel.ResumeCourse {
 	return gormmodel.ResumeCourse{
 		ID:              item.ID().UUID(),
 		ResumeID:        item.ResumeID().UUID(),
@@ -20,7 +29,7 @@ func CourseToDB(item *domain.Course) (gormmodel.ResumeCourse, error) {
 		EndDate:         YearMonthToTime(item.EndDate()),
 		Hours:           item.Hours(),
 		CertificateLink: ExternalURLToDB(item.CertificateLink()),
-	}, nil
+	}
 }
 
 func CourseToDomain(model gormmodel.ResumeCourse) (*domain.Course, error) {
@@ -32,19 +41,13 @@ func CourseToDomain(model gormmodel.ResumeCourse) (*domain.Course, error) {
 	if err != nil {
 		return nil, err
 	}
-	end, err := domain.ParseYearMonth(model.EndDate.Format("2006-01"))
-	if err != nil {
-		return nil, err
-	}
+	end := domain.RestoreYearMonth(model.EndDate)
 	var link *domain.ExternalURL
 	if model.CertificateLink != nil {
-		v, e := domain.NewExternalURL(*model.CertificateLink)
-		if e != nil {
-			return nil, e
-		}
+		v := domain.RestoreExternalURL(*model.CertificateLink)
 		link = &v
 	}
-	return domain.NewCourse(domain.CourseParams{
+	return domain.RestoreCourse(domain.CourseSnapshot{
 		ID:              id,
 		ResumeID:        rid,
 		Name:            model.Name,
@@ -52,7 +55,7 @@ func CourseToDomain(model gormmodel.ResumeCourse) (*domain.Course, error) {
 		EndDate:         end,
 		Hours:           model.Hours,
 		CertificateLink: link,
-	})
+	}), nil
 }
 
 func ExternalURLToDB(value *domain.ExternalURL) *string {
@@ -61,4 +64,14 @@ func ExternalURLToDB(value *domain.ExternalURL) *string {
 	}
 	result := value.String()
 	return &result
+}
+
+func CoursesToDBModels(items []*domain.Course) []gormmodel.ResumeCourse {
+	models := make([]gormmodel.ResumeCourse, 0, len(items))
+	for position, item := range items {
+		model := CourseToDB(item)
+		model.SortOrder = position
+		models = append(models, model)
+	}
+	return models
 }

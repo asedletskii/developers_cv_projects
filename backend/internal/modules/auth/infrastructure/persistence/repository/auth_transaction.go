@@ -25,6 +25,9 @@ func NewAuthTransactionRepository(db *gorm.DB) *AuthTransactionRepository {
 }
 
 func (r *AuthTransactionRepository) Create(ctx context.Context, transaction *domain.AuthTransaction) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("create auth transaction: repository dependencies are nil")
+	}
 	if transaction == nil {
 		return fmt.Errorf("create auth transaction: transaction is nil")
 	}
@@ -77,10 +80,17 @@ func (r *AuthTransactionRepository) find(ctx context.Context, stateHash valueobj
 	if err != nil {
 		return nil, fmt.Errorf("find auth transaction: %w", mapDBError(err))
 	}
-	return mappers.AuthTransactionToDomain(model)
+	transaction, err := mappers.AuthTransactionToDomain(model)
+	if err != nil {
+		return nil, fmt.Errorf("find auth transaction: map transaction: %w", err)
+	}
+	return transaction, nil
 }
 
 func (r *AuthTransactionRepository) Consume(ctx context.Context, transactionID sharedvalueobjects.ID, at time.Time) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("consume auth transaction: repository dependencies are nil")
+	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("consume auth transaction: %w", err)
@@ -96,8 +106,8 @@ func (r *AuthTransactionRepository) Consume(ctx context.Context, transactionID s
 }
 
 func (r *AuthTransactionRepository) DeleteExpiredBatch(ctx context.Context, now time.Time, limit int) (int, error) {
-	if limit <= 0 {
-		return 0, fmt.Errorf("delete expired auth transactions: limit must be positive")
+	if r == nil || r.db == nil {
+		return 0, fmt.Errorf("delete expired auth transactions: repository dependencies are nil")
 	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {

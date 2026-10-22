@@ -20,7 +20,7 @@ func int64Ptr(value int64) *int64 { return &value }
 
 func (r *ResumeReader) loadProjects(ctx context.Context, db *gorm.DB, resumeID uuid.UUID, view *queries.ResumeView) error {
 	var rows []projectRow
-	if err := db.WithContext(ctx).Table("resume_projects AS p").Select("p.id::text AS id, p.name, p.description, p.role, p.link, p.git_link").Where("p.resume_id = ?", resumeID).Order("p.sort_order").Scan(&rows).Error; err != nil {
+	if err := db.WithContext(ctx).Table("resume.resume_projects AS p").Select("p.id::text AS id, p.name, p.description, p.role, p.link, p.git_link").Where("p.resume_id = ?", resumeID).Order("p.sort_order").Scan(&rows).Error; err != nil {
 		return fmt.Errorf("list projects: %w", err)
 	}
 	result := make([]queries.ProjectView, 0, len(rows))
@@ -60,11 +60,8 @@ func (r *ResumeReader) loadProjects(ctx context.Context, db *gorm.DB, resumeID u
 	for _, item := range contributorRows {
 		contributors[item.ProjectID] = append(contributors[item.ProjectID], queries.ProjectContributorView{Name: item.Name, Surname: item.Surname, Role: item.Role, Contacts: queries.ProjectContactsView{Phone: item.Phone, Telegram: item.Telegram, Email: item.Email}})
 	}
-	for _, row := range rows {
-		id, err := uuid.Parse(row.ID)
-		if err != nil {
-			return err
-		}
+	for i, row := range rows {
+		id := ids[i]
 		result = append(result, queries.ProjectView{ID: row.ID, Name: row.Name, Description: row.Description, Role: row.Role, Link: row.Link, GitLink: row.GitLink, Screenshots: cloneSlice(screenshots[id]), Stack: cloneSlice(stacks[id]), Contributors: cloneSlice(contributors[id])})
 	}
 	view.Projects = result

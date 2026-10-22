@@ -19,6 +19,15 @@ type Identity struct {
 }
 
 type IdentityParams struct {
+	UserID          sharedvalueobjects.ID
+	Provider        Provider
+	ProviderSubject valueobjects.ProviderSubject
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	LastLoginAt     time.Time
+}
+
+type IdentitySnapshot struct {
 	ID              sharedvalueobjects.ID
 	UserID          sharedvalueobjects.ID
 	Provider        Provider
@@ -29,19 +38,49 @@ type IdentityParams struct {
 }
 
 func NewIdentity(params IdentityParams) (*Identity, error) {
-	if params.ID.IsZero() || params.UserID.IsZero() || !params.Provider.IsValid() || params.ProviderSubject.IsZero() {
-		return nil, fmt.Errorf("%w: invalid identity fields", ErrInvalidIdentity)
-	}
+	id := sharedvalueobjects.NewID()
 	createdAt := params.CreatedAt.UTC()
 	updatedAt := params.UpdatedAt.UTC()
 	lastLoginAt := params.LastLoginAt.UTC()
+	if err := validateIdentity(id, params.UserID, params.Provider, params.ProviderSubject, createdAt, updatedAt, lastLoginAt); err != nil {
+		return nil, err
+	}
+	return &Identity{
+		id: id, userID: params.UserID, provider: params.Provider, providerSubject: params.ProviderSubject,
+		createdAt: createdAt, updatedAt: updatedAt, lastLoginAt: lastLoginAt,
+	}, nil
+}
+
+func RestoreIdentity(snapshot IdentitySnapshot) (*Identity, error) {
+	if err := validateIdentity(
+		snapshot.ID, snapshot.UserID, snapshot.Provider, snapshot.ProviderSubject,
+		snapshot.CreatedAt, snapshot.UpdatedAt, snapshot.LastLoginAt,
+	); err != nil {
+		return nil, err
+	}
+	return &Identity{
+		id: snapshot.ID, userID: snapshot.UserID, provider: snapshot.Provider,
+		providerSubject: snapshot.ProviderSubject, createdAt: snapshot.CreatedAt,
+		updatedAt: snapshot.UpdatedAt, lastLoginAt: snapshot.LastLoginAt,
+	}, nil
+}
+
+func validateIdentity(
+	id, userID sharedvalueobjects.ID,
+	provider Provider,
+	subject valueobjects.ProviderSubject,
+	createdAt, updatedAt, lastLoginAt time.Time,
+) error {
+	if id.IsZero() || userID.IsZero() || !provider.IsValid() || subject.IsZero() {
+		return fmt.Errorf("%w: invalid identity fields", ErrInvalidIdentity)
+	}
 	if createdAt.IsZero() || updatedAt.IsZero() || lastLoginAt.IsZero() {
-		return nil, fmt.Errorf("%w: identity timestamps must be set", ErrInvalidIdentity)
+		return fmt.Errorf("%w: identity timestamps must be set", ErrInvalidIdentity)
 	}
 	if updatedAt.Before(createdAt) || lastLoginAt.Before(createdAt) {
-		return nil, fmt.Errorf("%w: invalid identity timestamp order", ErrInvalidIdentity)
+		return fmt.Errorf("%w: invalid identity timestamp order", ErrInvalidIdentity)
 	}
-	return &Identity{id: params.ID, userID: params.UserID, provider: params.Provider, providerSubject: params.ProviderSubject, createdAt: createdAt, updatedAt: updatedAt, lastLoginAt: lastLoginAt}, nil
+	return nil
 }
 
 func (i *Identity) ID() sharedvalueobjects.ID                     { return i.id }
@@ -59,6 +98,9 @@ func (i *Identity) TouchLogin(now time.Time) error {
 	now = now.UTC()
 	if now.IsZero() || now.Before(i.createdAt) {
 		return fmt.Errorf("%w: invalid login timestamp", ErrInvalidIdentity)
+	}
+	if now.Before(i.lastLoginAt) {
+		return fmt.Errorf("%w: login timestamp cannot move backwards", ErrInvalidIdentity)
 	}
 	i.lastLoginAt = now
 	if now.After(i.updatedAt) {

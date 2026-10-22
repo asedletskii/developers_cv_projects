@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -21,7 +22,7 @@ func TestResumeReaderRejectsInvalidOwnedQueryBeforeDatabaseAccess(t *testing.T) 
 func TestResumeReaderRejectsInvalidPublicQueryBeforeDatabaseAccess(t *testing.T) {
 	reader := NewResumeReader(nil)
 
-	_, err := reader.GetPublic(context.Background(), queries.PublicResumeQuery{})
+	_, err := reader.GetPublic(context.Background(), resumecontracts.PublicResumeQuery{})
 
 	require.Error(t, err)
 }

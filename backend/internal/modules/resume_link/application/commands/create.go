@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	"developers-cv/backend/internal/modules/resume_link/application/ownership"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -18,11 +19,11 @@ type CreateResumeLinkCommand struct {
 
 type CreateResumeLinkHandler struct {
 	repository ports.ResumeLinkRepository
-	resumes    ports.ResumeOwnershipReader
+	resumes    resumecontracts.OwnedResumeLocker
 	uow        ports.UnitOfWork
 }
 
-func NewCreateResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow ports.UnitOfWork) *CreateResumeLinkHandler {
+func NewCreateResumeLinkHandler(repository ports.ResumeLinkRepository, resumes resumecontracts.OwnedResumeLocker, uow ports.UnitOfWork) *CreateResumeLinkHandler {
 	return &CreateResumeLinkHandler{repository: repository, resumes: resumes, uow: uow}
 }
 
@@ -35,7 +36,6 @@ func (h *CreateResumeLinkHandler) Handle(ctx context.Context, c CreateResumeLink
 	}
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
-		ID:       sharedvalueobjects.NewID(),
 		ResumeID: c.ResumeID,
 		Name:     c.Name,
 	})
@@ -45,7 +45,14 @@ func (h *CreateResumeLinkHandler) Handle(ctx context.Context, c CreateResumeLink
 
 	linkID := link.ID()
 	err = h.uow.Do(ctx, func(tx context.Context) error {
-		if _, err := h.resumes.GetOwned(tx, resumequeries.GetResumeQuery{ResumeID: c.ResumeID, UserID: c.UserID}); err != nil {
+		if err := ownership.EnsureResumeOwnedForUpdate(tx, h.resumes, c.ResumeID, c.UserID); err != nil {
+			return err
+		}
+		count, err := h.repository.CountByResumeID(tx, c.ResumeID)
+		if err != nil {
+			return err
+		}
+		if err := domain.EnsureResumeLinkCapacity(count); err != nil {
 			return err
 		}
 		return h.repository.Create(tx, link)

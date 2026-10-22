@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -29,6 +30,21 @@ func DBFromTransactionContext(ctx context.Context) (*gorm.DB, error) {
 		return nil, ErrTransactionRequired
 	}
 	return db, nil
+}
+
+func WithReadSnapshot(ctx context.Context, fallback *gorm.DB, fn func(context.Context) error) error {
+	if fn == nil {
+		return errors.New("read snapshot callback is nil")
+	}
+	if existing, ok := ctx.Value(contextKey{}).(*gorm.DB); ok && existing != nil {
+		return fn(ctx)
+	}
+	if fallback == nil {
+		return errors.New("read snapshot database is nil")
+	}
+	return fallback.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(WithDB(ctx, tx))
+	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 }
 
 type UnitOfWork struct {

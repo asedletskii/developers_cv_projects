@@ -33,10 +33,17 @@ func (r *IdentityRepository) FindByProviderSubject(ctx context.Context, provider
 	if err != nil {
 		return nil, fmt.Errorf("find identity: %w", mapDBError(err))
 	}
-	return mappers.IdentityToDomain(model)
+	identity, err := mappers.IdentityToDomain(model)
+	if err != nil {
+		return nil, fmt.Errorf("find identity: map identity: %w", err)
+	}
+	return identity, nil
 }
 
 func (r *IdentityRepository) Create(ctx context.Context, identity *domain.Identity) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("create identity: repository dependencies are nil")
+	}
 	if identity == nil {
 		return fmt.Errorf("create identity: identity is nil")
 	}
@@ -55,6 +62,9 @@ func (r *IdentityRepository) Create(ctx context.Context, identity *domain.Identi
 }
 
 func (r *IdentityRepository) UpdateLastLogin(ctx context.Context, identityID sharedvalueobjects.ID, at time.Time) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("update identity last login: repository dependencies are nil")
+	}
 	tx, err := database.DBFromTransactionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("update identity last login: %w", err)

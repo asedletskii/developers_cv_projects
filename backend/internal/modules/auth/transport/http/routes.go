@@ -16,7 +16,10 @@ func RegisterPublicRoutes(handler *Handler, auth *gin.RouterGroup, startRateLimi
 	callback.GET("/telegram/callback", handler.CompleteTelegram)
 }
 
+func RegisterLogoutRoute(handler *Handler, auth *gin.RouterGroup) {
+	auth.POST("/logout", handler.Logout)
+}
+
 func RegisterProtectedRoutes(handler *Handler, auth *gin.RouterGroup) {
 	auth.GET("/me", handler.CurrentSession)
-	auth.POST("/logout", handler.Logout)
 }

@@ -6,19 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/user/domain"
+	usercontracts "developers-cv/backend/internal/modules/user/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
-
-type createUserRepositoryStub struct {
-	user *domain.User
-	err  error
-}
-
-func (s *createUserRepositoryStub) Create(_ context.Context, user *domain.User) error {
-	s.user = user
-	return s.err
-}
 
 func TestCreateUserHandlerCreatesUser(t *testing.T) {
 	repo := &createUserRepositoryStub{}
@@ -49,10 +39,22 @@ func TestCreateUserHandlerPropagatesRepositoryError(t *testing.T) {
 func TestCreateUserHandlerImplementsAuthProvisionerShape(t *testing.T) {
 	var provisioner interface {
 		CreateUser(context.Context) (sharedvalueobjects.ID, error)
+		EnsureUserExists(context.Context, sharedvalueobjects.ID) error
 	} = NewCreateUserHandler(&createUserRepositoryStub{})
 
 	id, err := provisioner.CreateUser(context.Background())
 
 	require.NoError(t, err)
 	require.False(t, id.IsZero())
+}
+
+func TestCreateUserHandlerEnsureUserExists(t *testing.T) {
+	repo := &createUserRepositoryStub{exists: true}
+	handler := NewCreateUserHandler(repo)
+
+	require.NoError(t, handler.EnsureUserExists(context.Background(), sharedvalueobjects.NewID()))
+
+	repo.exists = false
+	require.ErrorIs(t, handler.EnsureUserExists(context.Background(), sharedvalueobjects.NewID()), usercontracts.ErrUserNotFound)
+	require.ErrorIs(t, handler.EnsureUserExists(context.Background(), sharedvalueobjects.ID{}), usercontracts.ErrUserNotFound)
 }

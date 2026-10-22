@@ -5,32 +5,22 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/commands"
 	"developers-cv/backend/internal/modules/resume/application/queries"
-	activitieshandler "developers-cv/backend/internal/modules/resume/transport/http/activities"
-	contactshandler "developers-cv/backend/internal/modules/resume/transport/http/contacts"
-	courseshandler "developers-cv/backend/internal/modules/resume/transport/http/courses"
-	educationshandler "developers-cv/backend/internal/modules/resume/transport/http/educations"
-	experienceshandler "developers-cv/backend/internal/modules/resume/transport/http/experiences"
-	languageshandler "developers-cv/backend/internal/modules/resume/transport/http/languages"
-	overviewhandler "developers-cv/backend/internal/modules/resume/transport/http/overview"
-	profilehandler "developers-cv/backend/internal/modules/resume/transport/http/profile"
-	projectshandler "developers-cv/backend/internal/modules/resume/transport/http/projects"
-	skillshandler "developers-cv/backend/internal/modules/resume/transport/http/skills"
-	technologieshandler "developers-cv/backend/internal/modules/resume/transport/http/technologies"
+	"developers-cv/backend/internal/modules/resume/transport/http/handlers"
 )
 
 type Handler struct {
-	resume       *resumeHandler
-	overview     *overviewhandler.Handler
-	profile      *profilehandler.Handler
-	contacts     *contactshandler.Handler
-	skills       *skillshandler.Handler
-	languages    *languageshandler.Handler
-	technologies *technologieshandler.Handler
-	experiences  *experienceshandler.Handler
-	educations   *educationshandler.Handler
-	courses      *courseshandler.Handler
-	activities   *activitieshandler.Handler
-	projects     *projectshandler.Handler
+	resume       *handlers.ResumeHandler
+	overview     *handlers.ResumeOverviewHandler
+	profile      *handlers.ProfileHandler
+	contacts     *handlers.ContactsHandler
+	skills       *handlers.SkillsHandler
+	languages    *handlers.ResumeSpokenLanguagesHandler
+	technologies *handlers.ResumeTechnologiesHandler
+	experiences  *handlers.ExperienceHandler
+	educations   *handlers.EducationHandler
+	courses      *handlers.CourseHandler
+	activities   *handlers.ActivityHandler
+	projects     *handlers.ProjectHandler
 }
 
 type HandlerDependencies struct {
@@ -55,18 +45,18 @@ type HandlerDependencies struct {
 
 func NewHandler(deps HandlerDependencies) *Handler {
 	return &Handler{
-		resume:       newResumeHandler(deps.CreateResume, deps.GetResume, deps.ReplaceResumeTitle, deps.DeleteResume, deps.ChangeResumeStatus, deps.ListResumes),
-		overview:     overviewhandler.NewHandler(deps.ReplaceOverview),
-		profile:      profilehandler.NewHandler(deps.ReplaceProfile),
-		contacts:     contactshandler.NewHandler(deps.ReplaceContacts),
-		skills:       skillshandler.NewHandler(deps.ReplaceSkills),
-		languages:    languageshandler.NewHandler(deps.ReplaceLanguages),
-		technologies: technologieshandler.NewHandler(deps.ReplaceTechnologies),
-		experiences:  experienceshandler.NewHandler(deps.ReplaceExperiences),
-		educations:   educationshandler.NewHandler(deps.ReplaceEducations),
-		courses:      courseshandler.NewHandler(deps.ReplaceCourses),
-		activities:   activitieshandler.NewHandler(deps.ReplaceActivities),
-		projects:     projectshandler.NewHandler(deps.ReplaceProjects),
+		resume:       handlers.NewResumeHandler(deps.CreateResume, deps.GetResume, deps.ReplaceResumeTitle, deps.DeleteResume, deps.ChangeResumeStatus, deps.ListResumes),
+		overview:     handlers.NewResumeOverviewHandler(deps.ReplaceOverview),
+		profile:      handlers.NewProfileHandler(deps.ReplaceProfile),
+		contacts:     handlers.NewContactsHandler(deps.ReplaceContacts),
+		skills:       handlers.NewSkillsHandler(deps.ReplaceSkills),
+		languages:    handlers.NewResumeSpokenLanguagesHandler(deps.ReplaceLanguages),
+		technologies: handlers.NewResumeTechnologiesHandler(deps.ReplaceTechnologies),
+		experiences:  handlers.NewExperienceHandler(deps.ReplaceExperiences),
+		educations:   handlers.NewEducationHandler(deps.ReplaceEducations),
+		courses:      handlers.NewCourseHandler(deps.ReplaceCourses),
+		activities:   handlers.NewActivityHandler(deps.ReplaceActivities),
+		projects:     handlers.NewProjectHandler(deps.ReplaceProjects),
 	}
 }
 

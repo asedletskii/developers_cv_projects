@@ -7,63 +7,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type fakeUnitOfWork struct{ called bool }
-
-func (u *fakeUnitOfWork) Do(ctx context.Context, fn func(context.Context) error) error {
-	u.called = true
-	return fn(ctx)
-}
-
-type fakeResumeReader struct {
-	view   resumequeries.ResumeView
-	err    error
-	called bool
-	query  resumequeries.GetResumeQuery
-}
-
-func (r *fakeResumeReader) GetOwned(_ context.Context, query resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	r.called = true
-	r.query = query
-	if r.err != nil {
-		return resumequeries.ResumeView{}, r.err
-	}
-	return r.view, nil
-}
-
-type fakeRepository struct {
-	link   *domain.ResumeLink
-	err    error
-	called bool
-}
-
-func (r *fakeRepository) Create(_ context.Context, link *domain.ResumeLink) error {
-	r.called = true
-	r.link = link
-	return r.err
-}
-
-func (r *fakeRepository) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
-	return nil, r.err
-}
-func (r *fakeRepository) ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error {
-	return r.err
-}
-
-func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error { return r.err }
-
-func validCreateCommand() CreateResumeLinkCommand {
-	return CreateResumeLinkCommand{UserID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), Name: "  HH  "}
-}
-
 func TestCreateResumeLinkHandlerCreatesLinkAfterOwnershipValidation(t *testing.T) {
-	reader := &fakeResumeReader{}
-	repository := &fakeRepository{}
-	uow := &fakeUnitOfWork{}
+	reader := &resumeReaderStub{}
+	repository := &resumeLinkRepositoryStub{}
+	uow := &unitOfWorkStub{}
 	handler := NewCreateResumeLinkHandler(repository, reader, uow)
 	command := validCreateCommand()
 
@@ -73,30 +26,79 @@ func TestCreateResumeLinkHandlerCreatesLinkAfterOwnershipValidation(t *testing.T
 	require.False(t, id.IsZero())
 	require.True(t, uow.called)
 	require.True(t, reader.called)
-	require.Equal(t, command.UserID, reader.query.UserID)
-	require.Equal(t, command.ResumeID, reader.query.ResumeID)
+	require.Equal(t, command.UserID, reader.lockQuery.UserID)
+	require.Equal(t, command.ResumeID, reader.lockQuery.ResumeID)
 	require.True(t, repository.called)
 	require.Equal(t, id, repository.link.ID())
 	require.Equal(t, command.ResumeID, repository.link.ResumeID())
 	require.Equal(t, "HH", repository.link.Name())
 	require.True(t, repository.link.IsActive())
+	require.True(t, repository.countCalled)
 }
 
-func TestCreateResumeLinkHandlerPropagatesResumeNotFound(t *testing.T) {
-	reader := &fakeResumeReader{err: resumequeries.ErrResumeNotFound}
-	repository := &fakeRepository{}
-	handler := NewCreateResumeLinkHandler(repository, reader, &fakeUnitOfWork{})
+func TestCreateResumeLinkHandlerRejectsAtCapacityBeforeCreate(t *testing.T) {
+	repository := &resumeLinkRepositoryStub{count: domain.MaxResumeLinksPerResume}
+	handler := NewCreateResumeLinkHandler(repository, &resumeReaderStub{}, &unitOfWorkStub{})
 
 	_, err := handler.Handle(context.Background(), validCreateCommand())
 
-	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
+	require.ErrorIs(t, err, domain.ErrResumeLinkLimitExceeded)
+	require.True(t, repository.countCalled)
+	require.False(t, repository.called)
+}
+
+func TestCreateResumeLinkHandlerPropagatesCapacityReadFailure(t *testing.T) {
+	repositoryErr := errors.New("capacity query failure")
+	repository := &resumeLinkRepositoryStub{countErr: repositoryErr}
+	handler := NewCreateResumeLinkHandler(repository, &resumeReaderStub{}, &unitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), validCreateCommand())
+
+	require.ErrorIs(t, err, repositoryErr)
+	require.False(t, repository.called)
+}
+
+func TestCreateResumeLinkHandlerPropagatesResumeNotFound(t *testing.T) {
+	reader := &resumeReaderStub{err: resumecontracts.ErrResumeNotFound}
+	repository := &resumeLinkRepositoryStub{}
+	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), validCreateCommand())
+
+	require.ErrorIs(t, err, application.ErrResumeNotFound)
+	require.False(t, repository.called)
+}
+
+func TestCreateResumeLinkHandlerPropagatesOwnershipLockFailure(t *testing.T) {
+	lockErr := errors.New("resume lock failure")
+	reader := &resumeReaderStub{err: lockErr}
+	repository := &resumeLinkRepositoryStub{}
+	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), validCreateCommand())
+
+	require.ErrorIs(t, err, lockErr)
+	require.False(t, repository.countCalled)
+	require.False(t, repository.called)
+}
+
+func TestCreateResumeLinkHandlerRejectsResumeNotOwnedBeforeCounting(t *testing.T) {
+	reader := &resumeReaderStub{notOwned: true}
+	repository := &resumeLinkRepositoryStub{}
+	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), validCreateCommand())
+
+	require.ErrorIs(t, err, application.ErrResumeNotFound)
+	require.True(t, reader.called)
+	require.False(t, repository.countCalled)
 	require.False(t, repository.called)
 }
 
 func TestCreateResumeLinkHandlerRejectsInvalidName(t *testing.T) {
-	reader := &fakeResumeReader{}
-	repository := &fakeRepository{}
-	handler := NewCreateResumeLinkHandler(repository, reader, &fakeUnitOfWork{})
+	reader := &resumeReaderStub{}
+	repository := &resumeLinkRepositoryStub{}
+	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
 	command := validCreateCommand()
 	command.Name = "   "
 
@@ -109,8 +111,8 @@ func TestCreateResumeLinkHandlerRejectsInvalidName(t *testing.T) {
 
 func TestCreateResumeLinkHandlerPropagatesRepositoryFailure(t *testing.T) {
 	repositoryErr := errors.New("repository failure")
-	repository := &fakeRepository{err: repositoryErr}
-	handler := NewCreateResumeLinkHandler(repository, &fakeResumeReader{}, &fakeUnitOfWork{})
+	repository := &resumeLinkRepositoryStub{err: repositoryErr}
+	handler := NewCreateResumeLinkHandler(repository, &resumeReaderStub{}, &unitOfWorkStub{})
 
 	_, err := handler.Handle(context.Background(), validCreateCommand())
 
@@ -118,7 +120,7 @@ func TestCreateResumeLinkHandlerPropagatesRepositoryFailure(t *testing.T) {
 }
 
 func TestCreateResumeLinkHandlerRejectsInvalidIdentifiers(t *testing.T) {
-	handler := NewCreateResumeLinkHandler(&fakeRepository{}, &fakeResumeReader{}, &fakeUnitOfWork{})
+	handler := NewCreateResumeLinkHandler(&resumeLinkRepositoryStub{}, &resumeReaderStub{}, &unitOfWorkStub{})
 	command := validCreateCommand()
 	command.UserID = sharedvalueobjects.ID{}
 

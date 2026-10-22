@@ -14,10 +14,11 @@ services:
     environment:
       RESPECT_DO_NOT_TRACK: ${RESPECT_DO_NOT_TRACK:-true}
     networks:
-      default:
       edge:
         aliases:
           - cv-prod
+      proxy:
+        ipv4_address: ${CADDY_PROXY_IP:-172.30.240.2}
     depends_on:
       - backend
     restart: unless-stopped
@@ -27,9 +28,11 @@ services:
     env_file:
       - .env
     environment:
-      # По умолчанию бэкенд ждёт Postgres на localhost — в compose это отдельный контейнер,
-      # поэтому имя сервиса подставляем явно, а не через .env (это топология, а не секрет)
+      # Это топология Compose, а не deployment secret.
       POSTGRES_HOST: postgres
+      # Доверяем только адресу Caddy из этой же proxy-сети. Если нужно задать
+      # более узкую/иную схему доверия, явно передайте HTTP_TRUSTED_PROXIES в .env.
+      HTTP_TRUSTED_PROXIES: ${HTTP_TRUSTED_PROXIES:-${CADDY_PROXY_IP:-172.30.240.2}}
     # Наружу не торчит: единственная дверь на сервер — Caddy, который проксирует /api на backend:8080
     expose:
       - '8080'
@@ -38,6 +41,12 @@ services:
         condition: service_healthy
       migrations:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/app/developers-cv-api", "healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -46,6 +55,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    networks:
+      proxy:
+      data:
 
   migrations:
     image: migrate/migrate:v4.19.1
@@ -60,6 +72,8 @@ services:
       postgres:
         condition: service_healthy
     restart: 'no'
+    networks:
+      - data
 
   postgres:
     image: postgres:17-alpine
@@ -75,10 +89,20 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
+    networks:
+      - data
+
+networks:
+  # Only Caddy and backend share this network. The pinned Caddy IP is the only
+  # trusted proxy; database and migration containers cannot spoof forwarded headers.
+  proxy:
+    ipam:
+      config:
+        - subnet: ${PROXY_NETWORK_SUBNET:-172.30.240.0/24}
+  data:
+    internal: true
+  edge:
+    external: true
 
 volumes:
   postgres_data:
-
-networks:
-  edge:
-    external: true

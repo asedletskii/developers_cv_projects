@@ -17,6 +17,7 @@ func executeResumeMutation(
 	userID sharedvalueobjects.ID,
 	version int64,
 	operation string,
+	section ports.ResumeMutationSection,
 	mutate func(*domain.Resume) error,
 ) error {
 	if repository == nil || uow == nil {
@@ -30,12 +31,15 @@ func executeResumeMutation(
 		if err != nil {
 			return err
 		}
+		if resume == nil {
+			return fmt.Errorf("%s: repository returned nil resume", operation)
+		}
 		if resume.Version() != version {
 			return domain.ErrConcurrencyConflict
 		}
 		if err := mutate(resume); err != nil {
 			return err
 		}
-		return repository.Save(tx, resume)
+		return repository.SaveSection(tx, resume, section)
 	})
 }

@@ -9,12 +9,12 @@ import (
 )
 
 func ProfileToDBModels(profile *domain.Profile, now time.Time) (gormmodel.UserProfile, []gormmodel.UserProfileLocalization, error) {
-	if profile == nil || profile.UserID().IsZero() {
-		return gormmodel.UserProfile{}, nil, fmt.Errorf("profile identity is required")
+	if profile == nil {
+		return gormmodel.UserProfile{}, nil, fmt.Errorf("profile is nil")
 	}
 	model := gormmodel.UserProfile{
 		UserID:    profile.UserID().UUID(),
-		PhotoPath: profile.PhotoPath(),
+		PhotoURL:  profile.PhotoURL(),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

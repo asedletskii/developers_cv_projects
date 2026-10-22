@@ -4,59 +4,28 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"testing"
-
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
-	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
-
-type fakeResumeOwnershipReader struct{ err error }
-
-func (r fakeResumeOwnershipReader) GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	if r.err != nil {
-		return resumequeries.ResumeView{}, r.err
-	}
-	return resumequeries.ResumeView{ID: "resume"}, nil
-}
-
-type fakeRepository struct{ err error }
-
-func (r *fakeRepository) Create(context.Context, *domain.ResumeLink) error { return r.err }
-
-func (r *fakeRepository) GetByID(context.Context, sharedvalueobjects.ID) (*domain.ResumeLink, error) {
-	return nil, r.err
-}
-func (r *fakeRepository) ReplaceStatus(context.Context, sharedvalueobjects.ID, bool, int64) error {
-	return r.err
-}
-
-func (r *fakeRepository) Delete(context.Context, sharedvalueobjects.ID) error { return r.err }
-
-var _ ports.ResumeLinkRepository = (*fakeRepository)(nil)
 
 func newTestHandler(err error) *Handler {
 	commandHandler := commands.NewCreateResumeLinkHandler(
-		&fakeRepository{err: err},
-		fakeResumeOwnershipReader{},
-		fakeUnitOfWork{},
+		&resumeLinkRepositoryStub{err: err},
+		resumeOwnershipReaderStub{},
+		unitOfWorkStub{},
 	)
 	return NewHandler(HandlerDependencies{Create: commandHandler})
 }
-
-type fakeUnitOfWork struct{}
-
-func (fakeUnitOfWork) Do(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 func TestCreateHandlerRequiresAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -64,7 +33,7 @@ func TestCreateHandlerRequiresAuthentication(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, middleware.ErrUnauthenticated
 	}))
-	RegisterRoutes(newTestHandler(nil), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(newTestHandler(nil), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", nil)
 	w := httptest.NewRecorder()
@@ -81,7 +50,7 @@ func TestCreateHandlerReturnsCreatedID(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(newTestHandler(nil), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(newTestHandler(nil), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+resumeID.String()+`","name":"HH"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -100,7 +69,7 @@ func TestCreateHandlerMapsBadRequestAndNotFound(t *testing.T) {
 		return userID, nil
 	}))
 	handler := newTestHandler(nil)
-	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	cases := []struct {
 		name   string
@@ -121,10 +90,10 @@ func TestCreateHandlerMapsBadRequestAndNotFound(t *testing.T) {
 		})
 	}
 
-	missingResumeHandler := NewHandler(HandlerDependencies{Create: commands.NewCreateResumeLinkHandler(&fakeRepository{}, fakeResumeOwnershipReader{err: resumequeries.ErrResumeNotFound}, fakeUnitOfWork{})})
+	missingResumeHandler := NewHandler(HandlerDependencies{Create: commands.NewCreateResumeLinkHandler(&resumeLinkRepositoryStub{}, resumeOwnershipReaderStub{err: resumecontracts.ErrResumeNotFound}, unitOfWorkStub{})})
 	engine = gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	RegisterRoutes(missingResumeHandler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(missingResumeHandler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+uuid.New().String()+`","name":"HH"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -137,7 +106,7 @@ func TestCreateHandlerMapsUnexpectedError(t *testing.T) {
 	userID := uuid.New()
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	RegisterRoutes(newTestHandler(errors.New("db down")), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(newTestHandler(errors.New("db down")), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+uuid.New().String()+`","name":"HH"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -156,7 +125,7 @@ func TestCreateHandlerMapsLimitExceeded(t *testing.T) {
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(newTestHandler(domain.ErrResumeLinkLimitExceeded), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(newTestHandler(domain.ErrResumeLinkLimitExceeded), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+uuid.New().String()+`","name":"HH"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -172,7 +141,7 @@ func TestCreateHandlerMapsDuplicate(t *testing.T) {
 	userID := uuid.New()
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	RegisterRoutes(newTestHandler(domain.ErrDuplicateResumeLink), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(newTestHandler(domain.ErrDuplicateResumeLink), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+uuid.New().String()+`","name":"HH"}`))
 	req.Header.Set("Content-Type", "application/json")

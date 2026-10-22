@@ -1,8 +1,6 @@
 package mappers
 
 import (
-	"fmt"
-
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -11,14 +9,10 @@ import (
 func OverviewToDBModels(
 	id sharedvalueobjects.ID,
 	o *domain.ResumeOverview,
-) (gormmodel.ResumeOverview, []gormmodel.ResumeOverviewSection, error) {
-	if o == nil {
-		return gormmodel.ResumeOverview{}, nil, fmt.Errorf("overview is nil")
-	}
+) (gormmodel.ResumeOverview, []gormmodel.ResumeOverviewSection) {
 	theme := o.Theme()
 	greeting := o.Greeting()
 	availability := o.Availability()
-	resumeLink := o.ResumeLink()
 	sections := o.Sections()
 	m := gormmodel.ResumeOverview{
 		ResumeID:          id.UUID(),
@@ -39,17 +33,13 @@ func OverviewToDBModels(
 			m.AvailabilityNote = &v
 		}
 	}
-	if resumeLink != nil {
-		v := resumeLink.String()
-		m.ResumeLink = &v
-	}
 	if theme != nil {
-		if theme.Primary != nil {
-			v := theme.Primary.String()
+		if theme.Primary() != nil {
+			v := theme.Primary().String()
 			m.ThemePrimary = &v
 		}
-		if theme.Secondary != nil {
-			v := theme.Secondary.String()
+		if theme.Secondary() != nil {
+			v := theme.Secondary().String()
 			m.ThemeSecondary = &v
 		}
 	}
@@ -63,84 +53,49 @@ func OverviewToDBModels(
 			Collapsed: x.Collapsed(),
 		})
 	}
-	return m, mapped, nil
+	return m, mapped
 }
 
 func OverviewToDomain(
 	m gormmodel.ResumeOverview,
 	s []gormmodel.ResumeOverviewSection,
-) (*domain.ResumeOverview, error) {
-	g := domain.NewGreeting(domain.GreetingParams{
-		First:           m.GreetingFirst,
-		Second:          m.GreetingSecond,
-		SecondHighlight: m.GreetingHighlight,
-		Third:           m.GreetingThird,
+) *domain.ResumeOverview {
+
+	g := domain.RestoreGreeting(domain.GreetingParams{
+		First: m.GreetingFirst, Second: m.GreetingSecond,
+		SecondHighlight: m.GreetingHighlight, Third: m.GreetingThird,
 	})
-	var av *domain.Availability
+	var availability *domain.Availability
 	if m.AvailabilityStatus != nil {
-		st := domain.AvailabilityStatus(*m.AvailabilityStatus)
-		params := domain.AvailabilityParams{Status: st, Note: m.AvailabilityNote}
+		params := domain.AvailabilityParams{Status: domain.AvailabilityStatus(*m.AvailabilityStatus), Note: m.AvailabilityNote}
 		if m.AvailabilityFrom != nil {
-			d, err := domain.NewDate(*m.AvailabilityFrom)
-			if err != nil {
-				return nil, err
-			}
-			params.From = &d
+			date := domain.RestoreDate(*m.AvailabilityFrom)
+			params.From = &date
 		}
-		v, err := domain.NewAvailability(params)
-		if err != nil {
-			return nil, err
-		}
-		av = &v
-	}
-	var link *domain.ExternalURL
-	if m.ResumeLink != nil {
-		v, err := domain.NewExternalURL(*m.ResumeLink)
-		if err != nil {
-			return nil, err
-		}
-		link = &v
+		value := domain.RestoreAvailability(params)
+		availability = &value
 	}
 	var theme *domain.ThemeSettings
 	if m.ThemePrimary != nil || m.ThemeSecondary != nil {
-		var a, b *domain.Color
+		var primary, secondary *domain.Color
 		if m.ThemePrimary != nil {
-			v, err := domain.NewColor(*m.ThemePrimary)
-			if err != nil {
-				return nil, err
-			}
-			a = &v
+			value := domain.RestoreColor(*m.ThemePrimary)
+			primary = &value
 		}
 		if m.ThemeSecondary != nil {
-			v, err := domain.NewColor(*m.ThemeSecondary)
-			if err != nil {
-				return nil, err
-			}
-			b = &v
+			value := domain.RestoreColor(*m.ThemeSecondary)
+			secondary = &value
 		}
-		v, err := domain.NewThemeSettings(domain.ThemeSettingsParams{Primary: a, Secondary: b})
-		if err != nil {
-			return nil, err
-		}
-		theme = &v
+		value := domain.RestoreThemeSettings(domain.ThemeSettingsParams{Primary: primary, Secondary: secondary})
+		theme = &value
 	}
-	ss := make([]domain.SectionSettings, 0, len(s))
-	for _, x := range s {
-		v, err := domain.NewSectionSettings(domain.SectionSettingsParams{
-			ID:        domain.SectionID(x.SectionID),
-			Enabled:   x.Enabled,
-			Collapsed: x.Collapsed,
-		})
-		if err != nil {
-			return nil, err
-		}
-		ss = append(ss, v)
+	sections := make([]domain.SectionSettings, 0, len(s))
+	for _, item := range s {
+		sections = append(sections, domain.RestoreSectionSettings(domain.SectionSettingsParams{
+			ID: domain.SectionID(item.SectionID), Enabled: item.Enabled, Collapsed: item.Collapsed,
+		}))
 	}
-	return domain.NewResumeOverview(domain.ResumeOverviewParams{
-		Theme:        theme,
-		Greeting:     g,
-		Availability: av,
-		ResumeLink:   link,
-		Sections:     ss,
+	return domain.RestoreResumeOverview(domain.ResumeOverviewParams{
+		Theme: theme, Greeting: g, Availability: availability, Sections: sections,
 	})
 }

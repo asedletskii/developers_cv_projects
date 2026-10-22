@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	application "developers-cv/backend/internal/modules/resume_link/application"
+	"developers-cv/backend/internal/modules/resume_link/application/ownership"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -19,11 +21,11 @@ type ReplaceStatusResumeLinkCommand struct {
 
 type ReplaceStatusResumeLinkHandler struct {
 	repository ports.ResumeLinkRepository
-	resumes    ports.ResumeOwnershipReader
+	resumes    resumecontracts.OwnedResumeLocker
 	uow        ports.UnitOfWork
 }
 
-func NewReplaceStatusResumeLinkHandler(repository ports.ResumeLinkRepository, resumes ports.ResumeOwnershipReader, uow ports.UnitOfWork) *ReplaceStatusResumeLinkHandler {
+func NewReplaceStatusResumeLinkHandler(repository ports.ResumeLinkRepository, resumes resumecontracts.OwnedResumeLocker, uow ports.UnitOfWork) *ReplaceStatusResumeLinkHandler {
 	return &ReplaceStatusResumeLinkHandler{repository: repository, resumes: resumes, uow: uow}
 }
 
@@ -38,9 +40,12 @@ func (h *ReplaceStatusResumeLinkHandler) Handle(ctx context.Context, c ReplaceSt
 	return h.uow.Do(ctx, func(tx context.Context) error {
 		link, err := h.repository.GetByID(tx, c.LinkID)
 		if err != nil {
-			return err
+			return application.NormalizeLinkNotFoundError(err)
 		}
-		if _, err := h.resumes.GetOwned(tx, resumequeries.GetResumeQuery{ResumeID: link.ResumeID(), UserID: c.UserID}); err != nil {
+		if link == nil {
+			return fmt.Errorf("replace resume link status: repository returned nil link")
+		}
+		if err := ownership.EnsureResumeOwnedForUpdate(tx, h.resumes, link.ResumeID(), c.UserID); err != nil {
 			return err
 		}
 		if link.Version() != c.Version {
@@ -59,6 +64,6 @@ func (h *ReplaceStatusResumeLinkHandler) Handle(ctx context.Context, c ReplaceSt
 		if err != nil {
 			return err
 		}
-		return h.repository.ReplaceStatus(tx, c.LinkID, c.Active, c.Version)
+		return application.NormalizeLinkNotFoundError(h.repository.ReplaceStatus(tx, c.LinkID, c.Active, c.Version))
 	})
 }

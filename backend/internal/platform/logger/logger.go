@@ -15,14 +15,18 @@ func New(cfg config.LogConfig) (*zap.Logger, error) {
 		return nil, err
 	}
 
+	return newProductionConfig(cfg, level).Build()
+}
+
+func newProductionConfig(cfg config.LogConfig, level zapcore.Level) zap.Config {
 	production := zap.NewProductionConfig()
 	production.Level = zap.NewAtomicLevelAt(level)
 	production.Encoding = cfg.Format
 	production.OutputPaths = []string{"stdout"}
 	production.ErrorOutputPaths = []string{"stderr"}
 	production.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-
-	return production.Build()
+	production.Sampling = nil
+	return production
 }
 
 func parseLevel(value string) (zapcore.Level, error) {

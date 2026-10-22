@@ -2,13 +2,12 @@ package common
 
 import (
 	"errors"
-
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume/domain"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	jsonhttp "developers-cv/backend/internal/platform/http/json"
@@ -87,7 +86,7 @@ func WriteBindError(c *gin.Context, err error) {
 }
 
 func WriteQueryError(c *gin.Context, err error) {
-	if errors.Is(err, queries.ErrResumeNotFound) {
+	if errors.Is(err, resumecontracts.ErrResumeNotFound) {
 		WriteResumeNotFound(c)
 		return
 	}

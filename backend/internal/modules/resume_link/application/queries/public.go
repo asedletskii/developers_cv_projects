@@ -2,23 +2,17 @@ package queries
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"go.uber.org/zap"
-
-	"github.com/google/uuid"
-
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/commands"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
-	"developers-cv/backend/internal/modules/resume_link/domain"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type PublicResumeLinkQuery struct {
 	LinkID sharedvalueobjects.ID
-	Visit  *commands.CreatePublicVisitInput
+	Visit  *analyticscontracts.CreatePublicVisitInput
 }
 
 type ResumeLinkPublicView struct {
@@ -31,103 +25,137 @@ type ResumeLinkPublicReader interface {
 	GetByID(context.Context, PublicResumeLinkQuery) (ResumeLinkPublicView, error)
 }
 
-type ResumePublicQuery interface {
-	Handle(context.Context, resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error)
+type PublicAnalyticsFailureStage string
+
+const (
+	PublicAnalyticsStageOwnerResolution PublicAnalyticsFailureStage = "owner_resolution"
+	PublicAnalyticsStageLayoutBuild     PublicAnalyticsFailureStage = "layout_build"
+	PublicAnalyticsStageVisitCreation   PublicAnalyticsFailureStage = "visit_creation"
+)
+
+type PublicAnalyticsFailure struct {
+	Stage    PublicAnalyticsFailureStage
+	LinkID   sharedvalueobjects.ID
+	ResumeID sharedvalueobjects.ID
+	Err      error
 }
+
+type PublicAnalyticsErrorReporter func(PublicAnalyticsFailure)
 
 type PublicResumeLinkQueryHandler struct {
-	links  ResumeLinkPublicReader
-	resume ResumePublicQuery
-	owner  ports.ResumeOwnershipReader
-	visit  *commands.CreatePublicVisitHandler
-	logger *zap.Logger
+	linkResolver         PublicResumeLinkResolver
+	resume               resumecontracts.PublicResumeQueryHandler
+	owner                resumecontracts.ResumeOwnershipChecker
+	visit                analyticscontracts.PublicVisitCreator
+	reportAnalyticsError PublicAnalyticsErrorReporter
 }
 
-func NewPublicResumeLinkQueryHandler(links ResumeLinkPublicReader, resume ResumePublicQuery) *PublicResumeLinkQueryHandler {
-	return &PublicResumeLinkQueryHandler{links: links, resume: resume}
+func NewPublicResumeLinkQueryHandler(linkResolver PublicResumeLinkResolver, resume resumecontracts.PublicResumeQueryHandler) *PublicResumeLinkQueryHandler {
+	return &PublicResumeLinkQueryHandler{linkResolver: linkResolver, resume: resume}
 }
 
-func NewPublicResumeLinkQueryHandlerWithVisit(links ResumeLinkPublicReader, resume ResumePublicQuery, owner ports.ResumeOwnershipReader, visit *commands.CreatePublicVisitHandler, logger *zap.Logger) *PublicResumeLinkQueryHandler {
-	return &PublicResumeLinkQueryHandler{links: links, resume: resume, owner: owner, visit: visit, logger: logger}
+func NewPublicResumeLinkQueryHandlerWithVisit(
+	linkResolver PublicResumeLinkResolver,
+	resume resumecontracts.PublicResumeQueryHandler,
+	owner resumecontracts.ResumeOwnershipChecker,
+	visit analyticscontracts.PublicVisitCreator,
+	reportAnalyticsError PublicAnalyticsErrorReporter,
+) *PublicResumeLinkQueryHandler {
+	return &PublicResumeLinkQueryHandler{
+		linkResolver: linkResolver, resume: resume, owner: owner, visit: visit,
+		reportAnalyticsError: reportAnalyticsError,
+	}
 }
 
-func (h *PublicResumeLinkQueryHandler) Handle(ctx context.Context, query PublicResumeLinkQuery) (resumequeries.PublicResumeView, error) {
-	if h == nil || h.links == nil || h.resume == nil {
-		return resumequeries.PublicResumeView{}, fmt.Errorf("public resume link query handler dependencies are nil")
+func (h *PublicResumeLinkQueryHandler) Handle(ctx context.Context, query PublicResumeLinkQuery) (PublicResumeResult, error) {
+	view, _, err := h.load(ctx, query)
+	if err != nil {
+		return PublicResumeResult{}, err
+	}
+	return mapPublicResume(view), nil
+}
+
+func (h *PublicResumeLinkQueryHandler) load(
+	ctx context.Context,
+	query PublicResumeLinkQuery,
+) (resumecontracts.PublicResumeView, sharedvalueobjects.ID, error) {
+	if h == nil || h.linkResolver == nil || h.resume == nil {
+		return resumecontracts.PublicResumeView{}, sharedvalueobjects.ID{}, fmt.Errorf("public resume link query handler dependencies are nil")
 	}
 	if query.LinkID.IsZero() {
-		return resumequeries.PublicResumeView{}, fmt.Errorf("invalid resume link id")
+		return resumecontracts.PublicResumeView{}, sharedvalueobjects.ID{}, fmt.Errorf("invalid resume link id")
 	}
 
-	link, err := h.links.GetByID(ctx, query)
+	resumeID, err := h.linkResolver.Resolve(ctx, query.LinkID)
 	if err != nil {
-		if errors.Is(err, domain.ErrEntityNotFound) {
-			return resumequeries.PublicResumeView{}, ErrResumeLinkNotFound
-		}
-		return resumequeries.PublicResumeView{}, err
-	}
-	if domain.ResumeLinkStatus(link.Status) == domain.ResumeLinkStatusInactive {
-		return resumequeries.PublicResumeView{}, domain.ErrResumeLinkInactive
-	}
-	if domain.ResumeLinkStatus(link.Status) != domain.ResumeLinkStatusActive {
-		return resumequeries.PublicResumeView{}, ErrResumeLinkNotFound
+		return resumecontracts.PublicResumeView{}, sharedvalueobjects.ID{}, err
 	}
 
-	resumeUUID, err := uuid.Parse(link.ResumeID)
+	view, err := h.resume.Handle(ctx, resumecontracts.PublicResumeQuery{ID: resumeID})
 	if err != nil {
-		return resumequeries.PublicResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
+		return resumecontracts.PublicResumeView{}, sharedvalueobjects.ID{}, application.NormalizeProviderError(err)
 	}
-	resumeID, err := sharedvalueobjects.IDFromUUID(resumeUUID)
-	if err != nil {
-		return resumequeries.PublicResumeView{}, fmt.Errorf("resolve resume link: invalid resume id: %w", err)
-	}
-
-	view, err := h.resume.Handle(ctx, resumequeries.PublicResumeQuery{ID: resumeID})
-	if query.Visit != nil {
-		query.Visit.ResumeID = resumeID
-	}
-	if err != nil {
-		return resumequeries.PublicResumeView{}, err
-	}
-	return view, nil
+	return view, resumeID, nil
 }
 
-func (h *PublicResumeLinkQueryHandler) HandleWithVisit(ctx context.Context, query PublicResumeLinkQuery) (resumequeries.PublicResumeView, ports.VisitorIdentityResult, error) {
-	view, err := h.Handle(ctx, query)
+func (h *PublicResumeLinkQueryHandler) HandleWithVisit(
+	ctx context.Context,
+	query PublicResumeLinkQuery,
+) (PublicResumeResult, analyticscontracts.VisitorIdentityResult, error) {
+	view, resumeID, err := h.load(ctx, query)
 	if err != nil {
-		return resumequeries.PublicResumeView{}, ports.VisitorIdentityResult{}, err
+		return PublicResumeResult{}, analyticscontracts.VisitorIdentityResult{}, err
 	}
+	result := mapPublicResume(view)
 	if h == nil || h.visit == nil || query.Visit == nil {
-		return view, ports.VisitorIdentityResult{}, nil
+		return result, analyticscontracts.VisitorIdentityResult{}, nil
 	}
-	query.Visit.Resume = view
-	if !query.Visit.Visitor.OwnerID.IsZero() && h.owner != nil {
-		owned, ownerErr := h.owner.GetOwned(ctx, resumequeries.GetResumeQuery{ResumeID: query.Visit.ResumeID, UserID: query.Visit.Visitor.OwnerID})
-		if ownerErr != nil {
-			if !errors.Is(ownerErr, resumequeries.ErrResumeNotFound) && h.logger != nil {
-				h.logger.Error("analytics owner resolution failed",
-					zap.Error(ownerErr),
-					zap.String("link_id", query.LinkID.String()),
-					zap.String("resume_id", query.Visit.ResumeID.String()),
-					zap.String("analytics_stage", "owner_resolution"),
-				)
-			}
-			query.Visit.Visitor.OwnerID = sharedvalueobjects.ID{}
-		} else if owned.ID == "" {
-			query.Visit.Visitor.OwnerID = sharedvalueobjects.ID{}
-		}
-	}
-	_, identity, err := h.visit.Handle(ctx, *query.Visit)
+	visitInput := *query.Visit
+	visitInput.ResumeID = resumeID
+	layout, err := BuildAnalyticsLayout(view)
 	if err != nil {
-		if h.logger != nil {
-			h.logger.Error("analytics visit persistence failed",
-				zap.Error(err),
-				zap.String("link_id", query.LinkID.String()),
-				zap.String("resume_id", query.Visit.ResumeID.String()),
-				zap.String("analytics_stage", "visit_creation"),
-			)
-		}
-		return view, ports.VisitorIdentityResult{}, nil
+		h.reportPublicAnalyticsFailure(PublicAnalyticsFailure{
+			Stage:    PublicAnalyticsStageLayoutBuild,
+			LinkID:   query.LinkID,
+			ResumeID: resumeID,
+			Err:      err,
+		})
+		return result, analyticscontracts.VisitorIdentityResult{}, nil
 	}
-	return view, identity, nil
+	visitInput.ResumeLayout = layout
+	if !visitInput.Visitor.OwnerID.IsZero() {
+		if h.owner == nil {
+			visitInput.Visitor.OwnerID = sharedvalueobjects.ID{}
+		} else {
+			owned, ownerErr := h.owner.OwnsResume(ctx, resumecontracts.ResumeOwnershipQuery{ResumeID: visitInput.ResumeID, UserID: visitInput.Visitor.OwnerID})
+			if ownerErr != nil {
+				h.reportPublicAnalyticsFailure(PublicAnalyticsFailure{
+					Stage:    PublicAnalyticsStageOwnerResolution,
+					LinkID:   query.LinkID,
+					ResumeID: visitInput.ResumeID,
+					Err:      ownerErr,
+				})
+				visitInput.Visitor.OwnerID = sharedvalueobjects.ID{}
+			} else if !owned {
+				visitInput.Visitor.OwnerID = sharedvalueobjects.ID{}
+			}
+		}
+	}
+	identity, err := h.visit.Handle(ctx, visitInput)
+	if err != nil {
+		h.reportPublicAnalyticsFailure(PublicAnalyticsFailure{
+			Stage:    PublicAnalyticsStageVisitCreation,
+			LinkID:   query.LinkID,
+			ResumeID: visitInput.ResumeID,
+			Err:      err,
+		})
+		return result, analyticscontracts.VisitorIdentityResult{}, nil
+	}
+	return result, identity, nil
+}
+
+func (h *PublicResumeLinkQueryHandler) reportPublicAnalyticsFailure(failure PublicAnalyticsFailure) {
+	if h.reportAnalyticsError != nil {
+		h.reportAnalyticsError(failure)
+	}
 }

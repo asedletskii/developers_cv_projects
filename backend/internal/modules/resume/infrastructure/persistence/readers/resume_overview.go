@@ -16,14 +16,16 @@ func (r *ResumeReader) loadOverview(ctx context.Context, db *gorm.DB, resumeID u
 	var model gormmodel.ResumeOverview
 	if err := db.WithContext(ctx).Where("resume_id = ?", resumeID).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return queries.ErrResumeNotFound
+			view.Overview = queries.ResumeOverviewView{
+				Sections: make([]queries.OverviewSectionSettings, 0),
+			}
+			return nil
 		}
 		return fmt.Errorf("get overview: %w", err)
 	}
 	result := queries.ResumeOverviewView{
-		Greeting:   queries.OverviewGreeting{First: model.GreetingFirst, Second: model.GreetingSecond, SecondHighlight: model.GreetingHighlight, Third: model.GreetingThird},
-		ResumeLink: model.ResumeLink,
-		Sections:   make([]queries.OverviewSectionSettings, 0),
+		Greeting: queries.OverviewGreeting{First: model.GreetingFirst, Second: model.GreetingSecond, SecondHighlight: model.GreetingHighlight, Third: model.GreetingThird},
+		Sections: make([]queries.OverviewSectionSettings, 0),
 	}
 	if model.AvailabilityStatus != nil {
 		result.Availability = &queries.OverviewAvailability{Status: *model.AvailabilityStatus, Note: model.AvailabilityNote}

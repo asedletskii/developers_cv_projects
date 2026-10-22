@@ -9,8 +9,8 @@ import (
 )
 
 func UserToDB(user *domain.User) (gormmodel.User, error) {
-	if user == nil || user.ID().IsZero() {
-		return gormmodel.User{}, fmt.Errorf("user identity is required")
+	if user == nil {
+		return gormmodel.User{}, fmt.Errorf("user is nil")
 	}
 	return gormmodel.User{
 		ID:        user.ID().UUID(),
@@ -24,7 +24,7 @@ func UserToDomain(model gormmodel.User) (*domain.User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("map user id: %w", err)
 	}
-	return domain.NewUser(domain.UserParams{
+	return domain.RestoreUser(domain.UserSnapshot{
 		ID:        id,
 		CreatedAt: model.CreatedAt,
 		UpdatedAt: model.UpdatedAt,

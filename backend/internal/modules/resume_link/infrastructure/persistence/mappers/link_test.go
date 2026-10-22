@@ -15,7 +15,7 @@ import (
 func TestResumeLinkRoundTrip(t *testing.T) {
 	id := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
-	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
+	link, err := domain.RestoreResumeLink(domain.ResumeLinkSnapshot{
 		ID: id, ResumeID: resumeID, Name: "  HH  ", Version: 3, Status: domain.ResumeLinkStatusInactive,
 	})
 	require.NoError(t, err)
@@ -26,7 +26,7 @@ func TestResumeLinkRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, id.UUID(), model.ID)
 	require.Equal(t, resumeID.UUID(), model.ResumeID)
-	require.Equal(t, "HH", model.Name)
+	require.Equal(t, "  HH  ", model.Name)
 	require.Equal(t, string(domain.ResumeLinkStatusInactive), model.Status)
 	require.Equal(t, int64(3), model.Version)
 	require.Equal(t, createdAt, model.CreatedAt)
@@ -36,7 +36,7 @@ func TestResumeLinkRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, id, mapped.ID())
 	require.Equal(t, resumeID, mapped.ResumeID())
-	require.Equal(t, "HH", mapped.Name())
+	require.Equal(t, "  HH  ", mapped.Name())
 	require.Equal(t, domain.ResumeLinkStatusInactive, mapped.Status())
 	require.Equal(t, int64(3), mapped.Version())
 }

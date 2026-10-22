@@ -9,8 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumedomain "developers-cv/backend/internal/modules/resume/domain"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 )
 
@@ -96,29 +95,44 @@ func TestWriteCommandErrorMapsResumeOwnershipNotFound(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
 
-	WriteCommandError(c, resumequeries.ErrResumeNotFound)
+	WriteCommandError(c, application.ErrResumeNotFound)
 
 	require.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func TestWriteStatisticsErrorMapsMissingResumeLink(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-
-	WriteStatisticsError(c, domain.ErrEntityNotFound)
-
-	require.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestWriteCommandErrorMapsMissingResume(t *testing.T) {
+func TestWriteCommandErrorMapsResumeLinkNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
 
-	WriteCommandError(c, resumedomain.ErrEntityNotFound)
+	WriteCommandError(c, application.ErrResumeLinkNotFound)
 
 	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Contains(t, w.Body.String(), "Resume link not found")
+}
+
+func TestWriteCommandErrorMasksMissingOwnedResumeAsMissingLink(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
+
+	WriteCommandError(c, application.ErrResumeNotFound)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Contains(t, w.Body.String(), "Resume link not found")
+}
+
+func TestWriteCreateErrorMapsMissingResumeToResumeResource(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+
+	WriteCreateError(c, application.ErrResumeNotFound)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Contains(t, w.Body.String(), "Resume not found")
+	require.NotContains(t, w.Body.String(), "Resume link not found")
 }

@@ -22,7 +22,7 @@ func newTestSession(t *testing.T) (*Session, time.Time) {
 	t.Helper()
 	created := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
 	session, err := NewSession(SessionParams{
-		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), TokenHash: newSessionHash(t),
+		UserID: sharedvalueobjects.NewID(), TokenHash: newSessionHash(t),
 		CreatedAt: created, LastSeenAt: created, ExpiresAt: created.Add(30 * 24 * time.Hour),
 	})
 	require.NoError(t, err)
@@ -35,10 +35,35 @@ func TestNewSession(t *testing.T) {
 	require.True(t, session.IsActive(created.Add(time.Hour), 7*24*time.Hour))
 }
 
+func TestNewSessionGeneratesIDAndRestoreCopiesOptionalValues(t *testing.T) {
+	created := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
+	userAgent := "browser"
+	revokedAt := created.Add(time.Minute)
+	session, err := NewSession(SessionParams{
+		UserID: sharedvalueobjects.NewID(), TokenHash: newSessionHash(t),
+		CreatedAt: created, LastSeenAt: created, ExpiresAt: created.Add(time.Hour),
+		RevokedAt: &revokedAt, UserAgent: &userAgent,
+	})
+	require.NoError(t, err)
+	require.False(t, session.ID().IsZero())
+
+	snapshot := SessionSnapshot{
+		ID: session.ID(), UserID: session.UserID(), TokenHash: session.TokenHash(),
+		CreatedAt: session.CreatedAt(), LastSeenAt: session.LastSeenAt(), ExpiresAt: session.ExpiresAt(),
+		RevokedAt: session.RevokedAt(), UserAgent: session.UserAgent(),
+	}
+	restored, err := RestoreSession(snapshot)
+	require.NoError(t, err)
+	*snapshot.RevokedAt = created.Add(2 * time.Minute)
+	*snapshot.UserAgent = "mutated"
+	require.Equal(t, revokedAt, *restored.RevokedAt())
+	require.Equal(t, "browser", *restored.UserAgent())
+}
+
 func TestNewSessionRejectsInvalidTimestampOrder(t *testing.T) {
 	created := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
 	_, err := NewSession(SessionParams{
-		ID: sharedvalueobjects.NewID(), UserID: sharedvalueobjects.NewID(), TokenHash: newSessionHash(t),
+		UserID: sharedvalueobjects.NewID(), TokenHash: newSessionHash(t),
 		CreatedAt: created, LastSeenAt: created.Add(-time.Second), ExpiresAt: created.Add(time.Hour),
 	})
 	require.ErrorIs(t, err, ErrInvalidSession)

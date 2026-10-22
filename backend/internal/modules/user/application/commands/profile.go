@@ -18,10 +18,10 @@ type LocalizedProfileInput struct {
 }
 
 type ReplaceProfileCommand struct {
-	UserID    sharedvalueobjects.ID
-	RU        LocalizedProfileInput
-	EN        LocalizedProfileInput
-	PhotoPath *string
+	UserID   sharedvalueobjects.ID
+	RU       LocalizedProfileInput
+	EN       LocalizedProfileInput
+	PhotoURL *string
 }
 
 type ReplaceProfileHandler struct {
@@ -45,7 +45,7 @@ func (h *ReplaceProfileHandler) Handle(ctx context.Context, c ReplaceProfileComm
 	if err != nil {
 		return err
 	}
-	profile, err := domain.NewProfile(c.UserID, ru, en, c.PhotoPath)
+	profile, err := domain.NewProfile(c.UserID, ru, en, c.PhotoURL)
 	if err != nil {
 		return err
 	}

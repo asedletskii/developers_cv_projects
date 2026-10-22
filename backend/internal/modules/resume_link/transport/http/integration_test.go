@@ -8,22 +8,22 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	testpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
+	analyticscommands "developers-cv/backend/internal/modules/analytics/application/commands"
+	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticsadapters "developers-cv/backend/internal/modules/analytics/infrastructure/analytics"
+	analyticsreaders "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
+	analyticsrepository "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
 	resumecommands "developers-cv/backend/internal/modules/resume/application/commands"
 	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
 	resumereaders "developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
@@ -32,12 +32,13 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
-	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
-	"developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
-	"developers-cv/backend/internal/modules/resume_link/transport/http/public"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
+	resumelinkreaders "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
+	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
+	"developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
 	"developers-cv/backend/internal/platform/database"
 	"developers-cv/backend/internal/platform/http/middleware"
+	"developers-cv/backend/internal/testutil/pgtest"
 )
 
 type integrationTokenVerifierStub struct {
@@ -48,57 +49,35 @@ func (s *integrationTokenVerifierStub) Verify(context.Context, string, string) e
 	return s.err
 }
 
-func applyAllMigrations(t *testing.T, ctx context.Context, dsn string) {
+func newAnalyticsPublicLinkQuery(t *testing.T, linkReader *resumelinkreaders.ResumeLinkReader, resumeReader *resumereaders.ResumeReader, analyticsRepository *analyticsrepository.AnalyticsRepository, uow ports.UnitOfWork) *queries.PublicResumeLinkQueryHandler {
 	t.Helper()
-	config, err := pgx.ParseConfig(dsn)
+	visitorIdentifier, err := analyticsadapters.NewVisitorIdentifier("integration-analytics-secret-32-bytes-minimum", false)
 	require.NoError(t, err)
-	conn, err := pgx.ConnectConfig(ctx, config)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-
-	migrationsDir := filepath.Join("..", "..", "..", "..", "..", "db", "migrations")
-	entries, err := os.ReadDir(migrationsDir)
-	require.NoError(t, err)
-	var files []string
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" || !strings.HasSuffix(entry.Name(), ".up.sql") {
-			continue
-		}
-		files = append(files, entry.Name())
-	}
-	sort.Strings(files)
-	for _, name := range files {
-		content, err := os.ReadFile(filepath.Join(migrationsDir, name))
-		require.NoError(t, err)
-		_, err = conn.Exec(ctx, string(content))
-		require.NoErrorf(t, err, "migration %s", name)
-	}
-}
-
-func newAnalyticsPublicLinkQuery(t *testing.T, linkReader *readers.ResumeLinkReader, resumeReader *resumereaders.ResumeReader, linkRepository *repository.ResumeLinkRepository) *queries.PublicResumeLinkQueryHandler {
-	t.Helper()
-	visitorIdentifier, err := analytics.NewVisitorIdentifier("integration-analytics-secret-32-bytes-minimum", false)
-	require.NoError(t, err)
-	visit := commands.NewCreatePublicVisitHandler(
-		linkRepository,
+	subjects := analyticsaccess.NewReader(linkReader, resumeReader, resumeReader, nil, nil)
+	visit := analyticscommands.NewCreatePublicVisitHandler(
+		analyticsRepository,
+		uow,
 		visitorIdentifier,
-		analytics.NewTrafficClassifier(5, time.Minute),
-		analytics.NewLayoutSnapshotBuilder(),
+		analyticsadapters.NewTrafficClassifier(5, time.Minute),
+		analyticsadapters.NewLayoutSnapshotBuilder(),
+		subjects,
 	)
-	return queries.NewPublicResumeLinkQueryHandlerWithVisit(linkReader, resumequeries.NewPublicResumeQueryHandler(resumeReader), resumeReader, visit, nil)
+	return queries.NewPublicResumeLinkQueryHandlerWithVisit(
+		queries.NewActivePublicResumeLinkResolver(linkReader),
+		resumequeries.NewPublicResumeQueryHandler(resumeReader),
+		resumeReader,
+		visit,
+		func(failure queries.PublicAnalyticsFailure) {
+			t.Logf("public analytics stage %s failed: %v", failure.Stage, failure.Err)
+		},
+	)
 }
 
 func TestCreateResumeLinkIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyAllMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
@@ -108,21 +87,21 @@ func TestCreateResumeLinkIntegration(t *testing.T) {
 	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Test Resume", "en", "draft", 1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Test Resume", "en", "draft", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "test")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "test")
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
+	linkRepository := resumelinkrepository.NewResumeLinkRepository(gormDB)
 	create := commands.NewCreateResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 	handler := NewHandler(HandlerDependencies{Create: create})
 
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	RegisterRoutes(handler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/lk/link", bytes.NewBufferString(`{"resumeId":"`+resumeID.String()+`","name":"HH"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -131,7 +110,7 @@ func TestCreateResumeLinkIntegration(t *testing.T) {
 	require.Equal(t, http.StatusCreated, w.Code)
 
 	var count int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_links WHERE resume_id = $1 AND name = 'HH'`, resumeID).Scan(&count))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link.resume_links WHERE resume_id = $1 AND name = 'HH'`, resumeID).Scan(&count))
 	require.Equal(t, 1, count)
 }
 
@@ -139,13 +118,7 @@ func TestPublicResumeThroughLinkIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyAllMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
@@ -160,26 +133,26 @@ func TestPublicResumeThroughLinkIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Public Resume", "en", "opened", 1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Public Resume", "en", "opened", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, draftResumeID, userID, "Draft Resume", "en", "draft", 1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, draftResumeID, userID, "Draft Resume", "en", "draft", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "public")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "public")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now()), ($3, $2, 'Old', 'inactive', 1, now(), now()), ($4, $5, 'Draft', 'active', 1, now(), now())`, activeLinkID, resumeID, inactiveLinkID, draftLinkID, draftResumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link.resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now()), ($3, $2, 'Old', 'inactive', 1, now(), now()), ($4, $5, 'Draft', 'active', 1, now(), now())`, activeLinkID, resumeID, inactiveLinkID, draftLinkID, draftResumeID)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
 	publicResume := resumequeries.NewPublicResumeQueryHandler(resumeReader)
-	publicLink := queries.NewPublicResumeLinkQueryHandler(linkReader, publicResume)
-	handler := public.NewHandler(publicLink)
+	publicLink := queries.NewPublicResumeLinkQueryHandler(queries.NewActivePublicResumeLinkResolver(linkReader), publicResume)
+	handler := handlers.NewPublicResumeLinkHandler(publicLink)
 
 	engine := gin.New()
 	api := engine.Group("/api/v1")
-	RegisterRoutes(NewHandler(HandlerDependencies{Public: handler}), api, api, api.Group("/lk"), nil, nil)
+	RegisterRoutes(NewHandler(HandlerDependencies{Public: handler}), api, api, api.Group("/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+activeLinkID.String(), nil)
 	w := httptest.NewRecorder()
@@ -208,13 +181,7 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyAllMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
@@ -233,7 +200,7 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
 	for _, item := range []struct {
 		id, status string
@@ -242,31 +209,39 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 		{draftResumeID.String(), "draft"},
 		{closedResumeID.String(), "closed"},
 	} {
-		_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, uuid.MustParse(item.id), userID, item.status+" Resume", "en", item.status, 1)
+		_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, uuid.MustParse(item.id), userID, item.status+" Resume", "en", item.status, 1)
 		require.NoError(t, err)
 	}
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "public")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "public")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id, resume_id, phone, email) VALUES ($1, $2, $3, $4)`, contactsID, resumeID, "+33123456789", "private@example.com")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contacts (id, resume_id, phone, email) VALUES ($1, $2, $3, $4)`, contactsID, resumeID, "+33123456789", "private@example.com")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0)`, contactsID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0)`, contactsID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'Active', 'active', 1, now(), now()), ($3, $2, 'Inactive', 'inactive', 1, now(), now()), ($4, $5, 'Draft', 'active', 1, now(), now()), ($6, $7, 'Closed', 'active', 1, now(), now())`, activeLinkID, resumeID, inactiveLinkID, draftLinkID, draftResumeID, closedLinkID, closedResumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link.resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'Active', 'active', 1, now(), now()), ($3, $2, 'Inactive', 'inactive', 1, now(), now()), ($4, $5, 'Draft', 'active', 1, now(), now()), ($6, $7, 'Closed', 'active', 1, now(), now())`, activeLinkID, resumeID, inactiveLinkID, draftLinkID, draftResumeID, closedLinkID, closedResumeID)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
-	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, linkRepository)
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
+	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
-	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(linkReader, contactView, linkRepository, linkRepository)
+	downloadContacts := resumequeries.NewDownloadContactsQueryHandler(resumeReader)
+	contactEventRecorder := analyticscommands.NewRecordPublicInteractionEventHandler(analyticsRepository, analyticsRepository, database.NewUnitOfWork(gormDB))
+	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(
+		queries.NewActivePublicResumeLinkResolver(linkReader),
+		contactView,
+		downloadContacts,
+		contactEventRecorder,
+		func(err error) { t.Errorf("record contact view analytics: %v", err) },
+	)
 	verifier := &integrationTokenVerifierStub{}
-	contactHandler := public.NewContactViewHandler(contactThroughLink, verifier)
+	contactHandler := handlers.NewPublicContactViewHandler(contactThroughLink, verifier)
 
 	engine := gin.New()
 	api := engine.Group("/api/v1")
-	linkHandler := NewHandler(HandlerDependencies{Public: public.NewHandler(publicLink), ContactView: contactHandler})
-	RegisterRoutes(linkHandler, api, api, api.Group("/lk"), nil, nil)
+	linkHandler := NewHandler(HandlerDependencies{Public: handlers.NewPublicResumeLinkHandler(publicLink), ContactView: contactHandler})
+	RegisterRoutes(linkHandler, api, api, api.Group("/lk"), nil)
 
 	getPublic := func(linkID uuid.UUID) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -299,6 +274,10 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	require.Contains(t, response.Body.String(), `"value":"private@example.com"`)
 	require.NotContains(t, response.Body.String(), "test-token")
 
+	response = postContact(activeLinkID, `{"initiator":"download","turnstileToken":"test-token","viewId":"`+viewID+`"}`)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.JSONEq(t, `{"contacts":[{"contact":"email","value":"private@example.com"},{"contact":"phone","value":"+33123456789"}]}`, response.Body.String())
+
 	response = postContact(activeLinkID, `{"contact":"phone","turnstileToken":"test-token"}`)
 	require.Equal(t, http.StatusConflict, response.Code)
 
@@ -318,22 +297,16 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, response.Code)
 
 	var contactEvents int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, activeLinkID).Scan(&contactEvents))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics.analytics_events WHERE link_id = $1`, activeLinkID).Scan(&contactEvents))
 	require.Equal(t, 1, contactEvents)
 }
 
-func TestResumeLinkStatisticsIntegration(t *testing.T) {
+func TestLinkStatisticsIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
 
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyAllMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
@@ -348,34 +321,47 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Statistics Resume", "en", "opened", 1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Statistics Resume", "en", "opened", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "statistics")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "statistics")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id, resume_id, phone, email) VALUES ($1, $2, $3, $4)`, contactsID, resumeID, "+33123456789", "private@example.com")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contacts (id, resume_id, phone, email) VALUES ($1, $2, $3, $4)`, contactsID, resumeID, "+33123456789", "private@example.com")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0)`, contactsID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0)`, contactsID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link.resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
-	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, linkRepository)
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	access := analyticsaccess.NewReader(linkReader, resumeReader, resumeReader, resumequeries.NewOwnedResumeSectionsQueryHandler(resumeReader), nil)
+	analyticsReader := analyticsreaders.NewAnalyticsReader(gormDB, access)
+	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
+	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
-	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(linkReader, contactView, linkRepository, linkRepository)
-	statistics := queries.NewGetResumeLinkStatisticsQueryHandler(linkReader, resumeReader, linkReader)
+	downloadContacts := resumequeries.NewDownloadContactsQueryHandler(resumeReader)
+	contactEventRecorder := analyticscommands.NewRecordPublicInteractionEventHandler(analyticsRepository, analyticsRepository, database.NewUnitOfWork(gormDB))
+	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(
+		queries.NewActivePublicResumeLinkResolver(linkReader),
+		contactView,
+		downloadContacts,
+		contactEventRecorder,
+		func(err error) { t.Errorf("record contact view analytics: %v", err) },
+	)
+	statistics := analyticsqueries.NewLinkStatisticsHandler(access, analyticsReader)
 
-	publicHandler := public.NewHandler(publicLink)
+	publicHandler := handlers.NewPublicResumeLinkHandler(publicLink)
 	verifier := &integrationTokenVerifierStub{}
-	contactHandler := public.NewContactViewHandler(contactThroughLink, verifier)
+	contactHandler := handlers.NewPublicContactViewHandler(contactThroughLink, verifier)
+	analyticsHandler := analyticshttp.NewHandler(analyticshttp.HandlerDependencies{
+		Ingest:     analyticscommands.NewIngestAnalyticsBatchHandler(analyticsRepository, database.NewUnitOfWork(gormDB), access, nil),
+		Statistics: statistics,
+	})
 	linkHandler := NewHandler(HandlerDependencies{
 		Public:      publicHandler,
 		ContactView: contactHandler,
-		Statistics:  statistics,
 	})
 
 	engine := gin.New()
@@ -384,7 +370,8 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 	lk.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(linkHandler, api, api, lk, nil, nil)
+	RegisterRoutes(linkHandler, api, api, lk, nil)
+	analyticshttp.RegisterRoutes(analyticsHandler, api, lk, nil)
 
 	getPublic := func() *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -397,8 +384,8 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 	require.Equal(t, http.StatusOK, firstPublic.Code)
 	viewID := firstPublic.Header().Get("X-View-Id")
 	require.NotEmpty(t, viewID)
-	postContact := func() *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", bytes.NewBufferString(`{"contact":"email","turnstileToken":"test-token","viewId":"`+viewID+`"}`))
+	postContact := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/contact-views", bytes.NewBufferString(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		engine.ServeHTTP(w, req)
@@ -406,7 +393,15 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 	}
 
 	require.Equal(t, http.StatusOK, getPublic().Code)
-	require.Equal(t, http.StatusOK, postContact().Code)
+	require.Equal(t, http.StatusOK, postContact(`{"contact":"email","turnstileToken":"test-token","viewId":"`+viewID+`"}`).Code)
+	require.Equal(t, http.StatusOK, postContact(`{"initiator":"download","turnstileToken":"test-token","viewId":"`+viewID+`"}`).Code)
+
+	eventBody := `{"viewId":"` + viewID + `","seq":1,"final":false,"state":{"activeMs":1000},"events":[{"id":"` + uuid.NewString() + `","type":"download","at":1000}],"clicks":[]}`
+	eventRequest := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+linkID.String()+"/events", strings.NewReader(eventBody))
+	eventRequest.Header.Set("Content-Type", "application/json")
+	eventResponse := httptest.NewRecorder()
+	engine.ServeHTTP(eventResponse, eventRequest)
+	require.Equal(t, http.StatusNoContent, eventResponse.Code)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+linkID.String()+"/statistics", nil)
 	w := httptest.NewRecorder()
@@ -416,23 +411,19 @@ func TestResumeLinkStatisticsIntegration(t *testing.T) {
 	var stats struct {
 		Views        int `json:"views"`
 		ContactViews int `json:"contactViews"`
+		Downloads    int `json:"downloads"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &stats))
 	require.Equal(t, 2, stats.Views)
 	require.Equal(t, 1, stats.ContactViews)
+	require.Equal(t, 1, stats.Downloads)
 }
 
 func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
 	}
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyAllMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close(gormDB)) })
@@ -444,23 +435,24 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, 'Lifecycle Resume', 'en', 'opened', 1, now(), now())`, resumeID, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, 'Lifecycle Resume', 'en', 'opened', 1, now(), now())`, resumeID, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Hello', 'from', '', 'lifecycle')`, resumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Hello', 'from', '', 'lifecycle')`, resumeID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link.resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
-	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, linkRepository)
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	linkRepository := resumelinkrepository.NewResumeLinkRepository(gormDB)
+	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
+	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	lifecycle := commands.NewReplaceStatusResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 
 	linkHandler := NewHandler(HandlerDependencies{
-		Public:    public.NewHandler(publicLink),
+		Public:    handlers.NewPublicResumeLinkHandler(publicLink),
 		Lifecycle: lifecycle,
 	})
 	engine := gin.New()
@@ -469,7 +461,7 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	lk.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
 		return userID, nil
 	}))
-	RegisterRoutes(linkHandler, api, api, lk, nil, nil)
+	RegisterRoutes(linkHandler, api, api, lk, nil)
 
 	getPublic := func() *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/"+linkID.String(), nil)
@@ -494,7 +486,7 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	require.Equal(t, http.StatusOK, getPublic().Code)
 
 	var eventCount int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id = $1`, linkID).Scan(&eventCount))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics.analytics_events WHERE link_id = $1`, linkID).Scan(&eventCount))
 	require.Equal(t, 0, eventCount)
 }
 
@@ -503,13 +495,7 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 		t.Skip("integration test")
 	}
 
-	ctx := context.Background()
-	container, err := testpostgres.Run(ctx, "postgres:17-alpine", testpostgres.WithDatabase("developers_cv"), testpostgres.WithUsername("developers_cv"), testpostgres.WithPassword("test-password"), testpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(container)) })
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	applyAllMigrations(t, ctx, dsn)
+	ctx, dsn := pgtest.NewDatabase(t)
 
 	gormDB, err := database.NewGORM(dsn)
 	require.NoError(t, err)
@@ -528,10 +514,10 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1), ($2)`, userA, userB)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1), ($2)`, userA, userB)
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, `
-		INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at)
+		INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at)
 		VALUES
 			($1, $4, 'Resume A', 'en', 'opened', 1, now(), now()),
 			($2, $4, 'Resume B', 'en', 'opened', 1, now(), now()),
@@ -539,37 +525,48 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	`, resumeA, resumeB, resumeC, userA, userB)
 	require.NoError(t, err)
 	for _, resumeID := range []uuid.UUID{resumeA, resumeB, resumeC} {
-		_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Hello', 'from', '', 'integration')`, resumeID)
+		_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Hello', 'from', '', 'integration')`, resumeID)
 		require.NoError(t, err)
 	}
 
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id, resume_id, phone, email) VALUES ($1, $3, '+33111111111', 'a@example.com'), ($2, $4, '+33222222222', 'b@example.com'), ($5, $6, '+33333333333', 'github@example.com')`, contactsA, contactsC, resumeA, resumeC, contactsB, resumeB)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contacts (id, resume_id, phone, email) VALUES ($1, $3, '+33111111111', 'a@example.com'), ($2, $4, '+33222222222', 'b@example.com'), ($5, $6, '+33333333333', 'github@example.com')`, contactsA, contactsC, resumeA, resumeC, contactsB, resumeB)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0), ($2, 'email', 0), ($3, 'email', 0)`, contactsA, contactsC, contactsB)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0), ($2, 'email', 0), ($3, 'email', 0)`, contactsA, contactsC, contactsB)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
 	resumeRepository := resumerepository.NewResumeRepository(gormDB)
-	linkReader := readers.NewResumeLinkReader(gormDB)
-	linkRepository := repository.NewResumeLinkRepository(gormDB)
-	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, linkRepository)
+	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
+	access := analyticsaccess.NewReader(linkReader, resumeReader, resumeReader, resumequeries.NewOwnedResumeSectionsQueryHandler(resumeReader), nil)
+	analyticsReader := analyticsreaders.NewAnalyticsReader(gormDB, access)
+	linkRepository := resumelinkrepository.NewResumeLinkRepository(gormDB)
+	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
+	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
-	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(linkReader, contactView, linkRepository, linkRepository)
-	statistics := queries.NewGetResumeLinkStatisticsQueryHandler(linkReader, resumeReader, linkReader)
+	downloadContacts := resumequeries.NewDownloadContactsQueryHandler(resumeReader)
+	contactEventRecorder := analyticscommands.NewRecordPublicInteractionEventHandler(analyticsRepository, analyticsRepository, database.NewUnitOfWork(gormDB))
+	contactThroughLink := queries.NewContactViewThroughLinkQueryHandlerWithAnalytics(
+		queries.NewActivePublicResumeLinkResolver(linkReader),
+		contactView,
+		downloadContacts,
+		contactEventRecorder,
+		func(err error) { t.Errorf("record contact view analytics: %v", err) },
+	)
+	statistics := analyticsqueries.NewLinkStatisticsHandler(access, analyticsReader)
 	createLink := commands.NewCreateResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 	listLinks := queries.NewListResumeLinksQueryHandler(linkReader, resumeReader)
-	deleteLink := commands.NewDeleteResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
+	deleteLink := commands.NewDeleteResumeLinkHandler(linkRepository, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	lifecycle := commands.NewReplaceStatusResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 	resumeStatus := resumecommands.NewChangeResumeStatusHandler(resumeRepository, database.NewUnitOfWork(gormDB))
-	deleteResume := resumecommands.NewDeleteResumeHandler(resumeRepository, database.NewUnitOfWork(gormDB))
+	resumeLinkCleanup := commands.NewDeleteResumeLinksHandler(linkRepository, analyticsRepository)
+	deleteResume := resumecommands.NewDeleteResumeHandler(resumeRepository, resumeLinkCleanup, database.NewUnitOfWork(gormDB))
 
 	linkHandler := NewHandler(HandlerDependencies{
 		Create:      createLink,
 		List:        listLinks,
 		Delete:      deleteLink,
-		Public:      public.NewHandler(publicLink),
-		ContactView: public.NewContactViewHandler(contactThroughLink, &integrationTokenVerifierStub{}),
-		Statistics:  statistics,
+		Public:      handlers.NewPublicResumeLinkHandler(publicLink),
+		ContactView: handlers.NewPublicContactViewHandler(contactThroughLink, &integrationTokenVerifierStub{}),
 		Lifecycle:   lifecycle,
 	})
 	resumeHandler := resumehttp.NewHandler(resumehttp.HandlerDependencies{
@@ -585,7 +582,8 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 		return currentUser, nil
 	}))
 	resumehttp.RegisterRoutes(resumeHandler, lk)
-	RegisterRoutes(linkHandler, api, api, lk, nil, nil)
+	RegisterRoutes(linkHandler, api, api, lk, nil)
+	analyticshttp.RegisterRoutes(analyticshttp.NewHandler(analyticshttp.HandlerDependencies{Statistics: statistics}), api, lk, nil)
 
 	do := func(method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -716,8 +714,8 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, response.Code)
 
 	var linksAfterDelete, eventsAfterDelete int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_links WHERE resume_id = $1`, resumeA).Scan(&linksAfterDelete))
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link_events WHERE link_id IN ($1, $2)`, linkAHH, linkATelegram).Scan(&eventsAfterDelete))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link.resume_links WHERE resume_id = $1`, resumeA).Scan(&linksAfterDelete))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics.analytics_events WHERE link_id IN ($1, $2)`, linkAHH, linkATelegram).Scan(&eventsAfterDelete))
 	require.Equal(t, 0, linksAfterDelete)
 	require.Equal(t, 0, eventsAfterDelete)
 

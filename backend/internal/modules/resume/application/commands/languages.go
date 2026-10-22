@@ -20,14 +20,14 @@ type LanguagesInput struct {
 	Entries []LanguageInput
 }
 
-func (i LanguagesInput) toDomain() domain.ResumeLanguagesParams {
-	entries := make([]domain.ResumeLanguageEntryParams, 0, len(i.Entries))
+func (i LanguagesInput) toDomain() domain.ResumeSpokenLanguagesParams {
+	entries := make([]domain.SpokenLanguageEntryParams, 0, len(i.Entries))
 	for _, entry := range i.Entries {
-		entries = append(entries, domain.ResumeLanguageEntryParams{
+		entries = append(entries, domain.SpokenLanguageEntryParams{
 			ID: entry.ID, Language: entry.Language, Grade: entry.Grade, Position: entry.Position,
 		})
 	}
-	return domain.ResumeLanguagesParams{Entries: entries}
+	return domain.ResumeSpokenLanguagesParams{Entries: entries}
 }
 
 type ReplaceLanguagesCommand struct {
@@ -51,7 +51,8 @@ func (h *ReplaceLanguagesHandler) Handle(ctx context.Context, c ReplaceLanguages
 		return fmt.Errorf("replace languages handler dependencies are nil")
 	}
 
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace languages", func(resume *domain.Resume) error {
-		return resume.ReplaceLanguages(c.Input.toDomain())
+	languages := c.Input.toDomain()
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace languages", ports.ResumeMutationLanguages, func(resume *domain.Resume) error {
+		return resume.ReplaceSpokenLanguages(languages)
 	})
 }

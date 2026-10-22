@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -15,7 +16,7 @@ const (
 	ResumeStatusClosed ResumeStatus = "closed"
 )
 
-func (v ResumeStatus) IsValid() bool {
+func (v ResumeStatus) isValid() bool {
 	switch v {
 	case ResumeStatusDraft, ResumeStatusOpened, ResumeStatusClosed:
 		return true
@@ -24,6 +25,16 @@ func (v ResumeStatus) IsValid() bool {
 	}
 }
 
+func ParseResumeStatus(value string) (ResumeStatus, error) {
+	status := ResumeStatus(value)
+	if !status.isValid() {
+		return "", fmt.Errorf("%w: invalid resume status", ErrInvalidValue)
+	}
+	return status, nil
+}
+
+const MaxResumeTitleLength = 200
+
 type ResumeLanguage string
 
 const (
@@ -31,7 +42,7 @@ const (
 	ResumeLanguageEN ResumeLanguage = "en"
 )
 
-func (v ResumeLanguage) IsValid() bool {
+func (v ResumeLanguage) isValid() bool {
 	switch v {
 	case ResumeLanguageRU, ResumeLanguageEN:
 		return true
@@ -41,179 +52,101 @@ func (v ResumeLanguage) IsValid() bool {
 }
 
 type Resume struct {
-	id           sharedvalueobjects.ID
-	userID       sharedvalueobjects.ID
-	title        string
-	language     ResumeLanguage
-	status       ResumeStatus
-	version      int64
-	overview     *ResumeOverview
-	profile      *Profile
-	contacts     *Contacts
-	skills       *Skills
-	languages    *ResumeLanguages
-	technologies *ResumeTechnologies
-	experiences  []*Experience
-	educations   []*Education
-	courses      []*Course
-	activities   []*Activity
-	projects     []*Project
+	id              sharedvalueobjects.ID
+	userID          sharedvalueobjects.ID
+	title           string
+	language        ResumeLanguage
+	status          ResumeStatus
+	version         int64
+	overview        *ResumeOverview
+	profile         *Profile
+	contacts        *Contacts
+	skills          *Skills
+	spokenLanguages *ResumeSpokenLanguages
+	technologies    *ResumeTechnologies
+	experiences     []*Experience
+	educations      []*Education
+	courses         []*Course
+	activities      []*Activity
+	projects        []*Project
 }
 
 type ResumeParams struct {
-	ID       sharedvalueobjects.ID
 	UserID   sharedvalueobjects.ID
 	Title    string
 	Language ResumeLanguage
-	Version  int64
 }
 
 type ResumeSnapshot struct {
-	ID           sharedvalueobjects.ID
-	UserID       sharedvalueobjects.ID
-	Title        string
-	Language     ResumeLanguage
-	Status       ResumeStatus
-	Version      int64
-	Overview     *ResumeOverview
-	Profile      *Profile
-	Contacts     *Contacts
-	Skills       *Skills
-	Languages    *ResumeLanguages
-	Technologies *ResumeTechnologies
-	Experiences  []*Experience
-	Educations   []*Education
-	Courses      []*Course
-	Activities   []*Activity
-	Projects     []*Project
+	ID              sharedvalueobjects.ID
+	UserID          sharedvalueobjects.ID
+	Title           string
+	Language        ResumeLanguage
+	Status          ResumeStatus
+	Version         int64
+	Overview        *ResumeOverview
+	Profile         *Profile
+	Contacts        *Contacts
+	Skills          *Skills
+	SpokenLanguages *ResumeSpokenLanguages
+	Technologies    *ResumeTechnologies
+	Experiences     []*Experience
+	Educations      []*Education
+	Courses         []*Course
+	Activities      []*Activity
+	Projects        []*Project
 }
 
 func NewResume(params ResumeParams) (*Resume, error) {
-	title := strings.TrimSpace(params.Title)
-	if params.ID.IsZero() {
-		params.ID = sharedvalueobjects.NewID()
+	resume := &Resume{
+		id: sharedvalueobjects.NewID(), userID: params.UserID, title: strings.TrimSpace(params.Title),
+		language: params.Language, status: ResumeStatusDraft, version: 1,
 	}
-	if params.UserID.IsZero() || title == "" {
-		return nil, fmt.Errorf("%w: invalid resume identity or title", ErrInvalidResume)
-	}
-	if !params.Language.IsValid() {
-		return nil, fmt.Errorf("%w: invalid resume language", ErrInvalidResume)
-	}
-	if err := ValidateResumeTitle(title); err != nil {
+	if err := resume.validate(); err != nil {
 		return nil, err
 	}
-	version := params.Version
-	if version == 0 {
-		version = 1
-	}
-	if version < 1 {
-		return nil, fmt.Errorf("%w: resume version must be positive", ErrInvalidResume)
-	}
-	return &Resume{id: params.ID, userID: params.UserID, title: title, language: params.Language, status: ResumeStatusDraft, version: version}, nil
-}
-
-func ReconstructResume(snapshot ResumeSnapshot) (*Resume, error) {
-	resume, err := NewResume(ResumeParams{
-		ID: snapshot.ID, UserID: snapshot.UserID, Title: snapshot.Title,
-		Language: snapshot.Language, Version: snapshot.Version,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !snapshot.Status.IsValid() {
-		return nil, fmt.Errorf("%w: invalid resume status", ErrInvalidResume)
-	}
-	resume.status = snapshot.Status
-	if err := resume.validateOwnedState(snapshot); err != nil {
-		return nil, err
-	}
-	resume.overview = snapshot.Overview
-	resume.profile = snapshot.Profile
-	resume.contacts = snapshot.Contacts
-	resume.skills = snapshot.Skills
-	resume.languages = snapshot.Languages
-	resume.technologies = snapshot.Technologies
-	resume.experiences = append([]*Experience(nil), snapshot.Experiences...)
-	resume.educations = append([]*Education(nil), snapshot.Educations...)
-	resume.courses = append([]*Course(nil), snapshot.Courses...)
-	resume.activities = append([]*Activity(nil), snapshot.Activities...)
-	resume.projects = append([]*Project(nil), snapshot.Projects...)
 	return resume, nil
 }
 
-func (r *Resume) validateOwnedState(snapshot ResumeSnapshot) error {
-	check := func(id sharedvalueobjects.ID) error {
-		if id.IsZero() || id != r.id {
-			return fmt.Errorf("%w: child does not belong to resume", ErrResumeInvariant)
-		}
-		return nil
+func (r *Resume) validate() error {
+	if r == nil || r.id.IsZero() || r.userID.IsZero() {
+		return fmt.Errorf("%w: invalid resume identity", ErrInvalidResume)
 	}
-	for _, item := range snapshot.Experiences {
-		if item == nil {
-			return fmt.Errorf("%w: nil experience", ErrResumeInvariant)
-		}
-		if err := check(item.ResumeID()); err != nil {
-			return err
-		}
+	if !r.language.isValid() {
+		return fmt.Errorf("%w: invalid resume language", ErrInvalidResume)
 	}
-	for _, item := range snapshot.Educations {
-		if item == nil {
-			return fmt.Errorf("%w: nil education", ErrResumeInvariant)
-		}
-		if err := check(item.ResumeID()); err != nil {
-			return err
-		}
+	if err := validateResumeTitle(r.title); err != nil {
+		return err
 	}
-	for _, item := range snapshot.Courses {
-		if item == nil {
-			return fmt.Errorf("%w: nil course", ErrResumeInvariant)
-		}
-		if err := check(item.ResumeID()); err != nil {
-			return err
-		}
+	if !r.status.isValid() {
+		return fmt.Errorf("%w: invalid resume status", ErrInvalidResume)
 	}
-	for _, item := range snapshot.Activities {
-		if item == nil {
-			return fmt.Errorf("%w: nil activity", ErrResumeInvariant)
-		}
-		if err := check(item.ResumeID()); err != nil {
-			return err
-		}
-	}
-	for _, item := range snapshot.Projects {
-		if item == nil {
-			return fmt.Errorf("%w: nil project", ErrResumeInvariant)
-		}
-		if err := check(item.ResumeID()); err != nil {
-			return err
-		}
-	}
-	if snapshot.Profile != nil {
-		if err := check(snapshot.Profile.ResumeID()); err != nil {
-			return err
-		}
-	}
-	if snapshot.Contacts != nil {
-		if err := check(snapshot.Contacts.ResumeID()); err != nil {
-			return err
-		}
-	}
-	if snapshot.Skills != nil {
-		if err := check(snapshot.Skills.ResumeID()); err != nil {
-			return err
-		}
-	}
-	if snapshot.Languages != nil {
-		if err := check(snapshot.Languages.ResumeID()); err != nil {
-			return err
-		}
-	}
-	if snapshot.Technologies != nil {
-		if err := check(snapshot.Technologies.ResumeID()); err != nil {
-			return err
-		}
+	if r.version < 1 {
+		return fmt.Errorf("%w: resume version must be positive", ErrInvalidResume)
 	}
 	return nil
+}
+
+func RestoreResume(snapshot ResumeSnapshot) *Resume {
+	return &Resume{
+		id:              snapshot.ID,
+		userID:          snapshot.UserID,
+		title:           snapshot.Title,
+		language:        snapshot.Language,
+		status:          snapshot.Status,
+		version:         snapshot.Version,
+		overview:        cloneResumeOverview(snapshot.Overview),
+		profile:         cloneProfile(snapshot.Profile),
+		contacts:        cloneContacts(snapshot.Contacts),
+		skills:          cloneSkills(snapshot.Skills),
+		spokenLanguages: cloneResumeSpokenLanguages(snapshot.SpokenLanguages),
+		technologies:    cloneResumeTechnologies(snapshot.Technologies),
+		experiences:     cloneExperiences(snapshot.Experiences),
+		educations:      cloneEducations(snapshot.Educations),
+		courses:         cloneCourses(snapshot.Courses),
+		activities:      cloneActivities(snapshot.Activities),
+		projects:        cloneProjects(snapshot.Projects),
+	}
 }
 
 func (r *Resume) ID() sharedvalueobjects.ID     { return r.id }
@@ -223,28 +156,14 @@ func (r *Resume) Language() ResumeLanguage      { return r.language }
 func (r *Resume) Version() int64                { return r.version }
 func (r *Resume) Status() ResumeStatus          { return r.status }
 
-func (r *Resume) Publish() error {
+func (r *Resume) ReplaceStatus(status ResumeStatus) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	if r.status == ResumeStatusOpened {
-		return fmt.Errorf("%w: resume is already opened", ErrInvalidResumeStatusTransition)
+	if err := validateResumeStatusTransition(r.status, status); err != nil {
+		return err
 	}
-	if r.status != ResumeStatusDraft && r.status != ResumeStatusClosed {
-		return fmt.Errorf("%w: unsupported current status %q", ErrInvalidResumeStatusTransition, r.status)
-	}
-	r.status = ResumeStatusOpened
-	return nil
-}
-
-func (r *Resume) Close() error {
-	if r == nil {
-		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
-	}
-	if r.status != ResumeStatusOpened {
-		return fmt.Errorf("%w: cannot close resume with status %q", ErrInvalidResumeStatusTransition, r.status)
-	}
-	r.status = ResumeStatusClosed
+	r.status = status
 	return nil
 }
 
@@ -252,17 +171,48 @@ func (r *Resume) ReplaceTitle(title string) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
-	title = strings.TrimSpace(title)
-	if err := ValidateResumeTitle(title); err != nil {
+	normalized, err := normalizeResumeTitle(title)
+	if err != nil {
 		return err
 	}
-	r.title = title
+	r.title = normalized
 	return nil
 }
 
-func ValidateResumeTitle(title string) error {
-	if strings.TrimSpace(title) == "" {
+func normalizeResumeTitle(title string) (string, error) {
+	normalized := strings.TrimSpace(title)
+	if err := validateResumeTitle(normalized); err != nil {
+		return "", err
+	}
+	return normalized, nil
+}
+
+func validateResumeTitle(title string) error {
+	title = strings.TrimSpace(title)
+	if title == "" {
 		return fmt.Errorf("%w: resume title is empty", ErrInvalidResume)
+	}
+	if utf8.RuneCountInString(title) > MaxResumeTitleLength {
+		return fmt.Errorf("%w: resume title exceeds %d characters", ErrInvalidResume, MaxResumeTitleLength)
+	}
+	return nil
+}
+
+func validateResumeStatusTransition(current, target ResumeStatus) error {
+	switch target {
+	case ResumeStatusOpened:
+		if current == ResumeStatusOpened {
+			return fmt.Errorf("%w: resume is already opened", ErrInvalidResumeStatusTransition)
+		}
+		if current != ResumeStatusDraft && current != ResumeStatusClosed {
+			return fmt.Errorf("%w: unsupported current status %q", ErrInvalidResumeStatusTransition, current)
+		}
+	case ResumeStatusClosed:
+		if current != ResumeStatusOpened {
+			return fmt.Errorf("%w: cannot close resume with status %q", ErrInvalidResumeStatusTransition, current)
+		}
+	default:
+		return fmt.Errorf("%w: unsupported target status %q", ErrInvalidResumeStatusTransition, target)
 	}
 	return nil
 }

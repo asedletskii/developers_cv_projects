@@ -16,7 +16,7 @@ type UserIdentity struct {
 	LastLoginAt     time.Time `gorm:"not null"`
 }
 
-func (UserIdentity) TableName() string { return "user_identities" }
+func (UserIdentity) TableName() string { return schema + ".user_identities" }
 
 type AuthSession struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -30,7 +30,7 @@ type AuthSession struct {
 	IPAddress  *string `gorm:"type:inet"`
 }
 
-func (AuthSession) TableName() string { return "auth_sessions" }
+func (AuthSession) TableName() string { return schema + ".auth_sessions" }
 
 type AuthTransaction struct {
 	ID                 uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -45,4 +45,4 @@ type AuthTransaction struct {
 	ConsumedAt         *time.Time
 }
 
-func (AuthTransaction) TableName() string { return "auth_transactions" }
+func (AuthTransaction) TableName() string { return schema + ".auth_transactions" }

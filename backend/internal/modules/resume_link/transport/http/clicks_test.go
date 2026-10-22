@@ -10,52 +10,57 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumedomain "developers-cv/backend/internal/modules/resume/domain"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
+	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
+	analyticsdomain "developers-cv/backend/internal/modules/analytics/domain"
+	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/domain"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type clickHTTPLinkStub struct{ resumeID string }
-
-func (s clickHTTPLinkStub) GetByID(context.Context, queries.PublicResumeLinkQuery) (queries.ResumeLinkPublicView, error) {
-	return queries.ResumeLinkPublicView{ResumeID: s.resumeID}, nil
-}
-
-type clickHTTPOwnershipStub struct{}
-
-func (clickHTTPOwnershipStub) GetOwned(context.Context, resumequeries.GetResumeQuery) (resumequeries.ResumeView, error) {
-	return resumequeries.ResumeView{ID: "resume"}, nil
-}
-
 type clickHTTPPublicStub struct{}
 
-func (clickHTTPPublicStub) Handle(context.Context, resumequeries.PublicResumeQuery) (resumequeries.PublicResumeView, error) {
-	return resumequeries.PublicResumeView{}, nil
+func (clickHTTPPublicStub) Handle(context.Context, resumecontracts.PublicResumeQuery) (resumecontracts.PublicResumeView, error) {
+	return resumecontracts.PublicResumeView{}, nil
 }
 
-type clickHTTPLayoutStub struct{ snapshot domain.LayoutSnapshot }
+type clickHTTPLayoutStub struct {
+	snapshot analyticsdomain.LayoutSnapshot
+}
 
-func (s clickHTTPLayoutStub) Build(resumequeries.PublicResumeView) (domain.LayoutSnapshot, error) {
+func (s clickHTTPLayoutStub) Build(analyticscontracts.ResumeAnalyticsLayout) (analyticsdomain.LayoutSnapshot, error) {
 	return s.snapshot, nil
 }
 
-var _ ports.LayoutSnapshotBuilder = clickHTTPLayoutStub{}
-
 type clickHTTPReaderStub struct{}
 
-func (clickHTTPReaderStub) GetClicks(context.Context, queries.LinkClicksQuery) (queries.ClickGrid, error) {
-	return queries.ClickGrid{Section: "about", Grid: 20, Cells: []queries.ClickCell{{X: 0, Y: 1, Count: 2}}, Total: 2}, nil
+func (clickHTTPReaderStub) GetClicks(context.Context, analyticsqueries.LinkClicksQuery) (analyticsqueries.ClickGrid, error) {
+	return analyticsqueries.ClickGrid{Section: "about", Grid: 20, Cells: []analyticsqueries.ClickCell{{X: 0, Y: 1, Count: 2}}, Total: 2}, nil
 }
 
-func newClickHTTPHandler() *Handler {
-	layout, err := domain.NewLayoutSnapshot([]resumedomain.SectionID{resumedomain.SectionAbout}, map[resumedomain.SectionID]string{resumedomain.SectionAbout: "0123456789abcdef"})
-	require.NoError(nil, err)
-	clicks := queries.NewAnalyticsClickQueryHandler(clickHTTPLinkStub{resumeID: sharedvalueobjects.NewID().String()}, clickHTTPOwnershipStub{}, clickHTTPPublicStub{}, clickHTTPLayoutStub{snapshot: layout}, clickHTTPReaderStub{})
-	return NewHandler(HandlerDependencies{Clicks: clicks})
+func newClickHTTPHandler(t *testing.T) *analyticshttp.Handler {
+	t.Helper()
+	layout, err := analyticsdomain.NewLayoutSnapshot(
+		[]analyticsdomain.AnalyticsSectionID{analyticsdomain.AnalyticsSectionAbout},
+		map[analyticsdomain.AnalyticsSectionID]string{analyticsdomain.AnalyticsSectionAbout: "0123456789abcdef"},
+	)
+	require.NoError(t, err)
+	access := analyticsaccess.NewReader(
+		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
+		resumeOwnershipReaderStub{},
+		nil,
+		nil,
+		clickHTTPPublicStub{},
+	)
+	clicks := analyticsqueries.NewAnalyticsClickQueryHandler(
+		access,
+		clickHTTPLayoutStub{snapshot: layout},
+		clickHTTPReaderStub{},
+	)
+	return analyticshttp.NewHandler(analyticshttp.HandlerDependencies{Clicks: clicks})
 }
 
 func TestClicksHandlerReturnsClickGrid(t *testing.T) {
@@ -64,7 +69,8 @@ func TestClicksHandlerReturnsClickGrid(t *testing.T) {
 	linkID := sharedvalueobjects.NewID()
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
-	RegisterRoutes(newClickHTTPHandler(), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	api := engine.Group("/api/v1")
+	analyticshttp.RegisterRoutes(newClickHTTPHandler(t), api, api.Group("/lk"), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+linkID.String()+"/clicks?section=about&breakpoint=md", nil)
 	w := httptest.NewRecorder()
@@ -77,9 +83,11 @@ func TestClicksHandlerRejectsInvalidIncludeStale(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return uuid.New(), nil }))
-	RegisterRoutes(newClickHTTPHandler(), engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil, nil)
+	api := engine.Group("/api/v1")
+	analyticshttp.RegisterRoutes(newClickHTTPHandler(t), api, api.Group("/lk"), nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/link/"+sharedvalueobjects.NewID().String()+"/clicks?section=about&breakpoint=md&includeStale=nope", nil)
+	path := "/api/v1/lk/link/" + sharedvalueobjects.NewID().String() + "/clicks"
+	req := httptest.NewRequest(http.MethodGet, path+"?section=about&breakpoint=md&includeStale=nope", nil)
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)

@@ -17,14 +17,13 @@ func NewListResumesReader(db *gorm.DB) *ListResumesReader {
 }
 
 func (r *ListResumesReader) ListResumes(ctx context.Context, query queries.ListResumesQuery) ([]queries.ResumeListItem, error) {
+	if r == nil {
+		return nil, fmt.Errorf("list resumes: reader is nil")
+	}
 	db, err := resolveDB(ctx, r.db, "list resumes")
 	if err != nil {
 		return nil, err
 	}
-	if query.UserID.IsZero() {
-		return nil, fmt.Errorf("list resumes: invalid user id")
-	}
-
 	var models []gormmodel.Resume
 	if err := db.Where("user_id = ?", query.UserID.UUID()).Order("updated_at DESC, id").Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("list resumes: %w", err)

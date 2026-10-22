@@ -9,52 +9,79 @@ import (
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-type GreetingInput struct{ First, Second, SecondHighlight, Third string }
+type GreetingInput struct {
+	First           string
+	Second          string
+	SecondHighlight string
+	Third           string
+}
 type AvailabilityInput struct {
 	Status domain.AvailabilityStatus
 	From   *domain.Date
 	Note   *string
 }
-type ThemeInput struct{ Primary, Secondary *domain.Color }
+type ThemeInput struct {
+	Primary   *domain.Color
+	Secondary *domain.Color
+}
 type SectionInput struct {
-	ID                 domain.SectionID
-	Enabled, Collapsed bool
+	ID        domain.SectionID
+	Enabled   bool
+	Collapsed bool
 }
 type OverviewInput struct {
 	Theme        *ThemeInput
 	Greeting     GreetingInput
 	Availability *AvailabilityInput
-	ResumeLink   *domain.ExternalURL
 	Sections     []SectionInput
 }
 
 func (i OverviewInput) toDomain() (domain.ResumeOverviewParams, error) {
-	g := domain.NewGreeting(domain.GreetingParams{First: i.Greeting.First, Second: i.Greeting.Second, SecondHighlight: i.Greeting.SecondHighlight, Third: i.Greeting.Third})
+	greeting, err := domain.NewGreeting(domain.GreetingParams{
+		First:           i.Greeting.First,
+		Second:          i.Greeting.Second,
+		SecondHighlight: i.Greeting.SecondHighlight,
+		Third:           i.Greeting.Third,
+	})
+	if err != nil {
+		return domain.ResumeOverviewParams{}, err
+	}
 	var theme *domain.ThemeSettings
 	if i.Theme != nil {
-		v, err := domain.NewThemeSettings(domain.ThemeSettingsParams{Primary: cloneColor(i.Theme.Primary), Secondary: cloneColor(i.Theme.Secondary)})
+		value, err := domain.NewThemeSettings(domain.ThemeSettingsParams{
+			Primary: i.Theme.Primary, Secondary: i.Theme.Secondary,
+		})
 		if err != nil {
 			return domain.ResumeOverviewParams{}, err
 		}
-		theme = &v
+		theme = &value
 	}
-	var av *domain.Availability
+	var availability *domain.Availability
 	if i.Availability != nil {
-		v, err := domain.NewAvailability(domain.AvailabilityParams{Status: i.Availability.Status, From: i.Availability.From, Note: i.Availability.Note})
+		value, err := domain.NewAvailability(domain.AvailabilityParams{
+			Status: i.Availability.Status, From: i.Availability.From, Note: i.Availability.Note,
+		})
 		if err != nil {
 			return domain.ResumeOverviewParams{}, err
 		}
-		av = &v
+		availability = &value
 	}
 	sections := make([]domain.SectionSettings, len(i.Sections))
-	for n, v := range i.Sections {
-		x, err := domain.NewSectionSettings(domain.SectionSettingsParams{ID: v.ID, Enabled: v.Enabled, Collapsed: v.Collapsed})
+	for index, section := range i.Sections {
+		value, err := domain.NewSectionSettings(domain.SectionSettingsParams{
+			ID: section.ID, Enabled: section.Enabled, Collapsed: section.Collapsed,
+		})
 		if err != nil {
 			return domain.ResumeOverviewParams{}, err
 		}
-		sections[n] = x
+		sections[index] = value
 	}
-	return domain.ResumeOverviewParams{Theme: theme, Greeting: g, Availability: av, ResumeLink: cloneExternalURL(i.ResumeLink), Sections: sections}, nil
+	return domain.ResumeOverviewParams{
+		Theme:        theme,
+		Greeting:     greeting,
+		Availability: availability,
+		Sections:     sections,
+	}, nil
 }
 
 type ReplaceOverviewCommand struct {
@@ -81,23 +108,7 @@ func (h *ReplaceOverviewHandler) Handle(ctx context.Context, c ReplaceOverviewCo
 	if err != nil {
 		return err
 	}
-	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace overview", func(resume *domain.Resume) error {
+	return executeResumeMutation(ctx, h.repository, h.uow, c.ResumeID, c.UserID, c.Version, "replace overview", ports.ResumeMutationOverview, func(resume *domain.Resume) error {
 		return resume.ReplaceOverview(input)
 	})
-}
-
-func cloneColor(value *domain.Color) *domain.Color {
-	if value == nil {
-		return nil
-	}
-	copy := *value
-	return &copy
-}
-
-func cloneExternalURL(value *domain.ExternalURL) *domain.ExternalURL {
-	if value == nil {
-		return nil
-	}
-	copy := *value
-	return &copy
 }

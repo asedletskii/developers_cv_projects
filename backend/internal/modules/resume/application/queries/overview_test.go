@@ -1,42 +1,36 @@
 package queries
 
 import (
-	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestResumeOverviewViewUsesRootFields(t *testing.T) {
+func TestResumeOverviewViewKeepsRootFields(t *testing.T) {
 	view := ResumeOverviewView{
 		Theme:        &OverviewThemeSettings{Primary: "#E8785A"},
 		Greeting:     OverviewGreeting{First: "Hello", Second: "I am", SecondHighlight: "Ada", Third: "Engineer"},
 		Availability: &OverviewAvailability{Status: "open"},
-		ResumeLink:   stringPtr("https://example.com/cv.pdf"),
 		Sections:     []OverviewSectionSettings{{ID: "about", Enabled: true, Collapsed: false}},
 	}
 
-	data, err := json.Marshal(view)
-	require.NoError(t, err)
+	require.Equal(t, "#E8785A", view.Theme.Primary)
+	require.Equal(t, "Hello", view.Greeting.First)
+	require.Equal(t, "open", view.Availability.Status)
+	require.Len(t, view.Sections, 1)
+	require.Equal(t, "about", view.Sections[0].ID)
 
-	require.JSONEq(t, `{
-		"theme":{"primary":"#E8785A"},
-		"greeting":{"first":"Hello","second":"I am","secondHighlight":"Ada","third":"Engineer"},
-		"availability":{"status":"open"},
-		"resumeLink":"https://example.com/cv.pdf",
-		"sections":[{"id":"about","enabled":true,"collapsed":false}]
-	}`, string(data))
-	require.NotContains(t, string(data), `"presentation"`)
+	viewType := reflect.TypeOf(view)
+	for _, fieldName := range []string{"Presentation", "ResumeLink"} {
+		_, exists := viewType.FieldByName(fieldName)
+		require.False(t, exists, "overview contract must not contain legacy field %s", fieldName)
+	}
 }
 
-func TestResumeOverviewViewEmptySectionsSerializeAsArray(t *testing.T) {
+func TestResumeOverviewViewKeepsEmptySectionsNonNil(t *testing.T) {
 	view := ResumeOverviewView{Sections: make([]OverviewSectionSettings, 0)}
 
-	data, err := json.Marshal(view)
-	require.NoError(t, err)
-	require.JSONEq(t, `{"greeting":{"first":"","second":"","secondHighlight":"","third":""},"sections":[]}`, string(data))
-}
-
-func stringPtr(value string) *string {
-	return &value
+	require.NotNil(t, view.Sections)
+	require.Empty(t, view.Sections)
 }

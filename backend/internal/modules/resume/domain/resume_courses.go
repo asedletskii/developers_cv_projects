@@ -9,6 +9,15 @@ import (
 
 type CourseParams struct {
 	ID              sharedvalueobjects.ID
+	Name            string
+	Organization    string
+	EndDate         YearMonth
+	Hours           *int
+	CertificateLink *ExternalURL
+}
+
+type CourseSnapshot struct {
+	ID              sharedvalueobjects.ID
 	ResumeID        sharedvalueobjects.ID
 	Name            string
 	Organization    string
@@ -27,28 +36,40 @@ type Course struct {
 	certificateLink *ExternalURL
 }
 
-func NewCourse(params CourseParams) (*Course, error) {
-	name := strings.TrimSpace(params.Name)
-	organization := strings.TrimSpace(params.Organization)
-	if params.ID.IsZero() || params.ResumeID.IsZero() || name == "" || organization == "" || params.EndDate.IsZero() {
-		return nil, fmt.Errorf("%w: invalid course fields", ErrInvalidEntity)
+func newCourse(id, resumeID sharedvalueobjects.ID, params CourseParams) (*Course, error) {
+	course := &Course{
+		id: id, resumeID: resumeID, name: strings.TrimSpace(params.Name),
+		organization: strings.TrimSpace(params.Organization), endDate: params.EndDate,
+		hours: cloneInt(params.Hours), certificateLink: cloneExternalURL(params.CertificateLink),
 	}
-	if params.Hours != nil && *params.Hours <= 0 {
-		return nil, fmt.Errorf("%w: course hours must be positive", ErrInvalidEntity)
+	if err := course.validate(); err != nil {
+		return nil, err
 	}
-	return &Course{
-		id: params.ID, resumeID: params.ResumeID, name: name, organization: organization,
-		endDate: params.EndDate, hours: cloneInt(params.Hours), certificateLink: cloneExternalURL(params.CertificateLink),
-	}, nil
+	return course, nil
 }
 
-func (c *Course) Replace(params CourseParams) error {
-	params.ID, params.ResumeID = c.id, c.resumeID
-	updated, err := NewCourse(params)
-	if err != nil {
-		return err
+func RestoreCourse(snapshot CourseSnapshot) *Course {
+	return &Course{
+		id: snapshot.ID, resumeID: snapshot.ResumeID, name: snapshot.Name, organization: snapshot.Organization,
+		endDate: snapshot.EndDate, hours: cloneInt(snapshot.Hours), certificateLink: cloneExternalURL(snapshot.CertificateLink),
 	}
-	*c = *updated
+}
+
+func (c *Course) validate() error {
+	if c == nil || c.id.IsZero() || c.resumeID.IsZero() || c.name == "" || c.organization == "" || c.endDate.IsZero() {
+		return fmt.Errorf("%w: invalid course fields", ErrInvalidEntity)
+	}
+	if !textLengthWithin(c.name, MaxShortTextLength) || !textLengthWithin(c.organization, MaxShortTextLength) {
+		return fmt.Errorf("%w: course text exceeds configured limits", ErrInvalidEntity)
+	}
+	if c.certificateLink != nil {
+		if err := c.certificateLink.validate(); err != nil {
+			return fmt.Errorf("%w: invalid course certificate URL", ErrInvalidEntity)
+		}
+	}
+	if c.hours != nil && *c.hours <= 0 {
+		return fmt.Errorf("%w: course hours must be positive", ErrInvalidEntity)
+	}
 	return nil
 }
 
@@ -66,27 +87,28 @@ func (r *Resume) ReplaceCourses(params []CourseParams) error {
 	if r == nil {
 		return fmt.Errorf("%w: resume is nil", ErrResumeInvariant)
 	}
+	if len(params) > MaxCoursesPerResume {
+		return fmt.Errorf("%w: resume cannot contain more than %d courses", ErrInvalidEntity, MaxCoursesPerResume)
+	}
 	existing := make(map[sharedvalueobjects.ID]struct{}, len(r.courses))
-	for _, item := range r.courses {
-		if item == nil {
+	for _, current := range r.courses {
+		if current == nil {
 			return fmt.Errorf("%w: nil course", ErrResumeInvariant)
 		}
-		existing[item.ID()] = struct{}{}
+		existing[current.ID()] = struct{}{}
 	}
 	seen := make(map[sharedvalueobjects.ID]struct{}, len(params))
 	replaced := make([]*Course, 0, len(params))
 	for _, item := range params {
-		if item.ID.IsZero() {
-			item.ID = sharedvalueobjects.NewID()
-		} else if _, ok := existing[item.ID]; !ok {
-			return fmt.Errorf("%w: course does not belong to resume", ErrResumeInvariant)
+		resolvedID, err := resolveCollectionItemID(item.ID, existing, "course")
+		if err != nil {
+			return err
 		}
-		if _, ok := seen[item.ID]; ok {
+		if _, ok := seen[resolvedID]; ok {
 			return fmt.Errorf("%w: duplicate course id", ErrInvalidEntity)
 		}
-		seen[item.ID] = struct{}{}
-		item.ResumeID = r.id
-		course, err := NewCourse(item)
+		seen[resolvedID] = struct{}{}
+		course, err := newCourse(resolvedID, r.id, item)
 		if err != nil {
 			return err
 		}
@@ -100,5 +122,22 @@ func (r *Resume) Courses() []*Course {
 	if r == nil {
 		return nil
 	}
-	return append([]*Course(nil), r.courses...)
+	return cloneCourses(r.courses)
+}
+
+func cloneCourses(values []*Course) []*Course {
+	if values == nil {
+		return nil
+	}
+	result := make([]*Course, len(values))
+	for i, value := range values {
+		if value == nil {
+			continue
+		}
+		copy := *value
+		copy.hours = cloneInt(value.hours)
+		copy.certificateLink = cloneExternalURL(value.certificateLink)
+		result[i] = &copy
+	}
+	return result
 }

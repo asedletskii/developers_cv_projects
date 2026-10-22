@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"net/http"
 	"time"
 
@@ -17,7 +16,7 @@ func newTelegramOIDC(cfg config.AuthConfig, client *http.Client, metrics *teleme
 	if cfg.Mode != "telegram" {
 		return nil, nil
 	}
-	return authoidctelegram.New(context.Background(), authoidctelegram.Config{
+	return authoidctelegram.New(authoidctelegram.Config{
 		ClientID: cfg.Telegram.ClientID, ClientSecret: cfg.Telegram.ClientSecret,
 		RedirectURL: cfg.Telegram.RedirectURL, IssuerURL: cfg.Telegram.IssuerURL,
 	}, client, metrics)
@@ -25,8 +24,8 @@ func newTelegramOIDC(cfg config.AuthConfig, client *http.Client, metrics *teleme
 
 func cookieConfigFromRuntime(cfg config.AuthConfig) authhttp.CookieConfig {
 	return authhttp.CookieConfig{
-		Name: cfg.Cookie.Name, Path: cfg.Cookie.Path, Secure: cfg.Cookie.Secure,
-		HTTPOnly: cfg.Cookie.HTTPOnly, SameSite: http.SameSiteLaxMode,
+		Name: cfg.Cookie.Name, Path: "/", Secure: cfg.Cookie.Secure,
+		HTTPOnly: true, SameSite: http.SameSiteLaxMode,
 		MaxAge: int(cfg.Session.AbsoluteTTL.Seconds()),
 	}
 }
@@ -41,8 +40,8 @@ func newCompleteTelegramLoginHandler(
 	provisioner authports.UserProvisioner,
 	tokenGenerator authports.TokenGenerator,
 	uow authports.UnitOfWork,
-	sessionTTL time.Duration,
+	cfg config.AuthConfig,
 	observer authports.AuthObserver,
 ) *authcommands.CompleteTelegramLoginHandler {
-	return authcommands.NewCompleteTelegramLoginHandler(transactions, identities, sessions, oidc, provisioner, tokenGenerator, uow, sessionTTL, observer)
+	return authcommands.NewCompleteTelegramLoginHandler(transactions, identities, sessions, oidc, provisioner, tokenGenerator, uow, cfg.Session.AbsoluteTTL, observer)
 }
