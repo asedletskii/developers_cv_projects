@@ -3,6 +3,7 @@ package http
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"testing"
 
 	"net/http"
@@ -163,6 +164,48 @@ func TestHandlerReturnsResumeVersion(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), `"version":42`)
+}
+
+func TestHandlerReturnsOverviewWithLowerCamelCaseFields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	resumeID := uuid.New()
+	getHandler := queries.NewGetResumeQueryHandler(stubOwnedResumeReader{
+		view: queries.ResumeView{
+			ID:    resumeID.String(),
+			Title: "CV",
+			Overview: queries.ResumeOverviewView{
+				Theme:    &queries.OverviewThemeSettings{Primary: "#E8785A"},
+				Greeting: queries.OverviewGreeting{First: "Hello", Second: "I am", SecondHighlight: "Ada", Third: "Engineer"},
+				Sections: []queries.OverviewSectionSettings{{ID: "about", Enabled: true, Collapsed: false}},
+			},
+		},
+	})
+	handler := handlers.NewResumeHandler(nil, getHandler, nil, nil, nil, nil)
+
+	engine := gin.New()
+	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) {
+		return userID, nil
+	}))
+	engine.GET("/api/v1/lk/resume/:resumeId", handler.Get)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/lk/resume/"+resumeID.String(), nil)
+	w := httptest.NewRecorder()
+
+	engine.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var payload struct {
+		Overview map[string]json.RawMessage `json:"overview"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &payload))
+	for _, key := range []string{"theme", "greeting", "sections"} {
+		require.Contains(t, payload.Overview, key)
+	}
+	for _, legacyKey := range []string{"Theme", "Greeting", "Sections"} {
+		require.NotContains(t, payload.Overview, legacyKey)
+	}
 }
 
 func TestHandlerRequiresAuthentication(t *testing.T) {

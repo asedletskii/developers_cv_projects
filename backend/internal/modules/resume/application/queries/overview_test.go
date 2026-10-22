@@ -1,6 +1,7 @@
 package queries
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -33,4 +34,38 @@ func TestResumeOverviewViewKeepsEmptySectionsNonNil(t *testing.T) {
 
 	require.NotNil(t, view.Sections)
 	require.Empty(t, view.Sections)
+}
+
+func TestResumeOverviewViewJSONUsesLowerCamelCaseFields(t *testing.T) {
+	from := "2026-10-01"
+	note := "Looking for a senior role"
+	view := ResumeOverviewView{
+		Theme:        &OverviewThemeSettings{Primary: "#E8785A", Secondary: "#428BF9"},
+		Greeting:     OverviewGreeting{First: "Hello", Second: "I am", SecondHighlight: "Ada", Third: "Engineer"},
+		Availability: &OverviewAvailability{Status: "open", From: &from, Note: &note},
+		Sections:     []OverviewSectionSettings{{ID: "about", Enabled: true, Collapsed: false}},
+	}
+
+	payload, err := json.Marshal(view)
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"theme": {"primary": "#E8785A", "secondary": "#428BF9"},
+		"greeting": {"first": "Hello", "second": "I am", "secondHighlight": "Ada", "third": "Engineer"},
+		"availability": {"status": "open", "from": "2026-10-01", "note": "Looking for a senior role"},
+		"sections": [{"id": "about", "enabled": true, "collapsed": false}]
+	}`, string(payload))
+}
+
+func TestResumeOverviewViewJSONOmitsEmptyOptionalFields(t *testing.T) {
+	view := ResumeOverviewView{
+		Greeting: OverviewGreeting{},
+		Sections: []OverviewSectionSettings{},
+	}
+
+	payload, err := json.Marshal(view)
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"greeting": {"first": "", "second": "", "secondHighlight": "", "third": ""},
+		"sections": []
+	}`, string(payload))
 }
