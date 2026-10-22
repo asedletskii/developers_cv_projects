@@ -19,7 +19,7 @@ type ResumeProfile struct {
 	Relocation  bool      `gorm:"not null"`
 }
 
-func (ResumeProfile) TableName() string { return "resume_profiles" }
+func (ResumeProfile) TableName() string { return schema + ".resume_profiles" }
 
 type ResumeProfileWorkFormat struct {
 	ProfileID uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -27,4 +27,4 @@ type ResumeProfileWorkFormat struct {
 	Position  int       `gorm:"not null"`
 }
 
-func (ResumeProfileWorkFormat) TableName() string { return "resume_profile_work_formats" }
+func (ResumeProfileWorkFormat) TableName() string { return schema + ".resume_profile_work_formats" }

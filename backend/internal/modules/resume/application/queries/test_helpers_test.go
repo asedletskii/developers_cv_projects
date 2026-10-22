@@ -3,30 +3,31 @@ package queries
 import (
 	"context"
 
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type contactViewReaderStub struct {
-	view  ContactView
+	view  resumecontracts.ContactView
 	err   error
-	query ContactViewQuery
+	query resumecontracts.ContactViewQuery
 }
 
-func (s *contactViewReaderStub) GetContactForView(_ context.Context, query ContactViewQuery) (ContactView, error) {
+func (s *contactViewReaderStub) GetContactForView(_ context.Context, query resumecontracts.ContactViewQuery) (resumecontracts.ContactView, error) {
 	s.query = query
 	if s.err != nil {
-		return ContactView{}, s.err
+		return resumecontracts.ContactView{}, s.err
 	}
 	return s.view, nil
 }
 
 type downloadContactsReaderStub struct {
-	view  DownloadContactsView
+	view  resumecontracts.DownloadContactsView
 	err   error
-	query DownloadContactsQuery
+	query resumecontracts.DownloadContactsQuery
 }
 
-func (s *downloadContactsReaderStub) GetContactsForDownload(_ context.Context, query DownloadContactsQuery) (DownloadContactsView, error) {
+func (s *downloadContactsReaderStub) GetContactsForDownload(_ context.Context, query resumecontracts.DownloadContactsQuery) (resumecontracts.DownloadContactsView, error) {
 	s.query = query
 	return s.view, s.err
 }
@@ -47,11 +48,11 @@ type publicResumeReaderStub struct {
 	err  error
 }
 
-func (s publicResumeReaderStub) GetPublic(context.Context, PublicResumeQuery) (PublicResumeView, error) {
+func (s publicResumeReaderStub) GetPublic(context.Context, resumecontracts.PublicResumeQuery) (ResumeView, error) {
 	if s.err != nil {
-		return PublicResumeView{}, s.err
+		return ResumeView{}, s.err
 	}
-	return ToPublicResumeView(s.view), nil
+	return s.view, nil
 }
 
 type resumeReaderStub struct{ view ResumeView }

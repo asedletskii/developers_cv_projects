@@ -12,7 +12,7 @@ type ResumeContacts struct {
 	Email    *string
 }
 
-func (ResumeContacts) TableName() string { return "resume_contacts" }
+func (ResumeContacts) TableName() string { return schema + ".resume_contacts" }
 
 type ResumeContactHidden struct {
 	ContactsID uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -20,7 +20,7 @@ type ResumeContactHidden struct {
 	Position   int       `gorm:"not null"`
 }
 
-func (ResumeContactHidden) TableName() string { return "resume_contact_hidden" }
+func (ResumeContactHidden) TableName() string { return schema + ".resume_contact_hidden" }
 
 type ResumeContactsText struct {
 	ContactsID uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -28,4 +28,4 @@ type ResumeContactsText struct {
 	Subtitle   *string
 }
 
-func (ResumeContactsText) TableName() string { return "resume_contacts_text" }
+func (ResumeContactsText) TableName() string { return schema + ".resume_contacts_text" }

@@ -17,4 +17,4 @@ type ResumeCourse struct {
 	CertificateLink *string
 }
 
-func (ResumeCourse) TableName() string { return "resume_courses" }
+func (ResumeCourse) TableName() string { return schema + ".resume_courses" }

@@ -9,6 +9,7 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 )
 
 func TestContactsToDomainRestoresPersistedStateWithoutBusinessValidation(t *testing.T) {
@@ -20,7 +21,7 @@ func TestContactsToDomainRestoresPersistedStateWithoutBusinessValidation(t *test
 	)
 
 	require.NoError(t, err)
-	require.Equal(t, []domain.ContactKey{"invalid"}, contacts.HiddenContacts())
+	require.Equal(t, []contactkey.Key{"invalid"}, contacts.HiddenContacts())
 }
 
 func TestOverviewToDomainCopiesPersistedFieldsWithoutValidation(t *testing.T) {

@@ -7,7 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -25,14 +26,13 @@ func TestCreateResumeLinkHandlerCreatesLinkAfterOwnershipValidation(t *testing.T
 	require.False(t, id.IsZero())
 	require.True(t, uow.called)
 	require.True(t, reader.called)
-	require.Equal(t, command.UserID, reader.query.UserID)
-	require.Equal(t, command.ResumeID, reader.query.ResumeID)
+	require.Equal(t, command.UserID, reader.lockQuery.UserID)
+	require.Equal(t, command.ResumeID, reader.lockQuery.ResumeID)
 	require.True(t, repository.called)
 	require.Equal(t, id, repository.link.ID())
 	require.Equal(t, command.ResumeID, repository.link.ResumeID())
 	require.Equal(t, "HH", repository.link.Name())
 	require.True(t, repository.link.IsActive())
-	require.True(t, repository.lockCalled)
 	require.True(t, repository.countCalled)
 }
 
@@ -43,7 +43,6 @@ func TestCreateResumeLinkHandlerRejectsAtCapacityBeforeCreate(t *testing.T) {
 	_, err := handler.Handle(context.Background(), validCreateCommand())
 
 	require.ErrorIs(t, err, domain.ErrResumeLinkLimitExceeded)
-	require.True(t, repository.lockCalled)
 	require.True(t, repository.countCalled)
 	require.False(t, repository.called)
 }
@@ -60,13 +59,39 @@ func TestCreateResumeLinkHandlerPropagatesCapacityReadFailure(t *testing.T) {
 }
 
 func TestCreateResumeLinkHandlerPropagatesResumeNotFound(t *testing.T) {
-	reader := &resumeReaderStub{err: resumequeries.ErrResumeNotFound}
+	reader := &resumeReaderStub{err: resumecontracts.ErrResumeNotFound}
 	repository := &resumeLinkRepositoryStub{}
 	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
 
 	_, err := handler.Handle(context.Background(), validCreateCommand())
 
-	require.ErrorIs(t, err, resumequeries.ErrResumeNotFound)
+	require.ErrorIs(t, err, application.ErrResumeNotFound)
+	require.False(t, repository.called)
+}
+
+func TestCreateResumeLinkHandlerPropagatesOwnershipLockFailure(t *testing.T) {
+	lockErr := errors.New("resume lock failure")
+	reader := &resumeReaderStub{err: lockErr}
+	repository := &resumeLinkRepositoryStub{}
+	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), validCreateCommand())
+
+	require.ErrorIs(t, err, lockErr)
+	require.False(t, repository.countCalled)
+	require.False(t, repository.called)
+}
+
+func TestCreateResumeLinkHandlerRejectsResumeNotOwnedBeforeCounting(t *testing.T) {
+	reader := &resumeReaderStub{notOwned: true}
+	repository := &resumeLinkRepositoryStub{}
+	handler := NewCreateResumeLinkHandler(repository, reader, &unitOfWorkStub{})
+
+	_, err := handler.Handle(context.Background(), validCreateCommand())
+
+	require.ErrorIs(t, err, application.ErrResumeNotFound)
+	require.True(t, reader.called)
+	require.False(t, repository.countCalled)
 	require.False(t, repository.called)
 }
 

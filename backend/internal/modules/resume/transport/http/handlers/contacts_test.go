@@ -44,6 +44,33 @@ func TestHandlerReplaceContacts(t *testing.T) {
 	require.NotNil(t, resume.Contacts())
 }
 
+func TestHandlerReplaceContactsDropsEmptyText(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rid := uuid.New()
+	uid := uuid.New()
+	owner, err := sharedvalueobjects.IDFromUUID(uid)
+	require.NoError(t, err)
+	resume, err := domain.NewResume(domain.ResumeParams{UserID: owner, Title: "Resume", Language: domain.ResumeLanguageEN})
+	require.NoError(t, err)
+
+	repo := &resumefixture.Repository{Resume: resume}
+	h := NewContactsHandler(commands.NewReplaceContactsHandler(repo, resumefixture.UnitOfWork{}))
+	e := gin.New()
+	e.Use(func(c *gin.Context) { c.Set("user_id", uid); c.Next() })
+	e.PUT("/resume/:resumeId/contacts", h.Replace)
+
+	body := `{"version":1,"email":"john@example.com","hiddenContacts":[],"contactsText":{"title":"","subtitle":"   "}}`
+	req := httptest.NewRequest(http.MethodPut, "/resume/"+rid.String()+"/contacts", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	e.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.True(t, repo.Saved)
+	require.NotNil(t, resume.Contacts())
+	require.Nil(t, resume.Contacts().Text())
+}
+
 func TestHandlerReplaceContactsRejectsMissingVersion(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewContactsHandler(nil)

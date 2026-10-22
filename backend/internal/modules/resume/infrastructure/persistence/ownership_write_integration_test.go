@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
-	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/readers"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
@@ -54,18 +54,18 @@ func TestPostgresResumeRepositoryEnforcesOwnership(t *testing.T) {
 	require.NoError(t, err)
 
 	resumeReader := readers.NewResumeReader(gormDB)
-	owned, err := resumeReader.OwnsResume(ctx, queries.GetResumeQuery{ResumeID: resume.ID(), UserID: owner})
+	owned, err := resumeReader.OwnsResume(ctx, resumecontracts.ResumeOwnershipQuery{ResumeID: resume.ID(), UserID: owner})
 	require.NoError(t, err)
 	require.True(t, owned)
-	overview, err := resumeReader.GetOwnedOverview(ctx, queries.GetResumeQuery{ResumeID: resume.ID(), UserID: owner})
+	sections, err := resumeReader.GetOwnedSections(ctx, resumecontracts.OwnedResumeSectionsQuery{ResumeID: resume.ID(), UserID: owner})
 	require.NoError(t, err)
-	require.Empty(t, overview.Sections)
-	_, err = resumeReader.GetOwnedOverview(ctx, queries.GetResumeQuery{ResumeID: resume.ID(), UserID: foreign})
-	require.ErrorIs(t, err, queries.ErrResumeNotFound)
-	owned, err = resumeReader.OwnsResume(ctx, queries.GetResumeQuery{ResumeID: resume.ID(), UserID: foreign})
+	require.Empty(t, sections)
+	_, err = resumeReader.GetOwnedSections(ctx, resumecontracts.OwnedResumeSectionsQuery{ResumeID: resume.ID(), UserID: foreign})
+	require.ErrorIs(t, err, resumecontracts.ErrResumeNotFound)
+	owned, err = resumeReader.OwnsResume(ctx, resumecontracts.ResumeOwnershipQuery{ResumeID: resume.ID(), UserID: foreign})
 	require.NoError(t, err)
 	require.False(t, owned)
-	owned, err = resumeReader.OwnsResume(ctx, queries.GetResumeQuery{ResumeID: sharedvalueobjects.NewID(), UserID: owner})
+	owned, err = resumeReader.OwnsResume(ctx, resumecontracts.ResumeOwnershipQuery{ResumeID: sharedvalueobjects.NewID(), UserID: owner})
 	require.NoError(t, err)
 	require.False(t, owned)
 }

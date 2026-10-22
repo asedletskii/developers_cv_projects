@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 func authorizeAnalyticsLink(
 	ctx context.Context,
-	access ports.AnalyticsAccessReader,
+	access analyticscontracts.AnalyticsAccessReader,
 	userID, linkID sharedvalueobjects.ID,
 ) error {
 	if access == nil {
@@ -28,7 +28,7 @@ func authorizeAnalyticsLink(
 
 func authorizeAnalyticsResume(
 	ctx context.Context,
-	access ports.AnalyticsAccessReader,
+	access analyticscontracts.AnalyticsAccessReader,
 	userID, resumeID sharedvalueobjects.ID,
 ) error {
 	if access == nil {

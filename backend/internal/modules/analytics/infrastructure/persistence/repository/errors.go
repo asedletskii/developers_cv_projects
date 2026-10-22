@@ -3,20 +3,25 @@ package repository
 import (
 	"errors"
 
-	resumelinkdomain "developers-cv/backend/internal/modules/resume_link/domain"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/platform/database"
+)
+
+var (
+	ErrDuplicateAnalyticsRecord = errors.New("duplicate analytics record")
+	ErrInvalidAnalyticsData     = errors.New("invalid analytics data")
 )
 
 func mapDBError(err error) error {
 	mapped := database.MapPostgresError(err)
 	if errors.Is(mapped, database.ErrUniqueViolation) {
-		return resumelinkdomain.ErrDuplicateResumeLink
+		return ErrDuplicateAnalyticsRecord
 	}
 	if errors.Is(mapped, database.ErrForeignKeyViolation) {
-		return resumelinkdomain.ErrEntityNotFound
+		return analyticscontracts.ErrAnalyticsSubjectNotFound
 	}
 	if errors.Is(mapped, database.ErrConstraintViolation) || errors.Is(mapped, database.ErrInvalidData) {
-		return resumelinkdomain.ErrInvalidResumeLink
+		return ErrInvalidAnalyticsData
 	}
 	return mapped
 }

@@ -11,4 +11,4 @@ type ResumeTechnology struct {
 	Position int       `gorm:"not null"`
 }
 
-func (ResumeTechnology) TableName() string { return "resume_technologies" }
+func (ResumeTechnology) TableName() string { return schema + ".resume_technologies" }

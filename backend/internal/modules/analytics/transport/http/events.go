@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"developers-cv/backend/internal/modules/analytics/application/commands"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	"developers-cv/backend/internal/modules/analytics/transport/http/requests"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
@@ -96,7 +97,7 @@ func (h *EventsHandler) Handle(c *gin.Context) {
 		switch {
 		case errors.Is(err, domain.ErrAnalyticsLinkInactive):
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeGone, http.StatusGone, "Resume link is no longer active"))
-		case errors.Is(err, domain.ErrAnalyticsSubjectNotFound), errors.Is(err, domain.ErrAnalyticsViewExpired):
+		case errors.Is(err, analyticscontracts.ErrAnalyticsSubjectNotFound), errors.Is(err, domain.ErrAnalyticsViewExpired):
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Analytics view not found"))
 		case errors.Is(err, domain.ErrInvalidAnalyticsEvent), errors.Is(err, domain.ErrInvalidViewState):
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid analytics batch"))

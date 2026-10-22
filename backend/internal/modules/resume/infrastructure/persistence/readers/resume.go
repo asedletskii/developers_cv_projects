@@ -7,11 +7,14 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/platform/database"
+	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ResumeReader struct {
@@ -46,13 +49,13 @@ func (r *ResumeReader) GetOwned(ctx context.Context, query queries.GetResumeQuer
 	return result, nil
 }
 
-func (r *ResumeReader) GetOwnedOverview(ctx context.Context, query queries.GetResumeQuery) (queries.ResumeOverviewView, error) {
+func (r *ResumeReader) GetOwnedSections(ctx context.Context, query resumecontracts.OwnedResumeSectionsQuery) ([]queries.ResumeSectionSettings, error) {
 	if r == nil {
-		return queries.ResumeOverviewView{}, fmt.Errorf("get owned resume overview: reader is nil")
+		return nil, fmt.Errorf("get owned resume sections: reader is nil")
 	}
-	var result queries.ResumeOverviewView
+	var result []queries.ResumeSectionSettings
 	err := database.WithReadSnapshot(ctx, r.db, func(snapshotCtx context.Context) error {
-		db, err := resolveDB(snapshotCtx, r.db, "get owned resume overview")
+		db, err := resolveDB(snapshotCtx, r.db, "get owned resume sections")
 		if err != nil {
 			return err
 		}
@@ -60,20 +63,46 @@ func (r *ResumeReader) GetOwnedOverview(ctx context.Context, query queries.GetRe
 		if _, err := r.loadMetadata(snapshotCtx, db, query.ResumeID.UUID(), &userID); err != nil {
 			return err
 		}
-		view := queries.ResumeView{}
-		if err := r.loadOverview(snapshotCtx, db, query.ResumeID.UUID(), &view); err != nil {
-			return err
+		var sections []gormmodel.ResumeOverviewSection
+		if err := db.WithContext(snapshotCtx).Where("resume_id = ?", query.ResumeID.UUID()).Order("position").Find(&sections).Error; err != nil {
+			return fmt.Errorf("get owned resume sections: %w", err)
 		}
-		result = view.Overview
+		result = make([]queries.ResumeSectionSettings, 0, len(sections))
+		for _, section := range sections {
+			result = append(result, queries.ResumeSectionSettings{ID: section.SectionID, Enabled: section.Enabled, Collapsed: section.Collapsed})
+		}
 		return nil
 	})
 	if err != nil {
-		return queries.ResumeOverviewView{}, err
+		return nil, err
 	}
 	return result, nil
 }
 
-func (r *ResumeReader) OwnsResume(ctx context.Context, query queries.GetResumeQuery) (bool, error) {
+func (r *ResumeReader) LockOwnedResumeForUpdate(ctx context.Context, query resumecontracts.OwnedResumeLock) (bool, error) {
+	if r == nil {
+		return false, fmt.Errorf("lock owned resume for update: reader is nil")
+	}
+	if query.ResumeID.IsZero() || query.UserID.IsZero() {
+		return false, fmt.Errorf("lock owned resume for update: invalid identifiers")
+	}
+	db, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return false, fmt.Errorf("lock owned resume for update: %w", err)
+	}
+	var model gormmodel.Resume
+	err = db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").
+		Where("id = ? AND user_id = ?", query.ResumeID.UUID(), query.UserID.UUID()).First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("lock owned resume for update: %w", err)
+	}
+	return true, nil
+}
+
+func (r *ResumeReader) OwnsResume(ctx context.Context, query resumecontracts.ResumeOwnershipQuery) (bool, error) {
 	if r == nil {
 		return false, fmt.Errorf("check resume ownership: reader is nil")
 	}
@@ -92,11 +121,64 @@ func (r *ResumeReader) OwnsResume(ctx context.Context, query queries.GetResumeQu
 	return true, nil
 }
 
-func (r *ResumeReader) GetPublic(ctx context.Context, query queries.PublicResumeQuery) (queries.PublicResumeView, error) {
+func (r *ResumeReader) GetPublicationState(
+	ctx context.Context,
+	query resumecontracts.ResumePublicationQuery,
+) (resumecontracts.ResumePublicationState, error) {
 	if r == nil {
-		return queries.PublicResumeView{}, fmt.Errorf("get public resume: reader is nil")
+		return resumecontracts.ResumePublicationState{}, fmt.Errorf("get resume publication state: reader is nil")
 	}
-	var result queries.PublicResumeView
+	if query.ResumeID.IsZero() {
+		return resumecontracts.ResumePublicationState{}, fmt.Errorf("get resume publication state: invalid resume id")
+	}
+	db, err := resolveDB(ctx, r.db, "get resume publication state")
+	if err != nil {
+		return resumecontracts.ResumePublicationState{}, err
+	}
+	return r.readPublicationState(ctx, db, query.ResumeID)
+}
+
+func (r *ResumeReader) LockPublicationState(
+	ctx context.Context,
+	query resumecontracts.ResumePublicationQuery,
+) (resumecontracts.ResumePublicationState, error) {
+	if r == nil {
+		return resumecontracts.ResumePublicationState{}, fmt.Errorf("lock resume publication state: reader is nil")
+	}
+	if query.ResumeID.IsZero() {
+		return resumecontracts.ResumePublicationState{}, fmt.Errorf("lock resume publication state: invalid resume id")
+	}
+	db, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return resumecontracts.ResumePublicationState{}, fmt.Errorf("lock resume publication state: %w", err)
+	}
+	return r.readPublicationState(ctx, db.WithContext(ctx).Clauses(clause.Locking{Strength: "SHARE"}), query.ResumeID)
+}
+
+func (r *ResumeReader) readPublicationState(
+	ctx context.Context,
+	db *gorm.DB,
+	resumeID sharedvalueobjects.ID,
+) (resumecontracts.ResumePublicationState, error) {
+	var model gormmodel.Resume
+	if err := db.WithContext(ctx).Select("id, status").Where("id = ?", resumeID.UUID()).First(&model).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return resumecontracts.ResumePublicationState{}, resumecontracts.ErrResumeNotFound
+		}
+		return resumecontracts.ResumePublicationState{}, fmt.Errorf("read resume publication state: %w", err)
+	}
+	return resumecontracts.ResumePublicationState{
+		Exists:    true,
+		Published: model.Status == string(domain.ResumeStatusOpened),
+		Status:    model.Status,
+	}, nil
+}
+
+func (r *ResumeReader) GetPublic(ctx context.Context, query resumecontracts.PublicResumeQuery) (queries.ResumeView, error) {
+	if r == nil {
+		return queries.ResumeView{}, fmt.Errorf("get public resume: reader is nil")
+	}
+	var result queries.ResumeView
 	err := database.WithReadSnapshot(ctx, r.db, func(snapshotCtx context.Context) error {
 		db, err := resolveDB(snapshotCtx, r.db, "get public resume")
 		if err != nil {
@@ -110,11 +192,11 @@ func (r *ResumeReader) GetPublic(ctx context.Context, query queries.PublicResume
 		if err != nil {
 			return err
 		}
-		result = queries.ToPublicResumeView(view)
+		result = view
 		return nil
 	})
 	if err != nil {
-		return queries.PublicResumeView{}, err
+		return queries.ResumeView{}, err
 	}
 	return result, nil
 }
@@ -176,12 +258,12 @@ func (r *ResumeReader) loadMetadata(ctx context.Context, db *gorm.DB, resumeID u
 	}
 	if err := readDB.WithContext(ctx).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return queries.ResumeMetadataView{}, queries.ErrResumeNotFound
+			return queries.ResumeMetadataView{}, resumecontracts.ErrResumeNotFound
 		}
 		return queries.ResumeMetadataView{}, fmt.Errorf("get resume metadata: %w", err)
 	}
 	if userID == nil && model.Status != string(domain.ResumeStatusOpened) {
-		return queries.ResumeMetadataView{}, queries.ErrResumeNotFound
+		return queries.ResumeMetadataView{}, resumecontracts.ErrResumeNotFound
 	}
 	return queries.ResumeMetadataView{
 		ID: model.ID.String(), Title: model.Title, Language: model.Language, Status: model.Status,

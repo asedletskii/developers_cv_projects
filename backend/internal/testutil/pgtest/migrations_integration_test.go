@@ -46,6 +46,15 @@ func TestAllMigrationsCanBeRolledBack(t *testing.T) {
 		require.NoError(t, err, "read migration %s", name)
 		_, err = conn.Exec(ctx, string(content))
 		require.NoError(t, err, "apply rollback migration %s", name)
+		if strings.HasPrefix(name, "000003_") {
+			for schema, tables := range moduleTablesBySchema {
+				for _, table := range tables {
+					var actual *string
+					require.NoError(t, conn.QueryRow(ctx, "SELECT to_regclass($1)::text", "public."+table).Scan(&actual))
+					require.NotNil(t, actual, "rollback of migration 3 should restore public.%s from %s", table, schema)
+				}
+			}
+		}
 		if strings.HasPrefix(name, "000002_") {
 			for _, table := range []string{
 				"resume_link_views", "resume_link_events", "resume_link_clicks", "resume_link_visitors",
@@ -79,9 +88,9 @@ func TestAnalyticsTablesUseAnalyticsOwnedNames(t *testing.T) {
 		"analytics_views", "analytics_events", "analytics_clicks", "analytics_visitors",
 	} {
 		var actual *string
-		require.NoError(t, conn.QueryRow(ctx, "SELECT to_regclass($1)::text", "public."+table).Scan(&actual))
-		require.NotNil(t, actual, "expected table %s", table)
-		require.Equal(t, table, *actual)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT to_regclass($1)::text", "analytics."+table).Scan(&actual))
+		require.NotNil(t, actual, "expected table analytics.%s", table)
+		require.Equal(t, "analytics."+table, *actual)
 	}
 }
 
@@ -116,4 +125,12 @@ func TestMigrationDirectoryContainsBothDirections(t *testing.T) {
 	}
 	require.NotEmpty(t, up, "expected up migrations")
 	require.Equal(t, up, down, "every up migration must have a matching down migration")
+
+	for name := range up {
+		for _, suffix := range []string{".up.sql", ".down.sql"} {
+			content, err := os.ReadFile(filepath.Join(migrationsDir, name+suffix))
+			require.NoError(t, err, "read migration %s%s", name, suffix)
+			require.NotContains(t, string(content), "schema_migrations", "migrations must not move or modify the migration ledger")
+		}
+	}
 }

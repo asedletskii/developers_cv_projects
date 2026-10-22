@@ -18,6 +18,7 @@ import (
 	analyticscommands "developers-cv/backend/internal/modules/analytics/application/commands"
 	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
 	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	analyticsdomain "developers-cv/backend/internal/modules/analytics/domain"
 	analyticsgormmodel "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/gormmodel"
 	"developers-cv/backend/internal/modules/resume_link/domain"
@@ -42,10 +43,7 @@ func createAnalyticsView(
 
 func applyAnalyticsBatchInTransaction(
 	ctx context.Context,
-	repo interface {
-		LoadAnalyticsBatchForUpdate(context.Context, sharedvalueobjects.ID, sharedvalueobjects.ID, bool, bool, bool) (analyticsports.AnalyticsBatchSnapshot, error)
-		SaveAnalyticsBatch(context.Context, *analyticsdomain.View, []*analyticsdomain.AnalyticsEvent, []*analyticsdomain.AnalyticsClick) error
-	},
+	repo *analyticsTestRepository,
 	viewID, linkID sharedvalueobjects.ID,
 	update analyticsdomain.ViewStateUpdate,
 	events []*analyticsdomain.AnalyticsEvent,
@@ -76,7 +74,7 @@ func applyAnalyticsBatchInTransaction(
 			ClientTimestampMS: click.OccurredAt().UnixMilli(),
 		})
 	}
-	handler := analyticscommands.NewIngestAnalyticsBatchHandler(repo, txContextUnitOfWork{}, nil)
+	handler := analyticscommands.NewIngestAnalyticsBatchHandler(repo, txContextUnitOfWork{}, repo.Subjects, nil)
 	return handler.Handle(ctx, analyticscommands.AnalyticsBatchInput{
 		ViewID: viewID, LinkID: linkID, Seq: update.Seq, ActiveMS: update.ActiveMS,
 		MaxSection: string(update.MaxSection), ExitSection: string(update.ExitSection),
@@ -90,7 +88,35 @@ func (txContextUnitOfWork) Do(ctx context.Context, fn func(context.Context) erro
 	return fn(ctx)
 }
 
-func newAnalyticsView(t *testing.T, linkID sharedvalueobjects.ID, technologyCatalog ...[]string) *analyticsdomain.View {
+type signalingSubjectReader struct {
+	inner       analyticscontracts.AnalyticsSubjectReader
+	linkContext chan analyticsports.LinkAnalyticsContext
+	locked      chan struct{}
+	release     chan struct{}
+	once        sync.Once
+}
+
+func (s *signalingSubjectReader) LoadLinkLifecycle(ctx context.Context, linkID sharedvalueobjects.ID) (analyticscontracts.LinkLifecycle, error) {
+	lifecycle, err := s.inner.LoadLinkLifecycle(ctx, linkID)
+	if err != nil {
+		return analyticscontracts.LinkLifecycle{}, err
+	}
+	s.once.Do(func() {
+		s.linkContext <- analyticsports.LinkAnalyticsContext{
+			LinkID: lifecycle.LinkID, ResumeID: lifecycle.ResumeID,
+			LinkActive: lifecycle.LinkActive, ResumePublished: lifecycle.ResumePublished,
+		}
+		close(s.locked)
+		<-s.release
+	})
+	return lifecycle, nil
+}
+
+func (s *signalingSubjectReader) ListResumeLinks(ctx context.Context, resumeID sharedvalueobjects.ID) ([]analyticscontracts.ResumeLinkRef, error) {
+	return s.inner.ListResumeLinks(ctx, resumeID)
+}
+
+func newAnalyticsView(t *testing.T, link *domain.ResumeLink, technologyCatalog ...[]string) *analyticsdomain.View {
 	t.Helper()
 	layout, err := analyticsdomain.NewLayoutSnapshot(
 		[]analyticsdomain.AnalyticsSectionID{analyticsdomain.AnalyticsSectionAbout, analyticsdomain.AnalyticsSectionExperience, analyticsdomain.AnalyticsSectionProjects},
@@ -103,7 +129,7 @@ func newAnalyticsView(t *testing.T, linkID sharedvalueobjects.ID, technologyCata
 	)
 	require.NoError(t, err)
 	view, err := analyticsdomain.NewView(analyticsdomain.ViewParams{
-		LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
+		LinkID: link.ID(), ResumeID: link.ResumeID(), VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
 		Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSLinux, Traffic: analyticsdomain.TrafficHuman,
 		Layout: layout, StartedAt: time.Now().UTC(),
 	})
@@ -126,7 +152,7 @@ func TestAnalyticsSanitizesEventPayloadBeforeJSONBInsert(t *testing.T) {
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
-	view := newAnalyticsView(t, link.ID(), []string{"Go", "PostgreSQL"})
+	view := newAnalyticsView(t, link, []string{"Go", "PostgreSQL"})
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 	loadedView, err := repo.GetView(ctx, view.ID())
 	require.NoError(t, err)
@@ -153,14 +179,14 @@ func TestAnalyticsSanitizesEventPayloadBeforeJSONBInsert(t *testing.T) {
 
 	var payload string
 	require.NoError(t, gormDB.Raw(
-		"SELECT payload::text FROM analytics_events WHERE id = ?", unsafeEvent.ID().UUID(),
+		"SELECT payload::text FROM analytics.analytics_events WHERE id = ?", unsafeEvent.ID().UUID(),
 	).Scan(&payload).Error)
 	require.NotContains(t, payload, "\\u0000")
 	require.Contains(t, payload, "https://example.test/путь")
 	require.NotContains(t, payload, "\\n")
 	var eventCount int64
 	require.NoError(t, gormDB.Raw(
-		"SELECT count(*) FROM analytics_events WHERE view_id = ?", view.ID().UUID(),
+		"SELECT count(*) FROM analytics.analytics_events WHERE view_id = ?", view.ID().UUID(),
 	).Scan(&eventCount).Error)
 	require.EqualValues(t, 2, eventCount, "sanitized payload and unrelated valid event should both persist")
 }
@@ -173,14 +199,14 @@ func TestAnalyticsBatchIsMonotonic(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "Analytics Batch"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
 
-	view := newAnalyticsView(t, link.ID())
+	view := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 
 	clientEventID := sharedvalueobjects.NewID()
@@ -230,13 +256,13 @@ func TestAnalyticsBatchIsMonotonic(t *testing.T) {
 
 	var count int
 	require.NoError(t, gormDB.Raw(
-		"SELECT count(*) FROM analytics_events WHERE view_id = ? AND client_event_id = ?",
+		"SELECT count(*) FROM analytics.analytics_events WHERE view_id = ? AND client_event_id = ?",
 		view.ID().UUID(), clientEventID.UUID(),
 	).Scan(&count).Error)
 	require.Equal(t, 1, count)
 	var clickCount int
 	require.NoError(t, gormDB.Raw(
-		"SELECT count(*) FROM analytics_clicks WHERE view_id = ?",
+		"SELECT count(*) FROM analytics.analytics_clicks WHERE view_id = ?",
 		view.ID().UUID(),
 	).Scan(&clickCount).Error)
 	require.Equal(t, 1, clickCount)
@@ -252,17 +278,17 @@ func TestAnalyticsBatchSerializesWithLifecycleChanges(t *testing.T) {
 	}{
 		{
 			name:          "link deactivation",
-			table:         "resume_links",
+			table:         "resume_link.resume_links",
 			getID:         func(linkID, _ sharedvalueobjects.ID) sharedvalueobjects.ID { return linkID },
-			updateSQL:     "UPDATE resume_links SET status = 'inactive' WHERE id = $1",
+			updateSQL:     "UPDATE resume_link.resume_links SET status = 'inactive' WHERE id = $1",
 			expectedError: analyticsdomain.ErrAnalyticsLinkInactive,
 		},
 		{
 			name:          "resume unpublish",
-			table:         "resumes",
+			table:         "resume.resumes",
 			getID:         func(_, resumeID sharedvalueobjects.ID) sharedvalueobjects.ID { return resumeID },
-			updateSQL:     "UPDATE resumes SET status = 'draft' WHERE id = $1",
-			expectedError: analyticsdomain.ErrAnalyticsSubjectNotFound,
+			updateSQL:     "UPDATE resume.resumes SET status = 'draft' WHERE id = $1",
+			expectedError: analyticscontracts.ErrAnalyticsSubjectNotFound,
 		},
 	}
 
@@ -277,7 +303,7 @@ func TestAnalyticsBatchSerializesWithLifecycleChanges(t *testing.T) {
 			resumeID := sharedvalueobjects.NewID()
 			insertUserAndResume(t, ctx, dsn, owner, resumeID)
 			require.NoError(t, gormDB.Exec(
-				"UPDATE resumes SET status = 'opened' WHERE id = ?", resumeID.UUID(),
+				"UPDATE resume.resumes SET status = 'opened' WHERE id = ?", resumeID.UUID(),
 			).Error)
 
 			link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "Lifecycle race"})
@@ -285,7 +311,7 @@ func TestAnalyticsBatchSerializesWithLifecycleChanges(t *testing.T) {
 			uow := database.NewUnitOfWork(gormDB)
 			require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
 
-			view := newAnalyticsView(t, link.ID())
+			view := newAnalyticsView(t, link)
 			require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 
 			locked := make(chan struct{})
@@ -294,29 +320,15 @@ func TestAnalyticsBatchSerializesWithLifecycleChanges(t *testing.T) {
 			var releaseOnce sync.Once
 			unblock := func() { releaseOnce.Do(func() { close(release) }) }
 			defer unblock()
+			repo.Subjects = &signalingSubjectReader{
+				inner: repo.Subjects, linkContext: linkContext, locked: locked, release: release,
+			}
 			batchResult := make(chan error, 1)
 			go func() {
 				batchResult <- uow.Do(ctx, func(txCtx context.Context) error {
-					snapshot, err := repo.LoadAnalyticsBatchForUpdate(txCtx, view.ID(), link.ID(), false, false, false)
-					if err != nil {
-						return err
-					}
-					linkContext <- snapshot.LinkContext
-					close(locked)
-					<-release
-					now := time.Now().UTC()
-					update := analyticsdomain.ViewStateUpdate{Seq: 1, SeenAt: now}
-					decision, err := snapshot.View.EvaluateAnalyticsBatch(snapshot.LinkContext.LinkActive, snapshot.LinkContext.ResumePublished, now, update)
-					if err != nil {
-						return err
-					}
-					if err := snapshot.View.ApplyState(update); err != nil {
-						return err
-					}
-					if decision.Ignore {
-						return nil
-					}
-					return repo.SaveAnalyticsBatch(txCtx, snapshot.View, nil, nil)
+					return applyAnalyticsBatchInTransaction(txCtx, repo, view.ID(), link.ID(), analyticsdomain.ViewStateUpdate{
+						Seq: 1, SeenAt: time.Now().UTC(),
+					}, nil, nil)
 				})
 			}()
 
@@ -377,7 +389,7 @@ func TestDeletingResumeLinkCascadesAnalyticsHistory(t *testing.T) {
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
 
-	view := newAnalyticsView(t, link.ID())
+	view := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 	event, err := analyticsdomain.NewAnalyticsEvent(analyticsdomain.AnalyticsEventParams{
 		ViewID: view.ID(), LinkID: link.ID(), Type: analyticsdomain.EventTypeDownload, OccurredAt: time.Now().UTC(),
@@ -397,17 +409,22 @@ func TestDeletingResumeLinkCascadesAnalyticsHistory(t *testing.T) {
 		return repo.RecordClicks(txCtx, []*analyticsdomain.AnalyticsClick{click})
 	}))
 	require.NoError(t, gormDB.Exec(
-		"INSERT INTO analytics_visitors (link_id, visitor_id, first_seen_at, first_view_id) VALUES (?, ?, ?, ?)",
+		"INSERT INTO analytics.analytics_visitors (link_id, visitor_id, first_seen_at, first_view_id) VALUES (?, ?, ?, ?)",
 		link.ID().UUID(), sharedvalueobjects.NewID().UUID(), time.Now().UTC(), view.ID().UUID(),
 	).Error)
 
-	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Delete(txCtx, link.ID()) }))
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		if err := repo.DeleteByLinkIDs(txCtx, []sharedvalueobjects.ID{link.ID()}); err != nil {
+			return err
+		}
+		return repo.Delete(txCtx, link.ID())
+	}))
 
 	var views, events, clicks, visitors int64
 	require.NoError(t, gormDB.Model(&analyticsgormmodel.AnalyticsView{}).Where("link_id = ?", link.ID().UUID()).Count(&views).Error)
 	require.NoError(t, gormDB.Model(&analyticsgormmodel.AnalyticsEvent{}).Where("link_id = ?", link.ID().UUID()).Count(&events).Error)
 	require.NoError(t, gormDB.Model(&analyticsgormmodel.AnalyticsClick{}).Where("link_id = ?", link.ID().UUID()).Count(&clicks).Error)
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_visitors WHERE link_id = ?", link.ID().UUID()).Scan(&visitors).Error)
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_visitors WHERE link_id = ?", link.ID().UUID()).Scan(&visitors).Error)
 	require.Zero(t, views)
 	require.Zero(t, events)
 	require.Zero(t, clicks)
@@ -422,13 +439,13 @@ func TestAnalyticsPrintEventsAreDeduplicatedPerBatchAndAcrossBatches(t *testing.
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "Print deduplication"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
-	view := newAnalyticsView(t, link.ID())
+	view := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 
 	newPrintEvent := func() *analyticsdomain.AnalyticsEvent {
@@ -472,7 +489,7 @@ func TestAnalyticsBatchEnforcesPerViewEventAndClickCaps(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
 		ResumeID: resumeID, Name: "Analytics caps",
@@ -480,7 +497,7 @@ func TestAnalyticsBatchEnforcesPerViewEventAndClickCaps(t *testing.T) {
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
-	view := newAnalyticsView(t, link.ID())
+	view := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 
 	now := time.Now().UTC()
@@ -546,24 +563,28 @@ func TestAnalyticsResumeStatisticsAggregatesAllLinks(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	uow := database.NewUnitOfWork(gormDB)
-	links := make([]*domain.ResumeLink, 0, 2)
-	for _, name := range []string{"HH", "Telegram"} {
+	links := make([]*domain.ResumeLink, 0, 3)
+	for _, name := range []string{"HH", "Telegram", "No views"} {
 		link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: name})
 		require.NoError(t, err)
 		require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
 		links = append(links, link)
 	}
 
-	first := newAnalyticsView(t, links[0].ID())
-	second := newAnalyticsView(t, links[1].ID())
+	first := newAnalyticsView(t, links[0])
+	second := newAnalyticsView(t, links[1])
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, first))
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, second))
 	startedAt := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
-	require.NoError(t, gormDB.Exec(`UPDATE analytics_views SET started_at = ? WHERE id = ?`, startedAt, first.ID().UUID()).Error)
-	require.NoError(t, gormDB.Exec(`UPDATE analytics_views SET started_at = ? WHERE id = ?`, startedAt.Add(5*time.Minute), second.ID().UUID()).Error)
+	require.NoError(t, gormDB.Exec(`
+		UPDATE analytics.analytics_views
+		SET started_at = ?, confirmed_at = ?, active_ms = 12000,
+		    device = 'mobile', referrer_host = 'referrer.example'
+		WHERE id = ?`, startedAt, startedAt.Add(2*time.Minute), first.ID().UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE analytics.analytics_views SET started_at = ? WHERE id = ?`, startedAt.Add(5*time.Minute), second.ID().UUID()).Error)
 
 	period, err := analyticsqueries.NewAnalyticsPeriod("2026-10-01", "2026-10-05", "UTC", startedAt)
 	require.NoError(t, err)
@@ -576,12 +597,46 @@ func TestAnalyticsResumeStatisticsAggregatesAllLinks(t *testing.T) {
 
 	result, err := reader.GetResumeStatistics(ctx, analyticsqueries.ResumeAnalyticsQuery{ResumeID: resumeID, Period: period})
 	require.NoError(t, err)
-	require.Len(t, result.Links, 2)
+	require.Len(t, result.Links, 3)
 	require.Equal(t, links[0].ID().String(), result.Links[0].ID)
 	require.Equal(t, links[1].ID().String(), result.Links[1].ID)
+	require.Equal(t, links[2].ID().String(), result.Links[2].ID)
+	require.Equal(t, "No views", result.Links[2].Name)
 	require.Equal(t, int64(1), result.Links[0].Views)
+	require.Equal(t, int64(1), result.Links[0].Reads)
 	require.Equal(t, int64(1), result.Links[1].Views)
+	require.Zero(t, result.Links[1].Reads)
+	require.Zero(t, result.Links[2].Views)
+	require.Nil(t, result.Links[2].LastViewAt)
 	require.Equal(t, int64(2), result.Views)
+	require.Equal(t, int64(1), result.Reads)
+	require.Equal(t, int64(2), result.UniqueVisitors)
+	require.Equal(t, int64(12), result.MedianActiveSeconds)
+	require.Equal(t, int64(1), result.Devices["mobile"])
+	require.Equal(t, int64(1), result.Devices["desktop"])
+	require.Len(t, result.Referrers, 2)
+	referrers := make(map[string]int64, len(result.Referrers))
+	for _, referrer := range result.Referrers {
+		host := ""
+		if referrer.Host != nil {
+			host = *referrer.Host
+		}
+		referrers[host] = referrer.Views
+	}
+	require.Equal(t, int64(1), referrers["referrer.example"])
+	require.Equal(t, int64(1), referrers[""])
+	require.Zero(t, result.Filtered.Bot)
+	require.Zero(t, result.Filtered.Owner)
+	require.Zero(t, result.Filtered.Suspect)
+	require.NotNil(t, result.FirstViewAt)
+	require.NotNil(t, result.LastViewAt)
+	require.True(t, result.FirstViewAt.Equal(startedAt))
+	require.True(t, result.LastViewAt.Equal(startedAt.Add(5*time.Minute)))
+
+	require.NoError(t, gormDB.Exec(`UPDATE resume_link.resume_links SET name = 'HH updated' WHERE id = ?`, links[0].ID().UUID()).Error)
+	result, err = reader.GetResumeStatistics(ctx, analyticsqueries.ResumeAnalyticsQuery{ResumeID: resumeID, Period: period})
+	require.NoError(t, err)
+	require.Equal(t, "HH updated", result.Links[0].Name)
 }
 
 func TestAnalyticsReferrerStatisticsAreCappedAndDeterministic(t *testing.T) {
@@ -592,7 +647,7 @@ func TestAnalyticsReferrerStatisticsAreCappedAndDeterministic(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
 		ResumeID: resumeID, Name: "Referrer cap",
 	})
@@ -603,9 +658,9 @@ func TestAnalyticsReferrerStatisticsAreCappedAndDeterministic(t *testing.T) {
 	for index := 0; index < 25; index++ {
 		host := fmt.Sprintf("host-%02d.example", index)
 		view, viewErr := analyticsdomain.NewView(analyticsdomain.ViewParams{
-			LinkID: link.ID(), VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
+			LinkID: link.ID(), ResumeID: link.ResumeID(), VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
 			Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSLinux, Traffic: analyticsdomain.TrafficHuman,
-			ReferrerHost: host, Layout: newAnalyticsView(t, link.ID()).Layout(), StartedAt: startedAt.Add(time.Duration(index) * time.Minute),
+			ReferrerHost: host, Layout: newAnalyticsView(t, link).Layout(), StartedAt: startedAt.Add(time.Duration(index) * time.Minute),
 		})
 		require.NoError(t, viewErr)
 		require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
@@ -627,7 +682,7 @@ func TestAnalyticsReadMetricsUseConfirmationState(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
 		ResumeID: resumeID, Name: "Confirmation state",
@@ -637,17 +692,17 @@ func TestAnalyticsReadMetricsUseConfirmationState(t *testing.T) {
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
 
 	startedAt := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
-	unconfirmed := newAnalyticsView(t, link.ID())
-	confirmed := newAnalyticsView(t, link.ID())
+	unconfirmed := newAnalyticsView(t, link)
+	confirmed := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, unconfirmed))
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, confirmed))
 	require.NoError(t, gormDB.Exec(
-		`UPDATE analytics_views SET started_at = ?, active_ms = 9000, confirmed_at = NULL WHERE id = ?`,
+		`UPDATE analytics.analytics_views SET started_at = ?, active_ms = 9000, confirmed_at = NULL WHERE id = ?`,
 		startedAt, unconfirmed.ID().UUID(),
 	).Error)
 	confirmedAt := startedAt.Add(time.Second)
 	require.NoError(t, gormDB.Exec(
-		`UPDATE analytics_views SET started_at = ?, active_ms = 0, confirmed_at = ? WHERE id = ?`,
+		`UPDATE analytics.analytics_views SET started_at = ?, active_ms = 0, confirmed_at = ? WHERE id = ?`,
 		startedAt.Add(time.Minute), confirmedAt, confirmed.ID().UUID(),
 	).Error)
 	period, err := analyticsqueries.NewAnalyticsPeriod("2026-10-10", "2026-10-11", "UTC", startedAt)
@@ -689,7 +744,7 @@ func TestAnalyticsReturningVisitorMetricsKeepTheirCalendarDaySemantics(t *testin
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	uow := database.NewUnitOfWork(gormDB)
 	links := make([]*domain.ResumeLink, 0, 2)
@@ -704,9 +759,9 @@ func TestAnalyticsReturningVisitorMetricsKeepTheirCalendarDaySemantics(t *testin
 
 	base := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
 	visitorID := sharedvalueobjects.NewID()
-	first := newAnalyticsViewForVisitor(t, links[0].ID(), visitorID, base)
-	sameDayReturn := newAnalyticsViewForVisitor(t, links[0].ID(), visitorID, base.Add(30*time.Minute))
-	nextDayOtherLink := newAnalyticsViewForVisitor(t, links[1].ID(), visitorID, base.Add(24*time.Hour))
+	first := newAnalyticsViewForVisitor(t, links[0], visitorID, base)
+	sameDayReturn := newAnalyticsViewForVisitor(t, links[0], visitorID, base.Add(30*time.Minute))
+	nextDayOtherLink := newAnalyticsViewForVisitor(t, links[1], visitorID, base.Add(24*time.Hour))
 	for _, view := range []*analyticsdomain.View{first, sameDayReturn, nextDayOtherLink} {
 		require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 	}
@@ -744,27 +799,29 @@ func TestAnalyticsVisitsPaginationUsesBothLinkIDBindings(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "Visits"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
 
-	first := newAnalyticsView(t, link.ID())
-	second := newAnalyticsView(t, link.ID())
+	first := newAnalyticsView(t, link)
+	second := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, first))
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, second))
 
 	firstStartedAt := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
 	secondStartedAt := firstStartedAt.Add(5 * time.Minute)
-	require.NoError(t, gormDB.Exec(`UPDATE analytics_views SET started_at = ? WHERE id = ?`, firstStartedAt, first.ID().UUID()).Error)
-	require.NoError(t, gormDB.Exec(`UPDATE analytics_views SET started_at = ? WHERE id = ?`, secondStartedAt, second.ID().UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE analytics.analytics_views SET started_at = ? WHERE id = ?`, firstStartedAt, first.ID().UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE analytics.analytics_views SET started_at = ? WHERE id = ?`, secondStartedAt, second.ID().UUID()).Error)
 
 	page, err := reader.GetVisits(ctx, analyticsqueries.VisitsReadQuery{LinkID: link.ID(), Limit: 1})
 	require.NoError(t, err)
 	require.Len(t, page.Items, 1)
 	require.Equal(t, second.ID().String(), page.Items[0].ID)
+	require.NotNil(t, page.Items[0].Events)
+	require.Empty(t, page.Items[0].Events)
 	require.NotNil(t, page.NextCursor)
 
 	cursorTime, cursorID, err := analyticsqueries.DecodeVisitCursor(*page.NextCursor)
@@ -797,9 +854,9 @@ func TestAnalyticsVisitorOrdinalAndFirstSeenSurviveRetention(t *testing.T) {
 	base := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
 	visitorA := sharedvalueobjects.NewID()
 	visitorB := sharedvalueobjects.NewID()
-	firstA := newAnalyticsViewForVisitor(t, link.ID(), visitorA, base.Add(time.Minute))
-	firstB := newAnalyticsViewForVisitor(t, link.ID(), visitorB, base)
-	secondA := newAnalyticsViewForVisitor(t, link.ID(), visitorA, base.Add(2*time.Minute))
+	firstA := newAnalyticsViewForVisitor(t, link, visitorA, base.Add(time.Minute))
+	firstB := newAnalyticsViewForVisitor(t, link, visitorB, base)
+	secondA := newAnalyticsViewForVisitor(t, link, visitorA, base.Add(2*time.Minute))
 
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, firstA))
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, firstB))
@@ -808,6 +865,8 @@ func TestAnalyticsVisitorOrdinalAndFirstSeenSurviveRetention(t *testing.T) {
 	page, err := reader.GetVisits(ctx, analyticsqueries.VisitsReadQuery{LinkID: link.ID(), Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, page.Items, 3)
+	require.NotNil(t, page.Items[0].Events, "visits without events must expose an empty array")
+	require.Empty(t, page.Items[0].Events)
 	require.Equal(t, int64(2), page.Items[0].Visitor.Ordinal)
 	require.True(t, page.Items[0].Visitor.IsReturning)
 	require.Equal(t, firstA.ID().String(), page.Items[1].ID)
@@ -852,7 +911,7 @@ func TestAnalyticsConcurrentVisitorRegistrationKeepsDenseOrdinal(t *testing.T) {
 	views := make([]*analyticsdomain.View, 0, visitorCount)
 	for i := visitorCount - 1; i >= 0; i-- {
 		views = append(views, newAnalyticsViewForVisitor(
-			t, link.ID(), sharedvalueobjects.NewID(), base.Add(time.Duration(i)*time.Minute),
+			t, link, sharedvalueobjects.NewID(), base.Add(time.Duration(i)*time.Minute),
 		))
 	}
 
@@ -883,7 +942,7 @@ func TestAnalyticsConcurrentVisitorRegistrationKeepsDenseOrdinal(t *testing.T) {
 
 func newAnalyticsViewForVisitor(
 	t *testing.T,
-	linkID sharedvalueobjects.ID,
+	link *domain.ResumeLink,
 	visitorID sharedvalueobjects.ID,
 	startedAt time.Time,
 ) *analyticsdomain.View {
@@ -898,7 +957,7 @@ func newAnalyticsViewForVisitor(
 	)
 	require.NoError(t, err)
 	view, err := analyticsdomain.NewView(analyticsdomain.ViewParams{
-		LinkID: linkID, VisitorID: visitorID, IPHash: make([]byte, 32),
+		LinkID: link.ID(), ResumeID: link.ResumeID(), VisitorID: visitorID, IPHash: make([]byte, 32),
 		Device: analyticsdomain.DeviceDesktop, Browser: analyticsdomain.BrowserChrome, OS: analyticsdomain.OSLinux, Traffic: analyticsdomain.TrafficHuman,
 		Layout: layout, StartedAt: startedAt, CreatedAt: startedAt,
 	})
@@ -914,26 +973,26 @@ func TestAnalyticsBatchRejectsChangedPublicLifecycle(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "Lifecycle"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
-	view := newAnalyticsView(t, link.ID())
+	view := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
-	require.NoError(t, gormDB.Exec(`UPDATE resume_links SET status = 'inactive' WHERE id = ?`, link.ID().UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume_link.resume_links SET status = 'inactive' WHERE id = ?`, link.ID().UUID()).Error)
 	err = uow.Do(ctx, func(txCtx context.Context) error {
 		return applyAnalyticsBatchInTransaction(txCtx, repo, view.ID(), link.ID(), analyticsdomain.ViewStateUpdate{Seq: 1, SeenAt: time.Now().UTC()}, nil, nil)
 	})
 	require.ErrorIs(t, err, analyticsdomain.ErrAnalyticsLinkInactive)
 
-	require.NoError(t, gormDB.Exec(`UPDATE resume_links SET status = 'active' WHERE id = ?`, link.ID().UUID()).Error)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'draft' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume_link.resume_links SET status = 'active' WHERE id = ?`, link.ID().UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'draft' WHERE id = ?`, resumeID.UUID()).Error)
 	err = uow.Do(ctx, func(txCtx context.Context) error {
 		return applyAnalyticsBatchInTransaction(txCtx, repo, view.ID(), link.ID(), analyticsdomain.ViewStateUpdate{Seq: 2, SeenAt: time.Now().UTC()}, nil, nil)
 	})
-	require.ErrorIs(t, err, analyticsdomain.ErrAnalyticsSubjectNotFound)
+	require.ErrorIs(t, err, analyticscontracts.ErrAnalyticsSubjectNotFound)
 }
 
 func TestAnalyticsFoundationPersistence(t *testing.T) {
@@ -944,14 +1003,14 @@ func TestAnalyticsFoundationPersistence(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{ResumeID: resumeID, Name: "Analytics"})
 	require.NoError(t, err)
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
 
-	view := newAnalyticsView(t, link.ID())
+	view := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 	loaded, err := repo.GetView(ctx, view.ID())
 	require.NoError(t, err)
@@ -983,17 +1042,22 @@ func TestAnalyticsFoundationPersistence(t *testing.T) {
 	}))
 
 	var count int
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_events WHERE view_id = ?", view.ID().UUID()).Scan(&count).Error)
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_events WHERE view_id = ?", view.ID().UUID()).Scan(&count).Error)
 	require.Equal(t, 1, count)
 
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_visitors WHERE link_id = ?", link.ID().UUID()).Scan(&count).Error)
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_visitors WHERE link_id = ?", link.ID().UUID()).Scan(&count).Error)
 	require.EqualValues(t, 1, count)
-	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Delete(txCtx, link.ID()) }))
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_views WHERE id = ?", view.ID().UUID()).Scan(&count).Error)
+	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error {
+		if err := repo.DeleteByLinkIDs(txCtx, []sharedvalueobjects.ID{link.ID()}); err != nil {
+			return err
+		}
+		return repo.Delete(txCtx, link.ID())
+	}))
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_views WHERE id = ?", view.ID().UUID()).Scan(&count).Error)
 	require.Zero(t, count)
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_events WHERE view_id = ?", view.ID().UUID()).Scan(&count).Error)
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_events WHERE view_id = ?", view.ID().UUID()).Scan(&count).Error)
 	require.Zero(t, count)
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_visitors WHERE link_id = ?", link.ID().UUID()).Scan(&count).Error)
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_visitors WHERE link_id = ?", link.ID().UUID()).Scan(&count).Error)
 	require.Zero(t, count, "visitor pseudonymous metadata must be deleted with its link")
 }
 
@@ -1011,26 +1075,26 @@ func TestAnalyticsRetentionDeletesExpiredDataInBatches(t *testing.T) {
 	uow := database.NewUnitOfWork(gormDB)
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, link) }))
 
-	oldView := newAnalyticsView(t, link.ID())
+	oldView := newAnalyticsView(t, link)
 	oldStartedAt := time.Now().UTC().AddDate(-1, -1, 0)
 	oldViewModel := map[string]any{
-		"id": oldView.ID().UUID(), "link_id": link.ID().UUID(), "visitor_id": oldView.VisitorID().UUID(),
+		"id": oldView.ID().UUID(), "link_id": link.ID().UUID(), "resume_id": link.ResumeID().UUID(), "visitor_id": oldView.VisitorID().UUID(),
 		"ip_hash": make([]byte, 32), "device": "desktop", "browser": "chrome", "os": "linux",
 		"traffic": "human", "layout": `{"order":["about"],"hashes":{"about":"0123456789abcdef"}}`,
 		"started_at": oldStartedAt, "active_ms": 0, "last_state_seq": 0, "created_at": oldStartedAt,
 	}
-	require.NoError(t, gormDB.Table("analytics_views").Create(oldViewModel).Error)
+	require.NoError(t, gormDB.Table("analytics.analytics_views").Create(oldViewModel).Error)
 
 	eventID := sharedvalueobjects.NewID().UUID()
 	require.NoError(t, gormDB.Exec(
-		`INSERT INTO analytics_events
+		`INSERT INTO analytics.analytics_events
 		 (id, view_id, link_id, client_event_id, event_type, payload, occurred_at)
 		 VALUES (?, ?, ?, ?, ?, ?::jsonb, ?)`,
 		eventID, oldView.ID().UUID(), link.ID().UUID(), nil,
 		"download", `{}`, oldStartedAt,
 	).Error)
 	require.NoError(t, gormDB.Exec(
-		`INSERT INTO analytics_clicks
+		`INSERT INTO analytics.analytics_clicks
 		 (view_id, link_id, section, x_pct, y_pct, viewport_w, layout_hash, occurred_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		oldView.ID().UUID(), link.ID().UUID(), "about", 100, 200,
@@ -1053,11 +1117,11 @@ func TestAnalyticsRetentionDeletesExpiredDataInBatches(t *testing.T) {
 	}))
 
 	var count int64
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_views WHERE id = ?", oldView.ID().UUID()).Scan(&count).Error)
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_views WHERE id = ?", oldView.ID().UUID()).Scan(&count).Error)
 	require.Zero(t, count)
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_events WHERE view_id = ?", oldView.ID().UUID()).Scan(&count).Error)
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_events WHERE view_id = ?", oldView.ID().UUID()).Scan(&count).Error)
 	require.Zero(t, count)
-	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics_clicks WHERE view_id = ?", oldView.ID().UUID()).Scan(&count).Error)
+	require.NoError(t, gormDB.Raw("SELECT count(*) FROM analytics.analytics_clicks WHERE view_id = ?", oldView.ID().UUID()).Scan(&count).Error)
 	require.Zero(t, count)
 }
 
@@ -1069,7 +1133,7 @@ func TestAnalyticsClickReaderUsesGORMFiltersAndCountsStaleClicks(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	link, err := domain.NewResumeLink(domain.ResumeLinkParams{
 		ResumeID: resumeID, Name: "Click map",
@@ -1080,7 +1144,7 @@ func TestAnalyticsClickReaderUsesGORMFiltersAndCountsStaleClicks(t *testing.T) {
 		return repo.Create(txCtx, link)
 	}))
 
-	view := newAnalyticsView(t, link.ID())
+	view := newAnalyticsView(t, link)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 	currentHash, ok := view.Layout().HashFor(analyticsdomain.AnalyticsSectionAbout)
 	require.True(t, ok)
@@ -1139,7 +1203,7 @@ func TestAnalyticsRejectsEventsAndClicksForAnotherLink(t *testing.T) {
 	owner := sharedvalueobjects.NewID()
 	resumeID := sharedvalueobjects.NewID()
 	insertUserAndResume(t, ctx, dsn, owner, resumeID)
-	require.NoError(t, gormDB.Exec(`UPDATE resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
+	require.NoError(t, gormDB.Exec(`UPDATE resume.resumes SET status = 'opened' WHERE id = ?`, resumeID.UUID()).Error)
 
 	firstLink, err := domain.NewResumeLink(domain.ResumeLinkParams{
 		ResumeID: resumeID, Name: "First",
@@ -1153,7 +1217,7 @@ func TestAnalyticsRejectsEventsAndClicksForAnotherLink(t *testing.T) {
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, firstLink) }))
 	require.NoError(t, uow.Do(ctx, func(txCtx context.Context) error { return repo.Create(txCtx, secondLink) }))
 
-	view := newAnalyticsView(t, firstLink.ID())
+	view := newAnalyticsView(t, firstLink)
 	require.NoError(t, createAnalyticsView(ctx, gormDB, repo, view))
 
 	event, err := analyticsdomain.NewAnalyticsEvent(analyticsdomain.AnalyticsEventParams{
@@ -1164,7 +1228,7 @@ func TestAnalyticsRejectsEventsAndClicksForAnotherLink(t *testing.T) {
 	require.ErrorIs(t, repo.RecordEvents(ctx, []*analyticsdomain.AnalyticsEvent{event}), database.ErrTransactionRequired)
 	require.ErrorIs(t, uow.Do(ctx, func(txCtx context.Context) error {
 		return repo.RecordEvents(txCtx, []*analyticsdomain.AnalyticsEvent{event})
-	}), analyticsdomain.ErrAnalyticsSubjectNotFound)
+	}), analyticscontracts.ErrAnalyticsSubjectNotFound)
 	err = uow.Do(ctx, func(txCtx context.Context) error {
 		snapshot, loadErr := repo.LoadAnalyticsBatchForUpdate(
 			txCtx, view.ID(), firstLink.ID(), true, false, false,
@@ -1187,14 +1251,14 @@ func TestAnalyticsRejectsEventsAndClicksForAnotherLink(t *testing.T) {
 	require.ErrorIs(t, repo.RecordClicks(ctx, []*analyticsdomain.AnalyticsClick{click}), database.ErrTransactionRequired)
 	require.ErrorIs(t, uow.Do(ctx, func(txCtx context.Context) error {
 		return repo.RecordClicks(txCtx, []*analyticsdomain.AnalyticsClick{click})
-	}), analyticsdomain.ErrAnalyticsSubjectNotFound)
+	}), analyticscontracts.ErrAnalyticsSubjectNotFound)
 
 	var eventCount, clickCount int64
 	require.NoError(t, gormDB.Raw(
-		`SELECT count(*) FROM analytics_events WHERE view_id = ?`, view.ID().UUID(),
+		`SELECT count(*) FROM analytics.analytics_events WHERE view_id = ?`, view.ID().UUID(),
 	).Scan(&eventCount).Error)
 	require.NoError(t, gormDB.Raw(
-		`SELECT count(*) FROM analytics_clicks WHERE view_id = ?`, view.ID().UUID(),
+		`SELECT count(*) FROM analytics.analytics_clicks WHERE view_id = ?`, view.ID().UUID(),
 	).Scan(&clickCount).Error)
 	require.Zero(t, eventCount)
 	require.Zero(t, clickCount)

@@ -6,6 +6,8 @@ import (
 
 	"developers-cv/backend/internal/modules/resume/application/ports"
 	"developers-cv/backend/internal/modules/resume/domain"
+	resumelinkcontracts "developers-cv/backend/internal/modules/resume_link/contracts"
+	usercontracts "developers-cv/backend/internal/modules/user/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -30,15 +32,20 @@ type DeleteResumeCommand struct {
 
 type CreateResumeHandler struct {
 	repository ports.ResumeRepository
+	users      usercontracts.UserExistenceChecker
 	uow        ports.UnitOfWork
 }
 
-func NewCreateResumeHandler(repository ports.ResumeRepository, uow ports.UnitOfWork) *CreateResumeHandler {
-	return &CreateResumeHandler{repository: repository, uow: uow}
+func NewCreateResumeHandler(
+	repository ports.ResumeRepository,
+	users usercontracts.UserExistenceChecker,
+	uow ports.UnitOfWork,
+) *CreateResumeHandler {
+	return &CreateResumeHandler{repository: repository, users: users, uow: uow}
 }
 
 func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand) (sharedvalueobjects.ID, error) {
-	if h == nil || h.repository == nil || h.uow == nil {
+	if h == nil || h.repository == nil || h.users == nil || h.uow == nil {
 		return sharedvalueobjects.ID{}, fmt.Errorf("create resume handler dependencies are nil")
 	}
 	resume, err := domain.NewResume(domain.ResumeParams{UserID: c.UserID, Title: c.Title, Language: c.Language})
@@ -52,6 +59,9 @@ func (h *CreateResumeHandler) Handle(ctx context.Context, c CreateResumeCommand)
 		return sharedvalueobjects.ID{}, err
 	}
 	err = h.uow.Do(ctx, func(tx context.Context) error {
+		if err := h.users.EnsureUserExists(tx, c.UserID); err != nil {
+			return err
+		}
 		return h.repository.Create(tx, resume)
 	})
 	if err != nil {
@@ -113,21 +123,33 @@ func (h *ReplaceResumeTitleHandler) Handle(ctx context.Context, c ReplaceResumeT
 
 type DeleteResumeHandler struct {
 	repository ports.ResumeRepository
+	links      resumelinkcontracts.ResumeLinkCleanup
 	uow        ports.UnitOfWork
 }
 
-func NewDeleteResumeHandler(repository ports.ResumeRepository, uow ports.UnitOfWork) *DeleteResumeHandler {
-	return &DeleteResumeHandler{repository: repository, uow: uow}
+func NewDeleteResumeHandler(
+	repository ports.ResumeRepository,
+	links resumelinkcontracts.ResumeLinkCleanup,
+	uow ports.UnitOfWork,
+) *DeleteResumeHandler {
+	return &DeleteResumeHandler{repository: repository, links: links, uow: uow}
 }
 
 func (h *DeleteResumeHandler) Handle(ctx context.Context, c DeleteResumeCommand) error {
-	if h == nil || h.repository == nil || h.uow == nil {
+	if h == nil || h.repository == nil || h.links == nil || h.uow == nil {
 		return fmt.Errorf("delete resume handler dependencies are nil")
 	}
 	if c.ResumeID.IsZero() || c.UserID.IsZero() || c.Version < 1 {
 		return fmt.Errorf("invalid delete resume command")
 	}
 	return h.uow.Do(ctx, func(tx context.Context) error {
-		return h.repository.Delete(tx, ports.DeleteResumeParams{ResumeID: c.ResumeID, UserID: c.UserID, Version: c.Version})
+		params := ports.DeleteResumeParams{ResumeID: c.ResumeID, UserID: c.UserID, Version: c.Version}
+		if err := h.repository.LockForDelete(tx, params); err != nil {
+			return err
+		}
+		if err := h.links.DeleteByResumeIDs(tx, []sharedvalueobjects.ID{c.ResumeID}); err != nil {
+			return fmt.Errorf("delete resume: clean links: %w", err)
+		}
+		return h.repository.Delete(tx, params)
 	})
 }

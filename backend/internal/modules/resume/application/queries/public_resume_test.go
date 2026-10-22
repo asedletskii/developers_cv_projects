@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -39,13 +40,9 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 
 	result, err := NewPublicResumeQueryHandler(publicResumeReaderStub{view: view}).Handle(
 		context.Background(),
-		PublicResumeQuery{ID: sharedvalueobjects.NewID()},
+		resumecontracts.PublicResumeQuery{ID: sharedvalueobjects.NewID()},
 	)
 	require.NoError(t, err)
-	payload := resultJSON(t, result)
-	var object map[string]any
-	require.NoError(t, json.Unmarshal([]byte(payload), &object))
-	require.NotContains(t, object, "id")
 	require.Equal(t, view.Title, result.Title)
 	require.Equal(t, view.Profile.Name, result.Profile.Name)
 	require.Equal(t, view.Profile.WorkFormat, result.Profile.WorkFormat)
@@ -54,40 +51,10 @@ func TestPublicResumeQueryHandlerReturnsCanonicalResumeView(t *testing.T) {
 	require.Equal(t, view.Skills.SoftSkills, result.Skills.SoftSkills)
 	require.Len(t, result.Projects, 1)
 	require.Equal(t, "project-1", result.Projects[0].ID)
-	require.NotContains(t, payload, "role")
-	require.NotContains(t, payload, "gitLink")
 	require.NotNil(t, result.Projects[0].Screenshots)
 	require.Empty(t, result.Projects[0].Screenshots)
 	require.NotNil(t, result.Projects[0].Contributors)
 	require.Empty(t, result.Projects[0].Contributors)
-	require.NotContains(t, payload, "resumeLink")
-}
-
-func TestToResumeAnalyticsLayoutContainsPublicSectionInputsOnly(t *testing.T) {
-	phone := "+33123456789"
-	view := PublicResumeView{
-		Title:    "Private editor metadata",
-		Language: "en",
-		Overview: PublicOverviewView{
-			Sections: []PublicSectionSettings{{ID: "projects", Enabled: true}},
-		},
-		Profile:  &PublicProfileView{Name: "Ada"},
-		Contacts: &PublicContactsView{Phone: &phone},
-	}
-
-	layout, err := ToResumeAnalyticsLayout(view)
-
-	require.NoError(t, err)
-	require.Len(t, layout.Sections, 1)
-	require.Equal(t, "about", layout.Sections[0].ID)
-	require.Len(t, layout.Sections[0].Hash, 16)
-	require.Empty(t, layout.Technologies)
-	encoded, err := json.Marshal(layout)
-	require.NoError(t, err)
-	require.NotContains(t, string(encoded), "Ada")
-	require.NotContains(t, string(encoded), phone)
-	require.NotContains(t, string(encoded), "Profile")
-	require.NotContains(t, string(encoded), "Contacts")
 }
 
 func TestToPublicDoesNotMutateSourceProjects(t *testing.T) {
@@ -165,15 +132,16 @@ func TestPublicProjectionDoesNotContainHiddenValues(t *testing.T) {
 		},
 	}
 
-	payload, err := json.Marshal(ToPublicResumeView(view))
-	require.NoError(t, err)
-	require.Contains(t, string(payload), "+33123456789")
-	require.Contains(t, string(payload), "developer")
-	require.NotContains(t, string(payload), "private@example.com")
+	result := ToPublicResumeView(view)
+
+	require.NotNil(t, result.Contacts)
+	require.Equal(t, "+33123456789", *result.Contacts.Phone)
+	require.Equal(t, "developer", *result.Contacts.Telegram)
+	require.Nil(t, result.Contacts.Email)
 }
 
 func TestPublicResumeQueryHandlerRejectsInvalidID(t *testing.T) {
-	_, err := NewPublicResumeQueryHandler(publicResumeReaderStub{}).Handle(context.Background(), PublicResumeQuery{})
+	_, err := NewPublicResumeQueryHandler(publicResumeReaderStub{}).Handle(context.Background(), resumecontracts.PublicResumeQuery{})
 	require.Error(t, err)
 }
 
@@ -181,12 +149,12 @@ func TestPublicResumeQueryHandlerPropagatesReaderError(t *testing.T) {
 	want := context.Canceled
 	_, err := NewPublicResumeQueryHandler(publicResumeReaderStub{err: want}).Handle(
 		context.Background(),
-		PublicResumeQuery{ID: sharedvalueobjects.NewID()},
+		resumecontracts.PublicResumeQuery{ID: sharedvalueobjects.NewID()},
 	)
 	require.ErrorIs(t, err, want)
 }
 
-func TestPublicResumeJSONNormalizesNilCollectionsToEmptyArrays(t *testing.T) {
+func TestPublicResumeProjectionNormalizesNilCollectionsToEmptySlices(t *testing.T) {
 	view := ResumeView{
 		Profile:  &ResumeProfileView{},
 		Contacts: &ResumeContactsView{},
@@ -194,74 +162,23 @@ func TestPublicResumeJSONNormalizesNilCollectionsToEmptyArrays(t *testing.T) {
 		Projects: []ProjectView{{}},
 	}
 
-	payload, err := json.Marshal(ToPublicResumeView(view))
-	require.NoError(t, err)
+	result := ToPublicResumeView(view)
 
-	var object map[string]any
-	require.NoError(t, json.Unmarshal(payload, &object))
-	require.Equal(t, []any{}, object["languages"])
-	require.Equal(t, []any{}, object["technologies"])
-	require.Equal(t, []any{}, object["experiences"])
-	require.Equal(t, []any{}, object["educations"])
-	require.Equal(t, []any{}, object["courses"])
-	require.Equal(t, []any{}, object["activities"])
-	projects, ok := object["projects"].([]any)
-	require.True(t, ok)
-	require.Len(t, projects, 1)
-	project, ok := projects[0].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, []any{}, project["screenshots"])
-	require.Equal(t, []any{}, project["stack"])
-	require.Equal(t, []any{}, project["contributors"])
-
-	overview, ok := object["overview"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, []any{}, overview["sections"])
-
-	profile, ok := object["profile"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, []any{}, profile["workFormat"])
-	skills, ok := object["skills"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, []any{}, skills["hardSkills"])
-	require.Equal(t, []any{}, skills["softSkills"])
-	contacts, ok := object["contacts"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, []any{}, contacts["hiddenContacts"])
-}
-
-func TestPublicResumeJSONUsesCanonicalNestedShape(t *testing.T) {
-	view := ResumeView{
-		ID:           "resume-1",
-		Title:        "CV",
-		Language:     "en",
-		Overview:     ResumeOverviewView{Sections: []OverviewSectionSettings{}},
-		Languages:    []LanguageView{},
-		Technologies: []TechnologyView{},
-		Experiences:  []ExperienceView{},
-		Educations:   []EducationView{},
-		Courses:      []CourseView{},
-		Activities:   []ActivityView{},
-		Projects:     []ProjectView{},
-	}
-
-	payload, err := json.Marshal(ToPublicResumeView(view))
-	require.NoError(t, err)
-
-	var object map[string]any
-	require.NoError(t, json.Unmarshal(payload, &object))
-	require.Contains(t, object, "overview")
-	require.NotContains(t, object, "id")
-	require.NotContains(t, object, "version")
-	require.Contains(t, object, "experiences")
-	require.Contains(t, object, "educations")
-	require.NotContains(t, object, "name")
-	require.NotContains(t, object, "surname")
-	require.NotContains(t, object, "experience")
-	require.NotContains(t, object, "education")
-	require.NotContains(t, object, "presentation")
-	require.NotContains(t, object, "hardSkills")
-	require.NotContains(t, object, "softSkills")
+	require.NotNil(t, result.Languages)
+	require.NotNil(t, result.Technologies)
+	require.NotNil(t, result.Experiences)
+	require.NotNil(t, result.Educations)
+	require.NotNil(t, result.Courses)
+	require.NotNil(t, result.Activities)
+	require.Len(t, result.Projects, 1)
+	require.NotNil(t, result.Projects[0].Screenshots)
+	require.NotNil(t, result.Projects[0].Stack)
+	require.NotNil(t, result.Projects[0].Contributors)
+	require.NotNil(t, result.Overview.Sections)
+	require.NotNil(t, result.Profile.WorkFormat)
+	require.NotNil(t, result.Skills.HardSkills)
+	require.NotNil(t, result.Skills.SoftSkills)
+	require.NotNil(t, result.Contacts.HiddenContacts)
 }
 
 func TestPublicContractContainsChildIDsButNoResumeID(t *testing.T) {
@@ -271,12 +188,12 @@ func TestPublicContractContainsChildIDsButNoResumeID(t *testing.T) {
 		Languages: []LanguageView{{ID: "language-1", Language: "en"}},
 	}
 
-	payload, err := json.Marshal(ToPublicResumeView(view))
-	require.NoError(t, err)
-	require.Contains(t, string(payload), `"id":"project-1"`)
-	require.Contains(t, string(payload), `"id":"language-1"`)
-	require.NotContains(t, string(payload), `"resumeId"`)
-	require.NotContains(t, string(payload), `"id":"resume-1"`)
+	result := ToPublicResumeView(view)
+
+	require.Equal(t, "project-1", result.Projects[0].ID)
+	require.Equal(t, "language-1", result.Languages[0].ID)
+	_, hasResumeID := reflect.TypeOf(result).FieldByName("ResumeID")
+	require.False(t, hasResumeID)
 }
 
 func TestPrivateContractKeepsOnlyRootResumeID(t *testing.T) {
@@ -298,15 +215,24 @@ func TestPrivateContractKeepsOnlyRootResumeID(t *testing.T) {
 	require.NotContains(t, string(payload), `"resumeId"`)
 }
 
-func resultJSON(t *testing.T, result PublicResumeView) string {
-	t.Helper()
-	payload, err := json.Marshal(result)
-	require.NoError(t, err)
-	return string(payload)
+func TestPublicProjectionPreservesExplicitEmptyContactsText(t *testing.T) {
+	empty := ""
+	result := ToPublicResumeView(ResumeView{
+		Contacts: &ResumeContactsView{
+			ContactsText: &ResumeContactsTextView{Title: &empty, Subtitle: &empty},
+		},
+	})
+
+	require.NotNil(t, result.Contacts)
+	require.NotNil(t, result.Contacts.ContactsText)
+	require.NotNil(t, result.Contacts.ContactsText.Title)
+	require.NotNil(t, result.Contacts.ContactsText.Subtitle)
+	require.Empty(t, *result.Contacts.ContactsText.Title)
+	require.Empty(t, *result.Contacts.ContactsText.Subtitle)
 }
 
-func TestPublicResumeJSONOmitsNilOptionalFieldsAndNeverEmitsNull(t *testing.T) {
-	payload, err := json.Marshal(ToPublicResumeView(ResumeView{
+func TestPublicProjectionKeepsOptionalFieldsNil(t *testing.T) {
+	result := ToPublicResumeView(ResumeView{
 		Overview:    ResumeOverviewView{Sections: nil},
 		Profile:     &ResumeProfileView{},
 		Contacts:    &ResumeContactsView{},
@@ -316,36 +242,36 @@ func TestPublicResumeJSONOmitsNilOptionalFieldsAndNeverEmitsNull(t *testing.T) {
 		Courses:     []CourseView{{}},
 		Activities:  []ActivityView{{}},
 		Projects:    []ProjectView{{}},
-	}))
-	require.NoError(t, err)
-	require.NotContains(t, string(payload), "null")
+	})
 
-	var object map[string]any
-	require.NoError(t, json.Unmarshal(payload, &object))
-	profile, exists := object["profile"].(map[string]any)
-	require.True(t, exists)
-	require.NotContains(t, profile, "patronymic")
-	contacts, exists := object["contacts"].(map[string]any)
-	require.True(t, exists)
-	require.NotContains(t, contacts, "phone")
-	require.NotContains(t, contacts, "contactsText")
-	project, exists := object["projects"].([]any)[0].(map[string]any)
-	require.True(t, exists)
-	require.NotContains(t, project, "role")
-	require.NotContains(t, project, "gitLink")
-	require.Equal(t, []any{}, project["screenshots"])
-	require.Equal(t, []any{}, project["contributors"])
+	require.Nil(t, result.Profile.Patronymic)
+	require.Nil(t, result.Contacts.Phone)
+	require.Nil(t, result.Contacts.ContactsText)
+	require.Nil(t, result.Experiences[0].Location)
+	require.Nil(t, result.Experiences[0].EndDate)
+	require.Nil(t, result.Experiences[0].Description)
+	require.Nil(t, result.Educations[0].ProfileName)
+	require.Nil(t, result.Educations[0].Course)
+	require.Nil(t, result.Courses[0].Hours)
+	require.Nil(t, result.Courses[0].CertificateLink)
+	require.Nil(t, result.Activities[0].Description)
+	require.Nil(t, result.Activities[0].Date)
+	require.Nil(t, result.Activities[0].Link)
+	require.NotNil(t, result.Projects[0].Screenshots)
+	require.Empty(t, result.Projects[0].Screenshots)
+	require.NotNil(t, result.Projects[0].Contributors)
+	require.Empty(t, result.Projects[0].Contributors)
 }
 
 func TestPublicDTOsAreIndependentFromPrivateDTOs(t *testing.T) {
-	publicType := reflect.TypeOf(PublicResumeView{})
+	publicType := reflect.TypeOf(resumecontracts.PublicResumeView{})
 	privateType := reflect.TypeOf(ResumeView{})
 	require.NotEqual(t, publicType, privateType)
-	for _, fieldName := range []string{"ID", "Status", "Version"} {
+	for _, fieldName := range []string{"ID", "ResumeID", "Status", "Version"} {
 		_, exists := publicType.FieldByName(fieldName)
 		require.False(t, exists, "public DTO must not expose private field %s", fieldName)
 	}
-	publicProjectType := reflect.TypeOf(PublicProjectView{})
+	publicProjectType := reflect.TypeOf(resumecontracts.PublicProjectView{})
 	for _, fieldName := range []string{"Role", "GitLink"} {
 		_, exists := publicProjectType.FieldByName(fieldName)
 		require.False(t, exists, "public project DTO must not expose private field %s", fieldName)

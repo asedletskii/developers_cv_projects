@@ -10,6 +10,7 @@ import (
 type AnalyticsView struct {
 	ID            uuid.UUID      `gorm:"type:uuid;primaryKey"`
 	LinkID        uuid.UUID      `gorm:"type:uuid;not null;index"`
+	ResumeID      uuid.UUID      `gorm:"type:uuid;not null;index"`
 	VisitorID     uuid.UUID      `gorm:"type:uuid;not null;index"`
 	IPHash        []byte         `gorm:"type:bytea;not null"`
 	Device        string         `gorm:"type:text;not null"`
@@ -30,7 +31,7 @@ type AnalyticsView struct {
 	CreatedAt     time.Time      `gorm:"not null"`
 }
 
-func (AnalyticsView) TableName() string { return "analytics_views" }
+func (AnalyticsView) TableName() string { return schema + ".analytics_views" }
 
 type AnalyticsEvent struct {
 	ID            uuid.UUID      `gorm:"type:uuid;primaryKey"`
@@ -42,4 +43,4 @@ type AnalyticsEvent struct {
 	OccurredAt    time.Time      `gorm:"not null"`
 }
 
-func (AnalyticsEvent) TableName() string { return "analytics_events" }
+func (AnalyticsEvent) TableName() string { return schema + ".analytics_events" }

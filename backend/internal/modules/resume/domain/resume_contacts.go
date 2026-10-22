@@ -5,13 +5,14 @@ import (
 	"net/mail"
 	"strings"
 
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
 type ContactsParams struct {
 	ID             sharedvalueobjects.ID
 	Contacts       ContactMethods
-	HiddenContacts []ContactKey
+	HiddenContacts []contactkey.Key
 	Text           *ContactsText
 }
 
@@ -19,7 +20,7 @@ type ContactsSnapshot struct {
 	ID             sharedvalueobjects.ID
 	ResumeID       sharedvalueobjects.ID
 	Contacts       ContactMethods
-	HiddenContacts []ContactKey
+	HiddenContacts []contactkey.Key
 	Text           *ContactsText
 }
 
@@ -27,14 +28,14 @@ type Contacts struct {
 	id             sharedvalueobjects.ID
 	resumeID       sharedvalueobjects.ID
 	contacts       ContactMethods
-	hiddenContacts []ContactKey
+	hiddenContacts []contactkey.Key
 	text           *ContactsText
 }
 
 func newContacts(params ContactsParams, resumeID sharedvalueobjects.ID) (*Contacts, error) {
 	contacts := &Contacts{
 		id: params.ID, resumeID: resumeID, contacts: params.Contacts,
-		hiddenContacts: append([]ContactKey(nil), params.HiddenContacts...), text: cloneContactsText(params.Text),
+		hiddenContacts: append([]contactkey.Key(nil), params.HiddenContacts...), text: cloneContactsText(params.Text),
 	}
 	if err := contacts.validate(); err != nil {
 		return nil, err
@@ -45,7 +46,7 @@ func newContacts(params ContactsParams, resumeID sharedvalueobjects.ID) (*Contac
 func RestoreContacts(snapshot ContactsSnapshot) *Contacts {
 	return &Contacts{
 		id: snapshot.ID, resumeID: snapshot.ResumeID, contacts: snapshot.Contacts,
-		hiddenContacts: append([]ContactKey(nil), snapshot.HiddenContacts...), text: cloneContactsText(snapshot.Text),
+		hiddenContacts: append([]contactkey.Key(nil), snapshot.HiddenContacts...), text: cloneContactsText(snapshot.Text),
 	}
 }
 
@@ -67,9 +68,9 @@ func (c *Contacts) validate() error {
 	if len(c.hiddenContacts) > 3 {
 		return fmt.Errorf("%w: too many hidden contacts", ErrInvalidResume)
 	}
-	seen := make(map[ContactKey]struct{}, len(c.hiddenContacts))
+	seen := make(map[contactkey.Key]struct{}, len(c.hiddenContacts))
 	for _, key := range c.hiddenContacts {
-		if !key.isValid() {
+		if !key.IsValid() {
 			return fmt.Errorf("%w: invalid hidden contact", ErrInvalidResume)
 		}
 		if _, exists := seen[key]; exists {
@@ -86,8 +87,8 @@ func (c *Contacts) validate() error {
 func (c *Contacts) ID() sharedvalueobjects.ID       { return c.id }
 func (c *Contacts) ResumeID() sharedvalueobjects.ID { return c.resumeID }
 func (c *Contacts) Contacts() ContactMethods        { return cloneContactMethods(c.contacts) }
-func (c *Contacts) HiddenContacts() []ContactKey {
-	return append([]ContactKey(nil), c.hiddenContacts...)
+func (c *Contacts) HiddenContacts() []contactkey.Key {
+	return append([]contactkey.Key(nil), c.hiddenContacts...)
 }
 func (c *Contacts) Text() *ContactsText { return cloneContactsText(c.text) }
 
@@ -125,31 +126,6 @@ func (r *Resume) Contacts() *Contacts {
 		return nil
 	}
 	return cloneContacts(r.contacts)
-}
-
-type ContactKey string
-
-const (
-	ContactKeyTelegram ContactKey = "telegram"
-	ContactKeyEmail    ContactKey = "email"
-	ContactKeyPhone    ContactKey = "phone"
-)
-
-func (v ContactKey) isValid() bool {
-	switch v {
-	case ContactKeyTelegram, ContactKeyEmail, ContactKeyPhone:
-		return true
-	default:
-		return false
-	}
-}
-
-func ParseContactKey(value string) (ContactKey, error) {
-	key := ContactKey(value)
-	if !key.isValid() {
-		return "", fmt.Errorf("%w: invalid contact key", ErrInvalidValue)
-	}
-	return key, nil
 }
 
 type Email struct {
@@ -272,13 +248,13 @@ func (c ContactMethods) hasAny() bool {
 	return c.phone != nil || c.telegram != nil || c.email != nil
 }
 
-func (c ContactMethods) has(key ContactKey) bool {
+func (c ContactMethods) has(key contactkey.Key) bool {
 	switch key {
-	case ContactKeyPhone:
+	case contactkey.Phone:
 		return c.phone != nil
-	case ContactKeyTelegram:
+	case contactkey.Telegram:
 		return c.telegram != nil
-	case ContactKeyEmail:
+	case contactkey.Email:
 		return c.email != nil
 	default:
 		return false
@@ -319,10 +295,25 @@ type ContactsText struct {
 	subtitle *string
 }
 
-func NewContactsText(params ContactsTextParams) (ContactsText, error) {
-	text := ContactsText{title: normalizeOptionalString(params.Title), subtitle: normalizeOptionalString(params.Subtitle)}
+func NewContactsText(params ContactsTextParams) (*ContactsText, error) {
+	var title *string
+	if params.Title != nil {
+		if value := strings.TrimSpace(*params.Title); value != "" {
+			title = &value
+		}
+	}
+	var subtitle *string
+	if params.Subtitle != nil {
+		if value := strings.TrimSpace(*params.Subtitle); value != "" {
+			subtitle = &value
+		}
+	}
+	if title == nil && subtitle == nil {
+		return nil, nil
+	}
+	text := &ContactsText{title: title, subtitle: subtitle}
 	if err := text.validate(); err != nil {
-		return ContactsText{}, err
+		return nil, err
 	}
 	return text, nil
 }
@@ -354,7 +345,7 @@ func cloneContacts(value *Contacts) *Contacts {
 	}
 	copy := *value
 	copy.contacts = cloneContactMethods(value.contacts)
-	copy.hiddenContacts = append([]ContactKey(nil), value.hiddenContacts...)
+	copy.hiddenContacts = append([]contactkey.Key(nil), value.hiddenContacts...)
 	copy.text = cloneContactsText(value.text)
 	return &copy
 }

@@ -21,7 +21,6 @@ func TestResumeEnumValidationContracts(t *testing.T) {
 		{"spoken language", func() bool { return SpokenLanguageEN.isValid() }, func() bool { return SpokenLanguage("invalid").isValid() }},
 		{"language grade", func() bool { return LanguageGradeC1.isValid() }, func() bool { return LanguageGrade("invalid").isValid() }},
 		{"education level", func() bool { return EducationLevelMaster.isValid() }, func() bool { return EducationLevel(99).isValid() }},
-		{"contact key", func() bool { return ContactKeyEmail.isValid() }, func() bool { return ContactKey("invalid").isValid() }},
 		{"activity type", func() bool { return ActivityTypeOpenSource.isValid() }, func() bool { return ActivityType("invalid").isValid() }},
 	}
 	for _, tc := range cases {
@@ -100,15 +99,6 @@ func TestParseResumeStatus(t *testing.T) {
 	require.Equal(t, ResumeStatusOpened, status)
 
 	_, err = ParseResumeStatus("invalid")
-	require.ErrorIs(t, err, ErrInvalidValue)
-}
-
-func TestParseContactKey(t *testing.T) {
-	key, err := ParseContactKey(string(ContactKeyEmail))
-	require.NoError(t, err)
-	require.Equal(t, ContactKeyEmail, key)
-
-	_, err = ParseContactKey("invalid")
 	require.ErrorIs(t, err, ErrInvalidValue)
 }
 

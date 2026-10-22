@@ -9,7 +9,7 @@ import (
 )
 
 func CORS(cfg config.CORSConfig) gin.HandlerFunc {
-	allowHeaders := []string{"Origin", "Content-Type", "Accept", "Authorization", requestid.Header}
+	allowHeaders := []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", requestid.Header}
 	if cfg.AllowMockAuthHeader {
 		allowHeaders = append(allowHeaders, "X-Mock-User-ID")
 	}

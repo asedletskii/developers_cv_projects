@@ -28,7 +28,6 @@ func (v ActivityType) isValid() bool {
 	}
 }
 
-// ActivityParams describes requested state. A zero ID creates a new item; a non-zero ID selects an existing item owned by the aggregate.
 type ActivityParams struct {
 	ID          sharedvalueobjects.ID
 	Type        ActivityType

@@ -15,17 +15,23 @@ type ResumeProject struct {
 	GitLink     *string
 }
 
+func (ResumeProject) TableName() string { return schema + ".resume_projects" }
+
 type ResumeProjectScreenshot struct {
 	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position  int       `gorm:"primaryKey"`
 	Path      string    `gorm:"not null"`
 }
 
+func (ResumeProjectScreenshot) TableName() string { return schema + ".resume_project_screenshots" }
+
 type ResumeProjectTechnology struct {
 	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Position  int       `gorm:"primaryKey"`
 	Name      string    `gorm:"not null"`
 }
+
+func (ResumeProjectTechnology) TableName() string { return schema + ".resume_project_technologies" }
 
 type ResumeProjectContributor struct {
 	ProjectID uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -38,4 +44,4 @@ type ResumeProjectContributor struct {
 	Email     *string
 }
 
-func (ResumeProjectContributor) TableName() string { return "resume_project_contributors" }
+func (ResumeProjectContributor) TableName() string { return schema + ".resume_project_contributors" }

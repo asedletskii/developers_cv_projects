@@ -16,4 +16,4 @@ type ResumeLink struct {
 	UpdatedAt time.Time `gorm:"not null"`
 }
 
-func (ResumeLink) TableName() string { return "resume_links" }
+func (ResumeLink) TableName() string { return schema + ".resume_links" }

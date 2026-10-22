@@ -40,7 +40,7 @@ func TestPostgresUserRepositoryCreatesUserInsideUnitOfWork(t *testing.T) {
 	}))
 
 	var count int64
-	require.NoError(t, db.Table("users").Where("id = ?", userID).Count(&count).Error)
+	require.NoError(t, db.Table("users.users").Where("id = ?", userID).Count(&count).Error)
 	require.Equal(t, int64(1), count)
 }
 
@@ -68,6 +68,6 @@ func TestPostgresUserRepositoryRollsBackWithUnitOfWork(t *testing.T) {
 	require.ErrorIs(t, err, expectedErr)
 
 	var count int64
-	require.NoError(t, db.Table("users").Count(&count).Error)
+	require.NoError(t, db.Table("users.users").Count(&count).Error)
 	require.Equal(t, int64(0), count)
 }

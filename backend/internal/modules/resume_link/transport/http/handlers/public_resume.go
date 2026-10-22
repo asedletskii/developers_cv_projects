@@ -9,11 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	analyticscommands "developers-cv/backend/internal/modules/analytics/application/commands"
-	analyticsports "developers-cv/backend/internal/modules/analytics/application/ports"
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/common"
+	"developers-cv/backend/internal/modules/resume_link/transport/http/responses"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
@@ -22,7 +21,7 @@ import (
 type PublicResumeLinkHandler struct{ query PublicResumeLinkQuery }
 
 type PublicResumeLinkQuery interface {
-	HandleWithVisit(context.Context, queries.PublicResumeLinkQuery) (resumequeries.PublicResumeView, analyticsports.VisitorIdentityResult, error)
+	HandleWithVisit(context.Context, queries.PublicResumeLinkQuery) (queries.PublicResumeResult, analyticscontracts.VisitorIdentityResult, error)
 }
 
 const referrerHostHeader = "X-Referrer-Host"
@@ -49,9 +48,9 @@ func (h *PublicResumeLinkHandler) Handle(c *gin.Context) {
 		return
 	}
 	referrerHost := parseReferrerHost(c.GetHeader(referrerHostHeader))
-	input := &analyticscommands.CreatePublicVisitInput{
+	input := &analyticscontracts.CreatePublicVisitInput{
 		LinkID: linkID,
-		Visitor: analyticsports.PublicVisitInput{
+		Visitor: analyticscontracts.PublicVisitInput{
 			IP:        c.ClientIP(),
 			UserAgent: c.Request.UserAgent(),
 			Referrer:  referrerHost,
@@ -63,7 +62,7 @@ func (h *PublicResumeLinkHandler) Handle(c *gin.Context) {
 			input.Visitor.OwnerID = ownerID
 		}
 	}
-	for _, cookieName := range []string{analyticsports.ProductionVisitorCookieName, analyticsports.LocalVisitorCookieName} {
+	for _, cookieName := range []string{analyticscontracts.ProductionVisitorCookieName, analyticscontracts.LocalVisitorCookieName} {
 		cookie, err := c.Request.Cookie(cookieName)
 		if err != nil {
 			continue
@@ -92,5 +91,5 @@ func (h *PublicResumeLinkHandler) Handle(c *gin.Context) {
 		c.Header("X-View-Id", identity.ViewID.String())
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, view)
+	c.JSON(http.StatusOK, responses.NewPublicResumeResponse(view))
 }

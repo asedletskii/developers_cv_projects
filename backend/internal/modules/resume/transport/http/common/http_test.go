@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"developers-cv/backend/internal/modules/resume/domain"
-
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+
+	"developers-cv/backend/internal/modules/resume/domain"
 )
 
 type bindTestRequest struct {

@@ -158,13 +158,20 @@ func (r *sessionRepositoryStub) DeleteExpiredBatch(context.Context, time.Time, i
 }
 
 type provisionerStub struct {
-	userID sharedvalueobjects.ID
-	calls  int
+	userID        sharedvalueobjects.ID
+	calls         int
+	ensureCalls   int
+	ensureUserErr error
 }
 
 func (p *provisionerStub) CreateUser(context.Context) (sharedvalueobjects.ID, error) {
 	p.calls++
 	return p.userID, nil
+}
+
+func (p *provisionerStub) EnsureUserExists(context.Context, sharedvalueobjects.ID) error {
+	p.ensureCalls++
+	return p.ensureUserErr
 }
 
 type unitOfWorkStub struct {

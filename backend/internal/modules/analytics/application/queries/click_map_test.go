@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -18,7 +18,7 @@ func TestAnalyticsClickQueryUsesCurrentLayoutHash(t *testing.T) {
 	require.NoError(t, err)
 	reader := &clickMapReaderStub{}
 	h := NewAnalyticsClickQueryHandler(
-		&analyticsAccessReaderStub{resumeID: resumeID, layout: ports.ResumeAnalyticsLayout{Sections: []ports.ResumeAnalyticsSection{{ID: "about", Hash: "0123456789abcdef"}}}},
+		&analyticsAccessReaderStub{resumeID: resumeID, layout: analyticscontracts.ResumeAnalyticsLayout{Sections: []analyticscontracts.ResumeAnalyticsSection{{ID: "about", Hash: "0123456789abcdef"}}}},
 		layoutSnapshotBuilderStub{snapshot: layout},
 		reader,
 	)

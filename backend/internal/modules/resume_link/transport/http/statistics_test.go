@@ -3,10 +3,9 @@ package http
 import (
 	"context"
 	"errors"
-	"testing"
-
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,9 +13,10 @@ import (
 
 	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
 	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/application/ports"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
 	"developers-cv/backend/internal/platform/http/middleware"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -47,12 +47,12 @@ func (s statisticsHTTPReader) GetResumeStatistics(context.Context, analyticsquer
 }
 
 func newStatisticsHTTPHandler(
-	linkReader queries.ResumeLinkPublicReader,
-	ownership ports.ResumeOwnershipReader,
-	resumeOverview queries.AnalyticsResumeOverviewReader,
+	linkReader analyticsaccess.LinkLifecycleReader,
+	ownership resumecontracts.ResumeOwnershipChecker,
+	resumeOverview resumecontracts.OwnedResumeSectionsQueryHandler,
 	reader statisticsHTTPReader,
 ) *analyticshttp.Handler {
-	access := queries.NewAnalyticsAccessReader(linkReader, ownership, resumeOverview, nil)
+	access := analyticsaccess.NewReader(linkReader, ownership, nil, resumeOverview, nil)
 	return analyticshttp.NewHandler(analyticshttp.HandlerDependencies{
 		Statistics:       analyticsqueries.NewLinkStatisticsHandler(access, reader),
 		Daily:            analyticsqueries.NewDailyStatisticsHandler(access, reader),
@@ -111,8 +111,8 @@ func TestStatisticsHandlerReturnsZeroState(t *testing.T) {
 func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
 		resumeLinkPublicReaderStub{view: queries.ResumeLinkPublicView{ResumeID: sharedvalueobjects.NewID().String()}},
-		resumeOwnershipReaderStub{err: resumequeries.ErrResumeNotFound},
-		resumeOwnershipReaderStub{err: resumequeries.ErrResumeNotFound},
+		resumeOwnershipReaderStub{err: resumecontracts.ErrResumeNotFound},
+		resumeOwnershipReaderStub{err: resumecontracts.ErrResumeNotFound},
 		statisticsHTTPReader{},
 	), uuid.New())
 
@@ -125,7 +125,7 @@ func TestStatisticsHandlerRejectsForeignLink(t *testing.T) {
 
 func TestStatisticsHandlerReturnsNotFoundForMissingLink(t *testing.T) {
 	engine := newStatisticsHTTPServer(newStatisticsHTTPHandler(
-		resumeLinkPublicReaderStub{err: queries.ErrResumeLinkNotFound},
+		resumeLinkPublicReaderStub{err: application.ErrResumeLinkNotFound},
 		resumeOwnershipReaderStub{},
 		resumeOwnershipReaderStub{},
 		statisticsHTTPReader{},

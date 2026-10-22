@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/resume/domain"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -22,7 +23,7 @@ func TestReplaceContactsHandlerUsesVersionAndAggregate(t *testing.T) {
 			v, e := domain.NewEmail("john@example.com")
 			require.NoError(t, e)
 			return &v
-		}(), HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail}},
+		}(), HiddenContacts: []contactkey.Key{contactkey.Email}},
 	})
 	require.NoError(t, err)
 	require.True(t, repo.saveCalled)

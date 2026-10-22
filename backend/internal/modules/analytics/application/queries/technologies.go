@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 )
 
 type TechnologyInterest struct {
@@ -22,12 +22,12 @@ type TechnologiesReader interface {
 }
 
 type TechnologiesHandler struct {
-	access ports.AnalyticsAccessReader
+	access analyticscontracts.AnalyticsAccessReader
 	reader TechnologiesReader
 }
 
 func NewTechnologiesHandler(
-	access ports.AnalyticsAccessReader,
+	access analyticscontracts.AnalyticsAccessReader,
 	reader TechnologiesReader,
 ) *TechnologiesHandler {
 	return &TechnologiesHandler{access: access, reader: reader}

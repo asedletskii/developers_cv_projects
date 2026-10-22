@@ -79,7 +79,7 @@ func insertUser(t *testing.T, ctx context.Context, dsn string, id uuid.UUID) {
 	conn, err := pgx.ConnectConfig(ctx, config)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, id)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, id)
 	require.NoError(t, err)
 }
 
@@ -90,9 +90,9 @@ func insertProfile(t *testing.T, ctx context.Context, dsn string, userID uuid.UU
 	conn, err := pgx.ConnectConfig(ctx, config)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	_, err = conn.Exec(ctx, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.user_profiles (user_id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO user_profile_localizations (user_id, language, name, surname, position, location) VALUES ($1, 'ru', $2, $3, $4, $5)`, userID, name, surname, position, location)
+	_, err = conn.Exec(ctx, `INSERT INTO users.user_profile_localizations (user_id, language, name, surname, position, location) VALUES ($1, 'ru', $2, $3, $4, $5)`, userID, name, surname, position, location)
 	require.NoError(t, err)
 }
 

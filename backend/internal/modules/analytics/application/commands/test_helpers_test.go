@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -81,6 +82,7 @@ type analyticsBatchRepositoryStub struct {
 	received     []*domain.AnalyticsEvent
 	clicks       []*domain.AnalyticsClick
 	technologies []string
+	lastSeq      int64
 }
 
 func (r *analyticsBatchRepositoryStub) LoadAnalyticsBatchForUpdate(
@@ -98,9 +100,10 @@ func (r *analyticsBatchRepositoryStub) LoadAnalyticsBatchForUpdate(
 	}
 	now := time.Now().UTC()
 	view, err := domain.RestoreView(domain.ViewSnapshot{
-		ID: viewID, LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
+		ID: viewID, LinkID: linkID, ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
 		Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSLinux,
 		Traffic: domain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
+		State: domain.ViewStateSnapshot{LastSeq: r.lastSeq},
 	})
 	if err != nil {
 		return ports.AnalyticsBatchSnapshot{}, err
@@ -145,10 +148,34 @@ func (s *analyticsInputObserverStub) RecordDroppedAnalyticsInput(kind, reason st
 	s.dropped[kind+":"+reason]++
 }
 
+type analyticsSubjectReaderStub struct {
+	lifecycle *analyticscontracts.LinkLifecycle
+	err       error
+	refs      []analyticscontracts.ResumeLinkRef
+	refsErr   error
+}
+
+func (s *analyticsSubjectReaderStub) LoadLinkLifecycle(_ context.Context, linkID sharedvalueobjects.ID) (analyticscontracts.LinkLifecycle, error) {
+	if s.err != nil {
+		return analyticscontracts.LinkLifecycle{}, s.err
+	}
+	if s.lifecycle != nil {
+		return *s.lifecycle, nil
+	}
+	return analyticscontracts.LinkLifecycle{
+		LinkID: linkID, ResumeID: sharedvalueobjects.NewID(),
+		LinkActive: true, ResumePublished: true,
+	}, nil
+}
+
+func (s *analyticsSubjectReaderStub) ListResumeLinks(context.Context, sharedvalueobjects.ID) ([]analyticscontracts.ResumeLinkRef, error) {
+	return s.refs, s.refsErr
+}
+
 type visitorIdentityStub struct{}
 
-func (visitorIdentityStub) Identify(_ time.Time, _ ports.PublicVisitInput) (ports.VisitorIdentityResult, error) {
-	return ports.VisitorIdentityResult{VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32)}, nil
+func (visitorIdentityStub) Identify(_ time.Time, _ analyticscontracts.PublicVisitInput) (analyticscontracts.VisitorIdentityResult, error) {
+	return analyticscontracts.VisitorIdentityResult{VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32)}, nil
 }
 
 type trafficClassifierStub struct{}
@@ -164,7 +191,7 @@ func (trafficClassifierStub) Classify(context.Context, ports.TrafficClassificati
 
 type layoutSnapshotBuilderStub struct{}
 
-func (layoutSnapshotBuilderStub) Build(ports.ResumeAnalyticsLayout) (domain.LayoutSnapshot, error) {
+func (layoutSnapshotBuilderStub) Build(analyticscontracts.ResumeAnalyticsLayout) (domain.LayoutSnapshot, error) {
 	return domain.NewLayoutSnapshot(
 		[]domain.AnalyticsSectionID{domain.AnalyticsSectionAbout},
 		map[domain.AnalyticsSectionID]string{domain.AnalyticsSectionAbout: "0123456789abcdef"},
@@ -180,7 +207,7 @@ func newCommandTestView(t *testing.T, viewID, linkID sharedvalueobjects.ID) *dom
 	require.NoError(t, err)
 	now := time.Now().UTC()
 	view, err := domain.RestoreView(domain.ViewSnapshot{
-		ID: viewID, LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
+		ID: viewID, LinkID: linkID, ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
 		Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSLinux,
 		Traffic: domain.TrafficHuman, Layout: layout, StartedAt: now, CreatedAt: now,
 	})

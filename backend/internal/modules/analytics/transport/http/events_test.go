@@ -14,9 +14,23 @@ import (
 
 	"developers-cv/backend/internal/modules/analytics/application/commands"
 	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
+
+type analyticsHandlerSubjectsStub struct{}
+
+func (analyticsHandlerSubjectsStub) LoadLinkLifecycle(_ context.Context, linkID sharedvalueobjects.ID) (analyticscontracts.LinkLifecycle, error) {
+	return analyticscontracts.LinkLifecycle{
+		LinkID: linkID, ResumeID: sharedvalueobjects.NewID(),
+		LinkActive: true, ResumePublished: true,
+	}, nil
+}
+
+func (analyticsHandlerSubjectsStub) ListResumeLinks(context.Context, sharedvalueobjects.ID) ([]analyticscontracts.ResumeLinkRef, error) {
+	return nil, nil
+}
 
 type analyticsHandlerRepoStub struct{}
 
@@ -29,7 +43,7 @@ func (analyticsHandlerRepoStub) LoadAnalyticsBatchForUpdate(_ context.Context, v
 		return ports.AnalyticsBatchSnapshot{}, err
 	}
 	view, err := domain.RestoreView(domain.ViewSnapshot{
-		ID: viewID, LinkID: linkID, VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
+		ID: viewID, LinkID: linkID, ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(), IPHash: make([]byte, 32),
 		Device: domain.DeviceDesktop, Browser: domain.BrowserChrome, OS: domain.OSLinux,
 		Traffic: domain.TrafficHuman, Layout: layout, StartedAt: time.Now().UTC(), CreatedAt: time.Now().UTC(),
 	})
@@ -76,7 +90,7 @@ func (s *analyticsHandlerObserverStub) RecordDroppedAnalyticsInput(kind, reason 
 func TestAnalyticsEventsHandlerObservesMalformedElementsAndKeepsPartialAcceptance(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	observer := &analyticsHandlerObserverStub{}
-	ingest := commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, observer)
+	ingest := commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, analyticsHandlerSubjectsStub{}, observer)
 	engine := gin.New()
 	registerAnalyticsTestRoutes(engine, ingest)
 
@@ -102,7 +116,7 @@ func TestAnalyticsEventsHandlerObservesMalformedElementsAndKeepsPartialAcceptanc
 func TestAnalyticsEventsHandlerAcceptsTextPlain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	registerAnalyticsTestRoutes(engine, commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, nil))
+	registerAnalyticsTestRoutes(engine, commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, analyticsHandlerSubjectsStub{}, nil))
 
 	linkID := uuid.New()
 	viewID := uuid.New()
@@ -120,7 +134,7 @@ func TestAnalyticsEventsHandlerRejectsInvalidViewID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	observer := &analyticsHandlerObserverStub{}
 	engine := gin.New()
-	registerAnalyticsTestRoutes(engine, commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, observer))
+	registerAnalyticsTestRoutes(engine, commands.NewIngestAnalyticsBatchHandler(analyticsHandlerRepoStub{}, analyticsHandlerUOWStub{}, analyticsHandlerSubjectsStub{}, observer))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+uuid.New().String()+"/events", strings.NewReader(`{"viewId":"bad","seq":1,"state":{"activeMs":0},"events":[],"clicks":[]}`))
 	w := httptest.NewRecorder()
@@ -134,7 +148,7 @@ func TestAnalyticsEventsHandlerRejectsInvalidViewID(t *testing.T) {
 func TestAnalyticsEventsHandlerMapsInactiveLinkToGone(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	registerAnalyticsTestRoutes(engine, commands.NewIngestAnalyticsBatchHandler(analyticsHandlerInactiveRepoStub{}, analyticsHandlerUOWStub{}, nil))
+	registerAnalyticsTestRoutes(engine, commands.NewIngestAnalyticsBatchHandler(analyticsHandlerInactiveRepoStub{}, analyticsHandlerUOWStub{}, analyticsHandlerSubjectsStub{}, nil))
 	viewID := uuid.New()
 	body := `{"viewId":"` + viewID.String() + `","seq":1,"final":false,"state":{"activeMs":0},"events":[],"clicks":[]}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/"+uuid.New().String()+"/events", strings.NewReader(body))

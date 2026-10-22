@@ -13,7 +13,7 @@ type UserProfile struct {
 	UpdatedAt time.Time `gorm:"not null"`
 }
 
-func (UserProfile) TableName() string { return "user_profiles" }
+func (UserProfile) TableName() string { return schema + ".user_profiles" }
 
 type UserProfileLocalization struct {
 	UserID     uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -25,4 +25,4 @@ type UserProfileLocalization struct {
 	Location   *string
 }
 
-func (UserProfileLocalization) TableName() string { return "user_profile_localizations" }
+func (UserProfileLocalization) TableName() string { return schema + ".user_profile_localizations" }

@@ -43,7 +43,7 @@ func (r *AnalyticsReader) getSections(
 	}
 
 	var rows []sectionStatisticsRow
-	err := db.Table("analytics_events AS event").
+	err := db.Table("analytics.analytics_events AS event").
 		Select(`
 			event.payload->>'section' AS section,
 			COUNT(DISTINCT event.view_id)
@@ -54,7 +54,7 @@ func (r *AnalyticsReader) getSections(
 					  AND view.exit_section = event.payload->>'section'
 				) AS exits
 		`).
-		Joins("JOIN analytics_views AS view ON view.id = event.view_id").
+		Joins("JOIN analytics.analytics_views AS view ON view.id = event.view_id").
 		Where("event.link_id = ?", query.LinkID.UUID()).
 		Where("event.event_type = ?", "section_view").
 		Where("view.traffic = ?", "human").
@@ -105,13 +105,13 @@ func (r *AnalyticsReader) GetTechnologies(
 	}
 	db := database.DBFromContext(ctx, r.db).WithContext(ctx)
 	var rows []technologyStatisticsRow
-	err := db.Table("analytics_events AS event").
+	err := db.Table("analytics.analytics_events AS event").
 		Select(`
 			event.payload->>'technology' AS name,
 			COUNT(*) AS selections,
 			COUNT(DISTINCT view.visitor_id) AS visitors
 		`).
-		Joins("JOIN analytics_views AS view ON view.id = event.view_id").
+		Joins("JOIN analytics.analytics_views AS view ON view.id = event.view_id").
 		Where("event.link_id = ?", query.LinkID.UUID()).
 		Where("event.event_type = ?", "tech_filter").
 		Where("event.payload->>'action' = ?", "select").

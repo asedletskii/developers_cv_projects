@@ -215,6 +215,9 @@ func (h *CompleteTelegramLoginHandler) completeAttempt(
 			}
 		} else {
 			userID = authIdentity.UserID()
+			if err := h.provisioner.EnsureUserExists(tx, userID); err != nil {
+				return err
+			}
 			if err := h.identities.UpdateLastLogin(tx, authIdentity.ID(), loginAt); err != nil {
 				return err
 			}

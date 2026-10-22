@@ -2,9 +2,9 @@ package queries
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
@@ -34,17 +34,14 @@ func (r *ActivePublicResumeLinkResolver) Resolve(
 
 	link, err := r.links.GetByID(ctx, PublicResumeLinkQuery{LinkID: linkID})
 	if err != nil {
-		if errors.Is(err, domain.ErrEntityNotFound) {
-			return sharedvalueobjects.ID{}, ErrResumeLinkNotFound
-		}
-		return sharedvalueobjects.ID{}, err
+		return sharedvalueobjects.ID{}, application.NormalizeLinkNotFoundError(err)
 	}
 	switch domain.ResumeLinkStatus(link.Status) {
 	case domain.ResumeLinkStatusActive:
 	case domain.ResumeLinkStatusInactive:
 		return sharedvalueobjects.ID{}, domain.ErrResumeLinkInactive
 	default:
-		return sharedvalueobjects.ID{}, ErrResumeLinkNotFound
+		return sharedvalueobjects.ID{}, application.ErrResumeLinkNotFound
 	}
 
 	resumeID, err := sharedvalueobjects.ParseID(link.ResumeID)

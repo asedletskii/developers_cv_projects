@@ -73,7 +73,7 @@ func TestHandlerDeletesResumeWithVersion(t *testing.T) {
 	resumeID := uuid.New()
 	resume := newStubResume(t, resumeID, userID, 4)
 	repository := &stubResumeRepository{resume: resume}
-	deleteHandler := commands.NewDeleteResumeHandler(repository, stubResumeUnitOfWork{})
+	deleteHandler := commands.NewDeleteResumeHandler(repository, stubResumeLinkCleanup{}, stubResumeUnitOfWork{})
 	handler := handlers.NewResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
 
 	engine := gin.New()
@@ -96,7 +96,7 @@ func TestHandlerRejectsDeleteWithNonPositiveVersion(t *testing.T) {
 
 	userID := uuid.New()
 	resumeID := uuid.New()
-	deleteHandler := commands.NewDeleteResumeHandler(&stubResumeRepository{}, stubResumeUnitOfWork{})
+	deleteHandler := commands.NewDeleteResumeHandler(&stubResumeRepository{}, stubResumeLinkCleanup{}, stubResumeUnitOfWork{})
 	handler := handlers.NewResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
 
 	engine := gin.New()
@@ -121,7 +121,7 @@ func TestHandlerMapsDeleteConcurrencyConflictToPreconditionFailed(t *testing.T) 
 	userID := uuid.New()
 	resumeID := uuid.New()
 	repository := &stubResumeRepository{deleteErr: domain.ErrConcurrencyConflict}
-	deleteHandler := commands.NewDeleteResumeHandler(repository, stubResumeUnitOfWork{})
+	deleteHandler := commands.NewDeleteResumeHandler(repository, stubResumeLinkCleanup{}, stubResumeUnitOfWork{})
 	handler := handlers.NewResumeHandler(nil, nil, nil, deleteHandler, nil, nil)
 
 	engine := gin.New()

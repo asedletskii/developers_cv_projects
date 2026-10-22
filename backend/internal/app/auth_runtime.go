@@ -7,11 +7,11 @@ import (
 
 	"github.com/google/uuid"
 
+	analyticsadapters "developers-cv/backend/internal/modules/analytics/infrastructure/analytics"
 	authports "developers-cv/backend/internal/modules/auth/application/ports"
 	authqueries "developers-cv/backend/internal/modules/auth/application/queries"
 	authobservability "developers-cv/backend/internal/modules/auth/infrastructure/observability"
 	authsession "developers-cv/backend/internal/modules/auth/infrastructure/session"
-	resumelinkanalytics "developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
 	userqueries "developers-cv/backend/internal/modules/user/application/queries"
 	"developers-cv/backend/internal/platform/config"
 	"developers-cv/backend/internal/platform/http/middleware"
@@ -75,10 +75,10 @@ func newOptionalAuthenticate(cfg config.AuthConfig, authenticator runtimeAuthent
 	})
 }
 
-func newAnalyticsVisitorIdentifier(cfg config.Config) (*resumelinkanalytics.VisitorIdentifier, error) {
-	return resumelinkanalytics.NewVisitorIdentifier(cfg.Analytics.VisitorSecret, cfg.App.Env == "production")
+func newAnalyticsVisitorIdentifier(cfg config.Config) (*analyticsadapters.VisitorIdentifier, error) {
+	return analyticsadapters.NewVisitorIdentifier(cfg.Analytics.VisitorSecret, cfg.App.Env == "production")
 }
 
-func newAnalyticsTrafficClassifier(cfg config.Config) *resumelinkanalytics.TrafficClassifier {
-	return resumelinkanalytics.NewTrafficClassifier(cfg.Analytics.SuspectBurst, cfg.Analytics.SuspectWindow)
+func newAnalyticsTrafficClassifier(cfg config.Config) *analyticsadapters.TrafficClassifier {
+	return analyticsadapters.NewTrafficClassifier(cfg.Analytics.SuspectBurst, cfg.Analytics.SuspectWindow)
 }

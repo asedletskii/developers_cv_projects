@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ func newTestView(t *testing.T) *View {
 	t.Helper()
 	now := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
 	view, err := NewView(ViewParams{
-		LinkID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
+		LinkID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
 		IPHash: make([]byte, 32), Device: DeviceDesktop, Browser: BrowserChrome, OS: OSLinux,
 		Traffic: TrafficHuman, Layout: testViewLayout(t), StartedAt: now, CreatedAt: now,
 	})
@@ -40,7 +41,7 @@ func TestNewViewCopiesIPHashAndDefaultsCreatedAt(t *testing.T) {
 	now := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
 	ipHash := make([]byte, 32)
 	view, err := NewView(ViewParams{
-		LinkID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
+		LinkID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
 		IPHash: ipHash, Device: DeviceDesktop, Browser: BrowserChrome, OS: OSLinux,
 		Traffic: TrafficHuman, Layout: testViewLayout(t), StartedAt: now,
 	})
@@ -56,7 +57,7 @@ func TestNewViewCopiesIPHashAndDefaultsCreatedAt(t *testing.T) {
 func TestRestoreViewPreservesStoredStrings(t *testing.T) {
 	now := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
 	view, err := RestoreView(ViewSnapshot{
-		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
+		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
 		IPHash: make([]byte, 32), Device: DeviceDesktop, Browser: BrowserChrome, OS: OSLinux,
 		ReferrerHost: " example.com ", Traffic: TrafficHuman, TrafficReason: " retained ",
 		Layout: testViewLayout(t), StartedAt: now, CreatedAt: now,
@@ -69,7 +70,7 @@ func TestRestoreViewPreservesStoredStrings(t *testing.T) {
 
 func TestRestoreViewRejectsMissingCreationTimestamp(t *testing.T) {
 	_, err := RestoreView(ViewSnapshot{
-		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
+		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
 		IPHash: make([]byte, 32), Device: DeviceDesktop, Browser: BrowserChrome, OS: OSLinux,
 		Traffic: TrafficHuman, Layout: testViewLayout(t),
 		StartedAt: time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC),
@@ -81,7 +82,7 @@ func TestRestoreViewRejectsMissingCreationTimestamp(t *testing.T) {
 func TestRestoreViewRestoresSnapshot(t *testing.T) {
 	now := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
 	view, err := RestoreView(ViewSnapshot{
-		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
+		ID: sharedvalueobjects.NewID(), LinkID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
 		IPHash: make([]byte, 32), Device: DeviceMobile, Browser: BrowserSafari, OS: OSIOS,
 		ReferrerHost: "example.com", Traffic: TrafficHuman, TrafficReason: "classified",
 		Layout: testViewLayout(t), StartedAt: now, CreatedAt: now,
@@ -104,7 +105,7 @@ func TestRestoreViewRestoresState(t *testing.T) {
 	}, view.Layout()))
 
 	reconstructed, err := RestoreView(ViewSnapshot{
-		ID: view.ID(), LinkID: view.LinkID(), VisitorID: view.VisitorID(),
+		ID: view.ID(), LinkID: view.LinkID(), ResumeID: view.ResumeID(), VisitorID: view.VisitorID(),
 		IPHash: view.IPHash(), Device: view.Device(), Browser: view.Browser(), OS: view.OS(),
 		ReferrerHost: view.ReferrerHost(), Traffic: view.Traffic(), TrafficReason: view.TrafficReason(),
 		Layout: view.Layout(), StartedAt: view.StartedAt(), CreatedAt: view.CreatedAt(), State: state.Snapshot(),
@@ -117,7 +118,7 @@ func TestRestoreViewRestoresState(t *testing.T) {
 func TestNewViewRejectsOverlongReferrerHost(t *testing.T) {
 	now := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
 	_, err := NewView(ViewParams{
-		LinkID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
+		LinkID: sharedvalueobjects.NewID(), ResumeID: sharedvalueobjects.NewID(), VisitorID: sharedvalueobjects.NewID(),
 		IPHash: make([]byte, 32), Device: DeviceDesktop, Browser: BrowserChrome, OS: OSLinux,
 		ReferrerHost: strings.Repeat("a", MaxReferrerHostLength+1),
 		Traffic:      TrafficHuman, Layout: testViewLayout(t), StartedAt: now,
@@ -203,7 +204,7 @@ func TestViewEvaluateAnalyticsBatchAppliesLifecycleAndSequenceRules(t *testing.T
 		true, false, now,
 		ViewStateUpdate{Seq: 1, SeenAt: now},
 	)
-	require.ErrorIs(t, err, ErrAnalyticsSubjectNotFound)
+	require.ErrorIs(t, err, analyticscontracts.ErrAnalyticsSubjectNotFound)
 
 	decision, err = view.EvaluateAnalyticsBatch(
 		true, true, view.StartedAt().Add(analyticsViewTTL+time.Second),
@@ -216,7 +217,7 @@ func TestViewEvaluateAnalyticsBatchIgnoresBotsAndStaleSequences(t *testing.T) {
 	view := newTestView(t)
 	now := view.StartedAt().Add(time.Minute)
 	bot, err := NewView(ViewParams{
-		LinkID: view.LinkID(), VisitorID: sharedvalueobjects.NewID(),
+		LinkID: view.LinkID(), ResumeID: view.ResumeID(), VisitorID: sharedvalueobjects.NewID(),
 		IPHash: make([]byte, 32), Device: DeviceDesktop, Browser: BrowserChrome, OS: OSLinux,
 		Traffic: TrafficBot, Layout: view.Layout(), StartedAt: view.StartedAt(), CreatedAt: view.CreatedAt(),
 	})

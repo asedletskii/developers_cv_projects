@@ -12,4 +12,4 @@ type User struct {
 	UpdatedAt time.Time `gorm:"not null"`
 }
 
-func (User) TableName() string { return "users" }
+func (User) TableName() string { return schema + ".users" }

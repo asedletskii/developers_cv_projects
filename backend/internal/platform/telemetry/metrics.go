@@ -31,6 +31,7 @@ type Metrics struct {
 	analyticsRetentionRuns     *prometheus.CounterVec
 	analyticsRetentionDeleted  *prometheus.CounterVec
 	analyticsRetentionDuration *prometheus.HistogramVec
+	schemaOrphanRows           *prometheus.GaugeVec
 	registry                   *prometheus.Registry
 }
 
@@ -113,6 +114,10 @@ func NewMetrics(enabled bool) (*Metrics, error) {
 		Help:    "Duration of analytics retention cleanup runs in seconds.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"outcome"})
+	schemaOrphanRows := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "developers_cv", Name: "schema_orphan_rows",
+		Help: "Current number of cross-module orphan rows by relation.",
+	}, []string{"relation"})
 
 	registry := prometheus.NewRegistry()
 	collectors := []prometheus.Collector{
@@ -121,6 +126,7 @@ func NewMetrics(enabled bool) (*Metrics, error) {
 		authSessionRejections, authTransactionCleanup, authSessionCleanup, authCleanupFailures, authLoginDuration,
 		authOIDCExchangeDuration, authOIDCVerifyDuration, analyticsDroppedInput, analyticsBatchOutcomes,
 		analyticsRetentionRuns, analyticsRetentionDeleted, analyticsRetentionDuration,
+		schemaOrphanRows,
 	}
 	for _, collector := range collectors {
 		if err := registry.Register(collector); err != nil {
@@ -135,7 +141,7 @@ func NewMetrics(enabled bool) (*Metrics, error) {
 		authSessionCleanup: authSessionCleanup, authCleanupFailures: authCleanupFailures, authLoginDuration: authLoginDuration, authOIDCExchangeDuration: authOIDCExchangeDuration,
 		authOIDCVerifyDuration: authOIDCVerifyDuration, analyticsDroppedInput: analyticsDroppedInput,
 		analyticsBatchOutcomes: analyticsBatchOutcomes, analyticsRetentionRuns: analyticsRetentionRuns, analyticsRetentionDeleted: analyticsRetentionDeleted,
-		analyticsRetentionDuration: analyticsRetentionDuration, registry: registry,
+		analyticsRetentionDuration: analyticsRetentionDuration, schemaOrphanRows: schemaOrphanRows, registry: registry,
 	}, nil
 }
 
@@ -304,4 +310,17 @@ func (m *Metrics) RecordAnalyticsRetentionCleanup(outcome string, clicks, views 
 	if views > 0 {
 		m.analyticsRetentionDeleted.WithLabelValues("views").Add(float64(views))
 	}
+}
+
+func (m *Metrics) RecordSchemaOrphanRows(relation string, count int64) {
+	if m == nil || m.schemaOrphanRows == nil {
+		return
+	}
+	switch relation {
+	case "analytics_without_link", "links_without_resume", "resumes_without_user",
+		"auth_identities_without_user", "auth_sessions_without_user":
+	default:
+		relation = "other"
+	}
+	m.schemaOrphanRows.WithLabelValues(relation).Set(float64(count))
 }

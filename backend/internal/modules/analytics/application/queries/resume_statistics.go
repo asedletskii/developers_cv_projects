@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 )
 
 type ResumeStatisticsReader interface {
@@ -12,11 +12,11 @@ type ResumeStatisticsReader interface {
 }
 
 type ResumeStatisticsHandler struct {
-	access ports.AnalyticsAccessReader
+	access analyticscontracts.AnalyticsAccessReader
 	reader ResumeStatisticsReader
 }
 
-func NewResumeStatisticsHandler(access ports.AnalyticsAccessReader, reader ResumeStatisticsReader) *ResumeStatisticsHandler {
+func NewResumeStatisticsHandler(access analyticscontracts.AnalyticsAccessReader, reader ResumeStatisticsReader) *ResumeStatisticsHandler {
 	return &ResumeStatisticsHandler{access: access, reader: reader}
 }
 

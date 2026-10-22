@@ -119,6 +119,18 @@ func (l *ResumeLink) Status() ResumeLinkStatus { return l.status }
 func (l *ResumeLink) IsActive() bool           { return l.status == ResumeLinkStatusActive }
 func (l *ResumeLink) Version() int64           { return l.version }
 
+func (l *ResumeLink) Rename(name string) error {
+	if l == nil {
+		return fmt.Errorf("%w: link is nil", ErrInvalidResumeLink)
+	}
+	trimmed := strings.TrimSpace(name)
+	if err := validateResumeLink(l.id, l.resumeID, trimmed, l.status, l.version); err != nil {
+		return err
+	}
+	l.name = trimmed
+	return nil
+}
+
 func (l *ResumeLink) Activate() error {
 	if l == nil {
 		return fmt.Errorf("%w: link is nil", ErrInvalidResumeLink)

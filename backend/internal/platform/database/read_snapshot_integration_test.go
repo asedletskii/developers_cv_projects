@@ -22,8 +22,9 @@ func TestWithReadSnapshotUsesConsistentReadOnlyRepeatableReadTransaction(t *test
 	db, err := NewGORM(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, Close(db)) })
-	require.NoError(t, db.Exec("CREATE TABLE snapshot_probe (id integer PRIMARY KEY, value integer NOT NULL)").Error)
-	require.NoError(t, db.Exec("INSERT INTO snapshot_probe (id, value) VALUES (1, 10)").Error)
+	require.NoError(t, db.Exec("CREATE SCHEMA IF NOT EXISTS test_probe").Error)
+	require.NoError(t, db.Exec("CREATE TABLE test_probe.snapshot_probe (id integer PRIMARY KEY, value integer NOT NULL)").Error)
+	require.NoError(t, db.Exec("INSERT INTO test_probe.snapshot_probe (id, value) VALUES (1, 10)").Error)
 
 	writer, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
@@ -44,13 +45,13 @@ func TestWithReadSnapshotUsesConsistentReadOnlyRepeatableReadTransaction(t *test
 		if err := tx.Raw("SHOW transaction_read_only").Scan(&readOnly).Error; err != nil {
 			return err
 		}
-		if err := tx.Raw("SELECT value FROM snapshot_probe WHERE id = 1").Scan(&before).Error; err != nil {
+		if err := tx.Raw("SELECT value FROM test_probe.snapshot_probe WHERE id = 1").Scan(&before).Error; err != nil {
 			return err
 		}
-		if _, err := writer.Exec(snapshotCtx, "UPDATE snapshot_probe SET value = 20 WHERE id = 1"); err != nil {
+		if _, err := writer.Exec(snapshotCtx, "UPDATE test_probe.snapshot_probe SET value = 20 WHERE id = 1"); err != nil {
 			return err
 		}
-		return tx.Raw("SELECT value FROM snapshot_probe WHERE id = 1").Scan(&after).Error
+		return tx.Raw("SELECT value FROM test_probe.snapshot_probe WHERE id = 1").Scan(&after).Error
 	})
 	require.NoError(t, err)
 	require.Equal(t, "repeatable read", isolation)
@@ -59,6 +60,6 @@ func TestWithReadSnapshotUsesConsistentReadOnlyRepeatableReadTransaction(t *test
 	require.Equal(t, 10, after, "the transaction must not observe a commit that happened after its snapshot")
 
 	var committed int
-	require.NoError(t, db.Raw("SELECT value FROM snapshot_probe WHERE id = 1").Scan(&committed).Error)
+	require.NoError(t, db.Raw("SELECT value FROM test_probe.snapshot_probe WHERE id = 1").Scan(&committed).Error)
 	require.Equal(t, 20, committed)
 }

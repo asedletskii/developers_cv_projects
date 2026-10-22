@@ -17,4 +17,4 @@ type ResumeActivity struct {
 	Link        *string
 }
 
-func (ResumeActivity) TableName() string { return "resume_activities" }
+func (ResumeActivity) TableName() string { return schema + ".resume_activities" }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
@@ -35,6 +36,27 @@ func (r *ResumeLinkReader) GetByID(
 			return queries.ResumeLinkPublicView{}, domain.ErrEntityNotFound
 		}
 		return queries.ResumeLinkPublicView{}, fmt.Errorf("get resume link: %w", err)
+	}
+	return mapView(model), nil
+}
+
+func (r *ResumeLinkReader) LockByID(
+	ctx context.Context,
+	query queries.PublicResumeLinkQuery,
+) (queries.ResumeLinkPublicView, error) {
+	if r == nil || r.db == nil {
+		return queries.ResumeLinkPublicView{}, fmt.Errorf("lock resume link: reader dependencies are nil")
+	}
+	db, err := database.DBFromTransactionContext(ctx)
+	if err != nil {
+		return queries.ResumeLinkPublicView{}, fmt.Errorf("lock resume link: %w", err)
+	}
+	var model gormmodel.ResumeLink
+	if err := db.WithContext(ctx).Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", query.LinkID.UUID()).First(&model).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return queries.ResumeLinkPublicView{}, domain.ErrEntityNotFound
+		}
+		return queries.ResumeLinkPublicView{}, fmt.Errorf("lock resume link: %w", err)
 	}
 	return mapView(model), nil
 }

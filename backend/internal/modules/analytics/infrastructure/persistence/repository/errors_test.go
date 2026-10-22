@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resumelinkdomain "developers-cv/backend/internal/modules/resume_link/domain"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 )
 
 func TestMapDBError(t *testing.T) {
@@ -17,11 +17,11 @@ func TestMapDBError(t *testing.T) {
 		err  error
 		want error
 	}{
-		{name: "gorm duplicate", err: gorm.ErrDuplicatedKey, want: resumelinkdomain.ErrDuplicateResumeLink},
-		{name: "postgres duplicate", err: &pgconn.PgError{Code: "23505"}, want: resumelinkdomain.ErrDuplicateResumeLink},
-		{name: "foreign key violation", err: &pgconn.PgError{Code: "23503"}, want: resumelinkdomain.ErrEntityNotFound},
-		{name: "check violation", err: &pgconn.PgError{Code: "23514"}, want: resumelinkdomain.ErrInvalidResumeLink},
-		{name: "too long", err: &pgconn.PgError{Code: "22001"}, want: resumelinkdomain.ErrInvalidResumeLink},
+		{name: "gorm duplicate", err: gorm.ErrDuplicatedKey, want: ErrDuplicateAnalyticsRecord},
+		{name: "postgres duplicate", err: &pgconn.PgError{Code: "23505"}, want: ErrDuplicateAnalyticsRecord},
+		{name: "foreign key violation", err: &pgconn.PgError{Code: "23503"}, want: analyticscontracts.ErrAnalyticsSubjectNotFound},
+		{name: "check violation", err: &pgconn.PgError{Code: "23514"}, want: ErrInvalidAnalyticsData},
+		{name: "too long", err: &pgconn.PgError{Code: "22001"}, want: ErrInvalidAnalyticsData},
 		{name: "other error", err: errors.New("database unavailable")},
 	}
 	for _, tt := range tests {

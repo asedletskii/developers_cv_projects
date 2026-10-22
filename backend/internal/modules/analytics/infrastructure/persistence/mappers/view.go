@@ -24,6 +24,7 @@ func ViewToDB(view *domain.View) (gormmodel.AnalyticsView, error) {
 	return gormmodel.AnalyticsView{
 		ID:            view.ID().UUID(),
 		LinkID:        view.LinkID().UUID(),
+		ResumeID:      view.ResumeID().UUID(),
 		VisitorID:     view.VisitorID().UUID(),
 		IPHash:        view.IPHash(),
 		Device:        string(view.Device()),
@@ -76,8 +77,12 @@ func ViewToDomain(model gormmodel.AnalyticsView) (*domain.View, error) {
 	if err != nil {
 		return nil, fmt.Errorf("map link id: %w", err)
 	}
+	resumeID, err := valueObjectID(model.ResumeID)
+	if err != nil {
+		return nil, fmt.Errorf("map resume id: %w", err)
+	}
 	return domain.RestoreView(domain.ViewSnapshot{
-		ID: id, LinkID: linkID, VisitorID: visitorID, IPHash: model.IPHash,
+		ID: id, LinkID: linkID, ResumeID: resumeID, VisitorID: visitorID, IPHash: model.IPHash,
 		Device: domain.DeviceType(model.Device), Browser: domain.BrowserType(model.Browser), OS: domain.OSType(model.OS),
 		ReferrerHost: model.ReferrerHost, Traffic: domain.TrafficType(model.Traffic),
 		TrafficReason: model.TrafficReason, Layout: layout, StartedAt: model.StartedAt,

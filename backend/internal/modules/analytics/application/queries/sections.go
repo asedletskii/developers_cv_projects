@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -31,12 +31,12 @@ type SectionsReader interface {
 }
 
 type SectionsHandler struct {
-	access ports.AnalyticsAccessReader
+	access analyticscontracts.AnalyticsAccessReader
 	reader SectionsReader
 }
 
 func NewSectionsHandler(
-	access ports.AnalyticsAccessReader,
+	access analyticscontracts.AnalyticsAccessReader,
 	reader SectionsReader,
 ) *SectionsHandler {
 	return &SectionsHandler{access: access, reader: reader}

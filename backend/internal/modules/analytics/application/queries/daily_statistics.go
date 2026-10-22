@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 )
 
 type DailyStatisticsReader interface {
@@ -12,12 +12,12 @@ type DailyStatisticsReader interface {
 }
 
 type DailyStatisticsHandler struct {
-	access ports.AnalyticsAccessReader
+	access analyticscontracts.AnalyticsAccessReader
 	reader DailyStatisticsReader
 }
 
 func NewDailyStatisticsHandler(
-	access ports.AnalyticsAccessReader,
+	access analyticscontracts.AnalyticsAccessReader,
 	reader DailyStatisticsReader,
 ) *DailyStatisticsHandler {
 	return &DailyStatisticsHandler{access: access, reader: reader}

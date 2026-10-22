@@ -24,6 +24,8 @@ func (r *Repository) SaveSection(_ context.Context, resume *domain.Resume, _ por
 
 func (*Repository) Create(context.Context, *domain.Resume) error { return nil }
 
+func (*Repository) LockForDelete(context.Context, ports.DeleteResumeParams) error { return nil }
+
 func (*Repository) Delete(context.Context, ports.DeleteResumeParams) error { return nil }
 
 type UnitOfWork struct{}

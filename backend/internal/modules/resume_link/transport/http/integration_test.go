@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 
 	analyticscommands "developers-cv/backend/internal/modules/analytics/application/commands"
 	analyticsqueries "developers-cv/backend/internal/modules/analytics/application/queries"
+	analyticsadapters "developers-cv/backend/internal/modules/analytics/infrastructure/analytics"
 	analyticsreaders "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/readers"
 	analyticsrepository "developers-cv/backend/internal/modules/analytics/infrastructure/persistence/repository"
 	analyticshttp "developers-cv/backend/internal/modules/analytics/transport/http"
@@ -32,7 +32,7 @@ import (
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
-	"developers-cv/backend/internal/modules/resume_link/infrastructure/analytics"
+	"developers-cv/backend/internal/modules/resume_link/infrastructure/analyticsaccess"
 	resumelinkreaders "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/readers"
 	resumelinkrepository "developers-cv/backend/internal/modules/resume_link/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/handlers"
@@ -51,14 +51,16 @@ func (s *integrationTokenVerifierStub) Verify(context.Context, string, string) e
 
 func newAnalyticsPublicLinkQuery(t *testing.T, linkReader *resumelinkreaders.ResumeLinkReader, resumeReader *resumereaders.ResumeReader, analyticsRepository *analyticsrepository.AnalyticsRepository, uow ports.UnitOfWork) *queries.PublicResumeLinkQueryHandler {
 	t.Helper()
-	visitorIdentifier, err := analytics.NewVisitorIdentifier("integration-analytics-secret-32-bytes-minimum", false)
+	visitorIdentifier, err := analyticsadapters.NewVisitorIdentifier("integration-analytics-secret-32-bytes-minimum", false)
 	require.NoError(t, err)
+	subjects := analyticsaccess.NewReader(linkReader, resumeReader, resumeReader, nil, nil)
 	visit := analyticscommands.NewCreatePublicVisitHandler(
 		analyticsRepository,
 		uow,
 		visitorIdentifier,
-		analytics.NewTrafficClassifier(5, time.Minute),
-		analytics.NewLayoutSnapshotBuilder(),
+		analyticsadapters.NewTrafficClassifier(5, time.Minute),
+		analyticsadapters.NewLayoutSnapshotBuilder(),
+		subjects,
 	)
 	return queries.NewPublicResumeLinkQueryHandlerWithVisit(
 		queries.NewActivePublicResumeLinkResolver(linkReader),
@@ -85,11 +87,11 @@ func TestCreateResumeLinkIntegration(t *testing.T) {
 	conn, err := pgx.Connect(ctx, dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Test Resume", "en", "draft", 1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Test Resume", "en", "draft", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "test")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "test")
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
@@ -108,7 +110,7 @@ func TestCreateResumeLinkIntegration(t *testing.T) {
 	require.Equal(t, http.StatusCreated, w.Code)
 
 	var count int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_links WHERE resume_id = $1 AND name = 'HH'`, resumeID).Scan(&count))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link.resume_links WHERE resume_id = $1 AND name = 'HH'`, resumeID).Scan(&count))
 	require.Equal(t, 1, count)
 }
 
@@ -131,15 +133,15 @@ func TestPublicResumeThroughLinkIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Public Resume", "en", "opened", 1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Public Resume", "en", "opened", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, draftResumeID, userID, "Draft Resume", "en", "draft", 1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, draftResumeID, userID, "Draft Resume", "en", "draft", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "public")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "public")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now()), ($3, $2, 'Old', 'inactive', 1, now(), now()), ($4, $5, 'Draft', 'active', 1, now(), now())`, activeLinkID, resumeID, inactiveLinkID, draftLinkID, draftResumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link.resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now()), ($3, $2, 'Old', 'inactive', 1, now(), now()), ($4, $5, 'Draft', 'active', 1, now(), now())`, activeLinkID, resumeID, inactiveLinkID, draftLinkID, draftResumeID)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
@@ -198,7 +200,7 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
 	for _, item := range []struct {
 		id, status string
@@ -207,16 +209,16 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 		{draftResumeID.String(), "draft"},
 		{closedResumeID.String(), "closed"},
 	} {
-		_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, uuid.MustParse(item.id), userID, item.status+" Resume", "en", item.status, 1)
+		_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, uuid.MustParse(item.id), userID, item.status+" Resume", "en", item.status, 1)
 		require.NoError(t, err)
 	}
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "public")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "public")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id, resume_id, phone, email) VALUES ($1, $2, $3, $4)`, contactsID, resumeID, "+33123456789", "private@example.com")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contacts (id, resume_id, phone, email) VALUES ($1, $2, $3, $4)`, contactsID, resumeID, "+33123456789", "private@example.com")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0)`, contactsID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0)`, contactsID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'Active', 'active', 1, now(), now()), ($3, $2, 'Inactive', 'inactive', 1, now(), now()), ($4, $5, 'Draft', 'active', 1, now(), now()), ($6, $7, 'Closed', 'active', 1, now(), now())`, activeLinkID, resumeID, inactiveLinkID, draftLinkID, draftResumeID, closedLinkID, closedResumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link.resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'Active', 'active', 1, now(), now()), ($3, $2, 'Inactive', 'inactive', 1, now(), now()), ($4, $5, 'Draft', 'active', 1, now(), now()), ($6, $7, 'Closed', 'active', 1, now(), now())`, activeLinkID, resumeID, inactiveLinkID, draftLinkID, draftResumeID, closedLinkID, closedResumeID)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
@@ -295,7 +297,7 @@ func TestContactViewThroughLinkIntegration(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, response.Code)
 
 	var contactEvents int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics_events WHERE link_id = $1`, activeLinkID).Scan(&contactEvents))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics.analytics_events WHERE link_id = $1`, activeLinkID).Scan(&contactEvents))
 	require.Equal(t, 1, contactEvents)
 }
 
@@ -319,22 +321,23 @@ func TestLinkStatisticsIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Statistics Resume", "en", "opened", 1)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`, resumeID, userID, "Statistics Resume", "en", "opened", 1)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "statistics")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, $2, $3, $4, $5)`, resumeID, "Hello", "from", "", "statistics")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id, resume_id, phone, email) VALUES ($1, $2, $3, $4)`, contactsID, resumeID, "+33123456789", "private@example.com")
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contacts (id, resume_id, phone, email) VALUES ($1, $2, $3, $4)`, contactsID, resumeID, "+33123456789", "private@example.com")
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0)`, contactsID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0)`, contactsID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link.resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
 	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
-	analyticsReader := analyticsreaders.NewAnalyticsReader(gormDB)
+	access := analyticsaccess.NewReader(linkReader, resumeReader, resumeReader, resumequeries.NewOwnedResumeSectionsQueryHandler(resumeReader), nil)
+	analyticsReader := analyticsreaders.NewAnalyticsReader(gormDB, access)
 	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
 	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	contactView := resumequeries.NewContactViewQueryHandler(resumeReader)
@@ -347,14 +350,13 @@ func TestLinkStatisticsIntegration(t *testing.T) {
 		contactEventRecorder,
 		func(err error) { t.Errorf("record contact view analytics: %v", err) },
 	)
-	access := queries.NewAnalyticsAccessReader(linkReader, resumeReader, resumeReader, nil)
 	statistics := analyticsqueries.NewLinkStatisticsHandler(access, analyticsReader)
 
 	publicHandler := handlers.NewPublicResumeLinkHandler(publicLink)
 	verifier := &integrationTokenVerifierStub{}
 	contactHandler := handlers.NewPublicContactViewHandler(contactThroughLink, verifier)
 	analyticsHandler := analyticshttp.NewHandler(analyticshttp.HandlerDependencies{
-		Ingest:     analyticscommands.NewIngestAnalyticsBatchHandler(analyticsRepository, database.NewUnitOfWork(gormDB), nil),
+		Ingest:     analyticscommands.NewIngestAnalyticsBatchHandler(analyticsRepository, database.NewUnitOfWork(gormDB), access, nil),
 		Statistics: statistics,
 	})
 	linkHandler := NewHandler(HandlerDependencies{
@@ -433,13 +435,13 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1)`, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, 'Lifecycle Resume', 'en', 'opened', 1, now(), now())`, resumeID, userID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at) VALUES ($1, $2, 'Lifecycle Resume', 'en', 'opened', 1, now(), now())`, resumeID, userID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Hello', 'from', '', 'lifecycle')`, resumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Hello', 'from', '', 'lifecycle')`, resumeID)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
+	_, err = conn.Exec(ctx, `INSERT INTO resume_link.resume_links (id, resume_id, name, status, version, created_at, updated_at) VALUES ($1, $2, 'HH', 'active', 1, now(), now())`, linkID, resumeID)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
@@ -484,7 +486,7 @@ func TestResumeLinkLifecycleIntegration(t *testing.T) {
 	require.Equal(t, http.StatusOK, getPublic().Code)
 
 	var eventCount int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics_events WHERE link_id = $1`, linkID).Scan(&eventCount))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics.analytics_events WHERE link_id = $1`, linkID).Scan(&eventCount))
 	require.Equal(t, 0, eventCount)
 }
 
@@ -512,10 +514,10 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
-	_, err = conn.Exec(ctx, `INSERT INTO users (id) VALUES ($1), ($2)`, userA, userB)
+	_, err = conn.Exec(ctx, `INSERT INTO users.users (id) VALUES ($1), ($2)`, userA, userB)
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, `
-		INSERT INTO resumes (id, user_id, title, language, status, version, created_at, updated_at)
+		INSERT INTO resume.resumes (id, user_id, title, language, status, version, created_at, updated_at)
 		VALUES
 			($1, $4, 'Resume A', 'en', 'opened', 1, now(), now()),
 			($2, $4, 'Resume B', 'en', 'opened', 1, now(), now()),
@@ -523,19 +525,20 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	`, resumeA, resumeB, resumeC, userA, userB)
 	require.NoError(t, err)
 	for _, resumeID := range []uuid.UUID{resumeA, resumeB, resumeC} {
-		_, err = conn.Exec(ctx, `INSERT INTO resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Hello', 'from', '', 'integration')`, resumeID)
+		_, err = conn.Exec(ctx, `INSERT INTO resume.resume_overviews (resume_id, greeting_first, greeting_second, greeting_highlight, greeting_third) VALUES ($1, 'Hello', 'from', '', 'integration')`, resumeID)
 		require.NoError(t, err)
 	}
 
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contacts (id, resume_id, phone, email) VALUES ($1, $3, '+33111111111', 'a@example.com'), ($2, $4, '+33222222222', 'b@example.com'), ($5, $6, '+33333333333', 'github@example.com')`, contactsA, contactsC, resumeA, resumeC, contactsB, resumeB)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contacts (id, resume_id, phone, email) VALUES ($1, $3, '+33111111111', 'a@example.com'), ($2, $4, '+33222222222', 'b@example.com'), ($5, $6, '+33333333333', 'github@example.com')`, contactsA, contactsC, resumeA, resumeC, contactsB, resumeB)
 	require.NoError(t, err)
-	_, err = conn.Exec(ctx, `INSERT INTO resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0), ($2, 'email', 0), ($3, 'email', 0)`, contactsA, contactsC, contactsB)
+	_, err = conn.Exec(ctx, `INSERT INTO resume.resume_contact_hidden (contacts_id, value, position) VALUES ($1, 'email', 0), ($2, 'email', 0), ($3, 'email', 0)`, contactsA, contactsC, contactsB)
 	require.NoError(t, err)
 
 	resumeReader := resumereaders.NewResumeReader(gormDB)
 	resumeRepository := resumerepository.NewResumeRepository(gormDB)
 	linkReader := resumelinkreaders.NewResumeLinkReader(gormDB)
-	analyticsReader := analyticsreaders.NewAnalyticsReader(gormDB)
+	access := analyticsaccess.NewReader(linkReader, resumeReader, resumeReader, resumequeries.NewOwnedResumeSectionsQueryHandler(resumeReader), nil)
+	analyticsReader := analyticsreaders.NewAnalyticsReader(gormDB, access)
 	linkRepository := resumelinkrepository.NewResumeLinkRepository(gormDB)
 	analyticsRepository := analyticsrepository.NewAnalyticsRepository(gormDB)
 	publicLink := newAnalyticsPublicLinkQuery(t, linkReader, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
@@ -549,14 +552,14 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 		contactEventRecorder,
 		func(err error) { t.Errorf("record contact view analytics: %v", err) },
 	)
-	access := queries.NewAnalyticsAccessReader(linkReader, resumeReader, resumeReader, nil)
 	statistics := analyticsqueries.NewLinkStatisticsHandler(access, analyticsReader)
 	createLink := commands.NewCreateResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 	listLinks := queries.NewListResumeLinksQueryHandler(linkReader, resumeReader)
-	deleteLink := commands.NewDeleteResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
+	deleteLink := commands.NewDeleteResumeLinkHandler(linkRepository, resumeReader, analyticsRepository, database.NewUnitOfWork(gormDB))
 	lifecycle := commands.NewReplaceStatusResumeLinkHandler(linkRepository, resumeReader, database.NewUnitOfWork(gormDB))
 	resumeStatus := resumecommands.NewChangeResumeStatusHandler(resumeRepository, database.NewUnitOfWork(gormDB))
-	deleteResume := resumecommands.NewDeleteResumeHandler(resumeRepository, database.NewUnitOfWork(gormDB))
+	resumeLinkCleanup := commands.NewDeleteResumeLinksHandler(linkRepository, analyticsRepository)
+	deleteResume := resumecommands.NewDeleteResumeHandler(resumeRepository, resumeLinkCleanup, database.NewUnitOfWork(gormDB))
 
 	linkHandler := NewHandler(HandlerDependencies{
 		Create:      createLink,
@@ -711,8 +714,8 @@ func TestResumeLinksFullIntegration(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, response.Code)
 
 	var linksAfterDelete, eventsAfterDelete int
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_links WHERE resume_id = $1`, resumeA).Scan(&linksAfterDelete))
-	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics_events WHERE link_id IN ($1, $2)`, linkAHH, linkATelegram).Scan(&eventsAfterDelete))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM resume_link.resume_links WHERE resume_id = $1`, resumeA).Scan(&linksAfterDelete))
+	require.NoError(t, conn.QueryRow(ctx, `SELECT count(*) FROM analytics.analytics_events WHERE link_id IN ($1, $2)`, linkAHH, linkATelegram).Scan(&eventsAfterDelete))
 	require.Equal(t, 0, linksAfterDelete)
 	require.Equal(t, 0, eventsAfterDelete)
 

@@ -9,13 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumedomain "developers-cv/backend/internal/modules/resume/domain"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	"developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/common"
 	"developers-cv/backend/internal/modules/resume_link/transport/http/requests"
+	"developers-cv/backend/internal/modules/resume_link/transport/http/responses"
 	apperrors "developers-cv/backend/internal/platform/http/errors"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -50,14 +51,14 @@ func (h *PublicContactViewHandler) Handle(c *gin.Context) {
 	if initiator == "" && body.Contact != nil && strings.TrimSpace(*body.Contact) != "" {
 		initiator = queries.ContactViewInitiatorContact
 	}
-	var contact resumedomain.ContactKey
+	var contact contactkey.Key
 	switch initiator {
 	case queries.ContactViewInitiatorContact:
 		if body.Contact == nil {
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid request body"))
 			return
 		}
-		parsed, err := resumedomain.ParseContactKey(*body.Contact)
+		parsed, err := contactkey.Parse(*body.Contact)
 		if err != nil {
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeBadRequest, http.StatusBadRequest, "Invalid request body"))
 			return
@@ -98,11 +99,11 @@ func (h *PublicContactViewHandler) Handle(c *gin.Context) {
 		ViewID:    viewID,
 	})
 	if err != nil {
-		if errors.Is(err, resumequeries.ErrContactNotFound) {
+		if errors.Is(err, application.ErrContactNotFound) {
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeNotFound, http.StatusNotFound, "Contact not found"))
 			return
 		}
-		if errors.Is(err, resumequeries.ErrContactNotHidden) {
+		if errors.Is(err, application.ErrContactNotHidden) {
 			apperrors.WriteError(c, apperrors.New(apperrors.CodeConflict, http.StatusConflict, "Contact is not hidden"))
 			return
 		}
@@ -110,5 +111,5 @@ func (h *PublicContactViewHandler) Handle(c *gin.Context) {
 		return
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, view)
+	c.JSON(http.StatusOK, responses.NewPublicContactViewResponse(view))
 }

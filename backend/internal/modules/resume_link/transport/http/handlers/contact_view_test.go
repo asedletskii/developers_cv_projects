@@ -2,21 +2,20 @@ package handlers
 
 import (
 	"context"
-	"strings"
-	"testing"
-
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
-	resumedomain "developers-cv/backend/internal/modules/resume/domain"
+	application "developers-cv/backend/internal/modules/resume_link/application"
 	resumelinkports "developers-cv/backend/internal/modules/resume_link/application/ports"
 	"developers-cv/backend/internal/modules/resume_link/application/queries"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -49,7 +48,7 @@ func (s *contactViewQueryStub) Handle(_ context.Context, query queries.ContactVi
 func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	linkID := sharedvalueobjects.NewID()
-	contact := resumedomain.ContactKeyEmail
+	contact := contactkey.Email
 	value := "person@example.com"
 	query := &contactViewQueryStub{view: queries.ContactViewThroughLinkResult{Contact: &contact, Value: &value}}
 	verifier := &tokenVerifierStub{}
@@ -63,7 +62,7 @@ func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, linkID, query.query.LinkID)
-	require.Equal(t, resumedomain.ContactKeyEmail, query.query.Contact)
+	require.Equal(t, contactkey.Email, query.query.Contact)
 	require.Equal(t, queries.ContactViewInitiatorContact, query.query.Initiator)
 	require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 	require.JSONEq(t, `{"contact":"email","value":"person@example.com"}`, w.Body.String())
@@ -72,7 +71,7 @@ func TestContactViewHandlerReturnsContactValue(t *testing.T) {
 
 func TestContactViewHandlerPassesResolvedClientIPToTurnstile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	contact := resumedomain.ContactKeyEmail
+	contact := contactkey.Email
 	value := "person@example.com"
 	query := &contactViewQueryStub{view: queries.ContactViewThroughLinkResult{Contact: &contact, Value: &value}}
 	verifier := &tokenVerifierStub{}
@@ -113,7 +112,7 @@ func TestContactViewHandlerMapsMissingOrInactiveLink(t *testing.T) {
 		err  error
 		code int
 	}{
-		{name: "not found", err: queries.ErrResumeLinkNotFound, code: http.StatusNotFound},
+		{name: "not found", err: application.ErrResumeLinkNotFound, code: http.StatusNotFound},
 		{name: "inactive", err: domain.ErrResumeLinkInactive, code: http.StatusGone},
 	}
 
@@ -141,8 +140,8 @@ func TestContactViewHandlerMapsResumeContactErrors(t *testing.T) {
 		err  error
 		code int
 	}{
-		{name: "missing contact", err: resumequeries.ErrContactNotFound, code: http.StatusNotFound},
-		{name: "not hidden", err: resumequeries.ErrContactNotHidden, code: http.StatusConflict},
+		{name: "missing contact", err: application.ErrContactNotFound, code: http.StatusNotFound},
+		{name: "not hidden", err: application.ErrContactNotHidden, code: http.StatusConflict},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -181,7 +180,7 @@ func TestContactViewHandlerRejectsInvalidTokenBeforeVerifier(t *testing.T) {
 
 func TestContactViewHandlerMapsTokenVerificationFailureToForbidden(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	contact := resumedomain.ContactKeyEmail
+	contact := contactkey.Email
 	value := "person@example.com"
 	query := &contactViewQueryStub{view: queries.ContactViewThroughLinkResult{Contact: &contact, Value: &value}}
 	verifier := &tokenVerifierStub{err: resumelinkports.ErrTokenVerificationFailed}
@@ -204,8 +203,8 @@ func TestContactViewHandlerReturnsAllContactsForDownload(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	linkID := sharedvalueobjects.NewID()
 	contacts := []queries.ContactViewThroughLinkContact{
-		{Contact: resumedomain.ContactKeyPhone, Value: "+33123456789"},
-		{Contact: resumedomain.ContactKeyEmail, Value: "person@example.com"},
+		{Contact: contactkey.Phone, Value: "+33123456789"},
+		{Contact: contactkey.Email, Value: "person@example.com"},
 	}
 	query := &contactViewQueryStub{view: queries.ContactViewThroughLinkResult{Contacts: &contacts}}
 	verifier := &tokenVerifierStub{}

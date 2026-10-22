@@ -17,4 +17,4 @@ type Resume struct {
 	UpdatedAt time.Time `gorm:"not null"`
 }
 
-func (Resume) TableName() string { return "resumes" }
+func (Resume) TableName() string { return schema + ".resumes" }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"developers-cv/backend/internal/modules/analytics/application/ports"
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -65,12 +65,12 @@ type VisitsReader interface {
 }
 
 type VisitsHandler struct {
-	access ports.AnalyticsAccessReader
+	access analyticscontracts.AnalyticsAccessReader
 	reader VisitsReader
 }
 
 func NewVisitsHandler(
-	access ports.AnalyticsAccessReader,
+	access analyticscontracts.AnalyticsAccessReader,
 	reader VisitsReader,
 ) *VisitsHandler {
 	return &VisitsHandler{access: access, reader: reader}

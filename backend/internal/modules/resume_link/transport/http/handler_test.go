@@ -4,16 +4,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"testing"
-
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	resumequeries "developers-cv/backend/internal/modules/resume/application/queries"
+	resumecontracts "developers-cv/backend/internal/modules/resume/contracts"
 	"developers-cv/backend/internal/modules/resume_link/application/commands"
 	"developers-cv/backend/internal/modules/resume_link/domain"
 	"developers-cv/backend/internal/platform/http/middleware"
@@ -91,7 +90,7 @@ func TestCreateHandlerMapsBadRequestAndNotFound(t *testing.T) {
 		})
 	}
 
-	missingResumeHandler := NewHandler(HandlerDependencies{Create: commands.NewCreateResumeLinkHandler(&resumeLinkRepositoryStub{}, resumeOwnershipReaderStub{err: resumequeries.ErrResumeNotFound}, unitOfWorkStub{})})
+	missingResumeHandler := NewHandler(HandlerDependencies{Create: commands.NewCreateResumeLinkHandler(&resumeLinkRepositoryStub{}, resumeOwnershipReaderStub{err: resumecontracts.ErrResumeNotFound}, unitOfWorkStub{})})
 	engine = gin.New()
 	engine.Use(middleware.Authentication(func(context.Context, *http.Request) (uuid.UUID, error) { return userID, nil }))
 	RegisterRoutes(missingResumeHandler, engine.Group("/api/v1"), engine.Group("/api/v1"), engine.Group("/api/v1/lk"), nil)

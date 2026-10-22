@@ -2,58 +2,15 @@ package ports
 
 import (
 	"context"
-	"net/http"
 	"time"
 
+	analyticscontracts "developers-cv/backend/internal/modules/analytics/contracts"
 	"developers-cv/backend/internal/modules/analytics/domain"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
-const (
-	ProductionVisitorCookieName = "__Secure-cv_vid"
-	LocalVisitorCookieName      = "cv_vid"
-)
-
-type PublicVisitInput struct {
-	IP        string
-	UserAgent string
-	Referrer  string
-	VisitorID sharedvalueobjects.ID
-	OwnerID   sharedvalueobjects.ID
-	HasCookie bool
-}
-
-type CreatePublicVisitInput struct {
-	LinkID       sharedvalueobjects.ID
-	ResumeID     sharedvalueobjects.ID
-	ResumeLayout ResumeAnalyticsLayout
-	Visitor      PublicVisitInput
-}
-
-type ResumeAnalyticsLayout struct {
-	Sections     []ResumeAnalyticsSection
-	Technologies []string
-}
-
-type ResumeAnalyticsSection struct {
-	ID   string
-	Hash string
-}
-
-type PublicVisitCreator interface {
-	Handle(context.Context, CreatePublicVisitInput) (*domain.View, VisitorIdentityResult, error)
-}
-
 type VisitorIdentity interface {
-	Identify(now time.Time, input PublicVisitInput) (VisitorIdentityResult, error)
-}
-
-type VisitorIdentityResult struct {
-	ViewID    sharedvalueobjects.ID
-	VisitorID sharedvalueobjects.ID
-	IPHash    []byte
-	SetCookie bool
-	Cookie    *http.Cookie
+	Identify(now time.Time, input analyticscontracts.PublicVisitInput) (analyticscontracts.VisitorIdentityResult, error)
 }
 
 type TrafficClassifier interface {
@@ -77,5 +34,5 @@ type TrafficClassificationResult struct {
 }
 
 type LayoutSnapshotBuilder interface {
-	Build(ResumeAnalyticsLayout) (domain.LayoutSnapshot, error)
+	Build(analyticscontracts.ResumeAnalyticsLayout) (domain.LayoutSnapshot, error)
 }

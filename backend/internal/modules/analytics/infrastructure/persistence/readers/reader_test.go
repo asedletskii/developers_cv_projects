@@ -12,7 +12,7 @@ import (
 )
 
 func TestGetStatisticsReturnsErrorWhenReaderDatabaseIsUnavailable(t *testing.T) {
-	reader := NewAnalyticsReader(nil)
+	reader := NewAnalyticsReader(nil, nil)
 
 	_, err := reader.GetLinkStatistics(context.Background(), queries.LinkAnalyticsQuery{
 		LinkID: sharedvalueobjects.NewID(),

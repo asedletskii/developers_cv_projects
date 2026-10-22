@@ -105,7 +105,7 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 	handler := NewCompleteTelegramLoginHandler(transactions, blockedIdentities, sessions, oidc, provisioner, generator, uow, time.Hour)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	var baselineUsersCount int64
-	require.NoError(t, db.Table("users").Count(&baselineUsersCount).Error)
+	require.NoError(t, db.Table("users.users").Count(&baselineUsersCount).Error)
 	createTransaction := func(state string) {
 		hash := generator.Hash([]byte(state))
 		stateHash, err := valueobjects.NewStateHash(hash)
@@ -153,9 +153,9 @@ func TestCompleteTelegramLoginConcurrentFirstLoginUsesOneIdentityAndLeavesNoOrph
 	require.Equal(t, 2, successes)
 
 	var usersCount, identitiesCount, sessionsCount int64
-	require.NoError(t, db.Table("users").Count(&usersCount).Error)
-	require.NoError(t, db.Table("user_identities").Count(&identitiesCount).Error)
-	require.NoError(t, db.Table("auth_sessions").Count(&sessionsCount).Error)
+	require.NoError(t, db.Table("users.users").Count(&usersCount).Error)
+	require.NoError(t, db.Table("auth.user_identities").Count(&identitiesCount).Error)
+	require.NoError(t, db.Table("auth.auth_sessions").Count(&sessionsCount).Error)
 	require.Equal(t, baselineUsersCount+1, usersCount)
 	require.Equal(t, int64(1), identitiesCount)
 	require.Equal(t, int64(2), sessionsCount)

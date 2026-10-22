@@ -50,10 +50,9 @@ func readResumeDeviceStatistics(
 	from, to time.Time,
 ) (map[string]int64, error) {
 	var rows []deviceStatisticsRow
-	err := db.Table("analytics_views AS view").
+	err := db.Table("analytics.analytics_views AS view").
 		Select("view.device, COUNT(*) AS count").
-		Joins("JOIN resume_links AS link ON link.id = view.link_id").
-		Where("link.resume_id = ?", resumeID).
+		Where("view.resume_id = ?", resumeID).
 		Where("view.traffic = ?", "human").
 		Where("view.started_at >= ? AND view.started_at < ?", from, to).
 		Group("view.device").
@@ -109,10 +108,9 @@ func readResumeReferrerStatistics(
 	from, to time.Time,
 ) ([]queries.ReferrerStat, error) {
 	var rows []referrerStatisticsRow
-	err := db.Table("analytics_views AS view").
+	err := db.Table("analytics.analytics_views AS view").
 		Select("NULLIF(view.referrer_host, '') AS host, COUNT(*) AS count").
-		Joins("JOIN resume_links AS link ON link.id = view.link_id").
-		Where("link.resume_id = ?", resumeID).
+		Where("view.resume_id = ?", resumeID).
 		Where("view.traffic = ?", "human").
 		Where("view.started_at >= ? AND view.started_at < ?", from, to).
 		Group("view.referrer_host").
@@ -169,14 +167,13 @@ func readResumeFilteredStatistics(
 	from, to time.Time,
 ) (queries.FilteredStatistics, error) {
 	var result queries.FilteredStatistics
-	err := db.Table("analytics_views AS view").
+	err := db.Table("analytics.analytics_views AS view").
 		Select(`
 			COUNT(*) FILTER (WHERE view.traffic = 'bot') AS bot,
 			COUNT(*) FILTER (WHERE view.traffic = 'owner') AS owner,
 			COUNT(*) FILTER (WHERE view.traffic = 'suspect') AS suspect
 		`).
-		Joins("JOIN resume_links AS link ON link.id = view.link_id").
-		Where("link.resume_id = ?", resumeID).
+		Where("view.resume_id = ?", resumeID).
 		Where("view.started_at >= ? AND view.started_at < ?", from, to).
 		Scan(&result).Error
 	return result, err

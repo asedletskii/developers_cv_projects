@@ -15,6 +15,7 @@ import (
 	"developers-cv/backend/internal/modules/resume/domain"
 	"developers-cv/backend/internal/modules/resume/infrastructure/persistence/repository"
 	"developers-cv/backend/internal/platform/database"
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 	"developers-cv/backend/internal/testutil/pgtest"
 )
@@ -90,7 +91,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		}
 		if err := resume.ReplaceContacts(domain.ContactsParams{
 			Contacts:       contactEntity,
-			HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
+			HiddenContacts: []contactkey.Key{contactkey.Email},
 		}); err != nil {
 			return err
 		}
@@ -125,7 +126,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		if err := reloaded.ReplaceContacts(domain.ContactsParams{
 			ID:             reloaded.Contacts().ID(),
 			Contacts:       contactEntity,
-			HiddenContacts: []domain.ContactKey{domain.ContactKeyEmail},
+			HiddenContacts: []contactkey.Key{contactkey.Email},
 		}); err != nil {
 			return err
 		}
@@ -159,7 +160,7 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, conn.Close(ctx)) })
 
 	var version int64
-	require.NoError(t, conn.QueryRow(ctx, "SELECT version FROM resumes WHERE id = $1", resume.ID().UUID()).Scan(&version))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT version FROM resume.resumes WHERE id = $1", resume.ID().UUID()).Scan(&version))
 	require.Equal(t, int64(1), version, "rollback must restore the aggregate version")
 
 	for _, table := range []string{
@@ -170,21 +171,21 @@ func TestPostgresMultiTableWritesRollbackAsOneUnit(t *testing.T) {
 		"resume_contacts",
 	} {
 		var count int
-		require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM "+table+" WHERE resume_id = $1", resume.ID().UUID()).Scan(&count))
+		require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume."+table+" WHERE resume_id = $1", resume.ID().UUID()).Scan(&count))
 		require.Zero(t, count, table+" must rollback with the surrounding transaction")
 	}
 
 	var childCounts struct{ profile, contacts, contactHidden, contactText, hard, soft, achievements, tasks, stack, screenshots int }
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_profile_work_formats").Scan(&childCounts.profile))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contacts").Scan(&childCounts.contacts))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contact_hidden").Scan(&childCounts.contactHidden))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_contacts_text").Scan(&childCounts.contactText))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_hard").Scan(&childCounts.hard))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_skill_soft").Scan(&childCounts.soft))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_achievements").Scan(&childCounts.achievements))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_tasks").Scan(&childCounts.tasks))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_experience_stack").Scan(&childCounts.stack))
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume_project_screenshots").Scan(&childCounts.screenshots))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_profile_work_formats").Scan(&childCounts.profile))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_contacts").Scan(&childCounts.contacts))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_contact_hidden").Scan(&childCounts.contactHidden))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_contacts_text").Scan(&childCounts.contactText))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_skill_hard").Scan(&childCounts.hard))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_skill_soft").Scan(&childCounts.soft))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_experience_achievements").Scan(&childCounts.achievements))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_experience_tasks").Scan(&childCounts.tasks))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_experience_stack").Scan(&childCounts.stack))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT count(*) FROM resume.resume_project_screenshots").Scan(&childCounts.screenshots))
 	require.Zero(t, childCounts.profile)
 	require.Zero(t, childCounts.contacts)
 	require.Zero(t, childCounts.contactHidden)

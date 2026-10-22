@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	contactkey "developers-cv/backend/internal/shared/domain/contact"
 	sharedvalueobjects "developers-cv/backend/internal/shared/domain/valueobjects"
 )
 
@@ -13,7 +14,7 @@ func TestContactsRejectsDuplicateHiddenFields(t *testing.T) {
 	require.NoError(t, err)
 	c, err := NewContactMethods(ContactMethodsParams{Telegram: &tg})
 	require.NoError(t, err)
-	_, err = newContacts(ContactsParams{ID: sharedvalueobjects.NewID(), Contacts: c, HiddenContacts: []ContactKey{ContactKeyTelegram, ContactKeyTelegram}}, sharedvalueobjects.NewID())
+	_, err = newContacts(ContactsParams{ID: sharedvalueobjects.NewID(), Contacts: c, HiddenContacts: []contactkey.Key{contactkey.Telegram, contactkey.Telegram}}, sharedvalueobjects.NewID())
 	require.Error(t, err)
 }
 
@@ -27,10 +28,11 @@ func TestContactsKeepsOwnedStateSeparateFromPresentation(t *testing.T) {
 	require.Equal(t, "person@example.com", aggregate.Contacts().Email().String())
 }
 
-func TestContactsTextRejectsWhitespaceOnlyValues(t *testing.T) {
+func TestContactsTextTreatsWhitespaceOnlyValueAsAbsent(t *testing.T) {
 	value := "   "
-	_, err := NewContactsText(ContactsTextParams{Title: &value})
-	require.ErrorIs(t, err, ErrInvalidValue)
+	text, err := NewContactsText(ContactsTextParams{Title: &value})
+	require.NoError(t, err)
+	require.Nil(t, text)
 }
 
 func TestContactsClonePreservesContactsText(t *testing.T) {
@@ -45,7 +47,7 @@ func TestContactsClonePreservesContactsText(t *testing.T) {
 			require.NoError(t, createErr)
 			return contacts
 		}(),
-		Text: &text,
+		Text: text,
 	}, sharedvalueobjects.NewID())
 	require.NoError(t, err)
 	require.NotNil(t, aggregate.Text())
@@ -61,7 +63,7 @@ func TestContactsRejectsHiddenContactThatIsNotPresent(t *testing.T) {
 	_, err = newContacts(ContactsParams{
 		ID:             sharedvalueobjects.NewID(),
 		Contacts:       contacts,
-		HiddenContacts: []ContactKey{ContactKeyPhone},
+		HiddenContacts: []contactkey.Key{contactkey.Phone},
 	}, sharedvalueobjects.NewID())
 
 	require.ErrorIs(t, err, ErrResumeInvariant)
@@ -80,7 +82,7 @@ func newContactsParamsForReplacement(t *testing.T, id sharedvalueobjects.ID, _ s
 	require.NoError(t, err)
 	entity, err := NewContactMethods(ContactMethodsParams{Email: &emailValue})
 	require.NoError(t, err)
-	return ContactsParams{ID: id, Contacts: entity, HiddenContacts: []ContactKey{ContactKeyEmail}}
+	return ContactsParams{ID: id, Contacts: entity, HiddenContacts: []contactkey.Key{contactkey.Email}}
 }
 
 func TestResumeReplaceContactsCreatesAndPreservesID(t *testing.T) {
@@ -114,10 +116,10 @@ func TestContactsValidation(t *testing.T) {
 	id, resumeID := sharedvalueobjects.NewID(), sharedvalueobjects.NewID()
 	contactsEntity, err := NewContactMethods(ContactMethodsParams{Phone: "+33123456789"})
 	require.NoError(t, err)
-	_, err = newContacts(ContactsParams{ID: id, Contacts: contactsEntity, HiddenContacts: []ContactKey{ContactKeyPhone}}, resumeID)
+	_, err = newContacts(ContactsParams{ID: id, Contacts: contactsEntity, HiddenContacts: []contactkey.Key{contactkey.Phone}}, resumeID)
 	require.NoError(t, err)
 
-	_, err = newContacts(ContactsParams{ID: id, Contacts: contactsEntity, HiddenContacts: []ContactKey{ContactKeyEmail, ContactKeyEmail}}, resumeID)
+	_, err = newContacts(ContactsParams{ID: id, Contacts: contactsEntity, HiddenContacts: []contactkey.Key{contactkey.Email, contactkey.Email}}, resumeID)
 	require.Error(t, err)
 }
 
@@ -169,12 +171,35 @@ func TestContactsUseValidatedEmailAndTelegram(t *testing.T) {
 	require.Equal(t, "developer", contacts.Telegram().String())
 }
 
-func TestNewContactsTextRejectsValuesThatNormalizeToEmpty(t *testing.T) {
-	empty := "   "
+func TestNewContactsTextTreatsEmptyValuesAsMissing(t *testing.T) {
+	empty := ""
+	whitespace := "   "
 
-	_, err := NewContactsText(ContactsTextParams{Title: &empty})
+	text, err := NewContactsText(ContactsTextParams{Title: &empty, Subtitle: &whitespace})
+	require.NoError(t, err)
+	require.Nil(t, text)
+}
 
-	require.ErrorIs(t, err, ErrInvalidValue)
+func TestNewContactsTextTreatsMissingValuesAsAbsent(t *testing.T) {
+	text, err := NewContactsText(ContactsTextParams{})
+	require.NoError(t, err)
+	require.Nil(t, text)
+}
+
+func TestNewContactsTextDropsEmptyFields(t *testing.T) {
+	empty := ""
+	whitespace := "  "
+	subtitle := "  Reach me  "
+
+	text, err := NewContactsText(ContactsTextParams{Title: &empty, Subtitle: &subtitle})
+	require.NoError(t, err)
+	require.NotNil(t, text)
+	require.Nil(t, text.Title())
+	require.Equal(t, "Reach me", *text.Subtitle())
+
+	text, err = NewContactsText(ContactsTextParams{Title: &whitespace, Subtitle: &empty})
+	require.NoError(t, err)
+	require.Nil(t, text)
 }
 
 func TestNewContactsTextNormalizesAndClonesValues(t *testing.T) {
